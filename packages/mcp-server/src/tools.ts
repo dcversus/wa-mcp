@@ -542,6 +542,70 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "list_notification_rules",
+    description: "List configured notification rules.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx) => {
+      const payload = (await bridgeFetch(toolCtx, "/api/notifications")) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "add_notification_rule",
+    description:
+      "Add a notification rule. Matchers: chat_jid, from_jid, unread_only. Templates substitute {{chat}}, {{sender}}, {{text}}.",
+    inputSchema: {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string", description: "Title template" },
+        body: { type: "string", description: "Body template" },
+        chat_jid: { type: "string", description: "Only messages in this chat" },
+        from_jid: { type: "string", description: "Only messages from this sender" },
+        unread_only: { type: "boolean", description: "Skip your own outgoing messages" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body: Record<string, unknown> = { title: requireString(args, "title") };
+      if (args.body !== undefined) {
+        body.body = args.body;
+      }
+      if (args.chat_jid !== undefined) {
+        body.chat_jid = args.chat_jid;
+      }
+      if (args.from_jid !== undefined) {
+        body.from_jid = args.from_jid;
+      }
+      if (args.unread_only !== undefined) {
+        body.unread_only = args.unread_only;
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/notifications", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "delete_notification_rule",
+    description: "Delete a notification rule by id.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "number" } },
+    },
+    handler: async (toolCtx, args) => {
+      const id = optionalNumber(args, "id");
+      if (id === undefined) {
+        throw new ParamError("id is required");
+      }
+      const payload = (await bridgeFetch(toolCtx, `/api/notifications/${id}`, {
+        method: "DELETE",
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {

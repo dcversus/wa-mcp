@@ -1434,7 +1434,6 @@ test("GET /events sends heartbeats on the configured interval", async () => {
   await reader.cancel();
 });
 
-
 test("notification rule CRUD end to end", async () => {
   const bridge = await bootWithStore(() => {});
   const created_ = await fetch(url(bridge, "/api/notifications"), {
@@ -1443,7 +1442,9 @@ test("notification rule CRUD end to end", async () => {
     body: JSON.stringify({ title: "ping {{sender}}", chat_jid: GROUP_A, unread_only: true }),
   });
   expect(created_.status).toBe(200);
-  const rule = (await created_.json()) as { rule: { id: number; chatJid: string; unreadOnly: boolean } };
+  const rule = (await created_.json()) as {
+    rule: { id: number; chatJid: string; unreadOnly: boolean };
+  };
   expect(rule.rule.chatJid).toBe(GROUP_A);
   expect(rule.rule.unreadOnly).toBe(true);
   const list = await fetch(url(bridge, "/api/notifications"), { headers: authHeader });

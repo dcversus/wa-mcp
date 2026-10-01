@@ -15,6 +15,7 @@ import {
 } from "./store/chats.ts";
 import { listContacts, setAlias } from "./store/contacts.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
+import { createRule, deleteRule, listRules } from "./notifications.ts";
 import {
   ValidationError,
   blockUnblock,
@@ -734,6 +735,10 @@ export async function createHttpServer(
       muted_until?: unknown;
       alias?: unknown;
       jid?: unknown;
+      title?: unknown;
+      body?: unknown;
+      unread_only?: unknown;
+      from_jid?: unknown;
     };
     const needsChatJid = route !== "/api/alias";
     if (needsChatJid && (typeof input.chat_jid !== "string" || input.chat_jid.length === 0)) {
@@ -837,6 +842,29 @@ export async function createHttpServer(
       sendJson(res, 200, { ok: true });
       return;
     }
+    if (route === "/api/notifications") {
+      if (typeof input.title !== "string" || input.title.length === 0) {
+        validationError(res, "title is required");
+        return;
+      }
+      if (input.chat_jid !== undefined && typeof input.chat_jid !== "string") {
+        validationError(res, "chat_jid must be a string");
+        return;
+      }
+      if (input.unread_only !== undefined && typeof input.unread_only !== "boolean") {
+        validationError(res, "unread_only must be a boolean");
+        return;
+      }
+      const rule = createRule(opts.store as Store, {
+        title: input.title,
+        body: typeof input.body === "string" ? input.body : undefined,
+        chatJid: typeof input.chat_jid === "string" ? input.chat_jid : undefined,
+        fromJid: typeof input.from_jid === "string" ? input.from_jid : undefined,
+        unreadOnly: input.unread_only === true,
+      });
+      sendJson(res, 200, { rule });
+      return;
+    }
     if (route === "/api/alias") {
       if (typeof input.alias !== "string" || input.alias.length === 0) {
         validationError(res, "alias is required");
@@ -884,6 +912,9 @@ export async function createHttpServer(
       image_base64?: unknown;
       jid?: unknown;
       block?: unknown;
+      title?: unknown;
+      unread_only?: unknown;
+      from_jid?: unknown;
     };
     const runProfile = <T>(work: () => Promise<T>): void => {
       void work()
@@ -1177,6 +1208,42 @@ export async function createHttpServer(
           .catch(() => {
             sendJson(res, 500, { error: { code: "INTERNAL", message: "blocklist failed" } });
           });
+        return;
+      }
+      if (path === "/api/notifications" && req.method === "GET") {
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        sendJson(res, 200, { rules: listRules(opts.store) });
+        return;
+      }
+      if (path === "/api/notifications" && req.method === "POST") {
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        serveReadPost("/api/notifications", req, res, body);
+        return;
+      }
+      if (path.startsWith("/api/notifications/") && req.method === "DELETE") {
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        const rawId = path.slice("/api/notifications/".length);
+        const id = Number(rawId);
+        if (!Number.isInteger(id) || id <= 0) {
+          validationError(res, "notification rule id must be a positive integer");
+          return;
+        }
+        const existing = listRules(opts.store).some((rule) => rule.id === id);
+        if (!existing) {
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "rule not found" } });
+          return;
+        }
+        deleteRule(opts.store, id);
+        sendJson(res, 200, { ok: true });
         return;
       }
       if (path === "/api/contacts") {

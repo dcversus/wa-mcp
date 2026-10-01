@@ -278,7 +278,6 @@ test("get_media triggers the download and returns metadata", async () => {
   expect(result.content[0]?.text).toContain("image/png");
 });
 
-
 test("notification rule tools hit their endpoints", async () => {
   const { fetchFn, calls } = mockFetch({
     "/api/notifications": { rules: [] },
@@ -294,10 +293,16 @@ test("notification rule tools hit their endpoints", async () => {
   const remove = toolByName("delete_notification_rule");
   if (!remove) throw new Error("delete_notification_rule missing");
   await remove.handler(toolCtx, { id: 7 });
-  expect(calls.map((call) => [call.method, call.url.replace("http://bridge.test:8080", "")])).toEqual([
+  expect(
+    calls.map((call) => [call.method, call.url.replace("http://bridge.test:8080", "")]),
+  ).toEqual([
     ["GET", "/api/notifications"],
     ["POST", "/api/notifications"],
     ["DELETE", "/api/notifications/7"],
   ]);
-  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ title: "ping", chat_jid: "g@g.us", unread_only: true });
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({
+    title: "ping",
+    chat_jid: "g@g.us",
+    unread_only: true,
+  });
 });
