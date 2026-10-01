@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
+import { isValidRecipientJid } from "@wa-mcp/shared";
 import { getMessageContext, listChats, listMessages, searchMessages } from "./store/queries.ts";
 import type { Store } from "./store/schema.ts";
 import { buildTextMessage } from "./send/build.ts";
@@ -338,6 +339,12 @@ export async function createHttpServer(
     if (input.media !== undefined) {
       sendJson(res, 501, {
         error: { code: "NOT_IMPLEMENTED", message: "media send not wired yet" },
+      });
+      return;
+    }
+    if (!isValidRecipientJid(input.chat_jid)) {
+      sendJson(res, 400, {
+        error: { code: "INVALID_JID", message: `cannot resolve recipient: ${input.chat_jid}` },
       });
       return;
     }

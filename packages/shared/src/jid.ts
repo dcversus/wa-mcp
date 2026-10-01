@@ -62,3 +62,17 @@ export function isGroupJid(jid: string): boolean {
 export function isLidJid(jid: string): boolean {
   return jidType(jid) === "lid";
 }
+
+export function isValidRecipientJid(jid: string): boolean {
+  const normalized = normalizeJid(jid);
+  if (normalized === null) {
+    return false;
+  }
+  const at = normalized.indexOf("@");
+  const local = normalized.slice(0, at);
+  const domain = normalized.slice(at + 1);
+  if (domain === "broadcast") {
+    return true;
+  }
+  return /^\d+$/.test(local);
+}

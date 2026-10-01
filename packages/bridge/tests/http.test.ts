@@ -51,6 +51,7 @@ function url(bridge: BridgeHttp, path: string): string {
 }
 
 afterEach(async () => {
+  delete process.env.WA_SENDS_DISABLED;
   for (const bridge of created.splice(0)) {
     await bridge.close();
   }

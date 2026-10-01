@@ -1,6 +1,6 @@
 import { proto } from "@whiskeysockets/baileys";
 import type { AnyMessageContent, WASocket, WAMessage } from "@whiskeysockets/baileys";
-import { normalizeJid } from "@wa-mcp/shared";
+import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { storeMessage } from "../store/messages.ts";
 import type { Store } from "../store/schema.ts";
 
@@ -31,6 +31,9 @@ export async function sendViaSocket(
   if (process.env.WA_SENDS_DISABLED === "1") {
     throw new SendError("SENDS_DISABLED", "sending is disabled by WA_SENDS_DISABLED");
   }
+  if (!isValidRecipientJid(chatJid)) {
+    throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
+  }
   const jid = normalizeJid(chatJid);
   if (jid === null) {
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
@@ -41,6 +44,7 @@ export async function sendViaSocket(
     const outbound = {
       ...sent,
       key: { ...sent.key, remoteJid: jid, fromMe: true },
+      message: content as proto.IMessage,
     } as WAMessage;
     storeMessage(opts.store, outbound);
   }

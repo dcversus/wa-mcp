@@ -36,7 +36,7 @@ function digitsOf(jid: string): string {
   return jid.split("@")[0]?.replace(/:\d+$/, "") ?? "";
 }
 
-function senderNameOf(message: WAMessage, senderJid: string): string | null {
+function senderNameOf(message: WAMessage, senderJid: string | null): string | null {
   if (message.pushName !== undefined && message.pushName !== null && message.pushName.length > 0) {
     return message.pushName;
   }
@@ -46,6 +46,9 @@ function senderNameOf(message: WAMessage, senderJid: string): string | null {
     message.verifiedBizName.length > 0
   ) {
     return message.verifiedBizName;
+  }
+  if (senderJid === null) {
+    return null;
   }
   const digits = digitsOf(senderJid);
   return digits.length > 0 ? digits : null;
@@ -108,8 +111,10 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     return false;
   }
   const timestamp = toIsoTimestamp(message.messageTimestamp);
-  const senderJid = senderJidOf(message.key);
   const isFromMe = message.key.fromMe === true;
+  const senderJid: string | null = isFromMe
+    ? (message.key.participant ?? null)
+    : senderJidOf(message.key);
   const info = store.db
     .prepare(INSERT_MESSAGE)
     .run(
