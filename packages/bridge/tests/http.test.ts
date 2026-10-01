@@ -25,7 +25,9 @@ function makeFakeSocket(): WASocket {
     key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
     message: content,
   }));
-  return { sendMessage } as unknown as WASocket;
+  const readMessages = vi.fn(async () => {});
+  const sendPresenceUpdate = vi.fn(async () => {});
+  return { sendMessage, readMessages, sendPresenceUpdate } as unknown as WASocket;
 }
 
 function stubHandle(
@@ -968,7 +970,6 @@ test("POST /mcp reports parse errors in-band", async () => {
   expect(body.error.code).toBe(-32700);
 });
 
-
 test("POST /api/read marks rows and sends the receipt", async () => {
   const socket = makeFakeSocket();
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
@@ -987,11 +988,15 @@ test("POST /api/read marks rows and sends the receipt", async () => {
     body: JSON.stringify({ chat_jid: GROUP_A, message_ids: ["R1", "R2"] }),
   });
   expect(res.status).toBe(200);
-  const unread = store.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = ? AND is_unread = 1").get(GROUP_A) as {
+  const unread = store.db
+    .prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = ? AND is_unread = 1")
+    .get(GROUP_A) as {
     n: number;
   };
   expect(unread.n).toBe(0);
-  const call = (socket.readMessages as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Array<{ id: string }>;
+  const call = (socket.readMessages as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Array<{
+    id: string;
+  }>;
   expect(call.map((key) => key.id)).toEqual(["R1", "R2"]);
 });
 
@@ -1020,7 +1025,9 @@ test("POST /api/presence sends the presence type", async () => {
     body: JSON.stringify({ chat_jid: GROUP_A, presence: "teleporting" }),
   });
   expect(invalid.status).toBe(400);
-  expect(((await invalid.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+  expect(((await invalid.json()) as { error: { code: string } }).error.code).toBe(
+    "VALIDATION_ERROR",
+  );
 });
 
 test("POST /api/chat/state persists chat flags", async () => {
@@ -1032,12 +1039,17 @@ test("POST /api/chat/state persists chat flags", async () => {
   const res = await fetch(url(bridge, "/api/chat/state"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },
-    body: JSON.stringify({ chat_jid: GROUP_A, archived: true, pinned: true, muted_until: "2026-10-03T12:00:00.000Z" }),
+    body: JSON.stringify({
+      chat_jid: GROUP_A,
+      archived: true,
+      pinned: true,
+      muted_until: "2026-10-03T12:00:00.000Z",
+    }),
   });
   expect(res.status).toBe(200);
-  const row = store.db.prepare("SELECT archived, pinned, muted_until FROM chats WHERE jid = ?").get(GROUP_A) as
-    | { archived: number; pinned: number; muted_until: string }
-    | undefined;
+  const row = store.db
+    .prepare("SELECT archived, pinned, muted_until FROM chats WHERE jid = ?")
+    .get(GROUP_A) as { archived: number; pinned: number; muted_until: string } | undefined;
   expect(row?.archived).toBe(1);
   expect(row?.pinned).toBe(1);
   expect(row?.muted_until).toBe("2026-10-03T12:00:00.000Z");

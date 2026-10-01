@@ -7,6 +7,16 @@ import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
 import {
+  getUnreadCounts,
+  markChatRead,
+  markMessagesRead,
+  setChatArchived,
+  setChatMuted,
+  setChatPinned,
+} from "./store/chats.ts";
+import { listContacts, setAlias } from "./store/contacts.ts";
+import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
+import {
   fetchMessageFromStore,
   getMessageContext,
   listChats,
@@ -688,6 +698,154 @@ export async function createHttpServer(
     );
   };
 
+  const serveReadPost = (
+    route: string,
+    req: IncomingMessage,
+    res: ServerResponse,
+    body: Buffer,
+  ): void => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    if (parsed === null || typeof parsed !== "object") {
+      validationError(res, "body must be a JSON object");
+      return;
+    }
+    const input = parsed as {
+      chat_jid?: unknown;
+      message_ids?: unknown;
+      presence?: unknown;
+      archived?: unknown;
+      pinned?: unknown;
+      muted_until?: unknown;
+      alias?: unknown;
+      jid?: unknown;
+    };
+    const needsChatJid = route !== "/api/alias";
+    if (needsChatJid && (typeof input.chat_jid !== "string" || input.chat_jid.length === 0)) {
+      validationError(res, "chat_jid is required");
+      return;
+    }
+    const chatJid = input.chat_jid as string;
+    if (route === "/api/read") {
+      if (
+        !Array.isArray(input.message_ids) ||
+        input.message_ids.some((id) => typeof id !== "string")
+      ) {
+        validationError(res, "message_ids must be an array of strings");
+        return;
+      }
+      const socket = handle.socket;
+      if (socket === undefined || socket === null) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+        return;
+      }
+      const messageIds = input.message_ids as string[];
+      if (opts.store === undefined) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        return;
+      }
+      const store = opts.store;
+      void sendReadReceipt(socket, chatJid, messageIds)
+        .then(() => {
+          markMessagesRead(store, chatJid, messageIds);
+          sendJson(res, 200, { read: messageIds.length });
+        })
+        .catch(() => {
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "receipt failed" } });
+        });
+      return;
+    }
+    if (route === "/api/presence") {
+      if (typeof input.presence !== "string" || !PRESENCE_TYPES.includes(input.presence as never)) {
+        validationError(
+          res,
+          "presence must be one of available, unavailable, composing, recording, paused",
+        );
+        return;
+      }
+      const socket = handle.socket;
+      if (socket === undefined || socket === null) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+        return;
+      }
+      void sendPresenceUpdate(socket, chatJid, input.presence as (typeof PRESENCE_TYPES)[number])
+        .then(() => {
+          sendJson(res, 200, { ok: true });
+        })
+        .catch(() => {
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "presence failed" } });
+        });
+      return;
+    }
+    if (route === "/api/chat/state") {
+      const flags: Array<boolean> = [];
+      if (input.archived !== undefined) {
+        if (typeof input.archived !== "boolean") {
+          validationError(res, "archived must be a boolean");
+          return;
+        }
+        flags.push(true);
+      }
+      if (input.pinned !== undefined) {
+        if (typeof input.pinned !== "boolean") {
+          validationError(res, "pinned must be a boolean");
+          return;
+        }
+        flags.push(true);
+      }
+      if (
+        input.muted_until !== undefined &&
+        typeof input.muted_until !== "string" &&
+        input.muted_until !== null
+      ) {
+        validationError(res, "muted_until must be a string or null");
+        return;
+      }
+      const mutedUntil = input.muted_until as string | null | undefined;
+      if (flags.length === 0 && mutedUntil === undefined) {
+        validationError(res, "at least one of archived, pinned, muted_until is required");
+        return;
+      }
+      if (opts.store === undefined) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        return;
+      }
+      if (input.archived !== undefined) {
+        setChatArchived(opts.store, chatJid, input.archived);
+      }
+      if (input.pinned !== undefined) {
+        setChatPinned(opts.store, chatJid, input.pinned);
+      }
+      if (mutedUntil !== undefined) {
+        setChatMuted(opts.store, chatJid, mutedUntil);
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    if (route === "/api/alias") {
+      if (typeof input.alias !== "string" || input.alias.length === 0) {
+        validationError(res, "alias is required");
+        return;
+      }
+      if (typeof input.jid !== "string" || input.jid.length === 0) {
+        validationError(res, "jid is required");
+        return;
+      }
+      if (opts.store === undefined) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        return;
+      }
+      setAlias(opts.store, input.jid, input.alias);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -741,6 +899,42 @@ export async function createHttpServer(
       }
       if (path === "/mcp") {
         serveMcp(req, res, body);
+        return;
+      }
+      if (
+        path === "/api/read" ||
+        path === "/api/presence" ||
+        path === "/api/chat/state" ||
+        path === "/api/alias"
+      ) {
+        serveReadPost(path, req, res, body);
+        return;
+      }
+      if (path === "/api/contacts") {
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+        const limit = intParam(params, "limit");
+        if (!limit.ok) {
+          validationError(res, "limit must be a number");
+          return;
+        }
+        sendJson(res, 200, {
+          contacts: listContacts(opts.store, {
+            query: params.get("query") ?? undefined,
+            limit: limit.value,
+          }),
+        });
+        return;
+      }
+      if (path === "/api/unread") {
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        sendJson(res, 200, { unread: getUnreadCounts(opts.store) });
         return;
       }
       if (path === "/api/qr") {

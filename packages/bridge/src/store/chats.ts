@@ -30,6 +30,19 @@ export function markChatRead(store: Store, jid: string): void {
   upsertReadState(store, jid, latest?.id ?? null);
 }
 
+export function markMessagesRead(store: Store, chatJid: string, messageIds: string[]): void {
+  const placeholders = messageIds.map(() => "?").join(", ");
+  store.db
+    .prepare(`UPDATE messages SET is_unread = 0 WHERE chat_jid = ? AND id IN (${placeholders})`)
+    .run(chatJid, ...messageIds);
+  const latest = store.db
+    .prepare(
+      "SELECT id FROM messages WHERE chat_jid = ? ORDER BY timestamp DESC, rowid DESC LIMIT 1",
+    )
+    .get(chatJid) as { id: string } | undefined;
+  upsertReadState(store, chatJid, latest?.id ?? null);
+}
+
 export function markAllRead(store: Store): void {
   const chats = store.db
     .prepare("SELECT DISTINCT chat_jid FROM messages WHERE is_unread = 1")
