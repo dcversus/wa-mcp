@@ -1,5 +1,12 @@
 import { expect, test } from "vite-plus/test";
-import { isGroupJid, isLidJid, isPhoneJid, jidType, normalizeJid } from "../src/jid.ts";
+import {
+  isGroupJid,
+  isLidJid,
+  isPhoneJid,
+  isValidRecipientJid,
+  jidType,
+  normalizeJid,
+} from "../src/jid.ts";
 
 test("normalizeJid appends default domain to a bare phone number", () => {
   expect(normalizeJid("358497773518")).toBe("358497773518@s.whatsapp.net");
@@ -50,4 +57,18 @@ test("type predicates match their jid kinds", () => {
   expect(isGroupJid("358497773518")).toBe(false);
   expect(isLidJid("55600000009854@lid")).toBe(true);
   expect(isLidJid("358497773518@s.whatsapp.net")).toBe(false);
+});
+
+test("isValidRecipientJid accepts real WhatsApp recipients only", () => {
+  expect(isValidRecipientJid("358497773518")).toBe(true);
+  expect(isValidRecipientJid("+358 497 773 518")).toBe(true);
+  expect(isValidRecipientJid("358497773518@s.whatsapp.net")).toBe(true);
+  expect(isValidRecipientJid("120363428874442773@g.us")).toBe(true);
+  expect(isValidRecipientJid("55600000009854@lid")).toBe(true);
+  expect(isValidRecipientJid("status@broadcast")).toBe(true);
+  expect(isValidRecipientJid("358497773518:5@s.whatsapp.net")).toBe(true);
+  expect(isValidRecipientJid("garbage@@@")).toBe(false);
+  expect(isValidRecipientJid("not-a-jid")).toBe(false);
+  expect(isValidRecipientJid("weird@elsewhere")).toBe(false);
+  expect(isValidRecipientJid("")).toBe(false);
 });

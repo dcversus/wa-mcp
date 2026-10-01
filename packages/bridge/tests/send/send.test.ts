@@ -81,3 +81,11 @@ test("SendError carries code and message", () => {
   expect(err.code).toBe("SENDS_DISABLED");
   expect(err.message).toBe("blocked");
 });
+
+test("an unparsable recipient with an at-sign fails as INVALID_JID before the socket", async () => {
+  const socket = fakeSocket();
+  await expect(sendViaSocket(socket.sock, "garbage@@@", { conversation: "hi" })).rejects.toMatchObject({
+    code: "INVALID_JID",
+  });
+  expect(socket.sendMessage).not.toHaveBeenCalled();
+});
