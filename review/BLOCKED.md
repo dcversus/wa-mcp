@@ -28,3 +28,21 @@ open/closed issues + merged/closed PRs) for the 14 repos named in GOAL §13, wri
 scheduled before Phase I (accounting) since dispositions consume it; not a Phase A blocker.
 
 **Status:** RESOLVED 2026-10-01 by orchestrator — review/BACKLOG-FULL.md + review/raw/ regenerated (1,029 items, 18 repos).
+
+---
+
+## 2026-10-01 — Branch protection on main requires GitHub Pro (GOAL §1, task 3)
+
+**Blocker:** `PUT /repos/dcversus/wa-mcp/branches/main/protection` → HTTP 403
+"Upgrade to GitHub Pro or make this repository public to enable this feature."
+The `dcversus` account is on GitHub Free; branch protection rulesets are unavailable
+for private repos on Free.
+
+**Proposed default:** owner upgrades the account to GitHub Pro (or grants a plan that
+includes protected branches); the exact PUT payload is ready and will be applied
+immediately after. Until then: no branch protection on main. Compensating controls —
+repo is private with a single owner; all main pushes are orchestrator-validated task
+commits; the `ci` workflow (check / test×6 / build) runs on every push and is the
+mechanical gate.
+
+**Status:** OPEN — needs owner action (plan upgrade). No other task blocked.
