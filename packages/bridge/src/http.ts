@@ -21,6 +21,7 @@ import {
   type MediaInput,
   type ResolvedMedia,
 } from "./media/resolve.ts";
+import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import {
   buildContactMessage,
   buildEditMessage,
@@ -653,6 +654,40 @@ export async function createHttpServer(
       });
   };
 
+  let selfPort = 0;
+  const serveMcp = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      sendJson(res, 200, {
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32700, message: "invalid JSON" },
+      });
+      return;
+    }
+    const selfUrl = `http://${opts.host ?? "127.0.0.1"}:${selfPort}`;
+    const ctx: ServerContext = {
+      tools: TOOLS,
+      bridgeUrl: selfUrl,
+      token: opts.token,
+      fetchFn: opts.fetchFn,
+    };
+    void handleRpcMessage(parsed, ctx).then(
+      (response) => {
+        sendJson(res, 200, response ?? {});
+      },
+      (err: unknown) => {
+        sendJson(res, 200, {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32603, message: String(err) },
+        });
+      },
+    );
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -704,6 +739,10 @@ export async function createHttpServer(
         serveSend(req, res, body);
         return;
       }
+      if (path === "/mcp") {
+        serveMcp(req, res, body);
+        return;
+      }
       if (path === "/api/qr") {
         serveQr(req, res);
         return;
@@ -744,6 +783,7 @@ export async function createHttpServer(
   });
   const address = server.address();
   const port = typeof address === "object" && address !== null ? address.port : (opts.port ?? 0);
+  selfPort = port;
   return {
     server,
     port,

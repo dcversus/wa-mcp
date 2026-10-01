@@ -219,6 +219,9 @@ importers:
 
   packages/bridge:
     dependencies:
+      '@wa-mcp/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
       '@wa-mcp/shared':
         specifier: workspace:*
         version: link:../shared

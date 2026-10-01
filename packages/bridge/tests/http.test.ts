@@ -911,7 +911,11 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
   const body = (await res.json()) as {
     jsonrpc: string;
     id: number;
-    result: { protocolVersion: string; capabilities: { tools: Record<string, unknown> }; serverInfo: { name: string } };
+    result: {
+      protocolVersion: string;
+      capabilities: { tools: Record<string, unknown> };
+      serverInfo: { name: string };
+    };
   };
   expect(body.jsonrpc).toBe("2.0");
   expect(body.id).toBe(1);
@@ -938,7 +942,9 @@ test("POST /mcp tools/call reaches the bridge api over loopback", async () => {
     result: { content: Array<{ type: string; text: string }> };
   };
   expect(body.result.content[0]?.type).toBe("text");
-  const messages = JSON.parse(body.result.content[0]?.text ?? "{}") as { messages: Array<{ id: string }> };
+  const messages = JSON.parse(body.result.content[0]?.text ?? "{}") as {
+    messages: Array<{ id: string }>;
+  };
   expect(messages.messages.map((message) => message.id)).toEqual(["C1"]);
 });
 

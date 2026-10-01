@@ -20,6 +20,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@wa-mcp/mcp-server": "workspace:*",
     "@wa-mcp/shared": "workspace:*",
     "@whiskeysockets/baileys": "7.0.0-rc14",
     "pino": "^9.14.0",
