@@ -17,6 +17,7 @@ export type BridgeLogger = UserFacingSocketConfig["logger"];
 export interface StartBridgeOptions {
   syncFullHistory?: boolean;
   browser?: WABrowserDescription;
+  deviceName?: string;
   logger?: BridgeLogger;
   qrPngPath?: string;
 }
@@ -27,8 +28,6 @@ export interface BridgeHandle {
   getLastQr(): string | null;
   close(): Promise<void>;
 }
-
-const DEFAULT_BROWSER: WABrowserDescription = ["wa-mcp", "chrome", "0.9.0"];
 
 function deriveStatus(current: BridgeStatus, update: ConnectionUpdate): BridgeStatus {
   if (update.qr !== undefined) {
@@ -73,11 +72,12 @@ export async function startBridge(
   };
 
   const connect = (): void => {
+    const deviceName = opts.deviceName ?? process.env.WA_DEVICE_NAME ?? "wa-mcp";
     socket = makeWASocket({
       auth: state,
       printQRInTerminal: false,
       syncFullHistory: opts.syncFullHistory ?? false,
-      browser: opts.browser ?? DEFAULT_BROWSER,
+      browser: opts.browser ?? [deviceName, "chrome", "0.9.0"],
       logger: opts.logger,
     });
     for (const name of EVENT_NAMES) {

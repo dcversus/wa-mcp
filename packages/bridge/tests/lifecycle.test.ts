@@ -175,7 +175,11 @@ test("opts.deviceName beats WA_DEVICE_NAME", async () => {
     await startBridge("/tmp/wa-mcp-test-auth", { deviceName: "explicit-name" });
     const call = mockMakeWASocket.mock.calls[0];
     if (!call) throw new Error("makeWASocket was not called");
-    expect((call[0] as UserFacingSocketConfig).browser).toEqual(["explicit-name", "chrome", "0.9.0"]);
+    expect((call[0] as UserFacingSocketConfig).browser).toEqual([
+      "explicit-name",
+      "chrome",
+      "0.9.0",
+    ]);
   } finally {
     delete process.env.WA_DEVICE_NAME;
   }
