@@ -153,6 +153,34 @@ test("close() cancels a pending reconnect", async () => {
   expect(mockMakeWASocket).toHaveBeenCalledTimes(1);
 });
 
+test("WA_DEVICE_NAME overrides the browser device name", async () => {
+  process.env.WA_DEVICE_NAME = "dc-bridge";
+  try {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await startBridge("/tmp/wa-mcp-test-auth", {});
+    const call = mockMakeWASocket.mock.calls[0];
+    if (!call) throw new Error("makeWASocket was not called");
+    expect((call[0] as UserFacingSocketConfig).browser).toEqual(["dc-bridge", "chrome", "0.9.0"]);
+  } finally {
+    delete process.env.WA_DEVICE_NAME;
+  }
+});
+
+test("opts.deviceName beats WA_DEVICE_NAME", async () => {
+  process.env.WA_DEVICE_NAME = "dc-bridge";
+  try {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await startBridge("/tmp/wa-mcp-test-auth", { deviceName: "explicit-name" });
+    const call = mockMakeWASocket.mock.calls[0];
+    if (!call) throw new Error("makeWASocket was not called");
+    expect((call[0] as UserFacingSocketConfig).browser).toEqual(["explicit-name", "chrome", "0.9.0"]);
+  } finally {
+    delete process.env.WA_DEVICE_NAME;
+  }
+});
+
 test("startBridge builds auth state from the store dir and sockets with fixed options", async () => {
   const logger = pino({ level: "silent" });
   const sock = fakeSocket();
