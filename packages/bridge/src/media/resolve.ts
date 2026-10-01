@@ -49,7 +49,7 @@ const MIME_EXTENSIONS: Record<string, string> = {
   "application/octet-stream": "bin",
 };
 
-function sniffMimeType(buffer: Buffer): string {
+export function sniffMimeType(buffer: Buffer): string {
   if (buffer.length < 4) {
     return "application/octet-stream";
   }

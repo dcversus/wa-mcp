@@ -9,11 +9,29 @@ import { openStore, type Store } from "../../src/store/schema.ts";
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
-const downloadMock = vi.fn(async () => PNG);
+const engineLike = async (message: WAMessage): Promise<Buffer> => {
+  const content = message.message ?? {};
+  const hasMedia =
+    content.imageMessage !== undefined ||
+    content.videoMessage !== undefined ||
+    content.audioMessage !== undefined ||
+    content.documentMessage !== undefined ||
+    content.stickerMessage !== undefined;
+  if (!hasMedia) {
+    throw new Error("message is not a media message");
+  }
+  return PNG;
+};
+
+const downloadMock = vi.fn(engineLike);
 
 vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
-  return { ...actual, downloadMediaMessage: (...args: unknown[]) => downloadMock(...(args as [])) };
+  return {
+    ...actual,
+    downloadMediaMessage: (...args: unknown[]) =>
+      downloadMock(...(args as Parameters<typeof downloadMock>)),
+  };
 });
 
 const stores: Store[] = [];
@@ -33,7 +51,12 @@ function mediaDir(): string {
 
 function mediaMessage(id: string, overrides: Partial<WAMessage> = {}): WAMessage {
   return {
-    key: { remoteJid: "120363428874442773@g.us", fromMe: false, id, participant: "358401112222@s.whatsapp.net" },
+    key: {
+      remoteJid: "120363428874442773@g.us",
+      fromMe: false,
+      id,
+      participant: "358401112222@s.whatsapp.net",
+    },
     message: { imageMessage: { caption: "pic", url: "https://mmg.example/1.png" } },
     messageTimestamp: 1727812345,
     pushName: "Vasilisa",
@@ -64,7 +87,9 @@ test("downloads an image message to the media dir and links the row", async () =
   expect(result.size).toBe(PNG.length);
   expect(result.path.endsWith("DL1.png")).toBe(true);
   expect(statSync(result.path).mode & 0o777).toBe(0o644);
-  const row = store.db.prepare("SELECT media_path, media_type FROM messages WHERE id = 'DL1'").get() as {
+  const row = store.db
+    .prepare("SELECT media_path, media_type FROM messages WHERE id = 'DL1'")
+    .get() as {
     media_path: string;
     media_type: string;
   };
@@ -77,7 +102,11 @@ test("passes the message and reupload context to the engine", async () => {
   storeMessage(store, mediaMessage("DL2"));
   const socket = fakeSocket();
   const updateSpy = vi.spyOn(socket, "updateMediaMessage");
-  await downloadMessageMedia(socket, mediaMessage("DL2"), { store, mediaDir: mediaDir(), messageId: "DL2" });
+  await downloadMessageMedia(socket, mediaMessage("DL2"), {
+    store,
+    mediaDir: mediaDir(),
+    messageId: "DL2",
+  });
   expect(downloadMock).toHaveBeenCalledTimes(1);
   const call = downloadMock.mock.calls[0] as unknown as [
     WAMessage,
@@ -98,7 +127,11 @@ test("sanitizes the message id against traversal", async () => {
   const socket = fakeSocket();
   for (const bad of ["../evil", "a/b", "a b", "a.b.c"]) {
     await expect(
-      downloadMessageMedia(socket, mediaMessage(bad), { store, mediaDir: mediaDir(), messageId: bad }),
+      downloadMessageMedia(socket, mediaMessage(bad), {
+        store,
+        mediaDir: mediaDir(),
+        messageId: bad,
+      }),
     ).rejects.toMatchObject({ code: "PATH_FORBIDDEN" });
   }
   expect(downloadMock).not.toHaveBeenCalled();
@@ -107,12 +140,21 @@ test("sanitizes the message id against traversal", async () => {
 test("a message without media reports EMPTY", async () => {
   const store = makeStore();
   const textMessage = {
-    key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "TXT1", participant: "358401112222@s.whatsapp.net" },
+    key: {
+      remoteJid: "120363428874442773@g.us",
+      fromMe: false,
+      id: "TXT1",
+      participant: "358401112222@s.whatsapp.net",
+    },
     message: { conversation: "just text" },
     messageTimestamp: 1000,
   } as unknown as WAMessage;
   storeMessage(store, textMessage);
   await expect(
-    downloadMessageMedia(fakeSocket(), textMessage, { store, mediaDir: mediaDir(), messageId: "TXT1" }),
+    downloadMessageMedia(fakeSocket(), textMessage, {
+      store,
+      mediaDir: mediaDir(),
+      messageId: "TXT1",
+    }),
   ).rejects.toMatchObject({ code: "EMPTY" });
 });
