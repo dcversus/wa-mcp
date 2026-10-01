@@ -1,2 +1,8 @@
 packages:
   - packages/*
+allowBuilds:
+  '@whiskeysockets/baileys': false
+  protobufjs: false
+peerDependencyRules:
+  allowAny:
+    - vite
