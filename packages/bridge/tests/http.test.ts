@@ -1,0 +1,173 @@
+import { afterEach, describe, expect, test } from "vite-plus/test";
+import { createEventBus } from "../src/events.ts";
+import { createHttpServer, type BridgeHttp, type BridgeStatus, type HttpServerOptions } from "../src/http.ts";
+import type { BridgeHandle } from "../src/lifecycle.ts";
+
+const created: BridgeHttp[] = [];
+
+function stubHandle(status: BridgeStatus = "connected"): BridgeHandle {
+  return { status, events: createEventBus(), close: async () => {} };
+}
+
+async function startServer(opts: Partial<HttpServerOptions> = {}): Promise<BridgeHttp> {
+  const bridge = await createHttpServer(stubHandle(), { token: "test-token", ...opts });
+  created.push(bridge);
+  return bridge;
+}
+
+function url(bridge: BridgeHttp, path: string): string {
+  return `http://127.0.0.1:${bridge.port}${path}`;
+}
+
+afterEach(async () => {
+  for (const bridge of created.splice(0)) {
+    await bridge.close();
+  }
+});
+
+test("GET /health is public and returns the exact health shape", async () => {
+  const bridge = await startServer();
+  const res = await fetch(url(bridge, "/health"));
+  expect(res.status).toBe(200);
+  expect(res.headers.get("content-type")).toContain("application/json");
+  const body = (await res.json()) as Record<string, unknown>;
+  expect(body.status).toBe("connected");
+  expect(body.connected).toBe(true);
+  expect(body.loggedIn).toBe(true);
+  expect(body.version).toBe("0.0.0");
+  expect(typeof body.uptime).toBe("number");
+  expect(body.uptime as number).toBeGreaterThanOrEqual(0);
+});
+
+test("health reports connecting as not connected and not logged in", async () => {
+  const bridge = await createHttpServer(stubHandle("connecting"), { token: "test-token" });
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.status).toBe("connecting");
+  expect(body.connected).toBe(false);
+  expect(body.loggedIn).toBe(false);
+});
+
+test("health leaks no other data", async () => {
+  const bridge = await startServer();
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(Object.keys(body).sort()).toEqual(
+    ["connected", "loggedIn", "status", "uptime", "version"].sort(),
+  );
+});
+
+describe("auth matrix", () => {
+  const cases: Array<[string, string]> = [
+    ["GET", "/api/messages"],
+    ["GET", "/api/chats"],
+    ["POST", "/api/send"],
+    ["GET", "/api/download"],
+    ["GET", "/events"],
+    ["POST", "/mcp"],
+  ];
+
+  test("every non-health endpoint rejects a missing token with 401", async () => {
+    const bridge = await startServer();
+    for (const [method, path] of cases) {
+      const res = await fetch(url(bridge, path), { method });
+      expect(res.status, `${method} ${path}`).toBe(401);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code, `${method} ${path}`).toBe("UNAUTHORIZED");
+    }
+  });
+
+  test("every non-health endpoint rejects a wrong token with 401", async () => {
+    const bridge = await startServer();
+    for (const [method, path] of cases) {
+      const res = await fetch(url(bridge, path), {
+        method,
+        headers: { authorization: "Bearer wrong-token" },
+      });
+      expect(res.status, `${method} ${path}`).toBe(401);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code, `${method} ${path}`).toBe("UNAUTHORIZED");
+    }
+  });
+
+  test("non-bearer schemes are rejected", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Basic dXNlcjpwYXNz" },
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+test("a valid token passes auth and reaches the not-yet-wired route", async () => {
+  const bridge = await startServer();
+  const res = await fetch(url(bridge, "/api/messages"), {
+    headers: { authorization: "Bearer test-token" },
+  });
+  expect(res.status).toBe(501);
+  const body = (await res.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("NOT_IMPLEMENTED");
+});
+
+test("unknown authenticated route returns 404", async () => {
+  const bridge = await startServer();
+  const res = await fetch(url(bridge, "/api/unknown"), {
+    headers: { authorization: "Bearer test-token" },
+  });
+  expect(res.status).toBe(404);
+  const body = (await res.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("NOT_FOUND");
+});
+
+test("binds loopback by default on the requested port", async () => {
+  const bridge = await startServer({ port: 0 });
+  expect(bridge.port).toBeGreaterThan(0);
+  const res = await fetch(url(bridge, "/health"));
+  expect(res.status).toBe(200);
+});
+
+test("bodies over 1MB are rejected with 413 before routing", async () => {
+  const bridge = await startServer();
+  const big = Buffer.alloc(1_000_001 + 64, 0x61);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { authorization: "Bearer test-token" },
+    body: big,
+  });
+  expect(res.status).toBe(413);
+  const body = (await res.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("PAYLOAD_TOO_LARGE");
+});
+
+test("bodies at exactly 1MB pass the limit", async () => {
+  const bridge = await startServer();
+  const big = Buffer.alloc(1_000_000, 0x61);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { authorization: "Bearer test-token" },
+    body: big,
+  });
+  expect(res.status).toBe(501);
+});
+
+test("token bucket returns 429 with Retry-After when exhausted", async () => {
+  const bridge = await startServer({ rateLimit: { capacity: 2, refillPerMinute: 60 } });
+  const auth = { authorization: "Bearer test-token" };
+  const first = await fetch(url(bridge, "/api/messages"), { headers: auth });
+  const second = await fetch(url(bridge, "/api/messages"), { headers: auth });
+  expect(first.status).toBe(501);
+  expect(second.status).toBe(501);
+  const third = await fetch(url(bridge, "/api/messages"), { headers: auth });
+  expect(third.status).toBe(429);
+  expect(third.headers.get("retry-after")).toBe("1");
+  const body = (await third.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("RATE_LIMITED");
+});
+
+test("buckets refill over time", async () => {
+  const bridge = await startServer({ rateLimit: { capacity: 1, refillPerMinute: 6000 } });
+  const auth = { authorization: "Bearer test-token" };
+  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(501);
+  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(429);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(501);
+});
