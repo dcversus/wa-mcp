@@ -4,6 +4,8 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
+import { getMessageContext, listChats, listMessages, searchMessages } from "./store/queries.ts";
+import type { Store } from "./store/schema.ts";
 
 export interface HttpServerOptions {
   token: string;
@@ -13,6 +15,7 @@ export interface HttpServerOptions {
   rateLimit?: { capacity: number; refillPerMinute: number };
   qrPngPath?: string;
   qrDir?: string;
+  store?: Store;
 }
 
 export interface BridgeHttp {
@@ -114,6 +117,35 @@ function readBodyWithCap(req: IncomingMessage, cap: number): Promise<boolean> {
   });
 }
 
+function validationError(res: ServerResponse, message: string): void {
+  sendJson(res, 400, { error: { code: "VALIDATION_ERROR", message } });
+}
+
+type ParamResult<T> = { ok: true; value: T | undefined } | { ok: false };
+
+function intParam(params: URLSearchParams, name: string): ParamResult<number> {
+  const raw = params.get(name);
+  if (raw === null) {
+    return { ok: true, value: undefined };
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? { ok: true, value: parsed } : { ok: false };
+}
+
+function dateParam(params: URLSearchParams, name: string): ParamResult<Date> {
+  const raw = params.get(name);
+  if (raw === null) {
+    return { ok: true, value: undefined };
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? { ok: false } : { ok: true, value: parsed };
+}
+
+function boolParam(params: URLSearchParams, name: string): boolean {
+  const raw = params.get(name);
+  return raw === "true" || raw === "1";
+}
+
 export async function createHttpServer(
   handle: BridgeHandle,
   opts: HttpServerOptions,
@@ -165,6 +197,93 @@ export async function createHttpServer(
         }
       });
   };
+  const serveReadRoute = (
+    route: string,
+    store: Store,
+    params: URLSearchParams,
+    res: ServerResponse,
+  ): void => {
+    if (route === "/api/chats") {
+      const limit = intParam(params, "limit");
+      const offset = intParam(params, "offset");
+      if (!limit.ok || !offset.ok) {
+        validationError(res, "limit and offset must be numbers");
+        return;
+      }
+      const includeLast = params.get("include_last_message") !== "false";
+      sendJson(res, 200, {
+        chats: listChats(store, {
+          limit: limit.value,
+          offset: offset.value,
+          includeLastMessage: includeLast,
+          archived: boolParam(params, "archived"),
+        }),
+      });
+      return;
+    }
+    if (route === "/api/messages") {
+      const limit = intParam(params, "limit");
+      const offset = intParam(params, "offset");
+      const after = dateParam(params, "after");
+      const before = dateParam(params, "before");
+      if (!limit.ok || !offset.ok || !after.ok || !before.ok) {
+        validationError(res, "invalid query parameters");
+        return;
+      }
+      sendJson(res, 200, {
+        messages: listMessages(store, {
+          chatJid: params.get("chat_jid") ?? undefined,
+          sender: params.get("sender") ?? undefined,
+          after: after.value,
+          before: before.value,
+          limit: limit.value,
+          offset: offset.value,
+        }),
+      });
+      return;
+    }
+    if (route === "/api/context") {
+      const messageId = params.get("message_id");
+      if (messageId === null || messageId.length === 0) {
+        validationError(res, "message_id is required");
+        return;
+      }
+      const radius = intParam(params, "radius");
+      if (!radius.ok) {
+        validationError(res, "radius must be a number");
+        return;
+      }
+      const context = getMessageContext(store, messageId, radius.value ?? 3);
+      if (context === null) {
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+        return;
+      }
+      sendJson(res, 200, { messages: [...context.before, context.target, ...context.after] });
+      return;
+    }
+    if (route === "/api/search") {
+      const query = params.get("q");
+      if (query === null || query.length === 0) {
+        validationError(res, "q is required");
+        return;
+      }
+      const limit = intParam(params, "limit");
+      const offset = intParam(params, "offset");
+      if (!limit.ok || !offset.ok) {
+        validationError(res, "limit and offset must be numbers");
+        return;
+      }
+      sendJson(res, 200, {
+        messages: searchMessages(store, query, {
+          chatJid: params.get("chat_jid") ?? undefined,
+          limit: limit.value,
+          offset: offset.value,
+        }),
+      });
+      return;
+    }
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -214,6 +333,26 @@ export async function createHttpServer(
       }
       if (path === "/api/qr") {
         serveQr(req, res);
+        return;
+      }
+      if (
+        path === "/api/chats" ||
+        path === "/api/messages" ||
+        path === "/api/context" ||
+        path === "/api/search"
+      ) {
+        if (opts.store === undefined) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "route not wired yet" },
+          });
+          return;
+        }
+        serveReadRoute(
+          path,
+          opts.store,
+          new URL(req.url ?? "/", "http://localhost").searchParams,
+          res,
+        );
         return;
       }
       if (API_PATHS.has(path)) {

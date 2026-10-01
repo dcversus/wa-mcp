@@ -43,15 +43,12 @@ afterEach(async () => {
 });
 
 function seedRow(store: Store, id: string, chatJid: string, timestamp: number, text: string): void {
-  storeMessage(
-    store,
-    {
-      key: { remoteJid: chatJid, fromMe: false, id, participant: "358401112222@s.whatsapp.net" },
-      message: { conversation: text },
-      messageTimestamp: timestamp,
-      pushName: "Vasilisa",
-    } as never,
-  );
+  storeMessage(store, {
+    key: { remoteJid: chatJid, fromMe: false, id, participant: "358401112222@s.whatsapp.net" },
+    message: { conversation: text },
+    messageTimestamp: timestamp,
+    pushName: "Vasilisa",
+  } as never);
 }
 
 async function bootWithStore(seed: (store: Store) => void): Promise<BridgeHttp> {
@@ -310,7 +307,9 @@ test("GET /api/chats returns chats with previews and honors filters", async () =
   const limited = await fetch(url(bridge, "/api/chats?limit=1"), { headers: authHeader });
   const limitedBody = (await limited.json()) as { chats: unknown[] };
   expect(limitedBody.chats).toHaveLength(1);
-  const noPreview = await fetch(url(bridge, "/api/chats?include_last_message=false"), { headers: authHeader });
+  const noPreview = await fetch(url(bridge, "/api/chats?include_last_message=false"), {
+    headers: authHeader,
+  });
   const noPreviewBody = (await noPreview.json()) as { chats: Array<{ lastMessage: unknown }> };
   expect(noPreviewBody.chats[0]?.lastMessage).toBeNull();
 });
@@ -324,27 +323,38 @@ test("GET /api/messages filters by chat and instants with clamped pagination", a
   const all = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}`), {
     headers: authHeader,
   });
-  const allBody = (await all.json()) as { messages: Array<{ id: string; chatJid: string; isUnread: boolean }> };
+  const allBody = (await all.json()) as {
+    messages: Array<{ id: string; chatJid: string; isUnread: boolean }>;
+  };
   expect(allBody.messages.map((message) => message.id)).toEqual(["A2", "A1"]);
   expect(allBody.messages[0]?.isUnread).toBe(true);
   const after = await fetch(
-    url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=${encodeURIComponent("1970-01-01T00:00:01.500Z")}`),
+    url(
+      bridge,
+      `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=${encodeURIComponent(new Date(1500 * 1000).toISOString())}`,
+    ),
     { headers: authHeader },
   );
   const afterBody = (await after.json()) as { messages: Array<{ id: string }> };
   expect(afterBody.messages.map((message) => message.id)).toEqual(["A2"]);
-  const clamped = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=1&offset=-9`), {
-    headers: authHeader,
-  });
+  const clamped = await fetch(
+    url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=1&offset=-9`),
+    {
+      headers: authHeader,
+    },
+  );
   const clampedBody = (await clamped.json()) as { messages: Array<{ id: string }> };
   expect(clampedBody.messages.map((message) => message.id)).toEqual(["A2"]);
 });
 
 test("GET /api/messages validates parameter shapes", async () => {
   const bridge = await bootWithStore(() => {});
-  const badDate = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=yesterday`), {
-    headers: authHeader,
-  });
+  const badDate = await fetch(
+    url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=yesterday`),
+    {
+      headers: authHeader,
+    },
+  );
   expect(badDate.status).toBe(400);
   const badDateBody = (await badDate.json()) as { error: { code: string } };
   expect(badDateBody.error.code).toBe("VALIDATION_ERROR");
@@ -358,11 +368,18 @@ test("GET /api/messages validates parameter shapes", async () => {
 
 test("GET /api/context returns the adjacent window including the target", async () => {
   const bridge = await bootWithStore((store) => {
-    for (const [id, ts] of [["T1", 1000], ["T2", 2000], ["T3", 3000], ["T4", 4000]] as const) {
+    for (const [id, ts] of [
+      ["T1", 1000],
+      ["T2", 2000],
+      ["T3", 3000],
+      ["T4", 4000],
+    ] as const) {
       seedRow(store, id, GROUP_A, ts, `msg ${id}`);
     }
   });
-  const res = await fetch(url(bridge, "/api/context?message_id=T2&radius=1"), { headers: authHeader });
+  const res = await fetch(url(bridge, "/api/context?message_id=T2&radius=1"), {
+    headers: authHeader,
+  });
   expect(res.status).toBe(200);
   const body = (await res.json()) as { messages: Array<{ id: string }> };
   expect(body.messages.map((message) => message.id)).toEqual(["T1", "T2", "T3"]);
@@ -383,9 +400,12 @@ test("GET /api/search returns matches and requires a query", async () => {
   expect(res.status).toBe(200);
   const body = (await res.json()) as { messages: Array<{ id: string }> };
   expect(body.messages.map((message) => message.id)).toEqual(["S1"]);
-  const scoped = await fetch(url(bridge, `/api/search?q=burger&chat_jid=${encodeURIComponent(GROUP_B)}`), {
-    headers: authHeader,
-  });
+  const scoped = await fetch(
+    url(bridge, `/api/search?q=burger&chat_jid=${encodeURIComponent(GROUP_B)}`),
+    {
+      headers: authHeader,
+    },
+  );
   const scopedBody = (await scoped.json()) as { messages: Array<{ id: string }> };
   expect(scopedBody.messages.map((message) => message.id)).toEqual(["S2"]);
   const missing = await fetch(url(bridge, "/api/search"), { headers: authHeader });
