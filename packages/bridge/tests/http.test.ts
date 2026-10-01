@@ -626,3 +626,162 @@ test("the outbound sender is not recorded as the recipient", async () => {
   const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
   expect(row.sender_jid ?? null).toBeNull();
 });
+
+async function postSend(bridge: BridgeHttp, body: Record<string, unknown>): Promise<{
+  status: number;
+  body: Record<string, unknown> & { error?: { code?: string } };
+}> {
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+}
+
+test("POST /api/send routes kind=reaction through the socket", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const { status } = await postSend(bridge, {
+    kind: "reaction",
+    chat_jid: "358497773518@s.whatsapp.net",
+    message_id: "TARGET9",
+    emote: "🔥",
+  });
+  expect(status).toBe(200);
+  const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    reactionMessage?: { text?: string; key?: { id?: string } };
+  };
+  expect(call.reactionMessage?.text).toBe("🔥");
+  expect(call.reactionMessage?.key?.id).toBe("TARGET9");
+});
+
+test("POST /api/send routes kind=edit through the socket", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const { status } = await postSend(bridge, {
+    kind: "edit",
+    chat_jid: "358497773518@s.whatsapp.net",
+    message_id: "TARGET9",
+    text: "corrected",
+  });
+  expect(status).toBe(200);
+  const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    protocolMessage?: { key?: { id?: string }; editedMessage?: { conversation?: string } };
+  };
+  expect(call.protocolMessage?.key?.id).toBe("TARGET9");
+  expect(call.protocolMessage?.editedMessage?.conversation).toBe("corrected");
+});
+
+test("POST /api/send routes kind=forward from the store", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  seedRow(store, "FWD1", GROUP_A, 5000, "spread this");
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const { status, body } = await postSend(bridge, {
+    kind: "forward",
+    chat_jid: "358497773518@s.whatsapp.net",
+    message_id: "FWD1",
+  });
+  expect(status).toBe(200);
+  expect(body.message_id).toBe("SENTID1");
+  const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    conversation?: string;
+    extendedTextMessage?: { text?: string };
+  };
+  expect(call.conversation ?? call.extendedTextMessage?.text).toBe("spread this");
+  const missing = await postSend(bridge, {
+    kind: "forward",
+    chat_jid: "358497773518@s.whatsapp.net",
+    message_id: "NOPE",
+  });
+  expect(missing.status).toBe(404);
+});
+
+test("POST /api/send routes location, contact and poll kinds", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 30 }),
+  });
+  created.push(bridge);
+  const location = await postSend(bridge, {
+    kind: "location",
+    chat_jid: "358497773518@s.whatsapp.net",
+    latitude: 60.17,
+    longitude: 24.94,
+    label: "Kallio",
+  });
+  expect(location.status).toBe(200);
+  const contact = await postSend(bridge, {
+    kind: "contact",
+    chat_jid: "358497773518@s.whatsapp.net",
+    contact_name: "John Doe",
+    phones: ["+15551234567"],
+  });
+  expect(contact.status).toBe(200);
+  const poll = await postSend(bridge, {
+    kind: "poll",
+    chat_jid: "358497773518@s.whatsapp.net",
+    poll_name: "Lunch?",
+    options: ["Pizza", "Burger"],
+    selectable_count: 1,
+  });
+  expect(poll.status).toBe(200);
+  const sent = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
+  expect(((sent[0]?.[1] as { locationMessage?: { name?: string } }).locationMessage?.name)).toBe("Kallio");
+  expect(((sent[1]?.[1] as { contactMessage?: { displayName?: string } }).contactMessage?.displayName)).toBe("John Doe");
+  const pollArg = sent[2]?.[1] as { pollCreationMessageV3?: { name?: string } } | { pollCreationMessage?: { name?: string } };
+  const pollName =
+    ("pollCreationMessageV3" in pollArg ? pollArg.pollCreationMessageV3?.name : undefined) ??
+    ("pollCreationMessage" in pollArg ? pollArg.pollCreationMessage?.name : undefined);
+  expect(pollName).toBe("Lunch?");
+});
+
+test("POST /api/send validates per-kind fields and rejects unknown kinds", async () => {
+  const bridge = await bootWithStore(() => {});
+  const noEmote = await postSend(bridge, {
+    kind: "reaction",
+    chat_jid: "358497773518@s.whatsapp.net",
+    message_id: "X",
+  });
+  expect(noEmote.status).toBe(400);
+  expect(noEmote.body.error?.code).toBe("VALIDATION_ERROR");
+  const badOptions = await postSend(bridge, {
+    kind: "poll",
+    chat_jid: "358497773518@s.whatsapp.net",
+    poll_name: "L?",
+    options: "pizza",
+  });
+  expect(badOptions.status).toBe(400);
+  const unknown = await postSend(bridge, {
+    kind: "teleport",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "hi",
+  });
+  expect(unknown.status).toBe(400);
+  expect(unknown.body.error?.code).toBe("VALIDATION_ERROR");
+});
