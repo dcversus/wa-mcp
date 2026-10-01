@@ -158,6 +158,8 @@ describe("auth matrix", () => {
     ["POST", "/api/privacy"],
     ["POST", "/api/block"],
     ["GET", "/api/blocklist"],
+    ["GET", "/api/notifications"],
+    ["POST", "/api/notifications"],
   ];
 
   test("every non-health endpoint rejects a missing token with 401", async () => {
@@ -1430,4 +1432,39 @@ test("GET /events sends heartbeats on the configured interval", async () => {
   }
   expect(seen).toContain("heartbeat");
   await reader.cancel();
+});
+
+
+test("notification rule CRUD end to end", async () => {
+  const bridge = await bootWithStore(() => {});
+  const created_ = await fetch(url(bridge, "/api/notifications"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ title: "ping {{sender}}", chat_jid: GROUP_A, unread_only: true }),
+  });
+  expect(created_.status).toBe(200);
+  const rule = (await created_.json()) as { rule: { id: number; chatJid: string; unreadOnly: boolean } };
+  expect(rule.rule.chatJid).toBe(GROUP_A);
+  expect(rule.rule.unreadOnly).toBe(true);
+  const list = await fetch(url(bridge, "/api/notifications"), { headers: authHeader });
+  const listBody = (await list.json()) as { rules: Array<{ id: number }> };
+  expect(listBody.rules).toHaveLength(1);
+  const missingTitle = await fetch(url(bridge, "/api/notifications"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: GROUP_A }),
+  });
+  expect(missingTitle.status).toBe(400);
+  const removed = await fetch(url(bridge, `/api/notifications/${rule.rule.id}`), {
+    method: "DELETE",
+    headers: authHeader,
+  });
+  expect(removed.status).toBe(200);
+  const gone = await fetch(url(bridge, `/api/notifications/${rule.rule.id}`), {
+    method: "DELETE",
+    headers: authHeader,
+  });
+  expect(gone.status).toBe(404);
+  const empty = await fetch(url(bridge, "/api/notifications"), { headers: authHeader });
+  expect(((await empty.json()) as { rules: unknown[] }).rules).toHaveLength(0);
 });

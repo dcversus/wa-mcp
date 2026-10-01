@@ -54,6 +54,9 @@ test("the registry exposes the full launch set", () => {
     "block_unblock",
     "get_blocklist",
     "get_media",
+    "list_notification_rules",
+    "add_notification_rule",
+    "delete_notification_rule",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -273,4 +276,28 @@ test("get_media triggers the download and returns metadata", async () => {
   expect(calls[0]?.method).toBe("POST");
   expect(result.content[0]?.text).toContain("M1.png");
   expect(result.content[0]?.text).toContain("image/png");
+});
+
+
+test("notification rule tools hit their endpoints", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/notifications": { rules: [] },
+    "/api/notifications/7": { ok: true },
+  });
+  const toolCtx = { ...ctx, fetchFn };
+  const list = toolByName("list_notification_rules");
+  if (!list) throw new Error("list_notification_rules missing");
+  await list.handler(toolCtx, {});
+  const add = toolByName("add_notification_rule");
+  if (!add) throw new Error("add_notification_rule missing");
+  await add.handler(toolCtx, { title: "ping", chat_jid: "g@g.us", unread_only: true });
+  const remove = toolByName("delete_notification_rule");
+  if (!remove) throw new Error("delete_notification_rule missing");
+  await remove.handler(toolCtx, { id: 7 });
+  expect(calls.map((call) => [call.method, call.url.replace("http://bridge.test:8080", "")])).toEqual([
+    ["GET", "/api/notifications"],
+    ["POST", "/api/notifications"],
+    ["DELETE", "/api/notifications/7"],
+  ]);
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ title: "ping", chat_jid: "g@g.us", unread_only: true });
 });
