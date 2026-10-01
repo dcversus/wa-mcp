@@ -899,3 +899,58 @@ test("POST /api/send validates per-kind fields and rejects unknown kinds", async
   expect(unknown.status).toBe(400);
   expect(unknown.body.error?.code).toBe("VALIDATION_ERROR");
 });
+
+test("POST /mcp answers JSON-RPC over HTTP", async () => {
+  const bridge = await bootWithStore(() => {});
+  const res = await fetch(url(bridge, "/mcp"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    jsonrpc: string;
+    id: number;
+    result: { protocolVersion: string; capabilities: { tools: Record<string, unknown> }; serverInfo: { name: string } };
+  };
+  expect(body.jsonrpc).toBe("2.0");
+  expect(body.id).toBe(1);
+  expect(body.result.capabilities).toEqual({ tools: {} });
+  expect(body.result.serverInfo.name).toBe("wa-mcp");
+});
+
+test("POST /mcp tools/call reaches the bridge api over loopback", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "C1", GROUP_A, 1000, "context for mcp");
+  });
+  const res = await fetch(url(bridge, "/mcp"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "list_messages", arguments: { chat_jid: GROUP_A, limit: 10 } },
+    }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    result: { content: Array<{ type: string; text: string }> };
+  };
+  expect(body.result.content[0]?.type).toBe("text");
+  const messages = JSON.parse(body.result.content[0]?.text ?? "{}") as { messages: Array<{ id: string }> };
+  expect(messages.messages.map((message) => message.id)).toEqual(["C1"]);
+});
+
+test("POST /mcp reports parse errors in-band", async () => {
+  const bridge = await bootWithStore(() => {});
+  const res = await fetch(url(bridge, "/mcp"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: "{not json",
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { id: null; error: { code: number } };
+  expect(body.id).toBeNull();
+  expect(body.error.code).toBe(-32700);
+});
