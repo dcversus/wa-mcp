@@ -1,3 +1,6 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
@@ -166,10 +169,45 @@ test("all engine events forward through the bus", async () => {
 
 test("credentials updates persist through saveCreds", async () => {
   const saveCreds = vi.fn();
-  mockAuthState.mockResolvedValue({ state: {} as AuthenticationState, saveCreds });
+  mockAuthState.mockResolvedValue({ state: {} as unknown as AuthenticationState, saveCreds });
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
   await startBridge("/tmp/wa-mcp-test-auth", {});
   sock.emit("creds.update", { noiseKey: "rotated" });
   expect(saveCreds).toHaveBeenCalled();
+});
+
+test("getLastQr is null before any qr event", async () => {
+  const { handle } = await started();
+  expect(handle.getLastQr()).toBeNull();
+});
+
+test("qr events render stderr, persist png, and expose getLastQr", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-"));
+  const pngPath = join(dir, "qr.png");
+  const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+  try {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    const handle = await startBridge("/tmp/wa-mcp-test-auth", { qrPngPath: pngPath });
+    sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-rotation-1" });
+    expect(handle.status).toBe("qr");
+    expect(handle.getLastQr()).toBe("QRDATA-rotation-1");
+    expect(stderrSpy).toHaveBeenCalled();
+    const written = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
+    expect(written).toContain("#");
+    await vi.waitFor(async () => {
+      const bytes = await readFile(pngPath);
+      expect(bytes.length).toBeGreaterThan(100);
+    });
+  } finally {
+    stderrSpy.mockRestore();
+  }
+});
+
+test("qr rotations update getLastQr", async () => {
+  const { sock, handle } = await started();
+  sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-rotation-1" });
+  sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-rotation-2" });
+  expect(handle.getLastQr()).toBe("QRDATA-rotation-2");
 });

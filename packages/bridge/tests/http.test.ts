@@ -1,12 +1,17 @@
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vite-plus/test";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
+import { saveQrPng } from "../src/qr.ts";
 
 const created: BridgeHttp[] = [];
+const authHeader = { authorization: "Bearer test-token" };
 
-function stubHandle(status: BridgeStatus = "connected"): BridgeHandle {
-  return { status, events: createEventBus(), close: async () => {} };
+function stubHandle(status: BridgeStatus = "connected", lastQr: string | null = null): BridgeHandle {
+  return { status, events: createEventBus(), close: async () => {}, getLastQr: () => lastQr };
 }
 
 async function startServer(opts: Partial<HttpServerOptions> = {}): Promise<BridgeHttp> {
@@ -170,4 +175,73 @@ test("buckets refill over time", async () => {
   expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(429);
   await new Promise((resolve) => setTimeout(resolve, 50));
   expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(501);
+});
+
+test("/api/qr requires auth", async () => {
+  const bridge = await startServer();
+  const res = await fetch(url(bridge, "/api/qr"));
+  expect(res.status).toBe(401);
+});
+
+test("/api/qr returns 404 NO_QR when no qr was seen", async () => {
+  const bridge = await startServer();
+  const res = await fetch(url(bridge, "/api/qr"), { headers: authHeader });
+  expect(res.status).toBe(404);
+  const body = (await res.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("NO_QR");
+});
+
+test("/api/qr returns the qr string and base64 png once available", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
+  const pngPath = join(dir, "qr.png");
+  await saveQrPng("QRDATA-rotation-1", pngPath);
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
+    token: "test-token",
+    qrPngPath: pngPath,
+    qrDir: dir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/qr"), { headers: authHeader });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { qr: string; png: string };
+  expect(body.qr).toBe("QRDATA-rotation-1");
+  const fileBytes = await readFile(pngPath);
+  expect(Buffer.from(body.png, "base64")).toEqual(fileBytes);
+});
+
+test("/api/qr serves named files from qrDir", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
+  const second = join(dir, "qr-2.png");
+  await saveQrPng("QRDATA-rotation-2", second);
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
+    token: "test-token",
+    qrPngPath: join(dir, "qr.png"),
+    qrDir: dir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/qr?file=qr-2.png"), { headers: authHeader });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { qr: string; png: string };
+  expect(Buffer.from(body.png, "base64")).toEqual(await readFile(second));
+});
+
+test("/api/qr rejects path traversal with 400", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
+  const secretDir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-secret-"));
+  const outside = join(secretDir, "secret.txt");
+  await writeFile(outside, "secret");
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
+    token: "test-token",
+    qrPngPath: join(dir, "qr.png"),
+    qrDir: dir,
+  });
+  created.push(bridge);
+  for (const attempt of ["../secret.txt", "..%2Fsecret.txt", "%2e%2e%2fsecret.txt", "..\\secret.txt", "a/b.png"]) {
+    const res = await fetch(url(bridge, `/api/qr?file=${encodeURIComponent(attempt)}`), {
+      headers: authHeader,
+    });
+    expect(res.status, attempt).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code, attempt).toBe("INVALID_PATH");
+  }
 });
