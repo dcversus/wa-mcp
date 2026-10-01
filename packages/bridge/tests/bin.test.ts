@@ -73,3 +73,10 @@ test("ensureToken prefers an env token and never writes it", async () => {
   expect(token).toBe("env-secret");
   expect(existsSync(join(dir, "token"))).toBe(false);
 });
+
+test("buildConfig reads WA_DAILY_CAP as an integer or falls back to null", () => {
+  expect(buildConfig({}).dailyCap).toBeNull();
+  expect(buildConfig({ WA_DAILY_CAP: "500" }).dailyCap).toBe(500);
+  expect(buildConfig({ WA_DAILY_CAP: "many" }).dailyCap).toBeNull();
+  expect(buildConfig({ WA_DAILY_CAP: "0" }).dailyCap).toBeNull();
+});

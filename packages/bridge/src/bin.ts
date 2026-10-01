@@ -10,6 +10,7 @@ import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
 import { installShutdownHooks } from "./shutdown.ts";
+import { SendGuard } from "./send/safety.ts";
 import { openStore } from "./store/schema.ts";
 
 export interface BridgeConfig {
@@ -20,6 +21,7 @@ export interface BridgeConfig {
   syncFullHistory: boolean;
   token: string | null;
   tokenPath: string;
+  dailyCap: number | null;
 }
 
 export function buildConfig(env: Record<string, string | undefined>): BridgeConfig {
@@ -27,6 +29,7 @@ export function buildConfig(env: Record<string, string | undefined>): BridgeConf
   const rawPort = env.WA_PORT === undefined ? NaN : Number(env.WA_PORT);
   const port = Number.isInteger(rawPort) && rawPort > 0 ? rawPort : 8080;
   const syncFull = env.WA_SYNC_FULL_HISTORY;
+  const rawCap = env.WA_DAILY_CAP === undefined ? NaN : Number(env.WA_DAILY_CAP);
   return {
     dataDir,
     host: env.WA_BIND_HOST ?? "127.0.0.1",
@@ -35,6 +38,7 @@ export function buildConfig(env: Record<string, string | undefined>): BridgeConf
     syncFullHistory: syncFull === "1" || syncFull === "true",
     token: env.WA_TOKEN ?? null,
     tokenPath: join(dataDir, "token"),
+    dailyCap: Number.isInteger(rawCap) && rawCap > 0 ? rawCap : null,
   };
 }
 
@@ -90,6 +94,8 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
     port: config.port,
     qrPngPath,
     qrDir: config.dataDir,
+    store,
+    sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
   });
   logger.info(
     { host: config.host, port: server.port, dataDir: config.dataDir },

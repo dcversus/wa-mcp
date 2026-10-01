@@ -25,6 +25,7 @@ export interface StartBridgeOptions {
 export interface BridgeHandle {
   readonly status: BridgeStatus;
   readonly events: EventBus;
+  readonly socket: WASocket;
   getLastQr(): string | null;
   close(): Promise<void>;
 }
@@ -115,6 +116,9 @@ export async function startBridge(
       return status;
     },
     events: bus,
+    get socket() {
+      return socket;
+    },
     getLastQr: () => lastQr,
     close: async () => {
       if (reconnectTimer !== null) {

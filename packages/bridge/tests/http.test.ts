@@ -18,11 +18,26 @@ const authHeader = { authorization: "Bearer test-token" };
 const GROUP_A = "120363428874442773@g.us";
 const GROUP_B = "120363999999999999@g.us";
 
+function makeFakeSocket(): WASocket {
+  const sendMessage = vi.fn(async (jid: string, content: unknown) => ({
+    key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
+    message: content,
+  }));
+  return { sendMessage } as unknown as WASocket;
+}
+
 function stubHandle(
   status: BridgeStatus = "connected",
   lastQr: string | null = null,
+  socket: WASocket = makeFakeSocket(),
 ): BridgeHandle {
-  return { status, events: createEventBus(), close: async () => {}, getLastQr: () => lastQr };
+  return {
+    status,
+    events: createEventBus(),
+    close: async () => {},
+    getLastQr: () => lastQr,
+    socket,
+  };
 }
 
 async function startServer(opts: Partial<HttpServerOptions> = {}): Promise<BridgeHttp> {
@@ -185,7 +200,8 @@ test("bodies at exactly 1MB pass the limit", async () => {
     headers: { authorization: "Bearer test-token" },
     body: big,
   });
-  expect(res.status).toBe(501);
+  expect(res.status).not.toBe(413);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
 });
 
 test("token bucket returns 429 with Retry-After when exhausted", async () => {
@@ -416,7 +432,6 @@ test("GET /api/search returns matches and requires a query", async () => {
   expect(missingBody.error.code).toBe("VALIDATION_ERROR");
 });
 
-
 test("POST /api/send dispatches, persists and returns the message id", async () => {
   const socket = makeFakeSocket();
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
@@ -450,7 +465,9 @@ test("POST /api/send validates the body", async () => {
     body: JSON.stringify({ text: "no chat" }),
   });
   expect(missingChat.status).toBe(400);
-  expect(((await missingChat.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+  expect(((await missingChat.json()) as { error: { code: string } }).error.code).toBe(
+    "VALIDATION_ERROR",
+  );
   const missingText = await fetch(url(bridge, "/api/send"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },
@@ -506,7 +523,9 @@ test("POST /api/send surfaces the daily cap as 429", async () => {
   expect((await send("only one")).status).toBe(200);
   const second = await send("blocked");
   expect(second.status).toBe(429);
-  expect(((await second.json()) as { error: { code: string } }).error.code).toBe("DAILY_CAP_EXCEEDED");
+  expect(((await second.json()) as { error: { code: string } }).error.code).toBe(
+    "DAILY_CAP_EXCEEDED",
+  );
 });
 
 test("POST /api/send honors the kill switch", async () => {
@@ -527,7 +546,7 @@ test("POST /api/send honors the kill switch", async () => {
   });
   expect(res.status).toBe(403);
   expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SENDS_DISABLED");
-  expect((socket.sendMessage as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+  expect(socket.sendMessage as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
 });
 
 test("POST /api/send reports media payloads as not yet implemented", async () => {

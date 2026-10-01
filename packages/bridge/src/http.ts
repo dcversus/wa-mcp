@@ -6,6 +6,9 @@ import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { getMessageContext, listChats, listMessages, searchMessages } from "./store/queries.ts";
 import type { Store } from "./store/schema.ts";
+import { buildTextMessage } from "./send/build.ts";
+import { SendError, sendViaSocket } from "./send/send.ts";
+import type { SendGuard } from "./send/safety.ts";
 
 export interface HttpServerOptions {
   token: string;
@@ -16,6 +19,7 @@ export interface HttpServerOptions {
   qrPngPath?: string;
   qrDir?: string;
   store?: Store;
+  sendGuard?: SendGuard;
 }
 
 export interface BridgeHttp {
@@ -93,8 +97,12 @@ function sendJson(
   res.end(JSON.stringify(payload));
 }
 
-function readBodyWithCap(req: IncomingMessage, cap: number): Promise<boolean> {
+function readBodyWithCap(
+  req: IncomingMessage,
+  cap: number,
+): Promise<{ fits: boolean; body: Buffer }> {
   return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
     let total = 0;
     let decided = false;
     const finish = (fits: boolean) => {
@@ -103,10 +111,13 @@ function readBodyWithCap(req: IncomingMessage, cap: number): Promise<boolean> {
       }
       decided = true;
       req.removeAllListeners("data");
-      resolve(fits);
+      resolve({ fits, body: Buffer.concat(chunks) });
     };
     req.on("data", (chunk: Buffer) => {
       total += chunk.length;
+      if (total <= cap) {
+        chunks.push(chunk);
+      }
       if (total > cap) {
         finish(false);
         req.resume();
@@ -284,6 +295,102 @@ export async function createHttpServer(
     }
   };
 
+  const serveSend = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    if (parsed === null || typeof parsed !== "object") {
+      validationError(res, "body must be a JSON object");
+      return;
+    }
+    const input = parsed as {
+      chat_jid?: unknown;
+      text?: unknown;
+      mentions?: unknown;
+      reply_to_message_id?: unknown;
+      link_preview?: unknown;
+      media?: unknown;
+    };
+    if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+      validationError(res, "chat_jid is required");
+      return;
+    }
+    if (typeof input.text !== "string" || input.text.length === 0) {
+      validationError(res, "text is required");
+      return;
+    }
+    if (input.mentions !== undefined && !Array.isArray(input.mentions)) {
+      validationError(res, "mentions must be an array");
+      return;
+    }
+    if (input.reply_to_message_id !== undefined && typeof input.reply_to_message_id !== "string") {
+      validationError(res, "reply_to_message_id must be a string");
+      return;
+    }
+    if (input.link_preview !== undefined && typeof input.link_preview !== "boolean") {
+      validationError(res, "link_preview must be a boolean");
+      return;
+    }
+    if (input.media !== undefined) {
+      sendJson(res, 501, {
+        error: { code: "NOT_IMPLEMENTED", message: "media send not wired yet" },
+      });
+      return;
+    }
+    const socket = handle.socket;
+    if (socket === undefined || socket === null || opts.sendGuard === undefined) {
+      sendJson(res, 501, {
+        error: { code: "NOT_IMPLEMENTED", message: "send not configured on this server" },
+      });
+      return;
+    }
+    const chatJid: string = input.chat_jid;
+    const text: string = input.text;
+    const verdict = opts.sendGuard.check(Date.now());
+    if (!verdict.ok) {
+      if (verdict.code === "RATE_LIMITED") {
+        sendJson(res, 429, {
+          error: {
+            code: "RATE_LIMITED",
+            message: "sending too fast",
+            retryAfterMs: verdict.retryAfterMs,
+          },
+        });
+      } else {
+        sendJson(res, 429, {
+          error: {
+            code: "DAILY_CAP_EXCEEDED",
+            message: `daily send cap of ${verdict.cap} reached`,
+          },
+        });
+      }
+      return;
+    }
+    void buildTextMessage({
+      text,
+      mentions: input.mentions as string[] | undefined,
+      quotedMessageId: input.reply_to_message_id,
+      linkPreview: input.link_preview,
+    })
+      .then((content) => sendViaSocket(socket, chatJid, content, opts))
+      .then((result) => {
+        opts.sendGuard?.record(Date.now());
+        sendJson(res, 200, { message_id: result.messageId });
+      })
+      .catch((err: unknown) => {
+        if (err instanceof SendError) {
+          const status = err.code === "SENDS_DISABLED" ? 403 : 400;
+          sendJson(res, status, { error: { code: err.code, message: err.message } });
+          return;
+        }
+        sendJson(res, 500, { error: { code: "INTERNAL", message: "send failed" } });
+      });
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -324,11 +431,15 @@ export async function createHttpServer(
       });
       return;
     }
-    void readBodyWithCap(req, MAX_BODY_BYTES).then((fits) => {
+    void readBodyWithCap(req, MAX_BODY_BYTES).then(({ fits, body }) => {
       if (!fits) {
         sendJson(res, 413, {
           error: { code: "PAYLOAD_TOO_LARGE", message: `body exceeds ${MAX_BODY_BYTES} bytes` },
         });
+        return;
+      }
+      if (path === "/api/send") {
+        serveSend(req, res, body);
         return;
       }
       if (path === "/api/qr") {
