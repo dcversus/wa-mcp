@@ -1210,3 +1210,69 @@ test("POST /api/block and GET /api/blocklist work", async () => {
   const listBody = (await list.json()) as { blocklist: string[] };
   expect(listBody.blocklist).toEqual(["999@s.whatsapp.net"]);
 });
+
+const MEDIA_PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+
+vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
+  const downloadMediaMessage = async (message: { message?: { imageMessage?: unknown } }): Promise<Buffer> => {
+    if (message.message?.imageMessage === undefined) {
+      throw new Error("message is not a media message");
+    }
+    return MEDIA_PNG;
+  };
+  return { ...actual, downloadMediaMessage };
+});
+
+test("POST /api/media/{id} downloads and returns metadata; GET streams the file", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const message = {
+    key: { remoteJid: GROUP_A, fromMe: false, id: "PIC1", participant: "358401112222@s.whatsapp.net" },
+    message: { imageMessage: { caption: "shot", url: "https://x/1.png" } },
+    messageTimestamp: 1000,
+    pushName: "Vasilisa",
+  } as never;
+  storeMessage(store, message);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+  });
+  created.push(bridge);
+  const post = await fetch(url(bridge, "/api/media/PIC1"), { method: "POST", headers: authHeader });
+  expect(post.status).toBe(200);
+  const meta = (await post.json()) as { path: string; mime: string; size: number };
+  expect(meta.mime).toBe("image/png");
+  expect(meta.path.endsWith("PIC1.png")).toBe(true);
+  const get = await fetch(url(bridge, "/api/media/PIC1"), { headers: authHeader });
+  expect(get.status).toBe(200);
+  expect(get.headers.get("content-type")).toBe("image/png");
+  expect(Buffer.from(await get.arrayBuffer()).equals(MEDIA_PNG)).toBe(true);
+});
+
+test("POST /api/media/{id} without downloadable media answers 404", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "TXT1", GROUP_A, 1000, "plain text");
+  });
+  const res = await fetch(url(bridge, "/api/media/TXT1"), { method: "POST", headers: authHeader });
+  expect(res.status).toBe(404);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("NOT_FOUND");
+});
+
+test("media endpoints sanitize the message id", async () => {
+  const bridge = await bootWithStore(() => {});
+  for (const bad of ["..%2Fevil", "a%2Fb", "a.b.c"]) {
+    const post = await fetch(url(bridge, `/api/media/${bad}`), { method: "POST", headers: authHeader });
+    expect(post.status, bad).toBe(400);
+    expect(((await post.json()) as { error: { code: string } }).error.code, bad).toBe("PATH_FORBIDDEN");
+    const get = await fetch(url(bridge, `/api/media/${bad}`), { headers: authHeader });
+    expect(get.status, bad).toBe(400);
+  }
+  const unknown = await fetch(url(bridge, "/api/media/UNKNOWNID"), { method: "POST", headers: authHeader });
+  expect(unknown.status).toBe(404);
+});
