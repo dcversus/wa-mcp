@@ -12,8 +12,11 @@ import { openStore, type Store } from "../src/store/schema.ts";
 import { SendGuard } from "../src/send/safety.ts";
 import { storeMessage } from "../src/store/messages.ts";
 
+import { statSync } from "node:fs";
+
 const created: BridgeHttp[] = [];
 const openedStores: Store[] = [];
+const mediaDirs: string[] = [];
 const authHeader = { authorization: "Bearer test-token" };
 const GROUP_A = "120363428874442773@g.us";
 const GROUP_B = "120363999999999999@g.us";
@@ -58,6 +61,7 @@ afterEach(async () => {
   for (const store of openedStores.splice(0)) {
     store.close();
   }
+  mediaDirs.splice(0);
 });
 
 function seedRow(store: Store, id: string, chatJid: string, timestamp: number, text: string): void {
@@ -550,7 +554,7 @@ test("POST /api/send honors the kill switch", async () => {
   expect(socket.sendMessage as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
 });
 
-test("POST /api/send reports media payloads as not yet implemented", async () => {
+test("POST /api/send rejects media on a non-media kind", async () => {
   const bridge = await bootWithStore(() => {});
   const res = await fetch(url(bridge, "/api/send"), {
     method: "POST",
@@ -558,11 +562,112 @@ test("POST /api/send reports media payloads as not yet implemented", async () =>
     body: JSON.stringify({
       chat_jid: "358497773518@s.whatsapp.net",
       text: "with media",
-      media: { kind: "image", base64: "aGk=" },
+      media: { base64: "aGk=" },
     }),
   });
-  expect(res.status).toBe(501);
-  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("NOT_IMPLEMENTED");
+  expect(res.status).toBe(400);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+});
+
+test("POST /api/send kind=image sends, stores the file and links the row", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+  });
+  created.push(bridge);
+  const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "image",
+      chat_jid: "358497773518@s.whatsapp.net",
+      media: { base64: png.toString("base64") },
+      caption: "the pic",
+      file_name: "shot.png",
+    }),
+  });
+  expect(res.status).toBe(200);
+  const arg = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    image?: Buffer;
+    caption?: string;
+    fileName?: string;
+    mimetype?: string;
+  };
+  expect(Buffer.isBuffer(arg.image)).toBe(true);
+  expect(arg.image?.equals(png)).toBe(true);
+  expect(arg.caption).toBe("the pic");
+  expect(arg.fileName).toBe("shot.png");
+  expect(arg.mimetype).toBe("image/png");
+  const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
+  expect(row.media_type).toBe("image");
+  const mediaPath = String(row.media_path ?? "");
+  expect(mediaPath.endsWith(`SENTID1.png`)).toBe(true);
+  expect(statSync(mediaPath).mode & 0o777).toBe(0o644);
+  expect(statSync(mediaDir).mode & 0o777).toBe(0o700);
+  expect(row.content).toBe("the pic");
+});
+
+test("POST /api/send media path traversal is rejected", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const bridge = await createHttpServer(stubHandle(), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "document",
+      chat_jid: "358497773518@s.whatsapp.net",
+      media: { path: "../secret.txt" },
+    }),
+  });
+  expect(res.status).toBe(400);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("PATH_FORBIDDEN");
+});
+
+test("POST /api/send media url uses the injected fetcher", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const jpeg = Buffer.from("ffd8ffe000104a464946", "hex");
+  const fetchFn = (async () => new Response(jpeg)) as unknown as typeof fetch;
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+    fetchFn,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      kind: "image",
+      chat_jid: "358497773518@s.whatsapp.net",
+      media: { url: "https://cdn.example/cat.jpg" },
+    }),
+  });
+  expect(res.status).toBe(200);
+  const arg = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as { image?: Buffer };
+  expect(arg.image?.equals(jpeg)).toBe(true);
 });
 
 test("an unresolvable jid fails as INVALID_JID even when the guard would pace", async () => {
