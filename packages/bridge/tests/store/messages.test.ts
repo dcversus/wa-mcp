@@ -11,19 +11,31 @@ function makeStore() {
   return openStore(mkdtempSync(join(tmpdir(), "wa-mcp-msgstore-")));
 }
 
-function waMessage(overrides: Partial<WAMessage> = {}, content: proto.IMessage = { conversation: "hello" }): WAMessage {
+function waMessage(
+  overrides: Partial<WAMessage> = {},
+  content: proto.IMessage = { conversation: "hello" },
+): WAMessage {
   return {
-    key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "MSG1", participant: "358497773518@s.whatsapp.net" },
+    key: {
+      remoteJid: "120363428874442773@g.us",
+      fromMe: false,
+      id: "MSG1",
+      participant: "358497773518@s.whatsapp.net",
+    },
     message: content,
     messageTimestamp: 1727812345,
     ...overrides,
   } as unknown as WAMessage;
 }
 
-function row(store: ReturnType<typeof openStore>, id: string): Record<string, unknown> | undefined {
+function row(
+  store: ReturnType<typeof openStore>,
+  id: string,
+  chatJid = "120363428874442773@g.us",
+): Record<string, unknown> | undefined {
   return store.db
     .prepare("SELECT * FROM messages WHERE chat_jid = ? AND id = ?")
-    .get("120363428874442773@g.us", id) as Record<string, unknown> | undefined;
+    .get(chatJid, id) as Record<string, unknown> | undefined;
 }
 
 test("stores a full text message row with all 13 columns populated", () => {
@@ -71,14 +83,26 @@ test("chat row is created on first store and timestamp only advances", () => {
   const store = makeStore();
   try {
     storeMessage(store, waMessage({ pushName: "Vasilisa", messageTimestamp: 1727812345 }));
-    const chatRow = () => store.db.prepare("SELECT * FROM chats WHERE jid = ?").get("120363428874442773@g.us") as
-      | { name: string | null; last_message_ts: string }
-      | undefined;
+    const chatRow = () =>
+      store.db.prepare("SELECT * FROM chats WHERE jid = ?").get("120363428874442773@g.us") as
+        | { name: string | null; last_message_ts: string }
+        | undefined;
     const afterFirst = chatRow();
     if (!afterFirst) throw new Error("chat row missing");
     expect(afterFirst.last_message_ts).toBe(new Date(1727812345 * 1000).toISOString());
     expect(afterFirst.name).toBe("Vasilisa");
-    storeMessage(store, waMessage({ key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "MSG2", participant: "358497773518@s.whatsapp.net" }, messageTimestamp: 1727810000 }));
+    storeMessage(
+      store,
+      waMessage({
+        key: {
+          remoteJid: "120363428874442773@g.us",
+          fromMe: false,
+          id: "MSG2",
+          participant: "358497773518@s.whatsapp.net",
+        },
+        messageTimestamp: 1727810000,
+      }),
+    );
     const afterOlder = chatRow();
     if (!afterOlder) throw new Error("chat row missing after older store");
     expect(afterOlder.last_message_ts).toBe(new Date(1727812345 * 1000).toISOString());
@@ -92,11 +116,25 @@ test("chat timestamp is untouched when a duplicate message is not stored", () =>
   try {
     const message = waMessage({ pushName: "Vasilisa", messageTimestamp: 1727812345 });
     storeMessage(store, message);
-    storeMessage(store, waMessage({ key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "MSG2", participant: "358497773518@s.whatsapp.net" }, messageTimestamp: 1727819999 }, { conversation: "later" }));
+    storeMessage(
+      store,
+      waMessage(
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "MSG2",
+            participant: "358497773518@s.whatsapp.net",
+          },
+          messageTimestamp: 1727819999,
+        },
+        { conversation: "later" },
+      ),
+    );
     storeMessage(store, message);
-    const chatRow = store.db.prepare("SELECT last_message_ts FROM chats WHERE jid = ?").get(
-      "120363428874442773@g.us",
-    ) as { last_message_ts: string };
+    const chatRow = store.db
+      .prepare("SELECT last_message_ts FROM chats WHERE jid = ?")
+      .get("120363428874442773@g.us") as { last_message_ts: string };
     expect(chatRow.last_message_ts).toBe(new Date(1727819999 * 1000).toISOString());
   } finally {
     store.close();
@@ -111,7 +149,12 @@ test("sender name falls back to verifiedBizName then phone digits", () => {
     storeMessage(
       store,
       waMessage({
-        key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "MSG2", participant: "35840111222@s.whatsapp.net" },
+        key: {
+          remoteJid: "120363428874442773@g.us",
+          fromMe: false,
+          id: "MSG2",
+          participant: "35840111222@s.whatsapp.net",
+        },
       }),
     );
     expect(row(store, "MSG2")?.sender_name).toBe("35840111222");
@@ -123,8 +166,11 @@ test("sender name falls back to verifiedBizName then phone digits", () => {
 test("from-me rows are marked not unread", () => {
   const store = makeStore();
   try {
-    storeMessage(store, waMessage({ key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: true, id: "MSG1" } }));
-    const fetched = row(store, "MSG1");
+    storeMessage(
+      store,
+      waMessage({ key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: true, id: "MSG1" } }),
+    );
+    const fetched = row(store, "MSG1", "358497773518@s.whatsapp.net");
     if (!fetched) throw new Error("row missing");
     expect(fetched.is_from_me).toBe(1);
     expect(fetched.is_unread).toBe(0);
@@ -143,7 +189,10 @@ test("quoted id and mentions are stored as provided", () => {
         {
           extendedTextMessage: {
             text: "re @551199",
-            contextInfo: { stanzaId: "QUOTED1", mentionedJid: ["551199@s.whatsapp.net", "551188@s.whatsapp.net"] },
+            contextInfo: {
+              stanzaId: "QUOTED1",
+              mentionedJid: ["551199@s.whatsapp.net", "551188@s.whatsapp.net"],
+            },
           },
         },
       ),
@@ -164,8 +213,20 @@ test("a reaction updates the target row instead of creating a row", () => {
     const stored = storeMessage(
       store,
       waMessage(
-        { key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "REACT1", participant: "358497773518@s.whatsapp.net" } },
-        { reactionMessage: { key: { id: "MSG1", remoteJid: "120363428874442773@g.us" }, text: "👍" } },
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "REACT1",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
+        {
+          reactionMessage: {
+            key: { id: "MSG1", remoteJid: "120363428874442773@g.us" },
+            text: "👍",
+          },
+        },
       ),
     );
     expect(stored).toBe(false);
@@ -187,7 +248,14 @@ test("an edit rewrites the target content", () => {
     storeMessage(
       store,
       waMessage(
-        { key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "EDIT1", participant: "358497773518@s.whatsapp.net" } },
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "EDIT1",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
         {
           protocolMessage: {
             type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
@@ -213,7 +281,14 @@ test("a revoke blanks the target content and media", () => {
     storeMessage(
       store,
       waMessage(
-        { key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "REVOKE1", participant: "358497773518@s.whatsapp.net" } },
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "REVOKE1",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
         {
           protocolMessage: {
             type: proto.Message.ProtocolMessage.Type.REVOKE,
