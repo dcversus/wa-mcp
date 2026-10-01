@@ -27,7 +27,24 @@ function makeFakeSocket(): WASocket {
   }));
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
-  return { sendMessage, readMessages, sendPresenceUpdate } as unknown as WASocket;
+  const updateProfileName = vi.fn(async () => {});
+  const updateProfileStatus = vi.fn(async () => {});
+  const updateProfilePicture = vi.fn(async () => {});
+  const updateReadReceiptsPrivacy = vi.fn(async () => {});
+  const updateBlockStatus = vi.fn(async () => {});
+  const fetchBlocklist = vi.fn(async () => ["999@s.whatsapp.net"]);
+  return {
+    sendMessage,
+    readMessages,
+    sendPresenceUpdate,
+    updateProfileName,
+    updateProfileStatus,
+    updateProfilePicture,
+    updateReadReceiptsPrivacy,
+    updateBlockStatus,
+    fetchBlocklist,
+    user: { jid: "358497773518@s.whatsapp.net" },
+  } as unknown as WASocket;
 }
 
 function stubHandle(
@@ -130,6 +147,11 @@ describe("auth matrix", () => {
     ["GET", "/api/contacts"],
     ["GET", "/api/unread"],
     ["POST", "/api/alias"],
+    ["POST", "/api/profile"],
+    ["POST", "/api/profile/picture"],
+    ["POST", "/api/privacy"],
+    ["POST", "/api/block"],
+    ["GET", "/api/blocklist"],
   ];
 
   test("every non-health endpoint rejects a missing token with 401", async () => {
@@ -1092,4 +1114,97 @@ test("POST /api/alias remembers a jid", async () => {
     body: JSON.stringify({ alias: "me", jid: "358497773518@s.whatsapp.net" }),
   });
   expect(res.status).toBe(200);
+});
+
+
+test("POST /api/profile updates name and status", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/profile"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ name: "New Name", status: "new about" }),
+  });
+  expect(res.status).toBe(200);
+  const call = socket.updateProfileName as ReturnType<typeof vi.fn>;
+  expect(call).toHaveBeenCalledWith("New Name");
+  expect(socket.updateProfileStatus as ReturnType<typeof vi.fn>).toHaveBeenCalledWith("new about");
+});
+
+test("POST /api/profile/picture uploads the decoded image", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const png = Buffer.from("89504e470d0a1a0a", "hex");
+  const res = await fetch(url(bridge, "/api/profile/picture"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ image_base64: png.toString("base64") }),
+  });
+  expect(res.status).toBe(200);
+  const call = (socket.updateProfilePicture as ReturnType<typeof vi.fn>).mock.calls[0];
+  expect(call?.[0]).toBe("358497773518@s.whatsapp.net");
+  expect((call?.[1] as Buffer).equals(png)).toBe(true);
+});
+
+test("POST /api/privacy applies keys and rejects unsupported ones", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/privacy"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ readReceipts: "none" }),
+  });
+  expect(res.status).toBe(200);
+  const applied = (await res.json()) as { applied: Array<{ key: string; value: string }> };
+  expect(applied.applied).toEqual([{ key: "readReceipts", value: "none" }]);
+  const bad = await fetch(url(bridge, "/api/privacy"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ visibility: "all" }),
+  });
+  expect(bad.status).toBe(400);
+  expect(((await bad.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+});
+
+test("POST /api/block and GET /api/blocklist work", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/block"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ jid: "999@s.whatsapp.net", block: true }),
+  });
+  expect(res.status).toBe(200);
+  expect((socket.updateBlockStatus as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("999@s.whatsapp.net", "block");
+  const list = await fetch(url(bridge, "/api/blocklist"), { headers: authHeader });
+  const listBody = (await list.json()) as { blocklist: string[] };
+  expect(listBody.blocklist).toEqual(["999@s.whatsapp.net"]);
 });
