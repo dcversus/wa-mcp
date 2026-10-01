@@ -1,0 +1,28 @@
+{
+  "name": "wa-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vp check",
+    "test": "vp test",
+    "build": "vp run -r build",
+    "ready": "vp check && vp test && vp build"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^7.0.2",
+    "vite-plus": "^1.0.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.10.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.10.0"
+}
