@@ -49,6 +49,10 @@ test("the registry exposes the full launch set", () => {
     "list_contacts",
     "set_alias",
     "get_unread_counts",
+    "update_profile",
+    "set_privacy",
+    "block_unblock",
+    "get_blocklist",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -222,4 +226,38 @@ test("list_contacts, set_alias and get_unread_counts call their endpoints", asyn
     "/api/alias",
     "/api/unread",
   ]);
+});
+
+
+test("update_profile posts name and status", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/profile": { ok: true } });
+  const tool = toolByName("update_profile");
+  if (!tool) throw new Error("update_profile missing");
+  await tool.handler({ ...ctx, fetchFn }, { name: "New Name", status: "about" });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/profile");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ name: "New Name", status: "about" });
+});
+
+test("set_privacy posts the key-value patch", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/privacy": { applied: [] } });
+  const tool = toolByName("set_privacy");
+  if (!tool) throw new Error("set_privacy missing");
+  await tool.handler({ ...ctx, fetchFn }, { key: "readReceipts", value: "none" });
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ readReceipts: "none" });
+});
+
+test("block_unblock posts the action and get_blocklist reads the list", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/block": { ok: true },
+    "/api/blocklist": { blocklist: ["999@s.whatsapp.net"] },
+  });
+  const toolCtx = { ...ctx, fetchFn };
+  const block = toolByName("block_unblock");
+  if (!block) throw new Error("block_unblock missing");
+  await block.handler(toolCtx, { jid: "999@s.whatsapp.net", block: true });
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ jid: "999@s.whatsapp.net", block: true });
+  const list = toolByName("get_blocklist");
+  if (!list) throw new Error("get_blocklist missing");
+  const result = await list.handler(toolCtx, {});
+  expect(result.content[0]?.text).toContain("999@s.whatsapp.net");
 });

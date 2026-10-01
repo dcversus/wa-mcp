@@ -68,6 +68,10 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "list_contacts",
     "set_alias",
     "get_unread_counts",
+    "update_profile",
+    "set_privacy",
+    "block_unblock",
+    "get_blocklist",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
