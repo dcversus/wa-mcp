@@ -259,7 +259,7 @@ test("fts stays in sync through the full message lifecycle", () => {
   const store = makeStore();
   try {
     const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
-    expect(versions.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3]);
+    expect(versions.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4]);
     storeMessage(store, message("S1", GROUP_A, 1000, "original words"));
     expect(searchMessages(store, "original", {})).toHaveLength(1);
     storeMessage(

@@ -6,8 +6,8 @@ import type { Store } from "./schema.ts";
 const INSERT_MESSAGE = `
 INSERT OR IGNORE INTO messages (
   id, chat_jid, sender_jid, sender_name, timestamp, content, media_type,
-  media_path, quoted_message_id, mentions, is_from_me, is_unread, reactions
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  media_path, quoted_message_id, mentions, is_from_me, is_unread, reactions, raw
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const UPSERT_CHAT = `
@@ -131,6 +131,9 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
       isFromMe ? 1 : 0,
       isFromMe ? 0 : 1,
       null,
+      message.message === undefined || message.message === null
+        ? null
+        : JSON.stringify(message.message),
     );
   if (info.changes === 0) {
     return false;

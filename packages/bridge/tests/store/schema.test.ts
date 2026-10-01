@@ -36,6 +36,7 @@ const EXPECTED_MESSAGE_COLUMNS = [
   "is_from_me",
   "is_unread",
   "reactions",
+  "raw",
 ];
 
 test("openStore runs in a 0700 directory with a 0600 database file", () => {
@@ -120,7 +121,7 @@ test("migrations records schema versions 1 through 3", () => {
     const rows = store.db
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
-    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3]);
+    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
     store.close();
@@ -134,7 +135,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(3);
+    expect(versions).toHaveLength(4);
   } finally {
     second.close();
   }

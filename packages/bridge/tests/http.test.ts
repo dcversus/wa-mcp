@@ -95,7 +95,13 @@ async function bootWithStore(seed: (store: Store) => void): Promise<BridgeHttp> 
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-store-")));
   openedStores.push(store);
   seed(store);
-  const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const bridge = await createHttpServer(stubHandle("connected"), {
+    token: "test-token",
+    store,
+    mediaDir,
+  });
   created.push(bridge);
   return bridge;
 }
@@ -1215,7 +1221,9 @@ const MEDIA_PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
-  const downloadMediaMessage = async (message: { message?: { imageMessage?: unknown } }): Promise<Buffer> => {
+  const downloadMediaMessage = async (message: {
+    message?: { imageMessage?: unknown };
+  }): Promise<Buffer> => {
     if (message.message?.imageMessage === undefined) {
       throw new Error("message is not a media message");
     }
@@ -1231,7 +1239,12 @@ test("POST /api/media/{id} downloads and returns metadata; GET streams the file"
   const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
   mediaDirs.push(mediaDir);
   const message = {
-    key: { remoteJid: GROUP_A, fromMe: false, id: "PIC1", participant: "358401112222@s.whatsapp.net" },
+    key: {
+      remoteJid: GROUP_A,
+      fromMe: false,
+      id: "PIC1",
+      participant: "358401112222@s.whatsapp.net",
+    },
     message: { imageMessage: { caption: "shot", url: "https://x/1.png" } },
     messageTimestamp: 1000,
     pushName: "Vasilisa",
@@ -1267,12 +1280,20 @@ test("POST /api/media/{id} without downloadable media answers 404", async () => 
 test("media endpoints sanitize the message id", async () => {
   const bridge = await bootWithStore(() => {});
   for (const bad of ["..%2Fevil", "a%2Fb", "a.b.c"]) {
-    const post = await fetch(url(bridge, `/api/media/${bad}`), { method: "POST", headers: authHeader });
+    const post = await fetch(url(bridge, `/api/media/${bad}`), {
+      method: "POST",
+      headers: authHeader,
+    });
     expect(post.status, bad).toBe(400);
-    expect(((await post.json()) as { error: { code: string } }).error.code, bad).toBe("PATH_FORBIDDEN");
+    expect(((await post.json()) as { error: { code: string } }).error.code, bad).toBe(
+      "PATH_FORBIDDEN",
+    );
     const get = await fetch(url(bridge, `/api/media/${bad}`), { headers: authHeader });
     expect(get.status, bad).toBe(400);
   }
-  const unknown = await fetch(url(bridge, "/api/media/UNKNOWNID"), { method: "POST", headers: authHeader });
+  const unknown = await fetch(url(bridge, "/api/media/UNKNOWNID"), {
+    method: "POST",
+    headers: authHeader,
+  });
   expect(unknown.status).toBe(404);
 });

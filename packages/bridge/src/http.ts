@@ -35,9 +35,11 @@ import {
   MediaError,
   resolveMedia,
   saveOutboundMedia,
+  sniffMimeType,
   type MediaInput,
   type ResolvedMedia,
 } from "./media/resolve.ts";
+import { downloadMessageMedia } from "./media/download.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import {
   buildContactMessage,
@@ -959,6 +961,103 @@ export async function createHttpServer(
     }
   };
 
+  const mediaRoute = (method: string, rawId: string, res: ServerResponse): void => {
+    let id: string;
+    try {
+      id = decodeURIComponent(rawId);
+    } catch {
+      sendJson(res, 400, {
+        error: { code: "PATH_FORBIDDEN", message: "invalid message id encoding" },
+      });
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+      sendJson(res, 400, {
+        error: {
+          code: "PATH_FORBIDDEN",
+          message: "message id may only contain letters, digits, _ and -",
+        },
+      });
+      return;
+    }
+    if (method === "GET") {
+      if (opts.store === undefined) {
+        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        return;
+      }
+      const row = opts.store.db.prepare("SELECT media_path FROM messages WHERE id = ?").get(id) as
+        | { media_path: string | null }
+        | undefined;
+      if (row === undefined || row.media_path === null) {
+        sendJson(res, 404, {
+          error: { code: "NOT_FOUND", message: "no stored media for this message" },
+        });
+        return;
+      }
+      void readFile(row.media_path)
+        .then((bytes) => {
+          res.writeHead(200, { "content-type": sniffMimeType(bytes) });
+          res.end(bytes);
+        })
+        .catch(() => {
+          sendJson(res, 404, {
+            error: { code: "NOT_FOUND", message: "stored media file is gone" },
+          });
+        });
+      return;
+    }
+    if (method === "POST") {
+      const socket = handle.socket;
+      if (
+        socket === undefined ||
+        socket === null ||
+        opts.store === undefined ||
+        opts.mediaDir === undefined
+      ) {
+        sendJson(res, 501, {
+          error: { code: "NOT_IMPLEMENTED", message: "download not configured" },
+        });
+        return;
+      }
+      const original = fetchMessageFromStore(opts.store, id);
+      if (original === null) {
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+        return;
+      }
+      void downloadMessageMedia(socket, original, {
+        store: opts.store,
+        mediaDir: opts.mediaDir,
+        messageId: id,
+      })
+        .then((result) => {
+          sendJson(res, 200, { path: result.path, mime: result.mime, size: result.size });
+        })
+        .catch((err: unknown) => {
+          if (err instanceof MediaError) {
+            if (err.code === "EMPTY") {
+              sendJson(res, 404, {
+                error: { code: "NOT_FOUND", message: "message has no downloadable media" },
+              });
+              return;
+            }
+            const status =
+              err.code === "TOO_LARGE"
+                ? 413
+                : err.code === "FETCH_FAILED"
+                  ? 502
+                  : err.code === "NOT_FOUND"
+                    ? 404
+                    : 400;
+            sendJson(res, status, { error: { code: err.code, message: err.message } });
+            return;
+          }
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "download failed" } });
+        });
+      return;
+    }
+    sendJson(res, 405, { error: { code: "VALIDATION_ERROR", message: "method not allowed" } });
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -1012,6 +1111,10 @@ export async function createHttpServer(
       }
       if (path === "/mcp") {
         serveMcp(req, res, body);
+        return;
+      }
+      if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
+        mediaRoute(req.method ?? "GET", path.slice("/api/media/".length), res);
         return;
       }
       if (

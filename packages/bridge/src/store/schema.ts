@@ -142,10 +142,15 @@ ALTER TABLE contacts ADD COLUMN phone TEXT;
 ALTER TABLE contacts ADD COLUMN username TEXT;
 `;
 
+const MIGRATION_V4 = `
+ALTER TABLE messages ADD COLUMN raw TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
   { version: 3, sql: MIGRATION_V3 },
+  { version: 4, sql: MIGRATION_V4 },
 ];
 
 export function openStore(dir: string): Store {

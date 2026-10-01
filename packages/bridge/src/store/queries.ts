@@ -1,3 +1,4 @@
+import { proto } from "@whiskeysockets/baileys";
 import type { WAMessage } from "@whiskeysockets/baileys";
 import type { Store } from "./schema.ts";
 
@@ -338,6 +339,15 @@ export function fetchMessageFromStore(
     return null;
   }
   const content = asString(row.content);
+  let restored: proto.IMessage | undefined;
+  const raw = asString(row.raw);
+  if (raw !== null) {
+    try {
+      restored = JSON.parse(raw) as proto.IMessage;
+    } catch {
+      restored = undefined;
+    }
+  }
   return {
     key: {
       remoteJid: String(row.chat_jid ?? ""),
@@ -345,7 +355,7 @@ export function fetchMessageFromStore(
       fromMe: row.is_from_me === 1,
       participant: asString(row.sender_jid) ?? undefined,
     },
-    message: content !== null ? { conversation: content } : undefined,
+    message: restored ?? (content !== null ? { conversation: content } : undefined),
     messageTimestamp: Math.floor(new Date(String(row.timestamp ?? 0)).getTime() / 1000),
     pushName: asString(row.sender_name) ?? undefined,
   } as WAMessage;
