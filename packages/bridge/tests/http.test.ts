@@ -1297,3 +1297,98 @@ test("media endpoints sanitize the message id", async () => {
   });
   expect(unknown.status).toBe(404);
 });
+
+test("GET /events streams bus events as SSE and cleans up on disconnect", async () => {
+  let active = 0;
+  const base = createEventBus();
+  const spyBus: typeof base = {
+    ...base,
+    subscribe: (handler) => {
+      active += 1;
+      const unsubscribe = base.subscribe(handler);
+      return () => {
+        active -= 1;
+        unsubscribe();
+      };
+    },
+  };
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(
+    { status: "connected", events: spyBus, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    { token: "test-token", store, eventsHeartbeatMs: 40 },
+  );
+  created.push(bridge);
+  const controller = new AbortController();
+  const res = await fetch(url(bridge, "/events"), {
+    headers: authHeader,
+    signal: controller.signal,
+  });
+  expect(res.status).toBe(200);
+  expect(res.headers.get("content-type")).toContain("text/event-stream");
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("no body");
+  const decoder = new TextDecoder();
+  base.emit({
+    type: "messages.upsert",
+    payload: { messages: [], type: "notify" },
+  });
+  const first = decoder.decode((await reader.read()).value);
+  expect(first).toContain("data:");
+  expect(first).toContain("messages.upsert");
+  base.emit({ type: "presence.update", payload: { id: "x", presences: {} } });
+  const second = decoder.decode((await reader.read()).value);
+  expect(second).toContain("presence.update");
+  controller.abort();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(active).toBe(0);
+  expect(() => base.emit({ type: "presence.update", payload: { id: "x", presences: {} } })).not.toThrow();
+});
+
+test("GET /events fans out to multiple concurrent clients", async () => {
+  const base = createEventBus();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(
+    { status: "connected", events: base, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    { token: "test-token", store },
+  );
+  created.push(bridge);
+  const readers: Array<ReadableStreamDefaultReader<Uint8Array>> = [];
+  for (let index = 0; index < 2; index += 1) {
+    const res = await fetch(url(bridge, "/events"), { headers: authHeader });
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("no body");
+    readers.push(reader);
+  }
+  base.emit({ type: "creds.update", payload: {} });
+  for (const reader of readers) {
+    const chunk = new TextDecoder().decode((await reader.read()).value);
+    expect(chunk).toContain("creds.update");
+    await reader.cancel();
+  }
+});
+
+test("GET /events sends heartbeats on the configured interval", async () => {
+  const base = createEventBus();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(
+    { status: "connected", events: base, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    { token: "test-token", store, eventsHeartbeatMs: 30 },
+  );
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/events"), { headers: authHeader });
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("no body");
+  const decoder = new TextDecoder();
+  let seen = "";
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline && !seen.includes("heartbeat")) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    seen += decoder.decode(chunk.value);
+  }
+  expect(seen).toContain("heartbeat");
+  await reader.cancel();
+});
