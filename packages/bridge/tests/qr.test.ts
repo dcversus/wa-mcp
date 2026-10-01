@@ -30,7 +30,9 @@ test("saveQrPng writes a real PNG file", async () => {
   await saveQrPng("QRDATA-rotation-1", file);
   const bytes = await readFile(file);
   expect(bytes.length).toBeGreaterThan(100);
-  expect([...bytes.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  expect(Array.from(bytes.subarray(0, 8))).toEqual([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
 });
 
 test("saveQrPng creates missing parent directories", async () => {

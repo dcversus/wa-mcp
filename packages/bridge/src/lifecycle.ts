@@ -58,39 +58,70 @@ export async function startBridge(
   const bus = createEventBus();
   let status: BridgeStatus = "connecting";
   let lastQr: string | null = null;
+  let reconnectAttempt = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let socket: WASocket;
   const qrPngPath = opts.qrPngPath ?? join(homedir(), ".wa-mcp", "qr.png");
-  const socket: WASocket = makeWASocket({
-    auth: state,
-    printQRInTerminal: false,
-    syncFullHistory: opts.syncFullHistory ?? false,
-    browser: opts.browser ?? DEFAULT_BROWSER,
-    logger: opts.logger,
-  });
-  for (const name of EVENT_NAMES) {
-    socket.ev.on(name, (payload) => {
-      if (name === "connection.update") {
-        status = deriveStatus(status, payload as ConnectionUpdate);
-        const qr = (payload as ConnectionUpdate).qr;
-        if (qr !== undefined) {
-          lastQr = qr;
-          process.stderr.write(renderQrAscii(qr));
-          void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
-            opts.logger?.warn({ err }, "failed to persist qr png");
-          });
-        }
-      }
-      if (name === "creds.update") {
-        void saveCreds();
-      }
-      bus.emit({ type: name, payload } as WaEvent);
+
+  const scheduleReconnect = (): void => {
+    const delay = Math.min(1000 * 2 ** reconnectAttempt, 60_000);
+    reconnectAttempt += 1;
+    reconnectTimer = setTimeout(() => {
+      connect();
+    }, delay);
+    reconnectTimer.unref();
+  };
+
+  const connect = (): void => {
+    socket = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      syncFullHistory: opts.syncFullHistory ?? false,
+      browser: opts.browser ?? DEFAULT_BROWSER,
+      logger: opts.logger,
     });
-  }
+    for (const name of EVENT_NAMES) {
+      socket.ev.on(name, (payload) => {
+        if (name === "connection.update") {
+          const update = payload as ConnectionUpdate;
+          status = deriveStatus(status, update);
+          if (status === "connected") {
+            reconnectAttempt = 0;
+          }
+          if (status === "reconnecting") {
+            scheduleReconnect();
+          }
+          const qr = update.qr;
+          if (qr !== undefined) {
+            lastQr = qr;
+            process.stderr.write(renderQrAscii(qr));
+            void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
+              opts.logger?.warn({ err }, "failed to persist qr png");
+            });
+          }
+        }
+        if (name === "creds.update") {
+          void saveCreds();
+        }
+        bus.emit({ type: name, payload } as WaEvent);
+      });
+    }
+  };
+
+  connect();
+
   return {
     get status() {
       return status;
     },
     events: bus,
     getLastQr: () => lastQr,
-    close: () => socket.end(undefined),
+    close: async () => {
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      await socket.end(undefined);
+    },
   };
 }

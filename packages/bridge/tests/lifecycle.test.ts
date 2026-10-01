@@ -71,7 +71,13 @@ function multiSocketArrangement() {
     sockets.push(sock);
     return sock as unknown as WASocket;
   });
-  const latest = () => sockets[sockets.length - 1];
+  const latest = () => {
+    const sock = sockets[sockets.length - 1];
+    if (!sock) {
+      throw new Error("no socket was created");
+    }
+    return sock;
+  };
   return { sockets, latest };
 }
 
