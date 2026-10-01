@@ -4,8 +4,11 @@ import type {
   WABrowserDescription,
   WASocket,
 } from "@whiskeysockets/baileys";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
+import { renderQrAscii, saveQrPng } from "./qr.ts";
 
 export type BridgeStatus = "connecting" | "qr" | "connected" | "reconnecting" | "logged-out";
 
@@ -15,11 +18,13 @@ export interface StartBridgeOptions {
   syncFullHistory?: boolean;
   browser?: WABrowserDescription;
   logger?: BridgeLogger;
+  qrPngPath?: string;
 }
 
 export interface BridgeHandle {
   readonly status: BridgeStatus;
   readonly events: EventBus;
+  getLastQr(): string | null;
   close(): Promise<void>;
 }
 
@@ -52,6 +57,8 @@ export async function startBridge(
   const { state, saveCreds } = await useMultiFileAuthState(storeDir);
   const bus = createEventBus();
   let status: BridgeStatus = "connecting";
+  let lastQr: string | null = null;
+  const qrPngPath = opts.qrPngPath ?? join(homedir(), ".wa-mcp", "qr.png");
   const socket: WASocket = makeWASocket({
     auth: state,
     printQRInTerminal: false,
@@ -63,6 +70,14 @@ export async function startBridge(
     socket.ev.on(name, (payload) => {
       if (name === "connection.update") {
         status = deriveStatus(status, payload as ConnectionUpdate);
+        const qr = (payload as ConnectionUpdate).qr;
+        if (qr !== undefined) {
+          lastQr = qr;
+          process.stderr.write(renderQrAscii(qr));
+          void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
+            opts.logger?.warn({ err }, "failed to persist qr png");
+          });
+        }
       }
       if (name === "creds.update") {
         void saveCreds();
@@ -75,6 +90,7 @@ export async function startBridge(
       return status;
     },
     events: bus,
+    getLastQr: () => lastQr,
     close: () => socket.end(undefined),
   };
 }

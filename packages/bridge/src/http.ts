@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 
 export interface HttpServerOptions {
@@ -9,6 +11,8 @@ export interface HttpServerOptions {
   port?: number;
   version?: string;
   rateLimit?: { capacity: number; refillPerMinute: number };
+  qrPngPath?: string;
+  qrDir?: string;
 }
 
 export interface BridgeHttp {
@@ -117,6 +121,50 @@ export async function createHttpServer(
   const startedAt = Date.now();
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
+  const serveQr = (req: IncomingMessage, res: ServerResponse): void => {
+    const qr = handle.getLastQr();
+    if (qr === null) {
+      sendJson(res, 404, { error: { code: "NO_QR", message: "no qr code available yet" } });
+      return;
+    }
+    const fileParam = new URL(req.url ?? "/", "http://localhost").searchParams.get("file");
+    let target: string | null;
+    if (fileParam !== null) {
+      if (
+        fileParam.length === 0 ||
+        fileParam.includes("..") ||
+        fileParam.includes("/") ||
+        fileParam.includes("\\")
+      ) {
+        sendJson(res, 400, {
+          error: { code: "INVALID_PATH", message: "file must be a bare filename" },
+        });
+        return;
+      }
+      if (opts.qrDir === undefined) {
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no qr directory configured" } });
+        return;
+      }
+      target = join(opts.qrDir, fileParam);
+    } else {
+      target = opts.qrPngPath ?? null;
+    }
+    if (target === null) {
+      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no qr image configured" } });
+      return;
+    }
+    void readFile(target)
+      .then((bytes) => {
+        sendJson(res, 200, { qr, png: bytes.toString("base64") });
+      })
+      .catch(() => {
+        if (fileParam !== null) {
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "qr file not found" } });
+        } else {
+          sendJson(res, 200, { qr, png: null });
+        }
+      });
+  };
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -162,6 +210,10 @@ export async function createHttpServer(
         sendJson(res, 413, {
           error: { code: "PAYLOAD_TOO_LARGE", message: `body exceeds ${MAX_BODY_BYTES} bytes` },
         });
+        return;
+      }
+      if (path === "/api/qr") {
+        serveQr(req, res);
         return;
       }
       if (API_PATHS.has(path)) {

@@ -10,7 +10,10 @@ import { saveQrPng } from "../src/qr.ts";
 const created: BridgeHttp[] = [];
 const authHeader = { authorization: "Bearer test-token" };
 
-function stubHandle(status: BridgeStatus = "connected", lastQr: string | null = null): BridgeHandle {
+function stubHandle(
+  status: BridgeStatus = "connected",
+  lastQr: string | null = null,
+): BridgeHandle {
   return { status, events: createEventBus(), close: async () => {}, getLastQr: () => lastQr };
 }
 
@@ -236,12 +239,23 @@ test("/api/qr rejects path traversal with 400", async () => {
     qrDir: dir,
   });
   created.push(bridge);
-  for (const attempt of ["../secret.txt", "..%2Fsecret.txt", "%2e%2e%2fsecret.txt", "..\\secret.txt", "a/b.png"]) {
-    const res = await fetch(url(bridge, `/api/qr?file=${encodeURIComponent(attempt)}`), {
-      headers: authHeader,
-    });
-    expect(res.status, attempt).toBe(400);
+  const attempts: Array<[string, string]> = [
+    [`/api/qr?file=${encodeURIComponent("../secret.txt")}`, "plain dots"],
+    ["/api/qr?file=..%2Fsecret.txt", "pre-encoded traversal"],
+    ["/api/qr?file=%2e%2e%2fsecret.txt", "encoded-dot traversal"],
+    [`/api/qr?file=${encodeURIComponent("..\\secret.txt")}`, "backslash"],
+    [`/api/qr?file=${encodeURIComponent("a/b.png")}`, "nested name"],
+  ];
+  for (const [attemptUrl, label] of attempts) {
+    const res = await fetch(url(bridge, attemptUrl), { headers: authHeader });
+    expect(res.status, label).toBe(400);
     const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code, attempt).toBe("INVALID_PATH");
+    expect(body.error.code, label).toBe("INVALID_PATH");
   }
+  const missing = await fetch(url(bridge, "/api/qr?file=does-not-exist.png"), {
+    headers: authHeader,
+  });
+  expect(missing.status).toBe(404);
+  const missingBody = (await missing.json()) as { error: { code: string } };
+  expect(missingBody.error.code).toBe("NOT_FOUND");
 });
