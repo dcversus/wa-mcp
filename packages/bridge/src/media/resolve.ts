@@ -208,7 +208,6 @@ export async function saveOutboundMedia(
   const filePath = join(mediaDir, `${messageId}${declaredExt}`);
   await writeFile(filePath, buffer, { mode: 0o644 });
   await chmod(filePath, 0o644);
-  console.error("DEBUG saveOutboundMedia", JSON.stringify({ filePath, kind, caption, messageId }));
   store.db
     .prepare(
       "UPDATE messages SET media_path = ?, media_type = COALESCE(?, media_type), content = COALESCE(?, content) WHERE id = ?",
