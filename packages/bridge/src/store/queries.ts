@@ -1,3 +1,4 @@
+import type { WAMessage } from "@whiskeysockets/baileys";
 import type { Store } from "./schema.ts";
 
 const MAX_LIMIT = 200;
@@ -317,4 +318,35 @@ function likeFallback(
     )
     .all(pattern, limit, offset) as RawRow[];
   return rows.map(rowToMessage);
+}
+
+export function fetchMessageFromStore(
+  store: Store,
+  messageId: string,
+  chatJid?: string,
+): WAMessage | null {
+  const row = (
+    chatJid !== undefined
+      ? store.db
+          .prepare("SELECT * FROM messages WHERE id = ? AND chat_jid = ? ORDER BY timestamp DESC")
+          .get(messageId, chatJid)
+      : store.db
+          .prepare("SELECT * FROM messages WHERE id = ? ORDER BY timestamp DESC LIMIT 1")
+          .get(messageId)
+  ) as RawRow | undefined;
+  if (row === undefined) {
+    return null;
+  }
+  const content = asString(row.content);
+  return {
+    key: {
+      remoteJid: String(row.chat_jid ?? ""),
+      id: String(row.id ?? ""),
+      fromMe: row.is_from_me === 1,
+      participant: asString(row.sender_jid) ?? undefined,
+    },
+    message: content !== null ? { conversation: content } : undefined,
+    messageTimestamp: Math.floor(new Date(String(row.timestamp ?? 0)).getTime() / 1000),
+    pushName: asString(row.sender_name) ?? undefined,
+  } as WAMessage;
 }

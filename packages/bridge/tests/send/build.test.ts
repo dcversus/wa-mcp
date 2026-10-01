@@ -103,11 +103,9 @@ test("forward keeps the original text and flags it", async () => {
   } as never;
   const content = await buildForwardMessage(original);
   expect(content.conversation ?? content.extendedTextMessage?.text).toBe("spread this");
-  const context =
-    content.conversation !== undefined
-      ? undefined
-      : content.extendedTextMessage?.contextInfo;
-  expect(context?.forwardingScore === undefined || context.forwarded === true).toBe(true);
+  const context = content.extendedTextMessage?.contextInfo;
+  expect(context?.isForwarded).toBe(true);
+  expect(context?.forwardingScore).toBeGreaterThan(0);
 });
 
 test("location carries coordinates and label", async () => {
@@ -131,8 +129,8 @@ test("contact builds a vcard with name and numbers", async () => {
 
 test("poll uses the engine builder so the vote secret is generated", async () => {
   const content = await buildPollMessage("Lunch?", ["Pizza", "Burger"], 1);
-  const poll = content.pollCreationMessage;
-  if (!poll) throw new Error("expected pollCreationMessage");
+  const poll = content.pollCreationMessageV3 ?? content.pollCreationMessage;
+  if (!poll) throw new Error("expected pollCreationMessage(V3)");
   expect(poll.name).toBe("Lunch?");
   const labels = (poll.options ?? []).map((option) => option.optionName);
   expect(labels).toEqual(["Pizza", "Burger"]);
@@ -148,7 +146,10 @@ test("buttons and lists build proto shells for business-account delivery", async
   if (!buttonsMessage) throw new Error("expected buttonsMessage");
   expect(buttonsMessage.contentText).toBe("Choose");
   expect(buttonsMessage.footerText).toBe("footer");
-  expect((buttonsMessage.buttons ?? []).map((button) => button.buttonText?.displayText)).toEqual(["Yes", "No"]);
+  expect((buttonsMessage.buttons ?? []).map((button) => button.buttonText?.displayText)).toEqual([
+    "Yes",
+    "No",
+  ]);
   const list = await buildListMessage("Menu", "Pick one", [
     { title: "Food", rows: [{ title: "Pizza", rowId: "r1" }] },
   ]);

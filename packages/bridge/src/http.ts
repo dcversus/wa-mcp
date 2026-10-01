@@ -1,13 +1,28 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { proto } from "@whiskeysockets/baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
-import { getMessageContext, listChats, listMessages, searchMessages } from "./store/queries.ts";
+import {
+  fetchMessageFromStore,
+  getMessageContext,
+  listChats,
+  listMessages,
+  searchMessages,
+} from "./store/queries.ts";
 import type { Store } from "./store/schema.ts";
-import { buildTextMessage } from "./send/build.ts";
+import {
+  buildContactMessage,
+  buildEditMessage,
+  buildForwardMessage,
+  buildLocationMessage,
+  buildPollMessage,
+  buildReactionMessage,
+  buildTextMessage,
+} from "./send/build.ts";
 import { SendError, sendViaSocket } from "./send/send.ts";
 import type { SendGuard } from "./send/safety.ts";
 
@@ -309,42 +324,178 @@ export async function createHttpServer(
       return;
     }
     const input = parsed as {
+      kind?: unknown;
       chat_jid?: unknown;
       text?: unknown;
       mentions?: unknown;
       reply_to_message_id?: unknown;
       link_preview?: unknown;
       media?: unknown;
+      message_id?: unknown;
+      emote?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
+      label?: unknown;
+      contact_name?: unknown;
+      phones?: unknown;
+      poll_name?: unknown;
+      options?: unknown;
+      selectable_count?: unknown;
     };
     if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
       validationError(res, "chat_jid is required");
       return;
     }
-    if (typeof input.text !== "string" || input.text.length === 0) {
-      validationError(res, "text is required");
-      return;
+    const chatJid = input.chat_jid;
+    const kind = typeof input.kind === "string" ? input.kind : "text";
+    let builder: () => Promise<proto.IMessage>;
+    switch (kind) {
+      case "text": {
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        if (input.mentions !== undefined && !Array.isArray(input.mentions)) {
+          validationError(res, "mentions must be an array");
+          return;
+        }
+        if (
+          input.reply_to_message_id !== undefined &&
+          typeof input.reply_to_message_id !== "string"
+        ) {
+          validationError(res, "reply_to_message_id must be a string");
+          return;
+        }
+        if (input.link_preview !== undefined && typeof input.link_preview !== "boolean") {
+          validationError(res, "link_preview must be a boolean");
+          return;
+        }
+        if (input.media !== undefined) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "media send not wired yet" },
+          });
+          return;
+        }
+        const text: string = input.text;
+        const quoted = input.reply_to_message_id as string | undefined;
+        const linkPreview = input.link_preview as boolean | undefined;
+        builder = () =>
+          buildTextMessage({
+            text,
+            mentions: input.mentions as string[] | undefined,
+            quotedMessageId: quoted,
+            linkPreview,
+          });
+        break;
+      }
+      case "reaction": {
+        if (typeof input.message_id !== "string" || input.message_id.length === 0) {
+          validationError(res, "message_id is required");
+          return;
+        }
+        if (typeof input.emote !== "string" || input.emote.length === 0) {
+          validationError(res, "emote is required");
+          return;
+        }
+        const messageId = input.message_id;
+        const emote = input.emote;
+        builder = () => buildReactionMessage(chatJid, messageId, emote);
+        break;
+      }
+      case "edit": {
+        if (typeof input.message_id !== "string" || input.message_id.length === 0) {
+          validationError(res, "message_id is required");
+          return;
+        }
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        const messageId = input.message_id;
+        const text: string = input.text;
+        builder = () => Promise.resolve(buildEditMessage(chatJid, messageId, text));
+        break;
+      }
+      case "forward": {
+        if (typeof input.message_id !== "string" || input.message_id.length === 0) {
+          validationError(res, "message_id is required");
+          return;
+        }
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        const messageId = input.message_id;
+        const original = fetchMessageFromStore(opts.store, messageId);
+        if (original === null) {
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+          return;
+        }
+        builder = () => buildForwardMessage(original);
+        break;
+      }
+      case "location": {
+        if (typeof input.latitude !== "number" || typeof input.longitude !== "number") {
+          validationError(res, "latitude and longitude are required numbers");
+          return;
+        }
+        if (input.label !== undefined && typeof input.label !== "string") {
+          validationError(res, "label must be a string");
+          return;
+        }
+        const latitude = input.latitude;
+        const longitude = input.longitude;
+        builder = () =>
+          buildLocationMessage(latitude, longitude, input.label as string | undefined);
+        break;
+      }
+      case "contact": {
+        if (typeof input.contact_name !== "string" || input.contact_name.length === 0) {
+          validationError(res, "contact_name is required");
+          return;
+        }
+        if (
+          !Array.isArray(input.phones) ||
+          input.phones.some((phone) => typeof phone !== "string")
+        ) {
+          validationError(res, "phones must be an array of strings");
+          return;
+        }
+        const contactName = input.contact_name;
+        const phones = input.phones as string[];
+        builder = () => Promise.resolve(buildContactMessage(contactName, phones));
+        break;
+      }
+      case "poll": {
+        if (typeof input.poll_name !== "string" || input.poll_name.length === 0) {
+          validationError(res, "poll_name is required");
+          return;
+        }
+        if (
+          !Array.isArray(input.options) ||
+          input.options.length === 0 ||
+          input.options.some((option) => typeof option !== "string")
+        ) {
+          validationError(res, "options must be a non-empty array of strings");
+          return;
+        }
+        if (input.selectable_count !== undefined && typeof input.selectable_count !== "number") {
+          validationError(res, "selectable_count must be a number");
+          return;
+        }
+        const pollName = input.poll_name;
+        const options = input.options as string[];
+        builder = () =>
+          buildPollMessage(pollName, options, input.selectable_count as number | undefined);
+        break;
+      }
+      default:
+        validationError(res, `unknown send kind: ${kind}`);
+        return;
     }
-    if (input.mentions !== undefined && !Array.isArray(input.mentions)) {
-      validationError(res, "mentions must be an array");
-      return;
-    }
-    if (input.reply_to_message_id !== undefined && typeof input.reply_to_message_id !== "string") {
-      validationError(res, "reply_to_message_id must be a string");
-      return;
-    }
-    if (input.link_preview !== undefined && typeof input.link_preview !== "boolean") {
-      validationError(res, "link_preview must be a boolean");
-      return;
-    }
-    if (input.media !== undefined) {
-      sendJson(res, 501, {
-        error: { code: "NOT_IMPLEMENTED", message: "media send not wired yet" },
-      });
-      return;
-    }
-    if (!isValidRecipientJid(input.chat_jid)) {
+    if (!isValidRecipientJid(chatJid)) {
       sendJson(res, 400, {
-        error: { code: "INVALID_JID", message: `cannot resolve recipient: ${input.chat_jid}` },
+        error: { code: "INVALID_JID", message: `cannot resolve recipient: ${chatJid}` },
       });
       return;
     }
@@ -355,8 +506,6 @@ export async function createHttpServer(
       });
       return;
     }
-    const chatJid: string = input.chat_jid;
-    const text: string = input.text;
     const verdict = opts.sendGuard.check(Date.now());
     if (!verdict.ok) {
       if (verdict.code === "RATE_LIMITED") {
@@ -377,12 +526,7 @@ export async function createHttpServer(
       }
       return;
     }
-    void buildTextMessage({
-      text,
-      mentions: input.mentions as string[] | undefined,
-      quotedMessageId: input.reply_to_message_id,
-      linkPreview: input.link_preview,
-    })
+    void builder()
       .then((content) => sendViaSocket(socket, chatJid, content, opts))
       .then((result) => {
         opts.sendGuard?.record(Date.now());

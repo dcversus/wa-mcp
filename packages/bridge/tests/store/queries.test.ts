@@ -7,6 +7,7 @@ import type { WAMessage } from "@whiskeysockets/baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
 import {
+  fetchMessageFromStore,
   getMessageContext,
   listChats,
   listMessages,

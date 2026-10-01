@@ -627,7 +627,10 @@ test("the outbound sender is not recorded as the recipient", async () => {
   expect(row.sender_jid ?? null).toBeNull();
 });
 
-async function postSend(bridge: BridgeHttp, body: Record<string, unknown>): Promise<{
+async function postSend(
+  bridge: BridgeHttp,
+  body: Record<string, unknown>,
+): Promise<{
   status: number;
   body: Record<string, unknown> & { error?: { code?: string } };
 }> {
@@ -752,9 +755,15 @@ test("POST /api/send routes location, contact and poll kinds", async () => {
   });
   expect(poll.status).toBe(200);
   const sent = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
-  expect(((sent[0]?.[1] as { locationMessage?: { name?: string } }).locationMessage?.name)).toBe("Kallio");
-  expect(((sent[1]?.[1] as { contactMessage?: { displayName?: string } }).contactMessage?.displayName)).toBe("John Doe");
-  const pollArg = sent[2]?.[1] as { pollCreationMessageV3?: { name?: string } } | { pollCreationMessage?: { name?: string } };
+  expect((sent[0]?.[1] as { locationMessage?: { name?: string } }).locationMessage?.name).toBe(
+    "Kallio",
+  );
+  expect(
+    (sent[1]?.[1] as { contactMessage?: { displayName?: string } }).contactMessage?.displayName,
+  ).toBe("John Doe");
+  const pollArg = sent[2]?.[1] as
+    | { pollCreationMessageV3?: { name?: string } }
+    | { pollCreationMessage?: { name?: string } };
   const pollName =
     ("pollCreationMessageV3" in pollArg ? pollArg.pollCreationMessageV3?.name : undefined) ??
     ("pollCreationMessage" in pollArg ? pollArg.pollCreationMessage?.name : undefined);
