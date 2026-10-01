@@ -10,6 +10,7 @@ import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { SendGuard } from "../src/send/safety.ts";
+import { upsertContact } from "../src/store/contacts.ts";
 import { storeMessage } from "../src/store/messages.ts";
 
 const created: BridgeHttp[] = [];
@@ -121,6 +122,12 @@ describe("auth matrix", () => {
     ["POST", "/mcp"],
     ["GET", "/api/context"],
     ["GET", "/api/search"],
+    ["POST", "/api/read"],
+    ["POST", "/api/presence"],
+    ["POST", "/api/chat/state"],
+    ["GET", "/api/contacts"],
+    ["GET", "/api/unread"],
+    ["POST", "/api/alias"],
   ];
 
   test("every non-health endpoint rejects a missing token with 401", async () => {
@@ -959,4 +966,118 @@ test("POST /mcp reports parse errors in-band", async () => {
   const body = (await res.json()) as { id: null; error: { code: number } };
   expect(body.id).toBeNull();
   expect(body.error.code).toBe(-32700);
+});
+
+
+test("POST /api/read marks rows and sends the receipt", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  seedRow(store, "R1", GROUP_A, 1000, "unread one");
+  seedRow(store, "R2", GROUP_A, 2000, "unread two");
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/read"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: GROUP_A, message_ids: ["R1", "R2"] }),
+  });
+  expect(res.status).toBe(200);
+  const unread = store.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = ? AND is_unread = 1").get(GROUP_A) as {
+    n: number;
+  };
+  expect(unread.n).toBe(0);
+  const call = (socket.readMessages as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Array<{ id: string }>;
+  expect(call.map((key) => key.id)).toEqual(["R1", "R2"]);
+});
+
+test("POST /api/presence sends the presence type", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/presence"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: GROUP_A, presence: "composing" }),
+  });
+  expect(res.status).toBe(200);
+  const call = (socket.sendPresenceUpdate as ReturnType<typeof vi.fn>).mock.calls[0];
+  expect(call?.[0]).toBe("composing");
+  expect(call?.[1]).toBe(GROUP_A);
+  const invalid = await fetch(url(bridge, "/api/presence"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: GROUP_A, presence: "teleporting" }),
+  });
+  expect(invalid.status).toBe(400);
+  expect(((await invalid.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+});
+
+test("POST /api/chat/state persists chat flags", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  seedRow(store, "A1", GROUP_A, 1000, "hello");
+  const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/chat/state"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: GROUP_A, archived: true, pinned: true, muted_until: "2026-10-03T12:00:00.000Z" }),
+  });
+  expect(res.status).toBe(200);
+  const row = store.db.prepare("SELECT archived, pinned, muted_until FROM chats WHERE jid = ?").get(GROUP_A) as
+    | { archived: number; pinned: number; muted_until: string }
+    | undefined;
+  expect(row?.archived).toBe(1);
+  expect(row?.pinned).toBe(1);
+  expect(row?.muted_until).toBe("2026-10-03T12:00:00.000Z");
+});
+
+test("GET /api/contacts searches contacts", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  upsertContact(store, { jid: "358461111111@s.whatsapp.net", name: "John Doe" });
+  upsertContact(store, { jid: "358462222222@s.whatsapp.net", name: "Jane" });
+  const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
+  created.push(bridge);
+  const all = await fetch(url(bridge, "/api/contacts"), { headers: authHeader });
+  const allBody = (await all.json()) as { contacts: Array<{ name: string | null }> };
+  expect(allBody.contacts).toHaveLength(2);
+  const search = await fetch(url(bridge, "/api/contacts?query=john"), { headers: authHeader });
+  const searchBody = (await search.json()) as { contacts: Array<{ name: string | null }> };
+  expect(searchBody.contacts.map((contact) => contact.name)).toEqual(["John Doe"]);
+});
+
+test("GET /api/unread returns nonzero counts", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "A1", GROUP_A, 1000, "one");
+    seedRow(store, "A2", GROUP_A, 2000, "two");
+    seedRow(store, "B1", GROUP_B, 3000, "three");
+  });
+  const res = await fetch(url(bridge, "/api/unread"), { headers: authHeader });
+  const body = (await res.json()) as { unread: Array<{ chatJid: string; unreadCount: number }> };
+  expect(body.unread).toEqual([
+    { chatJid: GROUP_B, unreadCount: 1 },
+    { chatJid: GROUP_A, unreadCount: 2 },
+  ]);
+});
+
+test("POST /api/alias remembers a jid", async () => {
+  const bridge = await bootWithStore(() => {});
+  const res = await fetch(url(bridge, "/api/alias"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ alias: "me", jid: "358497773518@s.whatsapp.net" }),
+  });
+  expect(res.status).toBe(200);
 });
