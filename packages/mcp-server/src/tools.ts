@@ -335,6 +335,116 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "mark_chat_read",
+    description: "Mark every unread message of one chat as read.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: { chat_jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const listed = (await bridgeFetch(
+        toolCtx,
+        `/api/messages${query({ chat_jid: chatJid, limit: 200 })}`,
+      )) as { messages?: Array<{ id?: string; isUnread?: boolean }> };
+      const unreadIds = (listed.messages ?? [])
+        .filter((message) => message.isUnread === true && message.id !== undefined)
+        .map((message) => message.id as string);
+      if (unreadIds.length === 0) {
+        return { content: [{ type: "text", text: "no unread messages" }] };
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/read", {
+        method: "POST",
+        body: JSON.stringify({ chat_jid: chatJid, message_ids: unreadIds }),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "set_chat_state",
+    description: "Set chat flags: archived, pinned, muted until (ISO instant or null).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+        archived: { type: "boolean" },
+        pinned: { type: "boolean" },
+        muted_until: { type: "string", description: "ISO instant, or null to unmute" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body: Record<string, unknown> = { chat_jid: requireString(args, "chat_jid") };
+      if (args.archived !== undefined) {
+        body.archived = args.archived;
+      }
+      if (args.pinned !== undefined) {
+        body.pinned = args.pinned;
+      }
+      if (args.muted_until !== undefined) {
+        body.muted_until = args.muted_until;
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/state", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "list_contacts",
+    description: "List or search stored WhatsApp contacts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Case-insensitive search over name, pushname and jid",
+        },
+        limit: { type: "number" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const queryValue = typeof args.query === "string" ? args.query : undefined;
+      const limit = optionalNumber(args, "limit");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/contacts${query({ query: queryValue, limit })}`,
+      )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "set_alias",
+    description: "Remember a contact under a short alias that other tools can resolve.",
+    inputSchema: {
+      type: "object",
+      required: ["alias", "jid"],
+      properties: {
+        alias: { type: "string" },
+        jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { alias: requireString(args, "alias"), jid: requireString(args, "jid") };
+      const payload = (await bridgeFetch(toolCtx, "/api/alias", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "get_unread_counts",
+    description: "Per-chat unread message counts (nonzero only, newest activity first).",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx) => {
+      const payload = (await bridgeFetch(toolCtx, "/api/unread")) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {

@@ -163,10 +163,14 @@ test("reaction, edit and forward route their kinds", async () => {
   expect(bodies[2]).toEqual({ kind: "forward", chat_jid: "g", message_id: "T1" });
 });
 
-
 test("mark_chat_read collects unread ids then posts them", async () => {
   const { fetchFn, calls } = mockFetch({
-    "/api/messages?chat_jid=g&limit=200": { messages: [{ id: "U1", isUnread: true }, { id: "OLD", isUnread: false }] },
+    "/api/messages?chat_jid=g&limit=200": {
+      messages: [
+        { id: "U1", isUnread: true },
+        { id: "OLD", isUnread: false },
+      ],
+    },
     "/api/read": { read: 1 },
   });
   const tool = toolByName("mark_chat_read");
@@ -180,7 +184,10 @@ test("set_chat_state posts its flags", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chat/state": { ok: true } });
   const tool = toolByName("set_chat_state");
   if (!tool) throw new Error("set_chat_state missing");
-  await tool.handler({ ...ctx, fetchFn }, { chat_jid: "g", archived: true, muted_until: "2026-10-03T00:00:00.000Z" });
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "g", archived: true, muted_until: "2026-10-03T00:00:00.000Z" },
+  );
   expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
     chat_jid: "g",
     archived: true,
@@ -202,7 +209,10 @@ test("list_contacts, set_alias and get_unread_counts call their endpoints", asyn
   const alias = toolByName("set_alias");
   if (!alias) throw new Error("set_alias missing");
   await alias.handler(toolCtx, { alias: "me", jid: "358497773518@s.whatsapp.net" });
-  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ alias: "me", jid: "358497773518@s.whatsapp.net" });
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({
+    alias: "me",
+    jid: "358497773518@s.whatsapp.net",
+  });
   const unread = toolByName("get_unread_counts");
   if (!unread) throw new Error("get_unread_counts missing");
   const unreadResult = await unread.handler(toolCtx, {});
