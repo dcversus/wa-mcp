@@ -525,6 +525,23 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "get_media",
+    description:
+      "Download the media of a stored message (image/video/audio/document/sticker) and return its local file metadata.",
+    inputSchema: {
+      type: "object",
+      required: ["message_id"],
+      properties: { message_id: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const messageId = requireString(args, "message_id");
+      const payload = (await bridgeFetch(toolCtx, `/api/media/${encodeURIComponent(messageId)}`, {
+        method: "POST",
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {
