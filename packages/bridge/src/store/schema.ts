@@ -137,9 +137,15 @@ CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
 END;
 `;
 
+const MIGRATION_V3 = `
+ALTER TABLE contacts ADD COLUMN phone TEXT;
+ALTER TABLE contacts ADD COLUMN username TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
+  { version: 3, sql: MIGRATION_V3 },
 ];
 
 export function openStore(dir: string): Store {

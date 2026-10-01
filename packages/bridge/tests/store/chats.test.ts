@@ -4,8 +4,14 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
-import { getUnreadCounts, markAllRead, markChatRead, setChatArchived, setChatMuted, setChatPinned } from "../../src/store/chats.ts";
-import type { WAMessage } from "@whiskeysockets/baileys";
+import {
+  getUnreadCounts,
+  markAllRead,
+  markChatRead,
+  setChatArchived,
+  setChatMuted,
+  setChatPinned,
+} from "../../src/store/chats.ts";
 
 const GROUP_A = "120363428874442773@g.us";
 const GROUP_B = "120363999999999999@g.us";
@@ -30,7 +36,9 @@ test("chat flags persist", () => {
     setChatArchived(store, GROUP_A, true);
     setChatPinned(store, GROUP_A, true);
     setChatMuted(store, GROUP_A, "2026-10-03T12:00:00.000Z");
-    const row = store.db.prepare("SELECT archived, pinned, muted_until FROM chats WHERE jid = ?").get(GROUP_A) as {
+    const row = store.db
+      .prepare("SELECT archived, pinned, muted_until FROM chats WHERE jid = ?")
+      .get(GROUP_A) as {
       archived: number;
       pinned: number;
       muted_until: string;
@@ -40,7 +48,9 @@ test("chat flags persist", () => {
     expect(row.muted_until).toBe("2026-10-03T12:00:00.000Z");
     setChatArchived(store, GROUP_A, false);
     setChatMuted(store, GROUP_A, null);
-    const after = store.db.prepare("SELECT archived, muted_until FROM chats WHERE jid = ?").get(GROUP_A) as {
+    const after = store.db
+      .prepare("SELECT archived, muted_until FROM chats WHERE jid = ?")
+      .get(GROUP_A) as {
       archived: number;
       muted_until: string | null;
     };
@@ -57,7 +67,9 @@ test("markChatRead zeroes unread and writes a read_state row", () => {
     seed(store, "A1", GROUP_A, 1000, "one");
     seed(store, "A2", GROUP_A, 2000, "two");
     markChatRead(store, GROUP_A);
-    const unread = store.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = ? AND is_unread = 1").get(GROUP_A) as {
+    const unread = store.db
+      .prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = ? AND is_unread = 1")
+      .get(GROUP_A) as {
       n: number;
     };
     expect(unread.n).toBe(0);
@@ -79,7 +91,9 @@ test("markAllRead clears every chat", () => {
     seed(store, "A1", GROUP_A, 1000, "a");
     seed(store, "B1", GROUP_B, 2000, "b");
     markAllRead(store);
-    const unread = store.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE is_unread = 1").get() as { n: number };
+    const unread = store.db
+      .prepare("SELECT COUNT(*) AS n FROM messages WHERE is_unread = 1")
+      .get() as { n: number };
     expect(unread.n).toBe(0);
     const states = store.db.prepare("SELECT chat_jid FROM read_state ORDER BY chat_jid").all();
     expect(states).toHaveLength(2);

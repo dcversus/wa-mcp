@@ -3,7 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { openStore, type Store } from "../../src/store/schema.ts";
-import { deleteContact, getAlias, getContact, listContacts, setAlias, upsertContact } from "../../src/store/contacts.ts";
+import {
+  deleteContact,
+  getAlias,
+  getContact,
+  listContacts,
+  setAlias,
+  upsertContact,
+} from "../../src/store/contacts.ts";
 
 function makeStore(): Store {
   return openStore(mkdtempSync(join(tmpdir(), "wa-mcp-contacts-")));
@@ -12,7 +19,11 @@ function makeStore(): Store {
 test("upsertContact inserts and getContact reads it back", () => {
   const store = makeStore();
   try {
-    upsertContact(store, { jid: "358497773518@s.whatsapp.net", name: "Vasilisa", pushname: "vasi" });
+    upsertContact(store, {
+      jid: "358497773518@s.whatsapp.net",
+      name: "Vasilisa",
+      pushname: "vasi",
+    });
     const contact = getContact(store, "358497773518@s.whatsapp.net");
     expect(contact).toEqual({
       jid: "358497773518@s.whatsapp.net",
