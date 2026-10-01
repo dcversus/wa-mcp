@@ -46,3 +46,26 @@ commits; the `ci` workflow (check / test×6 / build) runs on every push and is t
 mechanical gate.
 
 **Status:** OPEN — needs owner action (plan upgrade). No other task blocked.
+
+---
+
+## 2026-10-01 — Node 20 cannot run vp/vitest 5 toolchain (GOAL §14 CI matrix)
+
+**Blocker (evidence, not assumption):** vite-plus 1.0.0 `engines.node` =
+`^22.18.0 || ^24.11.0 || >=26.0.0`; its bundled vitest 5.0.1 `engines.node` =
+`^22.12.0 || ^24.0.0 || >=26.0.0`; pnpm 11 requires Node >=22.13. First CI run
+(36906487255) confirmed: all three `test (node 20)` legs failed at
+`actions/setup-node` with `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` from pnpm 11.
+Node 20 legs therefore cannot execute `vp test` (or vitest 5, or pnpm 11).
+
+**Proposed default (implemented):** keep the 6-leg matrix (ubuntu/macos/windows ×
+20/22). Node 22 legs run the full `pnpm exec vp test`. Node 20 legs verify what a
+node-20 leg can honestly verify — that the built `dist` output runs on Node 20:
+`build` job uploads `packages/*/dist` as an artifact, node-20 legs download it and
+run `node scripts/ci-smoke.mjs` (imports each package's built entry, asserts
+exports). Devtool compatibility testing on Node 20 is impossible with the mandated
+toolchain; alternatives (standalone vitest@3 shadow dep) rejected as flaky/dishonest.
+
+**Status:** OPEN for orchestrator review — matrix passes mechanically, but if the
+orchestrator wants genuine vp-run tests on node 20, the toolchain choice (vp
+version) must change. No other task blocked.
