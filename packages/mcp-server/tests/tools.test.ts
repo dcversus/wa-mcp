@@ -44,6 +44,11 @@ test("the registry exposes the full launch set", () => {
     "send_reaction",
     "edit_message",
     "forward_message",
+    "mark_chat_read",
+    "set_chat_state",
+    "list_contacts",
+    "set_alias",
+    "get_unread_counts",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -156,4 +161,55 @@ test("reaction, edit and forward route their kinds", async () => {
   expect(bodies[0]).toEqual({ kind: "reaction", chat_jid: "g", message_id: "T1", emote: "👍" });
   expect(bodies[1]).toEqual({ kind: "edit", chat_jid: "g", message_id: "T1", text: "v2" });
   expect(bodies[2]).toEqual({ kind: "forward", chat_jid: "g", message_id: "T1" });
+});
+
+
+test("mark_chat_read collects unread ids then posts them", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/messages?chat_jid=g&limit=200": { messages: [{ id: "U1", isUnread: true }, { id: "OLD", isUnread: false }] },
+    "/api/read": { read: 1 },
+  });
+  const tool = toolByName("mark_chat_read");
+  if (!tool) throw new Error("mark_chat_read missing");
+  await tool.handler({ ...ctx, fetchFn }, { chat_jid: "g" });
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/read");
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ chat_jid: "g", message_ids: ["U1"] });
+});
+
+test("set_chat_state posts its flags", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/chat/state": { ok: true } });
+  const tool = toolByName("set_chat_state");
+  if (!tool) throw new Error("set_chat_state missing");
+  await tool.handler({ ...ctx, fetchFn }, { chat_jid: "g", archived: true, muted_until: "2026-10-03T00:00:00.000Z" });
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "g",
+    archived: true,
+    muted_until: "2026-10-03T00:00:00.000Z",
+  });
+});
+
+test("list_contacts, set_alias and get_unread_counts call their endpoints", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/contacts?query=jo": { contacts: [{ jid: "x", name: "John" }] },
+    "/api/alias": { ok: true },
+    "/api/unread": { unread: [{ chatJid: "g", unreadCount: 2 }] },
+  });
+  const toolCtx = { ...ctx, fetchFn };
+  const contacts = toolByName("list_contacts");
+  if (!contacts) throw new Error("list_contacts missing");
+  const contactResult = await contacts.handler(toolCtx, { query: "jo" });
+  expect(contactResult.content[0]?.text).toContain("John");
+  const alias = toolByName("set_alias");
+  if (!alias) throw new Error("set_alias missing");
+  await alias.handler(toolCtx, { alias: "me", jid: "358497773518@s.whatsapp.net" });
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ alias: "me", jid: "358497773518@s.whatsapp.net" });
+  const unread = toolByName("get_unread_counts");
+  if (!unread) throw new Error("get_unread_counts missing");
+  const unreadResult = await unread.handler(toolCtx, {});
+  expect(unreadResult.content[0]?.text).toContain("unreadCount");
+  expect(calls.map((call) => call.url.replace("http://bridge.test:8080", ""))).toEqual([
+    "/api/contacts?query=jo",
+    "/api/alias",
+    "/api/unread",
+  ]);
 });

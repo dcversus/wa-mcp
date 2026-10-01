@@ -63,6 +63,11 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "send_reaction",
     "edit_message",
     "forward_message",
+    "mark_chat_read",
+    "set_chat_state",
+    "list_contacts",
+    "set_alias",
+    "get_unread_counts",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
