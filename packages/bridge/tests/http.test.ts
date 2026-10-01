@@ -563,3 +563,65 @@ test("POST /api/send reports media payloads as not yet implemented", async () =>
   expect(res.status).toBe(501);
   expect(((await res.json()) as { error: { code: string } }).error.code).toBe("NOT_IMPLEMENTED");
 });
+
+test("an unresolvable jid fails as INVALID_JID even when the guard would pace", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle(), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 60_000, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const send = (chatJid: string, text: string) =>
+    fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: chatJid, text }),
+    });
+  expect((await send("358497773518@s.whatsapp.net", "first")).status).toBe(200);
+  const bad = await send("garbage@@@", "should fail as invalid jid");
+  expect(bad.status).toBe(400);
+  expect(((await bad.json()) as { error: { code: string } }).error.code).toBe("INVALID_JID");
+});
+
+test("the outbound row keeps the sent text even when the socket return omits it", async () => {
+  const sendMessage = vi.fn(async (jid: string) => ({
+    key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
+  }));
+  const socket = { sendMessage } as unknown as WASocket;
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "persisted text" }),
+  });
+  expect(res.status).toBe(200);
+  const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
+  expect(row.content).toBe("persisted text");
+});
+
+test("the outbound sender is not recorded as the recipient", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle(), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "to myself" }),
+  });
+  const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
+  expect(row.sender_jid ?? null).toBeNull();
+});
