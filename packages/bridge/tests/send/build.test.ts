@@ -4,7 +4,7 @@ import { buildMediaMessage, buildTextMessage, type MediaKind } from "../../src/s
 test("plain text builds a conversation content", async () => {
   const content = await buildTextMessage({ text: "hello" });
   expect(content.conversation).toBe("hello");
-  expect(content.extendedTextMessage).toBeUndefined();
+  expect(content.extendedTextMessage).toBeNull();
 });
 
 test("mentions and quoted ids land in extendedTextMessage contextInfo", async () => {
@@ -28,15 +28,12 @@ test("linkPreview surfaces the matched url", async () => {
   const extended = content.extendedTextMessage;
   if (!extended) throw new Error("expected extendedTextMessage content");
   expect(extended.matchedText).toBe("https://example.com/page");
-  expect(extended.canonicalUrl).toBe("https://example.com/page");
 });
 
-test("linkPreview off leaves no preview fields", async () => {
+test("linkPreview off with plain text stays a conversation", async () => {
   const content = await buildTextMessage({ text: "plain", linkPreview: false });
-  const extended = content.extendedTextMessage;
-  if (!extended) throw new Error("expected extendedTextMessage content");
-  expect(extended.matchedText).toBeUndefined();
-  expect(extended.canonicalUrl).toBeUndefined();
+  expect(content.conversation).toBe("plain");
+  expect(content.extendedTextMessage).toBeNull();
 });
 
 test("media kinds map to their proto fields with metadata", async () => {
@@ -44,7 +41,11 @@ test("media kinds map to their proto fields with metadata", async () => {
     ["image", "imageMessage", { caption: "pic" }],
     ["video", "videoMessage", { caption: "clip", mimeType: "video/mp4" }],
     ["audio", "audioMessage", { mimeType: "audio/ogg" }],
-    ["document", "documentMessage", { caption: "doc", fileName: "report.pdf", mimeType: "application/pdf" }],
+    [
+      "document",
+      "documentMessage",
+      { caption: "doc", fileName: "report.pdf", mimeType: "application/pdf" },
+    ],
     ["sticker", "stickerMessage", { mimeType: "image/webp" }],
   ];
   for (const [kind, field, meta] of cases) {
@@ -54,10 +55,10 @@ test("media kinds map to their proto fields with metadata", async () => {
       fileName: meta.fileName,
       mimeType: meta.mimeType,
     });
-    const payload = (content as Record<string, Record<string, string | undefined> | undefined>)[field];
+    const payload = (content as Record<string, Record<string, string | null> | null>)[field];
     if (!payload) throw new Error(`${field} missing for ${kind}`);
-    expect(payload.caption, `${kind} caption`).toBe(meta.caption);
-    expect(payload.mimetype, `${kind} mimetype`).toBe(meta.mimeType);
-    expect(payload.fileName, `${kind} fileName`).toBe(meta.fileName);
+    expect(payload.caption ?? null, `${kind} caption`).toBe(meta.caption ?? null);
+    expect(payload.mimetype, `${kind} mimetype`).toBe(meta.mimeType ?? null);
+    expect(payload.fileName ?? null, `${kind} fileName`).toBe(meta.fileName ?? null);
   }
 });

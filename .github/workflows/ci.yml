@@ -29,7 +29,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
+      - run: |
+          pnpm --filter @wa-mcp/shared build
+          pnpm run build
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -56,6 +58,7 @@ jobs:
         if: matrix.node == 22
         run: |
           pnpm install --frozen-lockfile
+          pnpm --filter @wa-mcp/shared build
           pnpm exec vp test
       - uses: actions/setup-node@v4
         if: matrix.node == 20
