@@ -1116,7 +1116,6 @@ test("POST /api/alias remembers a jid", async () => {
   expect(res.status).toBe(200);
 });
 
-
 test("POST /api/profile updates name and status", async () => {
   const socket = makeFakeSocket();
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
@@ -1203,7 +1202,10 @@ test("POST /api/block and GET /api/blocklist work", async () => {
     body: JSON.stringify({ jid: "999@s.whatsapp.net", block: true }),
   });
   expect(res.status).toBe(200);
-  expect((socket.updateBlockStatus as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("999@s.whatsapp.net", "block");
+  expect(socket.updateBlockStatus as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(
+    "999@s.whatsapp.net",
+    "block",
+  );
   const list = await fetch(url(bridge, "/api/blocklist"), { headers: authHeader });
   const listBody = (await list.json()) as { blocklist: string[] };
   expect(listBody.blocklist).toEqual(["999@s.whatsapp.net"]);

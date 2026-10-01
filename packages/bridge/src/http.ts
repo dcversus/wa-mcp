@@ -16,6 +16,14 @@ import {
 import { listContacts, setAlias } from "./store/contacts.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
 import {
+  ValidationError,
+  blockUnblock,
+  getBlocklist,
+  setProfilePicture,
+  updatePrivacy,
+  updateProfile,
+} from "./profile.ts";
+import {
   fetchMessageFromStore,
   getMessageContext,
   listChats,
@@ -845,6 +853,112 @@ export async function createHttpServer(
     }
   };
 
+  const serveProfile = (
+    route: string,
+    req: IncomingMessage,
+    res: ServerResponse,
+    body: Buffer,
+  ): void => {
+    const socket = handle.socket;
+    if (socket === undefined || socket === null) {
+      sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    if (parsed === null || typeof parsed !== "object") {
+      validationError(res, "body must be a JSON object");
+      return;
+    }
+    const input = parsed as {
+      name?: unknown;
+      status?: unknown;
+      image_base64?: unknown;
+      jid?: unknown;
+      block?: unknown;
+    };
+    const runProfile = <T>(work: () => Promise<T>): void => {
+      void work()
+        .then((result) => {
+          sendJson(res, 200, result as Record<string, unknown>);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof ValidationError) {
+            sendJson(res, 400, { error: { code: err.code, message: err.message } });
+            return;
+          }
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "profile update failed" } });
+        });
+    };
+    if (route === "/api/profile") {
+      const update: { name?: string; status?: string } = {};
+      if (input.name !== undefined) {
+        if (typeof input.name !== "string" || input.name.length === 0) {
+          validationError(res, "name must be a non-empty string");
+          return;
+        }
+        update.name = input.name;
+      }
+      if (input.status !== undefined) {
+        if (typeof input.status !== "string") {
+          validationError(res, "status must be a string");
+          return;
+        }
+        update.status = input.status;
+      }
+      if (update.name === undefined && update.status === undefined) {
+        validationError(res, "name or status is required");
+        return;
+      }
+      runProfile(() => updateProfile(socket, update).then(() => ({ ok: true })));
+      return;
+    }
+    if (route === "/api/profile/picture") {
+      if (typeof input.image_base64 !== "string" || input.image_base64.length === 0) {
+        validationError(res, "image_base64 is required");
+        return;
+      }
+      const buffer = Buffer.from(input.image_base64, "base64");
+      if (buffer.length === 0) {
+        validationError(res, "image_base64 is not valid base64");
+        return;
+      }
+      runProfile(() => setProfilePicture(socket, buffer).then(() => ({ ok: true })));
+      return;
+    }
+    if (route === "/api/privacy") {
+      if (parsed === null || typeof parsed !== "object") {
+        validationError(res, "privacy patch is required");
+        return;
+      }
+      runProfile(() =>
+        updatePrivacy(socket, parsed as Record<string, string>).then((applied) => ({ applied })),
+      );
+      return;
+    }
+    if (route === "/api/block") {
+      if (typeof input.jid !== "string" || input.jid.length === 0) {
+        validationError(res, "jid is required");
+        return;
+      }
+      if (typeof input.block !== "boolean") {
+        validationError(res, "block must be a boolean");
+        return;
+      }
+      runProfile(() =>
+        blockUnblock(socket, input.jid as string, input.block as boolean).then(() => ({
+          ok: true,
+        })),
+      );
+      return;
+    }
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -907,6 +1021,32 @@ export async function createHttpServer(
         path === "/api/alias"
       ) {
         serveReadPost(path, req, res, body);
+        return;
+      }
+      if (
+        path === "/api/profile" ||
+        path === "/api/profile/picture" ||
+        path === "/api/privacy" ||
+        path === "/api/block"
+      ) {
+        serveProfile(path, req, res, body);
+        return;
+      }
+      if (path === "/api/blocklist") {
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        void getBlocklist(socket)
+          .then((blocklist) => {
+            sendJson(res, 200, { blocklist });
+          })
+          .catch(() => {
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "blocklist failed" } });
+          });
         return;
       }
       if (path === "/api/contacts") {
