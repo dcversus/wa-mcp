@@ -8,7 +8,6 @@ import type { BridgeHandle } from "./lifecycle.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
 import {
   getUnreadCounts,
-  markChatRead,
   markMessagesRead,
   setChatArchived,
   setChatMuted,
