@@ -69,3 +69,24 @@ toolchain; alternatives (standalone vitest@3 shadow dep) rejected as flaky/disho
 **Status:** OPEN for orchestrator review — matrix passes mechanically, but if the
 orchestrator wants genuine vp-run tests on node 20, the toolchain choice (vp
 version) must change. No other task blocked.
+
+## 2026-10-02 — npm name squat-watch (owner request: secure wa-mcp everywhere ASAP)
+
+- Owner asked to take the `wa-mcp` name everywhere ASAP ("check for example npm cli").
+- Probed (2026-10-02, orchestrator, curl):
+  - `https://registry.npmjs.org/wa-mcp` → 404 (name FREE, unscoped)
+  - npm org `wa-mcp` → no org exists (FREE)
+  - GitHub org `wa-mcp` → 404 (FREE)
+  - Docker Hub `wa-mcp` → count 0 (FREE)
+  - **PyPI `wa-mcp` → 200 — TAKEN by a third party** (squat risk is REAL, confirmed)
+  - npm nearby names: @open-wa/mcp, @wppconnect/wa-version exist — ecosystem squatting observed
+- Blocker: local `npm` has an old npmjs.org token (E401, expired), no valid npm credentials on this machine; `npm login` requires interactive browser + 2FA; gh API cannot create orgs (404 — org creation is web-only per GitHub).
+- Proposed default: owner logs into npm in their browser/terminal once (or drops a fresh granular publish token into ~/.npmrc via `npm token create`), then orchestrator immediately (a) `npm org create wa-mcp` or first-publish of the 0.9.0 tarball as `wa-mcp@0.9.0` placeholder = name claimed, (b) GitHub org `wa-mcp` created manually by owner (web-only), (c) Docker Hub namespace later (post-0.9.0).
+- NOTE: contract "NOT PUBLISHED" hard rule — first publish of the real 0.9.0 stays deferred; the name-claim publish (if owner approves) would be a minimal placeholder package (name + description + repo link) to establish priority. Awaiting owner decision: claim-now-placeholder vs full-0.9.0-first-publish.
+
+## 2026-10-02 — npm name-claim attempt (2FA gate)
+
+- npm authenticated as `dcversus` (fresh token present in ~/.npmrc).
+- `wa-mcp` verified FREE at claim time; placeholder `wa-mcp@0.0.1` (name+description+repo link, 2 files, no code) built and dry-run clean.
+- `npm publish` → blocked by account 2FA (one-time password required). Orchestrator cannot read OTP codes — owner asked via Telegram for: OTP relay, self-publish, or 2FA-disable-then-retry.
+- Real 0.9.0 publish remains deferred (contract rule 2). Placeholder only claims the name.
