@@ -3,11 +3,26 @@ import { TOOLS, toolByName, type ToolContext } from "../src/tools.ts";
 
 const ctx: ToolContext = { bridgeUrl: "http://bridge.test:8080", token: "tok" };
 
-function mockFetch(routes: Record<string, unknown>): { fetchFn: typeof fetch; calls: Array<{ url: string; init: RequestInit }> } {
-  const calls: Array<{ url: string; init: RequestInit }> = [];
+interface RecordedCall {
+  url: string;
+  method?: string;
+  body?: string;
+  headers?: Record<string, string>;
+}
+
+function mockFetch(routes: Record<string, unknown>): {
+  fetchFn: typeof fetch;
+  calls: Array<RecordedCall>;
+} {
+  const calls: Array<RecordedCall> = [];
   const fetchFn = (async (url: string | URL, init?: RequestInit) => {
     const key = String(url).replace("http://bridge.test:8080", "");
-    calls.push({ url: String(url), init: init ?? {} });
+    calls.push({
+      url: String(url),
+      method: init?.method,
+      body: typeof init?.body === "string" ? init.body : undefined,
+      headers: init?.headers as Record<string, string> | undefined,
+    });
     const payload = routes[key] ?? {};
     return new Response(JSON.stringify(payload), {
       status: 200,
@@ -32,12 +47,18 @@ test("send_message posts to the bridge with the bearer token", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "M9" } });
   const tool = toolByName("send_message");
   if (!tool) throw new Error("send_message missing");
-  const result = await tool.handler({ ...ctx, fetchFn }, { chat_jid: "358497773518", text: "hello" });
+  const result = await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518", text: "hello" },
+  );
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/send");
-  expect(calls[0]?.init.method).toBe("POST");
-  const headers = calls[0]?.init.headers as Record<string, string>;
+  expect(calls[0]?.method).toBe("POST");
+  const headers = calls[0]?.headers ?? {};
   expect(headers.authorization).toBe("Bearer tok");
-  expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ chat_jid: "358497773518", text: "hello" });
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "358497773518",
+    text: "hello",
+  });
   expect(result.content[0]?.text).toContain("M9");
 });
 
@@ -47,7 +68,7 @@ test("list_chats fetches the chat list and returns json text", async () => {
   if (!tool) throw new Error("list_chats missing");
   const result = await tool.handler({ ...ctx, fetchFn }, { limit: 50 });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/chats?limit=50");
-  expect(calls[0]?.init.method).toBe("GET");
+  expect(calls[0]?.method).toBe("GET");
   expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({ chats: [{ jid: "a@g.us" }] });
 });
 
