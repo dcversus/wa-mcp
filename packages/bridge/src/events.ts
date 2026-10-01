@@ -67,7 +67,7 @@ export function createEventBus(): EventBus {
       if (event.type === "connection.update") {
         lastConnection = event.payload;
       }
-      for (const handler of [...handlers]) {
+      for (const handler of Array.from(handlers)) {
         handler(event);
       }
     },

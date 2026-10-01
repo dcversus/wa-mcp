@@ -1,7 +1,7 @@
 packages:
   - packages/*
 allowBuilds:
-  '@whiskeysockets/baileys': false
+  "@whiskeysockets/baileys": false
   protobufjs: false
 peerDependencyRules:
   allowAny:

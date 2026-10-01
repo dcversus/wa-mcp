@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vite-plus/test";
+import { beforeEach, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
 vi.mock("@whiskeysockets/baileys", () => ({
@@ -9,7 +9,6 @@ vi.mock("@whiskeysockets/baileys", () => ({
 
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import type {
-  AuthenticationCreds,
   AuthenticationState,
   UserFacingSocketConfig,
   WASocket,
@@ -53,7 +52,7 @@ async function started() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuthState.mockResolvedValue({
-    state: {} as AuthenticationCreds as AuthenticationState,
+    state: {} as unknown as AuthenticationState,
     saveCreds: async () => {},
   });
 });
@@ -70,7 +69,8 @@ test("startBridge builds auth state from the store dir and sockets with fixed op
   expect(config.printQRInTerminal).toBe(false);
   expect(config.syncFullHistory).toBe(false);
   expect(config.browser).toEqual(["wa-mcp", "chrome", "0.9.0"]);
-  expect(config.auth).toEqual(await mockAuthState.mock.results[0]?.value.then((r) => r.state));
+  const authResult = await mockAuthState.mock.results[0]?.value;
+  expect(config.auth).toEqual(authResult?.state);
   expect(config.logger).toBe(logger);
 });
 
