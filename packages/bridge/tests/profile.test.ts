@@ -1,6 +1,13 @@
 import { expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "@whiskeysockets/baileys";
-import { ValidationError, blockUnblock, getBlocklist, setProfilePicture, updatePrivacy, updateProfile } from "../src/profile.ts";
+import {
+  ValidationError,
+  blockUnblock,
+  getBlocklist,
+  setProfilePicture,
+  updatePrivacy,
+  updateProfile,
+} from "../src/profile.ts";
 
 function fakeSocket() {
   const fns = {
@@ -18,7 +25,10 @@ function fakeSocket() {
     updateBlockStatus: vi.fn(async () => {}),
     fetchBlocklist: vi.fn(async () => ["999@s.whatsapp.net"]),
   };
-  return { sock: { ...fns, user: { jid: "358497773518@s.whatsapp.net" } } as unknown as WASocket, fns };
+  return {
+    sock: { ...fns, user: { jid: "358497773518@s.whatsapp.net" } } as unknown as WASocket,
+    fns,
+  };
 }
 
 test("updateProfile applies name and status through the engine fns", async () => {
