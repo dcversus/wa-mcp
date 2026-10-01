@@ -1,7 +1,7 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
 vi.mock("@whiskeysockets/baileys", () => ({
@@ -58,6 +58,93 @@ beforeEach(() => {
     state: {} as unknown as AuthenticationState,
     saveCreds: async () => {},
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+function multiSocketArrangement() {
+  const sockets: ReturnType<typeof fakeSocket>[] = [];
+  mockMakeWASocket.mockImplementation(() => {
+    const sock = fakeSocket();
+    sockets.push(sock);
+    return sock as unknown as WASocket;
+  });
+  const latest = () => sockets[sockets.length - 1];
+  return { sockets, latest };
+}
+
+async function startArranged() {
+  const arrangement = multiSocketArrangement();
+  const handle = await startBridge("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+  return { ...arrangement, handle };
+}
+
+function closeEvent(code: number) {
+  return { connection: "close", lastDisconnect: { error: boomLike(code), date: new Date() } };
+}
+
+test("reconnects with exponential backoff after a non-logout close", async () => {
+  vi.useFakeTimers();
+  const { latest, handle } = await startArranged();
+  latest().emit("connection.update", closeEvent(428));
+  expect(handle.status).toBe("reconnecting");
+  await vi.advanceTimersByTimeAsync(999);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(2);
+  latest().emit("connection.update", closeEvent(428));
+  await vi.advanceTimersByTimeAsync(1999);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(3);
+});
+
+test("backoff caps at 60 seconds", async () => {
+  vi.useFakeTimers();
+  const { latest } = await startArranged();
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    latest().emit("connection.update", closeEvent(428));
+    await vi.advanceTimersByTimeAsync(60_000);
+  }
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(7);
+  latest().emit("connection.update", closeEvent(428));
+  await vi.advanceTimersByTimeAsync(59_000);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(7);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(8);
+});
+
+test("logged out never reconnects", async () => {
+  vi.useFakeTimers();
+  const { latest, handle } = await startArranged();
+  latest().emit("connection.update", closeEvent(DisconnectReason.loggedOut));
+  expect(handle.status).toBe("logged-out");
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(1);
+});
+
+test("a successful connect resets the backoff attempt counter", async () => {
+  vi.useFakeTimers();
+  const { latest } = await startArranged();
+  latest().emit("connection.update", closeEvent(428));
+  await vi.advanceTimersByTimeAsync(1_000);
+  latest().emit("connection.update", { connection: "open" });
+  latest().emit("connection.update", closeEvent(428));
+  await vi.advanceTimersByTimeAsync(999);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(3);
+});
+
+test("close() cancels a pending reconnect", async () => {
+  vi.useFakeTimers();
+  const { latest, handle } = await startArranged();
+  latest().emit("connection.update", closeEvent(428));
+  await handle.close();
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(1);
 });
 
 test("startBridge builds auth state from the store dir and sockets with fixed options", async () => {
