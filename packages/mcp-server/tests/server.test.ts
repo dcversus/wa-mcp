@@ -72,6 +72,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "set_privacy",
     "block_unblock",
     "get_blocklist",
+    "get_media",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");

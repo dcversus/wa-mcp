@@ -53,6 +53,7 @@ test("the registry exposes the full launch set", () => {
     "set_privacy",
     "block_unblock",
     "get_blocklist",
+    "get_media",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -259,4 +260,17 @@ test("block_unblock posts the action and get_blocklist reads the list", async ()
   if (!list) throw new Error("get_blocklist missing");
   const result = await list.handler(toolCtx, {});
   expect(result.content[0]?.text).toContain("999@s.whatsapp.net");
+});
+
+test("get_media triggers the download and returns metadata", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/media/M1": { path: "/data/media/M1.png", mime: "image/png", size: 16 },
+  });
+  const tool = toolByName("get_media");
+  if (!tool) throw new Error("get_media missing");
+  const result = await tool.handler({ ...ctx, fetchFn }, { message_id: "M1" });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/media/M1");
+  expect(calls[0]?.method).toBe("POST");
+  expect(result.content[0]?.text).toContain("M1.png");
+  expect(result.content[0]?.text).toContain("image/png");
 });
