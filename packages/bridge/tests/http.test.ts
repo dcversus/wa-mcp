@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vite-plus/test";
@@ -6,9 +7,14 @@ import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { saveQrPng } from "../src/qr.ts";
+import { openStore, type Store } from "../src/store/schema.ts";
+import { storeMessage } from "../src/store/messages.ts";
 
 const created: BridgeHttp[] = [];
+const openedStores: Store[] = [];
 const authHeader = { authorization: "Bearer test-token" };
+const GROUP_A = "120363428874442773@g.us";
+const GROUP_B = "120363999999999999@g.us";
 
 function stubHandle(
   status: BridgeStatus = "connected",
@@ -31,7 +37,31 @@ afterEach(async () => {
   for (const bridge of created.splice(0)) {
     await bridge.close();
   }
+  for (const store of openedStores.splice(0)) {
+    store.close();
+  }
 });
+
+function seedRow(store: Store, id: string, chatJid: string, timestamp: number, text: string): void {
+  storeMessage(
+    store,
+    {
+      key: { remoteJid: chatJid, fromMe: false, id, participant: "358401112222@s.whatsapp.net" },
+      message: { conversation: text },
+      messageTimestamp: timestamp,
+      pushName: "Vasilisa",
+    } as never,
+  );
+}
+
+async function bootWithStore(seed: (store: Store) => void): Promise<BridgeHttp> {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-store-")));
+  openedStores.push(store);
+  seed(store);
+  const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+  created.push(bridge);
+  return bridge;
+}
 
 test("GET /health is public and returns the exact health shape", async () => {
   const bridge = await startServer();
@@ -72,6 +102,8 @@ describe("auth matrix", () => {
     ["GET", "/api/download"],
     ["GET", "/events"],
     ["POST", "/mcp"],
+    ["GET", "/api/context"],
+    ["GET", "/api/search"],
   ];
 
   test("every non-health endpoint rejects a missing token with 401", async () => {
@@ -258,4 +290,106 @@ test("/api/qr rejects path traversal with 400", async () => {
   expect(missing.status).toBe(404);
   const missingBody = (await missing.json()) as { error: { code: string } };
   expect(missingBody.error.code).toBe("NOT_FOUND");
+});
+
+test("GET /api/chats returns chats with previews and honors filters", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "A1", GROUP_A, 1000, "older in A");
+    seedRow(store, "A2", GROUP_A, 2000, "newest in A");
+    seedRow(store, "B1", GROUP_B, 1500, "only in B");
+    store.db.prepare("UPDATE messages SET is_unread = 0 WHERE id = 'A1'").run();
+  });
+  const res = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as {
+    chats: Array<{ jid: string; unreadCount: number; lastMessage: { text: string } | null }>;
+  };
+  expect(body.chats.map((chat) => chat.jid)).toEqual([GROUP_A, GROUP_B]);
+  expect(body.chats[0]?.unreadCount).toBe(1);
+  expect(body.chats[0]?.lastMessage?.text).toBe("newest in A");
+  const limited = await fetch(url(bridge, "/api/chats?limit=1"), { headers: authHeader });
+  const limitedBody = (await limited.json()) as { chats: unknown[] };
+  expect(limitedBody.chats).toHaveLength(1);
+  const noPreview = await fetch(url(bridge, "/api/chats?include_last_message=false"), { headers: authHeader });
+  const noPreviewBody = (await noPreview.json()) as { chats: Array<{ lastMessage: unknown }> };
+  expect(noPreviewBody.chats[0]?.lastMessage).toBeNull();
+});
+
+test("GET /api/messages filters by chat and instants with clamped pagination", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "A1", GROUP_A, 1000, "one");
+    seedRow(store, "A2", GROUP_A, 2000, "two");
+    seedRow(store, "B1", GROUP_B, 3000, "other");
+  });
+  const all = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}`), {
+    headers: authHeader,
+  });
+  const allBody = (await all.json()) as { messages: Array<{ id: string; chatJid: string; isUnread: boolean }> };
+  expect(allBody.messages.map((message) => message.id)).toEqual(["A2", "A1"]);
+  expect(allBody.messages[0]?.isUnread).toBe(true);
+  const after = await fetch(
+    url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=${encodeURIComponent("1970-01-01T00:00:01.500Z")}`),
+    { headers: authHeader },
+  );
+  const afterBody = (await after.json()) as { messages: Array<{ id: string }> };
+  expect(afterBody.messages.map((message) => message.id)).toEqual(["A2"]);
+  const clamped = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=1&offset=-9`), {
+    headers: authHeader,
+  });
+  const clampedBody = (await clamped.json()) as { messages: Array<{ id: string }> };
+  expect(clampedBody.messages.map((message) => message.id)).toEqual(["A2"]);
+});
+
+test("GET /api/messages validates parameter shapes", async () => {
+  const bridge = await bootWithStore(() => {});
+  const badDate = await fetch(url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&after=yesterday`), {
+    headers: authHeader,
+  });
+  expect(badDate.status).toBe(400);
+  const badDateBody = (await badDate.json()) as { error: { code: string } };
+  expect(badDateBody.error.code).toBe("VALIDATION_ERROR");
+  const badLimit = await fetch(url(bridge, "/api/messages?limit=many"), { headers: authHeader });
+  expect(badLimit.status).toBe(400);
+  const badLimitBody = (await badLimit.json()) as { error: { code: string } };
+  expect(badLimitBody.error.code).toBe("VALIDATION_ERROR");
+  const badOffset = await fetch(url(bridge, "/api/messages?offset=soon"), { headers: authHeader });
+  expect(badOffset.status).toBe(400);
+});
+
+test("GET /api/context returns the adjacent window including the target", async () => {
+  const bridge = await bootWithStore((store) => {
+    for (const [id, ts] of [["T1", 1000], ["T2", 2000], ["T3", 3000], ["T4", 4000]] as const) {
+      seedRow(store, id, GROUP_A, ts, `msg ${id}`);
+    }
+  });
+  const res = await fetch(url(bridge, "/api/context?message_id=T2&radius=1"), { headers: authHeader });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { messages: Array<{ id: string }> };
+  expect(body.messages.map((message) => message.id)).toEqual(["T1", "T2", "T3"]);
+  const missing = await fetch(url(bridge, "/api/context?message_id=NOPE"), { headers: authHeader });
+  expect(missing.status).toBe(404);
+  const noParam = await fetch(url(bridge, "/api/context"), { headers: authHeader });
+  expect(noParam.status).toBe(400);
+  const noParamBody = (await noParam.json()) as { error: { code: string } };
+  expect(noParamBody.error.code).toBe("VALIDATION_ERROR");
+});
+
+test("GET /api/search returns matches and requires a query", async () => {
+  const bridge = await bootWithStore((store) => {
+    seedRow(store, "S1", GROUP_A, 1000, "pizza night");
+    seedRow(store, "S2", GROUP_B, 2000, "burger time");
+  });
+  const res = await fetch(url(bridge, "/api/search?q=pizza"), { headers: authHeader });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { messages: Array<{ id: string }> };
+  expect(body.messages.map((message) => message.id)).toEqual(["S1"]);
+  const scoped = await fetch(url(bridge, `/api/search?q=burger&chat_jid=${encodeURIComponent(GROUP_B)}`), {
+    headers: authHeader,
+  });
+  const scopedBody = (await scoped.json()) as { messages: Array<{ id: string }> };
+  expect(scopedBody.messages.map((message) => message.id)).toEqual(["S2"]);
+  const missing = await fetch(url(bridge, "/api/search"), { headers: authHeader });
+  expect(missing.status).toBe(400);
+  const missingBody = (await missing.json()) as { error: { code: string } };
+  expect(missingBody.error.code).toBe("VALIDATION_ERROR");
 });
