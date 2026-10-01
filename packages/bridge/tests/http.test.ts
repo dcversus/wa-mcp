@@ -2,12 +2,14 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test } from "vite-plus/test";
+import { afterEach, describe, expect, test, vi } from "vite-plus/test";
+import type { WASocket } from "@whiskeysockets/baileys";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
+import { SendGuard } from "../src/send/safety.ts";
 import { storeMessage } from "../src/store/messages.ts";
 
 const created: BridgeHttp[] = [];
@@ -412,4 +414,133 @@ test("GET /api/search returns matches and requires a query", async () => {
   expect(missing.status).toBe(400);
   const missingBody = (await missing.json()) as { error: { code: string } };
   expect(missingBody.error.code).toBe("VALIDATION_ERROR");
+});
+
+
+test("POST /api/send dispatches, persists and returns the message id", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "+358 497 773 518", text: "hello there" }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { message_id: string };
+  expect(body.message_id).toBe("SENTID1");
+  const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
+  expect(row.is_from_me).toBe(1);
+  expect(row.is_unread).toBe(0);
+  expect(row.content).toBe("hello there");
+  expect(row.chat_jid).toBe("358497773518@s.whatsapp.net");
+});
+
+test("POST /api/send validates the body", async () => {
+  const bridge = await bootWithStore(() => {});
+  const missingChat = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ text: "no chat" }),
+  });
+  expect(missingChat.status).toBe(400);
+  expect(((await missingChat.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
+  const missingText = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "+358497773518" }),
+  });
+  expect(missingText.status).toBe(400);
+  const malformed = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: "{not json",
+  });
+  expect(malformed.status).toBe(400);
+});
+
+test("POST /api/send surfaces guard pacing as 429 with retryAfterMs", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle(), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 60_000, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const send = (text: string) =>
+    fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text }),
+    });
+  expect((await send("first")).status).toBe(200);
+  const second = await send("second");
+  expect(second.status).toBe(429);
+  const body = (await second.json()) as { error: { code: string; retryAfterMs: number } };
+  expect(body.error.code).toBe("RATE_LIMITED");
+  expect(body.error.retryAfterMs).toBeGreaterThan(0);
+});
+
+test("POST /api/send surfaces the daily cap as 429", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle(), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 }),
+  });
+  created.push(bridge);
+  const send = (text: string) =>
+    fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text }),
+    });
+  expect((await send("only one")).status).toBe(200);
+  const second = await send("blocked");
+  expect(second.status).toBe(429);
+  expect(((await second.json()) as { error: { code: string } }).error.code).toBe("DAILY_CAP_EXCEEDED");
+});
+
+test("POST /api/send honors the kill switch", async () => {
+  process.env.WA_SENDS_DISABLED = "1";
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "hi" }),
+  });
+  expect(res.status).toBe(403);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SENDS_DISABLED");
+  expect((socket.sendMessage as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+});
+
+test("POST /api/send reports media payloads as not yet implemented", async () => {
+  const bridge = await bootWithStore(() => {});
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "with media",
+      media: { kind: "image", base64: "aGk=" },
+    }),
+  });
+  expect(res.status).toBe(501);
+  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("NOT_IMPLEMENTED");
 });
