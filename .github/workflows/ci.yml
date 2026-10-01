@@ -46,21 +46,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+        if: matrix.node == 22
       - uses: actions/setup-node@v4
+        if: matrix.node == 22
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 22
           cache: pnpm
-      - name: vp test (node 22)
+      - name: vp test
         if: matrix.node == 22
         run: |
           pnpm install --frozen-lockfile
           pnpm exec vp test
-      - name: built-dist runtime smoke (node 20)
+      - uses: actions/setup-node@v4
+        if: matrix.node == 20
+        with:
+          node-version: 20
+      - name: runtime smoke — download built dist
         if: matrix.node == 20
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: .
-      - name: built-dist runtime smoke (node 20)
+      - name: runtime smoke — import built entries on node ${{ matrix.node }}
         if: matrix.node == 20
         run: node scripts/ci-smoke.mjs
