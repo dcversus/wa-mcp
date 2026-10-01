@@ -11,8 +11,16 @@ const MP3 = Buffer.concat([Buffer.from("494433", "hex"), Buffer.alloc(64, 1)]);
 const OGG = Buffer.concat([Buffer.from("4f676753", "hex"), Buffer.alloc(32, 2)]);
 const ZIP = Buffer.from("504b030414000000", "hex");
 const PDF = Buffer.concat([Buffer.from("255044462d", "hex"), Buffer.alloc(16, 3)]);
-const MP4 = Buffer.concat([Buffer.alloc(4, 0), Buffer.from("66747970", "hex"), Buffer.alloc(32, 4)]);
-const WEBP = Buffer.concat([Buffer.from("52494646", "hex"), Buffer.alloc(4, 0), Buffer.from("57454250", "hex")]);
+const MP4 = Buffer.concat([
+  Buffer.alloc(4, 0),
+  Buffer.from("66747970", "hex"),
+  Buffer.alloc(32, 4),
+]);
+const WEBP = Buffer.concat([
+  Buffer.from("52494646", "hex"),
+  Buffer.alloc(4, 0),
+  Buffer.from("57454250", "hex"),
+]);
 
 const dirs: string[] = [];
 const stores: Store[] = [];
@@ -30,7 +38,10 @@ afterEach(() => {
 });
 
 test("base64 input decodes and sniffs png", async () => {
-  const resolved = await resolveMedia({ base64: PNG.toString("base64") }, { mediaDir: freshMediaDir() });
+  const resolved = await resolveMedia(
+    { base64: PNG.toString("base64") },
+    { mediaDir: freshMediaDir() },
+  );
   expect(resolved.buffer.equals(PNG)).toBe(true);
   expect(resolved.mimeType).toBe("image/png");
   expect(resolved.fileName).toBe("file.png");
@@ -79,7 +90,9 @@ test("path traversal outside the media dir is forbidden", async () => {
   await expect(resolveMedia({ path: "../secret.txt" }, { mediaDir: dir })).rejects.toMatchObject({
     code: "PATH_FORBIDDEN",
   });
-  await expect(resolveMedia({ path: join(outside, "secret.txt") }, { mediaDir: dir })).rejects.toMatchObject({
+  await expect(
+    resolveMedia({ path: join(outside, "secret.txt") }, { mediaDir: dir }),
+  ).rejects.toMatchObject({
     code: "PATH_FORBIDDEN",
   });
 });
@@ -117,7 +130,10 @@ test("url input fetches, sniffs and caps size", async () => {
     }
     throw new Error("offline");
   }) as unknown as typeof fetch;
-  const ok = await resolveMedia({ url: "https://cdn.example/cat.jpg" }, { mediaDir: dir, fetchFn: fetchMock });
+  const ok = await resolveMedia(
+    { url: "https://cdn.example/cat.jpg" },
+    { mediaDir: dir, fetchFn: fetchMock },
+  );
   expect(ok.mimeType).toBe("image/jpeg");
   expect(ok.fileName).toBe("cat.jpg");
   await expect(
