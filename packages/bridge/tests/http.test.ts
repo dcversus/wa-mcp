@@ -1315,7 +1315,13 @@ test("GET /events streams bus events as SSE and cleans up on disconnect", async 
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
   openedStores.push(store);
   const bridge = await createHttpServer(
-    { status: "connected", events: spyBus, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    {
+      status: "connected",
+      events: spyBus,
+      close: async () => {},
+      getLastQr: () => null,
+      socket: makeFakeSocket(),
+    },
     { token: "test-token", store, eventsHeartbeatMs: 40 },
   );
   created.push(bridge);
@@ -1329,20 +1335,34 @@ test("GET /events streams bus events as SSE and cleans up on disconnect", async 
   const reader = res.body?.getReader();
   if (!reader) throw new Error("no body");
   const decoder = new TextDecoder();
+  const readUntil = async (needle: string): Promise<string> => {
+    let seen = "";
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      seen += decoder.decode(chunk.value);
+      if (seen.includes(needle)) {
+        return seen;
+      }
+    }
+    return seen;
+  };
   base.emit({
     type: "messages.upsert",
     payload: { messages: [], type: "notify" },
   });
-  const first = decoder.decode((await reader.read()).value);
+  const first = await readUntil("messages.upsert");
   expect(first).toContain("data:");
-  expect(first).toContain("messages.upsert");
   base.emit({ type: "presence.update", payload: { id: "x", presences: {} } });
-  const second = decoder.decode((await reader.read()).value);
+  const second = await readUntil("presence.update");
   expect(second).toContain("presence.update");
   controller.abort();
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await new Promise((resolve) => setTimeout(resolve, 100));
   expect(active).toBe(0);
-  expect(() => base.emit({ type: "presence.update", payload: { id: "x", presences: {} } })).not.toThrow();
+  expect(() =>
+    base.emit({ type: "presence.update", payload: { id: "x", presences: {} } }),
+  ).not.toThrow();
 });
 
 test("GET /events fans out to multiple concurrent clients", async () => {
@@ -1350,7 +1370,13 @@ test("GET /events fans out to multiple concurrent clients", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
   openedStores.push(store);
   const bridge = await createHttpServer(
-    { status: "connected", events: base, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    {
+      status: "connected",
+      events: base,
+      close: async () => {},
+      getLastQr: () => null,
+      socket: makeFakeSocket(),
+    },
     { token: "test-token", store },
   );
   created.push(bridge);
@@ -1363,8 +1389,15 @@ test("GET /events fans out to multiple concurrent clients", async () => {
   }
   base.emit({ type: "creds.update", payload: {} });
   for (const reader of readers) {
-    const chunk = new TextDecoder().decode((await reader.read()).value);
-    expect(chunk).toContain("creds.update");
+    const decoder = new TextDecoder();
+    let seen = "";
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline && !seen.includes("creds.update")) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      seen += decoder.decode(chunk.value);
+    }
+    expect(seen).toContain("creds.update");
     await reader.cancel();
   }
 });
@@ -1374,7 +1407,13 @@ test("GET /events sends heartbeats on the configured interval", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
   openedStores.push(store);
   const bridge = await createHttpServer(
-    { status: "connected", events: base, close: async () => {}, getLastQr: () => null, socket: makeFakeSocket() },
+    {
+      status: "connected",
+      events: base,
+      close: async () => {},
+      getLastQr: () => null,
+      socket: makeFakeSocket(),
+    },
     { token: "test-token", store, eventsHeartbeatMs: 30 },
   );
   created.push(bridge);

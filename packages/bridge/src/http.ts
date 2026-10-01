@@ -65,6 +65,7 @@ export interface HttpServerOptions {
   sendGuard?: SendGuard;
   mediaDir?: string;
   fetchFn?: typeof fetch;
+  eventsHeartbeatMs?: number;
 }
 
 const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker"]);
@@ -1111,6 +1112,32 @@ export async function createHttpServer(
       }
       if (path === "/mcp") {
         serveMcp(req, res, body);
+        return;
+      }
+      if (path === "/events" && req.method === "GET") {
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        res.writeHead(200, {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          connection: "keep-alive",
+        });
+        res.write(": connected\n\n");
+        const unsubscribe = handle.events.subscribe((event) => {
+          res.write(`data: ${JSON.stringify({ type: event.type, payload: event.payload })}\n\n`);
+        });
+        const heartbeat = setInterval(() => {
+          res.write(": heartbeat\n\n");
+        }, opts.eventsHeartbeatMs ?? 25_000);
+        res.on("close", () => {
+          unsubscribe();
+          clearInterval(heartbeat);
+        });
         return;
       }
       if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
