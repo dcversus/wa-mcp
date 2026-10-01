@@ -8,6 +8,7 @@ export interface ShutdownDeps {
   http?: { close(): Promise<void> };
   bridge?: { close(): Promise<void> };
   store?: { close(): void };
+  lock?: { release(): void };
   logger?: BridgeLogger;
   forceExitMs?: number;
 }
@@ -31,6 +32,7 @@ export function installShutdownHooks(deps: ShutdownDeps = {}): ShutdownHooks {
         await deps.http?.close();
         await deps.bridge?.close();
         deps.store?.close();
+        deps.lock?.release();
       } catch (err) {
         deps.logger?.error({ err }, "error during shutdown");
       }
