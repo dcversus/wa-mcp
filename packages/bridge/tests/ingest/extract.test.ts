@@ -35,7 +35,9 @@ test("extended text keeps mentions from contextInfo", () => {
 });
 
 test("image falls back to caption and tags media type", () => {
-  const extracted = extractContent(waMessage({ imageMessage: { caption: "look at this", url: "https://x" } }));
+  const extracted = extractContent(
+    waMessage({ imageMessage: { caption: "look at this", url: "https://x" } }),
+  );
   expect(extracted.mediaType).toBe("image");
   expect(extracted.text).toBe("look at this");
 });
@@ -51,12 +53,16 @@ test("media without captions yields null text", () => {
   }
   expect(extractContent(waMessage({ videoMessage: { url: "https://v" } })).mediaType).toBe("video");
   expect(extractContent(waMessage({ audioMessage: { url: "https://a" } })).mediaType).toBe("audio");
-  expect(extractContent(waMessage({ stickerMessage: { url: "https://s" } })).mediaType).toBe("sticker");
+  expect(extractContent(waMessage({ stickerMessage: { url: "https://s" } })).mediaType).toBe(
+    "sticker",
+  );
 });
 
 test("documents prefer caption over title", () => {
   const extracted = extractContent(
-    waMessage({ documentMessage: { title: "report.pdf", caption: "the report", url: "https://d" } }),
+    waMessage({
+      documentMessage: { title: "report.pdf", caption: "the report", url: "https://d" },
+    }),
   );
   expect(extracted.mediaType).toBe("document");
   expect(extracted.text).toBe("the report");
@@ -64,7 +70,9 @@ test("documents prefer caption over title", () => {
 
 test("documentWithCaption unwraps to a document", () => {
   const extracted = extractContent(
-    waMessage({ documentWithCaptionMessage: { message: { documentMessage: { caption: "cap doc" } } } }),
+    waMessage({
+      documentWithCaptionMessage: { message: { documentMessage: { caption: "cap doc" } } },
+    }),
   );
   expect(extracted.mediaType).toBe("document");
   expect(extracted.text).toBe("cap doc");
@@ -82,22 +90,42 @@ test("reactions carry emote and target", () => {
 test("polls extract name and option labels", () => {
   const extracted = extractContent(
     waMessage({
-      pollCreationMessage: { name: "Lunch?", options: [{ optionName: "Pizza" }, { optionName: "Burger" }] },
+      pollCreationMessage: {
+        name: "Lunch?",
+        options: [{ optionName: "Pizza" }, { optionName: "Burger" }],
+      },
     }),
   );
   expect(extracted.poll).toEqual({ name: "Lunch?", options: ["Pizza", "Burger"] });
   expect(extracted.text).toBe("Lunch?");
 });
 
-test("poll votes carry target id and selection hashes", () => {
+test("poll votes arrive as selections on the poll message update", () => {
   const hash = Uint8Array.from([0xaa, 0xbb]);
-  const extracted = extractContent(
-    waMessage({
-      pollUpdateMessage: { pollCreationMessageKey: { id: "POLL1", remoteJid: "g" } },
-      legacyMessage: { pollVote: { selectedOptions: [hash] } },
-    }),
+  const pollMessage = waMessage(
+    {
+      pollCreationMessage: {
+        name: "Lunch?",
+        options: [{ optionName: "Pizza" }, { optionName: "Burger" }],
+      },
+    },
+    { key: { remoteJid: "g", fromMe: false, id: "POLL1" } },
   );
+  const extracted = extractContent(pollMessage, [
+    {
+      pollUpdateMessageKey: { id: "VOTERMSG", remoteJid: "g" },
+      vote: { selectedOptions: [hash] },
+      senderTimestampMs: 1,
+    },
+  ]);
   expect(extracted.pollVote).toEqual({ targetMessageId: "POLL1", selections: ["aabb"] });
+});
+
+test("an undecrypted poll update still names its target", () => {
+  const extracted = extractContent(
+    waMessage({ pollUpdateMessage: { pollCreationMessageKey: { id: "POLL1", remoteJid: "g" } } }),
+  );
+  expect(extracted.pollVote).toEqual({ targetMessageId: "POLL1", selections: [] });
 });
 
 test("edits carry target id and the edited text", () => {
@@ -118,7 +146,10 @@ test("edits carry target id and the edited text", () => {
 test("revokes carry the revoked target id and no text", () => {
   const extracted = extractContent(
     waMessage({
-      protocolMessage: { type: proto.Message.ProtocolMessage.Type.REVOKE, key: { id: "GONE1", remoteJid: "x" } },
+      protocolMessage: {
+        type: proto.Message.ProtocolMessage.Type.REVOKE,
+        key: { id: "GONE1", remoteJid: "x" },
+      },
     }),
   );
   expect(extracted.revokedMessageId).toBe("GONE1");
@@ -127,11 +158,15 @@ test("revokes carry the revoked target id and no text", () => {
 
 test("locations extract coordinates and label", () => {
   const named = extractContent(
-    waMessage({ locationMessage: { degreesLatitude: 60.17, degreesLongitude: 24.94, name: "Kallio" } }),
+    waMessage({
+      locationMessage: { degreesLatitude: 60.17, degreesLongitude: 24.94, name: "Kallio" },
+    }),
   );
   expect(named.mediaType).toBe("location");
   expect(named.text).toBe("Kallio (60.17, 24.94)");
-  const bare = extractContent(waMessage({ locationMessage: { degreesLatitude: 60.17, degreesLongitude: 24.94 } }));
+  const bare = extractContent(
+    waMessage({ locationMessage: { degreesLatitude: 60.17, degreesLongitude: 24.94 } }),
+  );
   expect(bare.text).toBe("60.17, 24.94");
 });
 
@@ -167,7 +202,15 @@ test("lists extract title, description and row titles", () => {
       listMessage: {
         title: "Menu",
         description: "Pick an item",
-        sections: [{ title: "Food", rows: [{ title: "Pizza", rowId: "r1" }, { title: "Burger", rowId: "r2" }] }],
+        sections: [
+          {
+            title: "Food",
+            rows: [
+              { title: "Pizza", rowId: "r1" },
+              { title: "Burger", rowId: "r2" },
+            ],
+          },
+        ],
       },
     }),
   );
@@ -198,13 +241,17 @@ test("view-once unwraps and flags, caption still readable", () => {
 });
 
 test("view-once media without caption gets a placeholder", () => {
-  const extracted = extractContent(waMessage({ viewOnceMessageV2: { message: { imageMessage: {} } } }));
+  const extracted = extractContent(
+    waMessage({ viewOnceMessageV2: { message: { imageMessage: {} } } }),
+  );
   expect(extracted.isViewOnce).toBe(true);
   expect(extracted.text).toBe("[view-once image]");
 });
 
 test("ephemeral wrapper unwraps and flags", () => {
-  const extracted = extractContent(waMessage({ ephemeralMessage: { message: { conversation: "vanishing" } } }));
+  const extracted = extractContent(
+    waMessage({ ephemeralMessage: { message: { conversation: "vanishing" } } }),
+  );
   expect(extracted.isEphemeral).toBe(true);
   expect(extracted.text).toBe("vanishing");
 });
@@ -212,7 +259,10 @@ test("ephemeral wrapper unwraps and flags", () => {
 test("ephemeral protocol setting flags without text", () => {
   const extracted = extractContent(
     waMessage({
-      protocolMessage: { type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING, ephemeralExpiration: 604800 },
+      protocolMessage: {
+        type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING,
+        ephemeralExpiration: 604800,
+      },
     }),
   );
   expect(extracted.isEphemeral).toBe(true);
