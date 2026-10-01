@@ -114,13 +114,13 @@ test("WAL mode and busy_timeout are configured", () => {
   }
 });
 
-test("migrations records schema versions 1 and 2", () => {
+test("migrations records schema versions 1 through 3", () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-store-")));
   try {
     const rows = store.db
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
-    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2]);
+    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
     store.close();
@@ -134,7 +134,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(2);
+    expect(versions).toHaveLength(3);
   } finally {
     second.close();
   }
