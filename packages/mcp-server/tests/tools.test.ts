@@ -96,7 +96,6 @@ test("list_messages and search_messages pass their filters through", async () =>
   ]);
 });
 
-
 test("get_message_context fetches the adjacent window", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/context?message_id=M1&radius=2": { messages: [] } });
   const tool = toolByName("get_message_context");
@@ -111,7 +110,13 @@ test("send_media posts the media body to /api/send", async () => {
   if (!tool) throw new Error("send_media missing");
   const result = await tool.handler(
     { ...ctx, fetchFn },
-    { kind: "image", chat_jid: "358497773518", media: { base64: "aGk=" }, caption: "cap", file_name: "x.png" },
+    {
+      kind: "image",
+      chat_jid: "358497773518",
+      media: { base64: "aGk=" },
+      caption: "cap",
+      file_name: "x.png",
+    },
   );
   const body = JSON.parse(calls[0]?.body ?? "{}") as Record<string, unknown>;
   expect(body.kind).toBe("image");

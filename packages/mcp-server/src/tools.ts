@@ -176,6 +176,165 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "get_message_context",
+    description: "Get the messages immediately before and after one message in its chat.",
+    inputSchema: {
+      type: "object",
+      required: ["message_id"],
+      properties: {
+        message_id: { type: "string" },
+        radius: { type: "number", description: "Rows on each side (default 3)" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const messageId = requireString(args, "message_id");
+      const radius = optionalNumber(args, "radius");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/context${query({ message_id: messageId, radius })}`,
+      )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "send_media",
+    description:
+      "Send an image, video, audio, document or sticker. Media comes from base64, a bridge-local path or a URL.",
+    inputSchema: {
+      type: "object",
+      required: ["kind", "chat_jid", "media"],
+      properties: {
+        kind: { type: "string", description: "image | video | audio | document | sticker" },
+        chat_jid: { type: "string" },
+        media: {
+          type: "object",
+          description: "Exactly one of base64, path (bridge media dir) or url",
+          properties: {
+            base64: { type: "string" },
+            path: { type: "string" },
+            url: { type: "string" },
+          },
+        },
+        caption: { type: "string" },
+        file_name: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const kind = requireString(args, "kind");
+      const chatJid = requireString(args, "chat_jid");
+      if (args.media === undefined || typeof args.media !== "object") {
+        throw new ParamError("media is required");
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/send", {
+        method: "POST",
+        body: JSON.stringify({
+          kind,
+          chat_jid: chatJid,
+          media: args.media,
+          caption: args.caption,
+          file_name: args.file_name,
+        }),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "get_chat",
+    description: "Get one chat's summary (name, unread count, last message).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: { chat_jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const payload = (await bridgeFetch(toolCtx, "/api/chats?limit=200")) as {
+        chats?: Array<{ jid: string }>;
+      };
+      const chat = (payload.chats ?? []).find((candidate) => candidate.jid === chatJid);
+      if (chat === undefined) {
+        return { content: [{ type: "text", text: `chat not found: ${chatJid}` }] };
+      }
+      return textResult({ chat });
+    },
+  },
+  {
+    name: "send_reaction",
+    description: "React to a message with an emoji.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id", "emote"],
+      properties: {
+        chat_jid: { type: "string" },
+        message_id: { type: "string" },
+        emote: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = {
+        kind: "reaction",
+        chat_jid: requireString(args, "chat_jid"),
+        message_id: requireString(args, "message_id"),
+        emote: requireString(args, "emote"),
+      };
+      const payload = (await bridgeFetch(toolCtx, "/api/send", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "edit_message",
+    description: "Edit a message you sent.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id", "text"],
+      properties: {
+        chat_jid: { type: "string" },
+        message_id: { type: "string" },
+        text: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = {
+        kind: "edit",
+        chat_jid: requireString(args, "chat_jid"),
+        message_id: requireString(args, "message_id"),
+        text: requireString(args, "text"),
+      };
+      const payload = (await bridgeFetch(toolCtx, "/api/send", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "forward_message",
+    description: "Forward a stored message to another chat.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id"],
+      properties: {
+        chat_jid: { type: "string", description: "Destination chat" },
+        message_id: { type: "string", description: "Stored message to forward" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = {
+        kind: "forward",
+        chat_jid: requireString(args, "chat_jid"),
+        message_id: requireString(args, "message_id"),
+      };
+      const payload = (await bridgeFetch(toolCtx, "/api/send", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {

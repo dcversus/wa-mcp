@@ -57,6 +57,12 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "list_chats",
     "list_messages",
     "search_messages",
+    "get_message_context",
+    "send_media",
+    "get_chat",
+    "send_reaction",
+    "edit_message",
+    "forward_message",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
