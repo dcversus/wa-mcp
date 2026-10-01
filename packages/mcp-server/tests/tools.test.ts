@@ -32,12 +32,18 @@ function mockFetch(routes: Record<string, unknown>): {
   return { fetchFn, calls };
 }
 
-test("the registry exposes the four launch tools", () => {
+test("the registry exposes the full launch set", () => {
   expect(TOOLS.map((tool) => tool.name)).toEqual([
     "send_message",
     "list_chats",
     "list_messages",
     "search_messages",
+    "get_message_context",
+    "send_media",
+    "get_chat",
+    "send_reaction",
+    "edit_message",
+    "forward_message",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -88,4 +94,61 @@ test("list_messages and search_messages pass their filters through", async () =>
     "/api/messages?chat_jid=g%40us&limit=10",
     "/api/search?q=pizza&limit=25",
   ]);
+});
+
+
+test("get_message_context fetches the adjacent window", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/context?message_id=M1&radius=2": { messages: [] } });
+  const tool = toolByName("get_message_context");
+  if (!tool) throw new Error("get_message_context missing");
+  await tool.handler({ ...ctx, fetchFn }, { message_id: "M1", radius: 2 });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/context?message_id=M1&radius=2");
+});
+
+test("send_media posts the media body to /api/send", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "MM1" } });
+  const tool = toolByName("send_media");
+  if (!tool) throw new Error("send_media missing");
+  const result = await tool.handler(
+    { ...ctx, fetchFn },
+    { kind: "image", chat_jid: "358497773518", media: { base64: "aGk=" }, caption: "cap", file_name: "x.png" },
+  );
+  const body = JSON.parse(calls[0]?.body ?? "{}") as Record<string, unknown>;
+  expect(body.kind).toBe("image");
+  expect(body.chat_jid).toBe("358497773518");
+  expect(body.media).toEqual({ base64: "aGk=" });
+  expect(body.caption).toBe("cap");
+  expect(body.file_name).toBe("x.png");
+  expect(result.content[0]?.text).toContain("MM1");
+});
+
+test("get_chat finds one chat from the chat list", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/chats?limit=200": { chats: [{ jid: "120363428874442773@g.us", name: "Test" }] },
+  });
+  const tool = toolByName("get_chat");
+  if (!tool) throw new Error("get_chat missing");
+  const result = await tool.handler({ ...ctx, fetchFn }, { chat_jid: "120363428874442773@g.us" });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/chats?limit=200");
+  expect(result.content[0]?.text).toContain("Test");
+  const missing = await tool.handler({ ...ctx, fetchFn }, { chat_jid: "nope@g.us" });
+  expect(missing.content[0]?.text).toContain("not found");
+});
+
+test("reaction, edit and forward route their kinds", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "K1" } });
+  const toolCtx = { ...ctx, fetchFn };
+  const reaction = toolByName("send_reaction");
+  if (!reaction) throw new Error("send_reaction missing");
+  await reaction.handler(toolCtx, { chat_jid: "g", message_id: "T1", emote: "👍" });
+  const edit = toolByName("edit_message");
+  if (!edit) throw new Error("edit_message missing");
+  await edit.handler(toolCtx, { chat_jid: "g", message_id: "T1", text: "v2" });
+  const forward = toolByName("forward_message");
+  if (!forward) throw new Error("forward_message missing");
+  await forward.handler(toolCtx, { chat_jid: "g", message_id: "T1" });
+  const bodies = calls.map((call) => JSON.parse(call.body ?? "{}") as Record<string, unknown>);
+  expect(bodies[0]).toEqual({ kind: "reaction", chat_jid: "g", message_id: "T1", emote: "👍" });
+  expect(bodies[1]).toEqual({ kind: "edit", chat_jid: "g", message_id: "T1", text: "v2" });
+  expect(bodies[2]).toEqual({ kind: "forward", chat_jid: "g", message_id: "T1" });
 });
