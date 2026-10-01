@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { proto } from "@whiskeysockets/baileys";
+import type { AnyMessageContent, proto } from "@whiskeysockets/baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
@@ -14,6 +14,13 @@ import {
   searchMessages,
 } from "./store/queries.ts";
 import type { Store } from "./store/schema.ts";
+import {
+  MediaError,
+  resolveMedia,
+  saveOutboundMedia,
+  type MediaInput,
+  type ResolvedMedia,
+} from "./media/resolve.ts";
 import {
   buildContactMessage,
   buildEditMessage,
@@ -36,7 +43,11 @@ export interface HttpServerOptions {
   qrDir?: string;
   store?: Store;
   sendGuard?: SendGuard;
+  mediaDir?: string;
+  fetchFn?: typeof fetch;
 }
+
+const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker"]);
 
 export interface BridgeHttp {
   readonly server: Server;
@@ -331,6 +342,8 @@ export async function createHttpServer(
       reply_to_message_id?: unknown;
       link_preview?: unknown;
       media?: unknown;
+      caption?: unknown;
+      file_name?: unknown;
       message_id?: unknown;
       emote?: unknown;
       latitude?: unknown;
@@ -346,9 +359,17 @@ export async function createHttpServer(
       validationError(res, "chat_jid is required");
       return;
     }
+    if (
+      input.media !== undefined &&
+      !(typeof input.kind === "string" && MEDIA_KINDS.has(input.kind))
+    ) {
+      validationError(res, "media requires an image, video, audio, document or sticker kind");
+      return;
+    }
     const chatJid = input.chat_jid;
     const kind = typeof input.kind === "string" ? input.kind : "text";
-    let builder: () => Promise<proto.IMessage>;
+    let mediaToSave: ResolvedMedia | null = null;
+    let builder: () => Promise<proto.IMessage | AnyMessageContent>;
     switch (kind) {
       case "text": {
         if (typeof input.text !== "string" || input.text.length === 0) {
@@ -371,9 +392,7 @@ export async function createHttpServer(
           return;
         }
         if (input.media !== undefined) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "media send not wired yet" },
-          });
+          validationError(res, "media requires an image, video, audio, document or sticker kind");
           return;
         }
         const text: string = input.text;
@@ -466,6 +485,68 @@ export async function createHttpServer(
         builder = () => Promise.resolve(buildContactMessage(contactName, phones));
         break;
       }
+      case "image":
+      case "video":
+      case "audio":
+      case "document":
+      case "sticker": {
+        if (input.media === undefined || typeof input.media !== "object") {
+          validationError(res, "media is required");
+          return;
+        }
+        const mediaInput = input.media as {
+          base64?: unknown;
+          path?: unknown;
+          url?: unknown;
+        };
+        const provided = (["base64", "path", "url"] as const).filter(
+          (key) => mediaInput[key] !== undefined,
+        );
+        if (provided.length !== 1) {
+          validationError(res, "media needs exactly one of base64, path or url");
+          return;
+        }
+        if (input.caption !== undefined && typeof input.caption !== "string") {
+          validationError(res, "caption must be a string");
+          return;
+        }
+        if (input.file_name !== undefined && typeof input.file_name !== "string") {
+          validationError(res, "file_name must be a string");
+          return;
+        }
+        if (opts.mediaDir === undefined) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "media dir not configured" },
+          });
+          return;
+        }
+        const mediaArg: MediaInput =
+          provided[0] === "base64"
+            ? {
+                base64: mediaInput.base64 as string,
+                fileName: input.file_name as string | undefined,
+              }
+            : provided[0] === "path"
+              ? { path: mediaInput.path as string, fileName: input.file_name as string | undefined }
+              : { url: mediaInput.url as string, fileName: input.file_name as string | undefined };
+        const caption = input.caption as string | undefined;
+        const mediaKind: string = kind;
+        const mediaDirForSend: string = opts.mediaDir;
+        builder = async () => {
+          const resolved = await resolveMedia(mediaArg, {
+            mediaDir: mediaDirForSend,
+            fetchFn: opts.fetchFn,
+          });
+          mediaToSave = resolved;
+          return {
+            [mediaKind]: resolved.buffer,
+            mimetype: resolved.mimeType,
+            fileName: resolved.fileName,
+            caption,
+          } as unknown as AnyMessageContent;
+        };
+        break;
+      }
       case "poll": {
         if (typeof input.poll_name !== "string" || input.poll_name.length === 0) {
           validationError(res, "poll_name is required");
@@ -500,7 +581,13 @@ export async function createHttpServer(
       return;
     }
     const socket = handle.socket;
-    if (socket === undefined || socket === null || opts.sendGuard === undefined) {
+    const needsStore = input.media !== undefined;
+    if (
+      socket === undefined ||
+      socket === null ||
+      opts.sendGuard === undefined ||
+      (needsStore && opts.store === undefined)
+    ) {
       sendJson(res, 501, {
         error: { code: "NOT_IMPLEMENTED", message: "send not configured on this server" },
       });
@@ -528,13 +615,37 @@ export async function createHttpServer(
     }
     void builder()
       .then((content) => sendViaSocket(socket, chatJid, content, opts))
-      .then((result) => {
+      .then(async (result) => {
+        const saved: ResolvedMedia | null = mediaToSave;
+        if (saved !== null && opts.mediaDir !== undefined && opts.store !== undefined) {
+          await saveOutboundMedia(
+            opts.store,
+            opts.mediaDir,
+            result.messageId,
+            saved.buffer,
+            saved.mimeType,
+            kind,
+            typeof input.caption === "string" ? input.caption : undefined,
+          );
+        }
         opts.sendGuard?.record(Date.now());
         sendJson(res, 200, { message_id: result.messageId });
       })
       .catch((err: unknown) => {
         if (err instanceof SendError) {
           const status = err.code === "SENDS_DISABLED" ? 403 : 400;
+          sendJson(res, status, { error: { code: err.code, message: err.message } });
+          return;
+        }
+        if (err instanceof MediaError) {
+          const status =
+            err.code === "TOO_LARGE"
+              ? 413
+              : err.code === "FETCH_FAILED"
+                ? 502
+                : err.code === "NOT_FOUND"
+                  ? 404
+                  : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }

@@ -199,6 +199,8 @@ export async function saveOutboundMedia(
   messageId: string,
   buffer: Buffer,
   mimeType: string,
+  kind?: string,
+  caption?: string,
 ): Promise<string> {
   await mkdir(mediaDir, { recursive: true, mode: 0o700 });
   await chmod(mediaDir, 0o700);
@@ -206,6 +208,11 @@ export async function saveOutboundMedia(
   const filePath = join(mediaDir, `${messageId}${declaredExt}`);
   await writeFile(filePath, buffer, { mode: 0o644 });
   await chmod(filePath, 0o644);
-  store.db.prepare("UPDATE messages SET media_path = ? WHERE id = ?").run(filePath, messageId);
+  console.error("DEBUG saveOutboundMedia", JSON.stringify({ filePath, kind, caption, messageId }));
+  store.db
+    .prepare(
+      "UPDATE messages SET media_path = ?, media_type = COALESCE(?, media_type), content = COALESCE(?, content) WHERE id = ?",
+    )
+    .run(filePath, kind ?? null, caption ?? null, messageId);
   return filePath;
 }

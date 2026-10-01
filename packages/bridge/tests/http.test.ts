@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
@@ -11,8 +11,6 @@ import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { SendGuard } from "../src/send/safety.ts";
 import { storeMessage } from "../src/store/messages.ts";
-
-import { statSync } from "node:fs";
 
 const created: BridgeHttp[] = [];
 const openedStores: Store[] = [];
@@ -666,7 +664,9 @@ test("POST /api/send media url uses the injected fetcher", async () => {
     }),
   });
   expect(res.status).toBe(200);
-  const arg = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as { image?: Buffer };
+  const arg = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    image?: Buffer;
+  };
   expect(arg.image?.equals(jpeg)).toBe(true);
 });
 
