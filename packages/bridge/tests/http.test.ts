@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "vite-plus/test";
 import { createEventBus } from "../src/events.ts";
-import { createHttpServer, type BridgeHttp, type BridgeStatus, type HttpServerOptions } from "../src/http.ts";
-import type { BridgeHandle } from "../src/lifecycle.ts";
+import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
+import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 
 const created: BridgeHttp[] = [];
 
