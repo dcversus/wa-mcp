@@ -1,0 +1,650 @@
+{
+ "repo": "delltrak/wamcp",
+ "issues": [
+  {
+   "author": {
+    "id": "MDQ6VXNlcjc4NzUxMDIz",
+    "is_bot": false,
+    "login": "delltrak",
+    "name": ""
+   },
+   "comments": [],
+   "createdAt": "2026-03-03T00:06:39Z",
+   "number": 3,
+   "state": "CLOSED",
+   "title": "SSE notifications fail when server doesn't declare logging capability"
+  }
+ ],
+ "prs": [
+  {
+   "author": {
+    "id": "MDQ6VXNlcjE4MDU1MzY1",
+    "is_bot": false,
+    "login": "yusoofsh",
+    "name": "Yusoof Mohammad SH"
+   },
+   "comments": [],
+   "createdAt": "2026-09-27T02:19:50Z",
+   "number": 21,
+   "state": "OPEN",
+   "title": "feat: download and persist WhatsApp media locally"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABXCL_vw",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-25T22:54:45Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/20#issuecomment-5840764863",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-25T22:54:44Z",
+   "number": 20,
+   "state": "OPEN",
+   "title": "chore(deps): bump the minor-and-patch group with 8 updates"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjE4MDU1MzY1",
+    "is_bot": false,
+    "login": "yusoofsh",
+    "name": "Yusoof Mohammad SH"
+   },
+   "comments": [],
+   "createdAt": "2026-09-22T02:12:34Z",
+   "number": 19,
+   "state": "CLOSED",
+   "title": "fix: implement getChats from DB and add wa_list_chats"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjc4NzUxMDIz",
+    "is_bot": false,
+    "login": "delltrak",
+    "name": ""
+   },
+   "comments": [],
+   "createdAt": "2026-09-18T15:15:57Z",
+   "number": 18,
+   "state": "MERGED",
+   "title": "fix: make resources readable and the Cloud API channel configurable"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjc4NzUxMDIz",
+    "is_bot": false,
+    "login": "delltrak",
+    "name": ""
+   },
+   "comments": [],
+   "createdAt": "2026-09-18T14:52:22Z",
+   "number": 17,
+   "state": "MERGED",
+   "title": "chore(ci): bump docker/build-push-action to v7 and docker/login-action to v4"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaOiAQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:50:30Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/16#issuecomment-5731754497",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaQxIQ",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #17, which applies both bumps in one commit \u2014 they touch the same file, so merging them separately would force a rebase and a second multi-arch rebuild.",
+     "createdAt": "2026-09-18T14:53:21Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/16#issuecomment-5731791137",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaQzpw",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:53:25Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/16#issuecomment-5731791783",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:50:29Z",
+   "number": 16,
+   "state": "CLOSED",
+   "title": "chore(deps): bump docker/login-action from 3 to 4"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaOQnw",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:50:10Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/15#issuecomment-5731750047",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaQuag",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #17, which applies both bumps in one commit \u2014 they touch the same file, so merging them separately would force a rebase and a second multi-arch rebuild.",
+     "createdAt": "2026-09-18T14:53:18Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/15#issuecomment-5731790442",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaQxJA",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:53:21Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/15#issuecomment-5731791140",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:50:09Z",
+   "number": 15,
+   "state": "CLOSED",
+   "title": "chore(deps): bump docker/build-push-action from 6 to 7"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjc4NzUxMDIz",
+    "is_bot": false,
+    "login": "delltrak",
+    "name": ""
+   },
+   "comments": [],
+   "createdAt": "2026-09-18T14:48:28Z",
+   "number": 14,
+   "state": "MERGED",
+   "title": "chore(ci): bump GitHub Actions and guard the deliberate version pins"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaGB-A",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:40:26Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/13#issuecomment-5731615224",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNoeg",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "Looks like @types/node is no longer being updated by Dependabot, so this is no longer needed.",
+     "createdAt": "2026-09-18T14:49:30Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/13#issuecomment-5731739770",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:40:25Z",
+   "number": 13,
+   "state": "CLOSED",
+   "title": "chore(deps-dev): bump @types/node from 24.13.5 to 26.5.1"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaGBOA",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:40:25Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/12#issuecomment-5731615032",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNpXw",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "Looks like typescript is no longer being updated by Dependabot, so this is no longer needed.",
+     "createdAt": "2026-09-18T14:49:31Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/12#issuecomment-5731739999",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:40:24Z",
+   "number": 12,
+   "state": "CLOSED",
+   "title": "chore(deps-dev): bump typescript from 6.0.3 to 7.0.2"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFqzQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:57Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/11#issuecomment-5731609293",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN6Mg",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #14, which applies this bump together with the other four Actions updates in one commit \u2014 avoiding five rounds of rebase and multi-arch rebuilds over the same three workflow files. Already on `main` as 46cf90f.",
+     "createdAt": "2026-09-18T14:49:47Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/11#issuecomment-5731744306",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN9QQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:50Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/11#issuecomment-5731745089",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:56Z",
+   "number": 11,
+   "state": "CLOSED",
+   "title": "chore(deps): bump softprops/action-gh-release from 2 to 3"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFl-g",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:51Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/10#issuecomment-5731608058",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN3HQ",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #14, which applies this bump together with the other four Actions updates in one commit \u2014 avoiding five rounds of rebase and multi-arch rebuilds over the same three workflow files. Already on `main` as 46cf90f.",
+     "createdAt": "2026-09-18T14:49:44Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/10#issuecomment-5731743517",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN6ew",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:47Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/10#issuecomment-5731744379",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:50Z",
+   "number": 10,
+   "state": "CLOSED",
+   "title": "chore(deps): bump docker/metadata-action from 5 to 6"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFmcA",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:52Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/9#issuecomment-5731608176",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNz0A",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #14, which applies this bump together with the other four Actions updates in one commit \u2014 avoiding five rounds of rebase and multi-arch rebuilds over the same three workflow files. Already on `main` as 46cf90f.",
+     "createdAt": "2026-09-18T14:49:41Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/9#issuecomment-5731742672",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN3VQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:44Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/9#issuecomment-5731743573",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:50Z",
+   "number": 9,
+   "state": "CLOSED",
+   "title": "chore(deps): bump actions/setup-node from 4 to 7"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFigQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:47Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/8#issuecomment-5731607169",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNnYw",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:29Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/8#issuecomment-5731739491",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:46Z",
+   "number": 8,
+   "state": "CLOSED",
+   "title": "chore(deps): bump node from 24-alpine to 25-alpine"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFg0w",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:45Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/7#issuecomment-5731606739",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNwVw",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #14, which applies this bump together with the other four Actions updates in one commit \u2014 avoiding five rounds of rebase and multi-arch rebuilds over the same three workflow files. Already on `main` as 46cf90f.",
+     "createdAt": "2026-09-18T14:49:38Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/7#issuecomment-5731741783",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaN0DQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:41Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/7#issuecomment-5731742733",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:44Z",
+   "number": 7,
+   "state": "CLOSED",
+   "title": "chore(deps): bump docker/setup-qemu-action from 3 to 4"
+  },
+  {
+   "author": {
+    "is_bot": true,
+    "login": "app/dependabot"
+   },
+   "comments": [
+    {
+     "id": "IC_kwDORbNhu88AAAABVaFdoA",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "### Labels\n\nThe following labels could not be found: `dependencies`. Please create it before Dependabot can add it to a pull request.\n\n\nPlease fix the above issues or remove invalid values from `dependabot.yml`.",
+     "createdAt": "2026-09-18T14:39:41Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/6#issuecomment-5731605920",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNsrQ",
+     "author": {
+      "login": "delltrak"
+     },
+     "authorAssociation": "OWNER",
+     "body": "Superseded by #14, which applies this bump together with the other four Actions updates in one commit \u2014 avoiding five rounds of rebase and multi-arch rebuilds over the same three workflow files. Already on `main` as 46cf90f.",
+     "createdAt": "2026-09-18T14:49:34Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/6#issuecomment-5731740845",
+     "viewerDidAuthor": false
+    },
+    {
+     "id": "IC_kwDORbNhu88AAAABVaNwKQ",
+     "author": {
+      "login": "dependabot"
+     },
+     "authorAssociation": "NONE",
+     "body": "OK, I won't notify you again about this release, but will get in touch when a new version is available. If you'd rather skip all updates until the next major or minor version, let me know by commenting `@dependabot ignore this major version` or `@dependabot ignore this minor version`. You can also ignore all major, minor, or patch releases for a dependency by adding an [`ignore` condition](https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates#ignore) with the desired `update_types` to your config file.\n\nIf you change your mind, just re-open this PR and I'll resolve any conflicts on it.",
+     "createdAt": "2026-09-18T14:49:38Z",
+     "includesCreatedEdit": false,
+     "isMinimized": false,
+     "minimizedReason": "",
+     "reactionGroups": [],
+     "url": "https://github.com/delltrak/wamcp/pull/6#issuecomment-5731741737",
+     "viewerDidAuthor": false
+    }
+   ],
+   "createdAt": "2026-09-18T14:39:40Z",
+   "number": 6,
+   "state": "CLOSED",
+   "title": "chore(deps): bump actions/checkout from 4 to 7"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjc4NzUxMDIz",
+    "is_bot": false,
+    "login": "delltrak",
+    "name": ""
+   },
+   "comments": [],
+   "createdAt": "2026-09-18T14:29:36Z",
+   "number": 5,
+   "state": "MERGED",
+   "title": "chore(deps)!: modernize dependency tree, fix critical Baileys advisory, raise Node floor to 24"
+  }
+ ]
+}

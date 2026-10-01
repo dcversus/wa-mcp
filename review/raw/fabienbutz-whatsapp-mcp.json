@@ -1,0 +1,71 @@
+{
+ "repo": "fabienbutz/whatsapp-mcp",
+ "issues": [
+  {
+   "author": {
+    "id": "MDQ6VXNlcjI2Nzk0Njc1",
+    "is_bot": false,
+    "login": "fabienbutz",
+    "name": "Fabien Butz"
+   },
+   "comments": [],
+   "createdAt": "2026-01-29T12:30:44Z",
+   "number": 5,
+   "state": "CLOSED",
+   "title": "Add react, reply, delete, edit, and typing indicator MCP tools"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjI2Nzk0Njc1",
+    "is_bot": false,
+    "login": "fabienbutz",
+    "name": "Fabien Butz"
+   },
+   "comments": [],
+   "createdAt": "2026-01-29T10:58:58Z",
+   "number": 4,
+   "state": "CLOSED",
+   "title": "Always save downloaded media to disk to avoid token bloat"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjI2Nzk0Njc1",
+    "is_bot": false,
+    "login": "fabienbutz",
+    "name": "Fabien Butz"
+   },
+   "comments": [],
+   "createdAt": "2026-01-29T09:36:34Z",
+   "number": 3,
+   "state": "CLOSED",
+   "title": "Add AI-powered media analysis to download_media tool"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjI2Nzk0Njc1",
+    "is_bot": false,
+    "login": "fabienbutz",
+    "name": "Fabien Butz"
+   },
+   "comments": [],
+   "createdAt": "2026-01-29T09:36:34Z",
+   "number": 2,
+   "state": "CLOSED",
+   "title": "Ask user before running media analysis"
+  },
+  {
+   "author": {
+    "id": "MDQ6VXNlcjI2Nzk0Njc1",
+    "is_bot": false,
+    "login": "fabienbutz",
+    "name": "Fabien Butz"
+   },
+   "comments": [],
+   "createdAt": "2026-01-29T09:31:16Z",
+   "number": 1,
+   "state": "CLOSED",
+   "title": "whatsapp_download_media does not save files to disk"
+  }
+ ],
+ "prs": []
+}

@@ -1,0 +1,1102 @@
+# FULL BACKLOG — every issue + PR from every reference repo (machine-generated)
+
+Fetched 2026-10-01, all states (open+closed+merged). One line per item.
+Disposition happens in ACCOUNTING.md (goal §13); this file is the raw census.
+
+## aserranoni/whatsapp-mcp — 0 issues, 6 PRs
+
+### PRs
+- [ ] PR#1 [MERGED] Refactor/auth flow
+- [ ] PR#2 [MERGED] Add comprehensive GitHub Actions and CI/CD automation
+- [ ] PR#3 [CLOSED] ci(deps): bump the github-actions-updates group with 5 updates
+- [ ] PR#4 [CLOSED] ci(deps): bump the github-actions-updates group across 1 directory with 8 updates
+- [ ] PR#5 [CLOSED] ci(deps): bump the github-actions-updates group across 1 directory with 9 updates
+- [ ] PR#6 [OPEN] ci(deps): bump the github-actions-updates group across 1 directory with 10 updates
+
+## biliboss/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## chigwell/telegram-mcp — 52 issues, 200 PRs
+
+### Issues
+- [ ] I#7 [CLOSED] Glama listing is missing Dockerfile
+- [ ] I#10 [CLOSED] Enable Telegram session persistence in Docker via volume mounts
+- [ ] I#11 [CLOSED] Add input validation decorators for chat_id/user_id parameters in main.py
+- [ ] I#12 [CLOSED] Implement SQLite connection pooling in session_string_generator.py to prevent database locks
+- [ ] I#13 [CLOSED] Refactor error code prefixes in main.py to use Enum for type safety
+- [ ] I#14 [CLOSED] Modify get_participants() in main.py with pagination and async generator for large groups
+- [ ] I#15 [CLOSED] Refactor error logging in main.py to structured JSON format with backward compatibility
+- [ ] I#16 [CLOSED] Request too large for model
+- [ ] I#20 [CLOSED] Connecting to app logs out all clients
+- [ ] I#25 [OPEN] Provide Claude Desktop extension
+- [ ] I#26 [CLOSED] Unable to use in Claude Desktop
+- [ ] I#27 [CLOSED] Make `list_messages` predictable and efficient for date ranges and search: avoid over-fetch, apply `limit` after filtering, and separate search from date offsets
+- [ ] I#33 [CLOSED] Add ToolAnnotations (openWorldHint, readOnlyHint, idempotentHint, destructiveHint) to all MCP tools
+- [ ] I#36 [CLOSED] Bug: Server fails to start - ImportError: cannot import 'ToolAnnotations' from 'mcp.types'
+- [ ] I#37 [CLOSED] Bug: Server fails to start - ImportError: cannot import 'ToolAnnotations' from 'mcp.types'
+- [ ] I#39 [CLOSED] Proposal: Restore file-path tools via allowlisted roots (filesystem-style)
+- [ ] I#42 [CLOSED] Readme does not mention running telegram-mcp via uvx
+- [ ] I#50 [CLOSED] Enable Telegram MCP Server Transport Selection (STDIO vs HTTP) via Configuration
+- [ ] I#51 [CLOSED] README says file/media tools removed, but main.py still registers them
+- [ ] I#52 [CLOSED] Add `skills/` documentation folder (usage guide + example workflows)
+- [ ] I#54 [CLOSED] Wrap `telegram-mcp` with `mcp-cli` to reduce tool-definition context bloat and improve invocation performance
+- [ ] I#56 [OPEN] mcp configuration for codker
+- [ ] I#59 [OPEN] Security scan results for telegram-mcp
+- [ ] I#61 [CLOSED] `get_folder` API returns incorrect chat type for supergroups
+- [ ] I#76 [CLOSED] Bug: `get_entity()` fails with `PeerUser` ValueError on basic group chats when using StringSession
+- [ ] I#79 [CLOSED] client.get_dialogs doesn't work with bot identity.
+- [ ] I#85 [CLOSED] download_media: caller-supplied extension overrides real file type
+- [ ] I#87 [OPEN] Your project is listed on Spark — claim your listing
+- [ ] I#99 [CLOSED] Proxy support
+- [ ] I#112 [CLOSED] Proposal: align CI and Docker with multistage builds and pyproject tooling
+- [ ] I#116 [OPEN] Feature request: Per-chat read/write allowlists with web-based configuration UI
+- [ ] I#117 [CLOSED] SECURITY: `uvx telegram-mcp` installs wrong PyPI package — credentials sent to third-party server
+- [ ] I#121 [CLOSED] BUG. Generate a Session String "Refusing to start"
+- [ ] I#123 [CLOSED] Unable to start telegram-mcp authentication
+- [ ] I#150 [CLOSED] Fix 'charmap' codec can't encode error on Windows / agent logs (UnicodeEncodeError fallback in QR rendering)
+- [ ] I#156 [CLOSED] nest_asyncio.apply() is vestigial and breaks server startup on Python 3.13+/3.14
+- [ ] I#159 [OPEN] feat: support Telegram Rich Messages
+- [ ] I#162 [CLOSED] Feature request: bulk export all unread messages using the existing client session
+- [ ] I#169 [CLOSED] Feature: Support SQLite file sessions for persistent update state (fixes update flood on restart)
+- [ ] I#170 [CLOSED] get_participants is non-functional: unexpected 'offset' kwarg on every call, and page_size ignored for basic groups
+- [ ] I#179 [CLOSED] An error occurred (code: GEN-ERR-151).
+- [ ] I#180 [CLOSED] FloodWait is invisible in the tool runtime: short waits absorbed by Telethon default, long ones lose their type
+- [ ] I#184 [CLOSED] Docker image fails at startup: ModuleNotFoundError: No module named 'mcp.server.fastmcp'
+- [ ] I#200 [CLOSED] fix: auto-create allowed roots + topic_id filter for get_history
+- [ ] I#211 [OPEN] not an issue
+- [ ] I#212 [CLOSED] Is there a way to provide access to only some selected chats?
+- [ ] I#214 [CLOSED] Single-host multi-client lock contention: second opencode instance times out (15s) sharing WORK/PERSONAL sessions
+- [ ] I#219 [CLOSED] transcribe_voice (groq engine) fails with 400 unsupported_audio_format for voice notes (.oga)
+- [ ] I#226 [CLOSED] Feature: make per-tool extension allowlists configurable, and cover send_file/upload_file
+- [ ] I#241 [OPEN] create_folder hardcodes a 10-folder limit, ignoring Telegram Premium's 20-folder cap
+- [ ] I#243 [CLOSED] list_messages with search_query and to_date walks every newer match and times out in busy chats
+- [ ] I#244 [CLOSED] Session lock is keyed by label + session, so renaming an account lets two processes connect one session
+
+### PRs
+- [ ] PR#1 [MERGED] Enhance Telegram MCP Server: New Features, Refactoring, and Documentation Updates
+- [ ] PR#2 [MERGED] Telegram MCP v2.0: Major Functionality Enhancements & Robust Error Handling
+- [ ] PR#3 [MERGED] feat: add github's workflow for "Python Lint & Format Check"
+- [ ] PR#4 [MERGED] docs: update credentials in README.md
+- [ ] PR#5 [CLOSED] refactor: Remove file handling functions from main.py
+- [ ] PR#6 [MERGED] Refactor: Tool Cleanup for Reliability and Compatibility
+- [ ] PR#8 [MERGED] Merge v2.0.2: Dockerization & CI Enhancements into Telegram MCP Mainline
+- [ ] PR#9 [MERGED] docs: update README.md
+- [ ] PR#17 [MERGED] feat: add get_sender_name function to enhance message formatting
+- [ ] PR#18 [CLOSED] Fix Issue #16: Add output size limits with clear metadata
+- [ ] PR#19 [MERGED] feat: enhance message display with reply information
+- [ ] PR#21 [MERGED] Fix run how-to to use uv for consistency with production case
+- [ ] PR#22 [MERGED] refactor: Replace hardcoded error prefixes with an Enum
+- [ ] PR#23 [MERGED] Feature/id validation decorator
+- [ ] PR#24 [MERGED] Refactor error logging in main.py to structured JSON format with backward compatibility
+- [ ] PR#28 [MERGED] fix: make list_messages respect date/search limits (#27)
+- [ ] PR#29 [CLOSED] fix: make list_messages respect date/search limits (#27)
+- [ ] PR#30 [MERGED] feat: add poll creation functionality
+- [ ] PR#31 [MERGED] feat: Add forum topics support with `list_topics` tool
+- [ ] PR#32 [MERGED] Add inline button helpers and channel subscription tool
+- [ ] PR#34 [MERGED] feat: add comprehensive ToolAnnotations to all MCP tools
+- [ ] PR#35 [MERGED] Add ability to run telegram-mcp using uvx
+- [ ] PR#38 [MERGED] fix: update uv.lock to resolve ToolAnnotations import error
+- [ ] PR#40 [MERGED] feat: Add title annotations to all 78 tools for improved LLM display
+- [ ] PR#41 [MERGED] feat: add message reactions support
+- [ ] PR#43 [MERGED] docs: add message reaction tools to README
+- [ ] PR#44 [MERGED] docs: add invite_to_group function to README
+- [ ] PR#45 [MERGED] feat: add draft management tools (save_draft, get_drafts, clear_draft)
+- [ ] PR#46 [MERGED] fix: detect manually marked unread chats in list_chats
+- [ ] PR#47 [OPEN] feat: add macOS Keychain support for secure credential storage
+- [ ] PR#48 [MERGED] feat: add engagement metrics to message output
+- [ ] PR#49 [MERGED] docs: update header image to README
+- [ ] PR#53 [MERGED] feat(folders): add 7 tools for Telegram folder management
+- [ ] PR#55 [OPEN] refactor: split main.py into src/telegram_mcp package
+- [ ] PR#57 [MERGED] feat: Add support for adding contacts by username without phone number
+- [ ] PR#58 [OPEN] Remove need to manually generate session string, letting Claude login users via OTP
+- [ ] PR#60 [MERGED] fix: use correct Telegram API for archive/unarchive chat
+- [ ] PR#62 [MERGED] Fix supergroup type in get_folder and unify chat type mapping
+- [ ] PR#63 [OPEN] feat: preserve message entities as markdown
+- [ ] PR#64 [MERGED] feat: secure file-path tools with allowlisted roots (issue #39)
+- [ ] PR#65 [CLOSED] feat: add read-only mode - restrict agent to read tools only
+- [ ] PR#66 [CLOSED] feat: add HTTP transport for Docker and URL-based MCP connections
+- [ ] PR#67 [MERGED] fix(delete_profile_photo): pass Photo object instead of int to DeletePhotosRequest
+- [ ] PR#68 [MERGED] feat(tools): expose parse_mode in send_message and reply_to_message
+- [ ] PR#69 [MERGED] Implement login via QR-code in session_string_generator; bump Telethon to 1.42.0
+- [ ] PR#70 [MERGED] fix: redirect all print() to stderr to keep stdout clean for MCP stdio
+- [ ] PR#72 [MERGED] fix: add support for shared folders (DialogFilterChatlist) in folder operations
+- [ ] PR#73 [MERGED] fix: include chats and channels in search_public_chats results
+- [ ] PR#74 [MERGED] Add global message search
+- [ ] PR#75 [MERGED] Add limit parameter to public chat search
+- [ ] PR#77 [MERGED] fix: resolve entity cache miss for StringSession users
+- [ ] PR#78 [MERGED] feat: add unread_only, unmuted_only filters and mute status to list_chats
+- [ ] PR#80 [MERGED] docs: add Contributors section to README
+- [ ] PR#81 [CLOSED] docs: add Fronteir AI hosted deployment option
+- [ ] PR#82 [OPEN] Feat: Add ALLOWED_TOOLS filter and fix forum mark_as_read
+- [ ] PR#83 [OPEN] Docs: Add telegram_mcp_update AI skill
+- [ ] PR#84 [MERGED] feat: show unread mentions count in list_chats output
+- [ ] PR#86 [MERGED] fix: strip extension in download_media to auto-detect real file type
+- [ ] PR#88 [MERGED] feat: add multi-account support
+- [ ] PR#89 [MERGED] Sanitize tool outputs to prevent prompt injection
+- [ ] PR#90 [MERGED] Fix channel/chat IDs being misinterpreted as user IDs
+- [ ] PR#91 [MERGED] Fix list_topics crash on Telethon 1.42
+- [ ] PR#92 [MERGED] Resolve unmarked channel/chat IDs passed as positive integers
+- [ ] PR#93 [CLOSED] refactor(core): Full hexagonal architecture modularization, secure session handler & mock testing suite
+- [ ] PR#94 [MERGED] fix: gracefully disconnect Telegram client on exit
+- [ ] PR#95 [MERGED] fix(tools): fall back to reply_markup when buttons property is None for bot messages
+- [ ] PR#96 [MERGED] fix(tools): escape newlines in get_messages output to preserve line-based format
+- [ ] PR#97 [MERGED] feat(tools): add send_contact tool to send phone contacts via Telegram
+- [ ] PR#98 [MERGED] fix: robust ensure_connected() — verify with ping, force reconnect on stale TCP
+- [ ] PR#100 [MERGED] feat: add get_full_user and get_full_chat tools
+- [ ] PR#101 [MERGED] feat: add edit_chat_about tool
+- [ ] PR#102 [MERGED] feat: add bulk message cleanup tools
+- [ ] PR#103 [MERGED] feat: add scheduled messages tools
+- [ ] PR#104 [MERGED] feat: add chat admin settings tools
+- [ ] PR#105 [MERGED] feat: add chat discovery tools
+- [ ] PR#106 [MERGED] feat: add with_about to list_chats for dispatch disambiguation
+- [ ] PR#107 [MERGED] docs: add uvx quick start guide to README
+- [ ] PR#108 [CLOSED] Add pagination to get_participants for large groups
+- [ ] PR#109 [MERGED] Add pagination to get_participants for large groups
+- [ ] PR#110 [MERGED] chore: add pre-commit hooks and document contribution workflow
+- [ ] PR#111 [MERGED] Refactor MCP server structure and add test coverage gate
+- [ ] PR#113 [MERGED] feat: add proxy support (SOCKS5/SOCKS4/HTTP/MTProxy)
+- [ ] PR#114 [MERGED] fix(docker): include package directory in image
+- [ ] PR#115 [MERGED] chore(pre-commit): add pre-push pytest coverage hook
+- [ ] PR#118 [OPEN] feat(voice): local Whisper transcription with pluggable backends
+- [ ] PR#119 [MERGED] feat: clarify installation instructions and warn against using incorrect PyPI package & add install_guard.py
+- [ ] PR#120 [CLOSED] feat: add MCPL protocol support
+- [ ] PR#122 [MERGED] fix: enhance installation guard to support editable source checkouts
+- [ ] PR#124 [MERGED] fix: improve error handling for unauthorized Telegram clients and update troubleshooting instructions
+- [ ] PR#125 [CLOSED] feat: forum topics CRUD + manage_topics admin right (fixes list_topics)
+- [ ] PR#126 [CLOSED] feat: forum topics CRUD + manage_topics admin right (fixes list_topics)
+- [ ] PR#127 [MERGED] Add Telegram album sending tool
+- [ ] PR#128 [MERGED] fix: handle MessageReplyStoryHeader without reply_to_msg_id attribute
+- [ ] PR#129 [MERGED] feat(messages): forward batches and auto-preserve albums
+- [ ] PR#130 [MERGED] feat: event-driven wait_for_new_message + debounced wait_for_settled_message
+- [ ] PR#131 [MERGED] feat: expose birthday in get_full_user
+- [ ] PR#132 [MERGED] feat: surface attached media in get_history / get_messages listings
+- [ ] PR#133 [MERGED] feat: full-fidelity message data in get_history / get_messages
+- [ ] PR#134 [MERGED] Add direct QR option to session string generator
+- [ ] PR#135 [MERGED] Document explicit session login flags
+- [ ] PR#136 [MERGED] Add read-only exposed tools mode
+- [ ] PR#137 [MERGED] type account param as Optional[str] to fix single-account tool failures
+- [ ] PR#138 [MERGED] feat: add forum topic management tools
+- [ ] PR#139 [MERGED] fix: support manage_topics admin right in promote/demote/edit_admin_rights
+- [ ] PR#140 [MERGED] fix: warm entity caches in background instead of blocking MCP startup
+- [ ] PR#141 [MERGED] feat(roots): opt-in fallback to server CLI roots on empty client Roots
+- [ ] PR#142 [MERGED] fix: simplify code formatting in runtime and test_runtime modules
+- [ ] PR#143 [MERGED] fix: hide 2fa password input in session generator
+- [ ] PR#144 [MERGED] feat: configurable device identity and self-refreshing QR login
+- [ ] PR#145 [CLOSED] Sync fork
+- [ ] PR#146 [MERGED] Optional SSE transport + sender @username/id in listings
+- [ ] PR#147 [MERGED] Add streamable HTTP transport, document shared-container setup
+- [ ] PR#148 [MERGED] deps: bump telethon floor 1.42.0 → 1.44.0 (fixes User-constructor TypeNotFoundError on numeric-id resolve)
+- [ ] PR#149 [CLOSED] fix(roots): honor server roots on list_roots error; ship writable /data in Docker
+- [ ] PR#151 [OPEN] docs: add Autohand Code MCP setup
+- [ ] PR#152 [MERGED] feat: session pool + AuthKeyDuplicatedError retry for concurrent clients on one account
+- [ ] PR#153 [MERGED] fix(roots): recover Cursor bare-path MCP Roots; opt-in fallback on list_roots errors
+- [ ] PR#154 [MERGED] feat: surface reply quotes (quote_text + offset) in message reads
+- [ ] PR#155 [OPEN] get_chat: return this chat's dialog, not whatever sits at the pagination offset
+- [ ] PR#157 [MERGED] fix(get_chat): read the requested chat's dialog, not the account's top dialog
+- [ ] PR#158 [MERGED] fix(runner): drop nest_asyncio, which breaks startup on Python 3.14
+- [ ] PR#160 [OPEN] feat: support Telegram Rich Messages
+- [ ] PR#161 [MERGED] Allowed Hosts Configuration
+- [ ] PR#163 [OPEN] feat(reactions): support custom emoji reactions
+- [ ] PR#164 [MERGED] fix(http): keep clients usable across server restarts
+- [ ] PR#165 [OPEN] fix: prevent hanging media downloads when Roots requests stall
+- [ ] PR#166 [MERGED] fix(roots): recover Windows bare-path Roots reported as url_scheme
+- [ ] PR#168 [MERGED] feat(runtime): allow read-only mode to expose named write tools
+- [ ] PR#171 [MERGED] fix(groups): correct get_participants pagination
+- [ ] PR#172 [MERGED] Prevent AuthKeyDuplicatedError from concurrent server instances
+- [ ] PR#173 [MERGED] feat(contacts): favorite aliases resolved everywhere; fix session generator 2FA retry and non-interactive stdin
+- [ ] PR#174 [OPEN] Expose reply_to on send_file/send_album so media can be posted into forum topics
+- [ ] PR#175 [MERGED] fix: create_poll and get_full_chat on basic groups
+- [ ] PR#176 [MERGED] feat: favorite aliases, incoming event feed (callback mode), rich messages with Premium gating
+- [ ] PR#177 [OPEN] fix: exit on stdin EOF instead of leaking an orphaned process
+- [ ] PR#178 [MERGED] feat(contacts): remember contacts by the names you use; fix aliases being unusable for non-ASCII names
+- [ ] PR#181 [OPEN] docs: document the MCP_TRANSPORT=sse shared server (fixes the 'one instance per agent' surprise in #50)
+- [ ] PR#182 [MERGED] Keep channel attribution on forwarded messages
+- [ ] PR#183 [MERGED] feat(events): wait for one chat instead of every chat
+- [ ] PR#185 [MERGED] fix(deps): pin mcp to <2 so Docker and pip installs keep working
+- [ ] PR#186 [MERGED] fix: bound reconnect and fail fast when the session pool is exhausted
+- [ ] PR#187 [MERGED] Add topic_id support to media send tools
+- [ ] PR#188 [MERGED] fix: report MTProto schema drift instead of a generic error code
+- [ ] PR#189 [CLOSED] feat: rebuild Telethon's TL classes against the current MTProto layer
+- [ ] PR#190 [MERGED] chore: refresh locked dependencies
+- [ ] PR#191 [MERGED] feat(chats): report avatar presence (has_photo) in get_chat
+- [ ] PR#192 [MERGED] fix(groups): invite users to basic groups via messages.AddChatUser
+- [ ] PR#193 [OPEN] feat(messages): filter list_messages by sender
+- [ ] PR#194 [MERGED] fix: restore the broken star history chart in the README
+- [ ] PR#195 [MERGED] fix(generator): fall back to the login link on cp1252 consoles
+- [ ] PR#196 [MERGED] fix(messages): list_messages never calls get_media_label
+- [ ] PR#197 [MERGED] feat(transcription): add voice/video-note transcription
+- [ ] PR#198 [MERGED] fix(pool): claim distinct session slots on Windows
+- [ ] PR#199 [MERGED] feat: view peer photos through MCP — index, open and contact sheet
+- [ ] PR#201 [MERGED] fix: auto-create allowed roots and add topic_id filter to get_history
+- [ ] PR#202 [CLOSED] feat(export): bulk chat export CLI (JSONL/HTML/MD/TXT, media, transcription)
+- [ ] PR#203 [OPEN] feat(rich): read rich messages and stream rich drafts (closes #159)
+- [ ] PR#204 [MERGED] feat(runtime): surface FloodWait rate limits with actionable wait instructions (closes #180)
+- [ ] PR#205 [MERGED] send_file, send_album: add schedule_date
+- [ ] PR#206 [MERGED] fix: bound and stage media downloads
+- [ ] PR#207 [MERGED] fix: redact sensitive data from error logs
+- [ ] PR#208 [MERGED] fix(groups): pass the resolved Chat.id to messages.* edit requests
+- [ ] PR#209 [CLOSED] feat(singleton): shared session lock mode for single-host multi-client setups
+- [ ] PR#210 [MERGED] fix: read rich (block-format) messages instead of reporting them empty
+- [ ] PR#213 [MERGED] Add optional sender and forum-topic routing to forwards
+- [ ] PR#215 [MERGED] feat(singleton): shared session lock mode (rebase of #209 onto main, live-verified)
+- [ ] PR#216 [MERGED] feat(groups): add remove_user tool (eject without leaving a ban)
+- [ ] PR#217 [MERGED] feat(messages): expose reusable custom emoji metadata
+- [ ] PR#218 [MERGED] feat(messages): tappable date chips via format_date
+- [ ] PR#220 [MERGED] Time out the roots/list request instead of hanging file-path tools
+- [ ] PR#221 [MERGED] chore(deps): require telethon>=1.45.0 (MTProto layer 229)
+- [ ] PR#222 [MERGED] feat(chats): edit_forum_topic and delete_forum_topic
+- [ ] PR#223 [MERGED] fix: bound MCP tool calls
+- [ ] PR#224 [CLOSED] feat: add serialization and rich text handling, update linting and CI configurations
+- [ ] PR#225 [MERGED] fix(messages): expose links in message context
+- [ ] PR#227 [MERGED] feat: make per-tool extension allowlists configurable via TELEGRAM_FILE_EXTENSIONS (closes #226)
+- [ ] PR#228 [MERGED] Fix install guard rejecting Windows editable installs
+- [ ] PR#229 [MERGED] fix(transcription): normalize oga audio extension to ogg for Groq uploads
+- [ ] PR#230 [MERGED] feat(messages): return destination IDs for native forwards
+- [ ] PR#231 [MERGED] fix(runtime): clarify unknown completion after tool timeout
+- [ ] PR#232 [MERGED] fix(dialogs): handle BotMethodInvalidError when client authenticated as bot (#79)
+- [ ] PR#233 [MERGED] feat(security): add per-chat allowlist filter for privacy control (#212)
+- [ ] PR#234 [MERGED] feat(security): support TELEGRAM_ALLOWED_ROOTS env var and clarify file tool containment (#51)
+- [ ] PR#235 [MERGED] docs(skills): add skills/ documentation folder and practical workflows (#52)
+- [ ] PR#236 [MERGED] feat(transport): add --transport/--host/--port CLI flags and validate MCP_TRANSPORT (#50)
+- [ ] PR#237 [MERGED] feat(messages): add export_unread_messages tool for bulk unread export (#162)
+- [ ] PR#238 [MERGED] ci(docker): add multistage Docker targets and align CI workflows (#112)
+- [ ] PR#239 [MERGED] feat: add StringSession to SQLite migration tool
+- [ ] PR#240 [MERGED] fix(tools): support union chat_id and validate options in create_poll (#179)
+- [ ] PR#242 [MERGED] fix(folders): stop hardcoding 10-folder cap, respect Telegram's actual limit
+- [ ] PR#245 [MERGED] list_messages: start searches at to_date instead of the newest match
+- [ ] PR#246 [MERGED] SessionLock: key the lock file by session only
+- [ ] PR#247 [MERGED] feat(messages): add parse_mode to send_scheduled_message
+- [ ] PR#248 [MERGED] Fix empty reaction reads and custom reaction sends
+- [ ] PR#249 [MERGED] fix(chats): support union chat_id and add validate_id in list_topics
+- [ ] PR#250 [MERGED] fix(runtime): fix windows log encoding crash and resolve relative session paths
+- [ ] PR#251 [MERGED] Mark export_unread_messages and the invite-link tools as not read-only; print hidden tools at startup
+- [ ] PR#252 [MERGED] Add OpenAI-compatible and local faster-whisper transcription engines
+- [ ] PR#253 [OPEN] Gate group and channel messages on mention before entering the incoming feed
+- [ ] PR#254 [MERGED] Return the full message record from list, search and context tools
+
+## delltrak/wamcp — 1 issues, 17 PRs
+
+### Issues
+- [ ] I#3 [CLOSED] SSE notifications fail when server doesn't declare logging capability
+
+### PRs
+- [ ] PR#5 [MERGED] chore(deps)!: modernize dependency tree, fix critical Baileys advisory, raise Node floor to 24
+- [ ] PR#6 [CLOSED] chore(deps): bump actions/checkout from 4 to 7
+- [ ] PR#7 [CLOSED] chore(deps): bump docker/setup-qemu-action from 3 to 4
+- [ ] PR#8 [CLOSED] chore(deps): bump node from 24-alpine to 25-alpine
+- [ ] PR#9 [CLOSED] chore(deps): bump actions/setup-node from 4 to 7
+- [ ] PR#10 [CLOSED] chore(deps): bump docker/metadata-action from 5 to 6
+- [ ] PR#11 [CLOSED] chore(deps): bump softprops/action-gh-release from 2 to 3
+- [ ] PR#12 [CLOSED] chore(deps-dev): bump typescript from 6.0.3 to 7.0.2
+- [ ] PR#13 [CLOSED] chore(deps-dev): bump @types/node from 24.13.5 to 26.5.1
+- [ ] PR#14 [MERGED] chore(ci): bump GitHub Actions and guard the deliberate version pins
+- [ ] PR#15 [CLOSED] chore(deps): bump docker/build-push-action from 6 to 7
+- [ ] PR#16 [CLOSED] chore(deps): bump docker/login-action from 3 to 4
+- [ ] PR#17 [MERGED] chore(ci): bump docker/build-push-action to v7 and docker/login-action to v4
+- [ ] PR#18 [MERGED] fix: make resources readable and the Cloud API channel configurable
+- [ ] PR#19 [CLOSED] fix: implement getChats from DB and add wa_list_chats
+- [ ] PR#20 [OPEN] chore(deps): bump the minor-and-patch group with 8 updates
+- [ ] PR#21 [OPEN] feat: download and persist WhatsApp media locally
+
+## eddmann/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## fabienbutz/whatsapp-mcp — 5 issues, 0 PRs
+
+### Issues
+- [ ] I#1 [CLOSED] whatsapp_download_media does not save files to disk
+- [ ] I#2 [CLOSED] Ask user before running media analysis
+- [ ] I#3 [CLOSED] Add AI-powered media analysis to download_media tool
+- [ ] I#4 [CLOSED] Always save downloaded media to disk to avoid token bloat
+- [ ] I#5 [CLOSED] Add react, reply, delete, edit, and typing indicator MCP tools
+
+## FelixIsaac/whatsapp-mcp-extended — 25 issues, 59 PRs
+
+### Issues
+- [ ] I#1 [CLOSED] feat: add sender_name field to MCP list_messages and list_chats output
+- [ ] I#3 [CLOSED] Auto-recover from DNS/network failures
+- [ ] I#4 [CLOSED] Container UID mismatch prevents writing to mounted store/ directory
+- [ ] I#5 [CLOSED] Add graceful shutdown handler for clean disconnects
+- [ ] I#6 [CLOSED] Monitor events.StreamReplaced to detect device takeover
+- [ ] I#7 [CLOSED] Track events.KeepAliveRestored for connection quality monitoring
+- [ ] I#8 [OPEN] Implement automated store/whatsapp.db backup
+- [ ] I#9 [CLOSED] Add send rate limiting/queuing to prevent WhatsApp bans
+- [ ] I#10 [OPEN] Add Prometheus /metrics endpoint for observability
+- [ ] I#11 [OPEN] Replace text logging with structured JSON logging
+- [ ] I#12 [CLOSED] Alert on consecutive reconnect failures
+- [ ] I#13 [OPEN] Production-grade automated DB backups with retention
+- [ ] I#14 [OPEN] Create disaster recovery documentation
+- [ ] I#15 [OPEN] Create troubleshooting runbook for common errors
+- [ ] I#16 [CLOSED] Add architecture diagram to documentation
+- [ ] I#39 [CLOSED] Bug: `list_chats(include_last_message=False)` fails with "no such column: messages.content"
+- [ ] I#47 [CLOSED] feat: JID whitelist / allowlist safety gate
+- [ ] I#49 [OPEN] feat: persist auth tokens and session state across server restarts
+- [ ] I#57 [CLOSED] feat: support reply/quote (quoted message) in send_message
+- [ ] I#60 [CLOSED] download_media always fails: POST /api/download is called by the Python client but never implemented in the Go bridge
+- [ ] I#70 [CLOSED] whatsapp-bridge fails to build on main: missing "strings" import in internal/config/config.go
+- [ ] I#72 [CLOSED] LID resolution on read path — conversations split across @lid and @s.whatsapp.net formats
+- [ ] I#78 [CLOSED] [BUG] docker compose up fails
+- [ ] I#83 [OPEN] Poll vote (PollUpdateMessage) events are silently dropped, never decrypted or stored
+- [ ] I#85 [OPEN] download_media returns a relative path that breaks when the bridge and MCP server run from different working directories
+
+### PRs
+- [ ] PR#2 [CLOSED] build(deps): bump next from 16.1.1 to 16.1.5 in /whatsapp-web-ui
+- [ ] PR#17 [CLOSED] build(deps): bump filippo.io/edwards25519 from 1.1.0 to 1.1.1 in /whatsapp-bridge
+- [ ] PR#18 [CLOSED] build(deps): bump mcp from 1.6.0 to 1.23.0 in /whatsapp-mcp-server
+- [ ] PR#19 [CLOSED] build(deps): bump urllib3 from 2.3.0 to 2.6.3 in /whatsapp-mcp-server
+- [ ] PR#20 [CLOSED] build(deps): bump starlette from 0.46.1 to 0.49.1 in /whatsapp-mcp-server
+- [ ] PR#21 [CLOSED] fix: resolve LID JIDs to phone-number JIDs before storing messages
+- [ ] PR#22 [CLOSED] feat: store WhatsApp call events as messages
+- [ ] PR#23 [CLOSED] Improve contact name resolution in GetChatName
+- [ ] PR#24 [CLOSED] build(deps): bump minimatch in /whatsapp-web-ui
+- [ ] PR#25 [CLOSED] build(deps): bump gradio from 5.34.2 to 6.7.0 in /whatsapp-mcp-server
+- [ ] PR#26 [CLOSED] Accept WHATSAPP_API_KEY in MCP server
+- [ ] PR#27 [CLOSED] build(deps): bump next from 16.1.1 to 16.1.7 in /whatsapp-web-ui
+- [ ] PR#28 [CLOSED] build(deps-dev): bump flatted from 3.3.3 to 3.4.2 in /whatsapp-web-ui
+- [ ] PR#29 [CLOSED] build(deps): bump picomatch in /whatsapp-web-ui
+- [ ] PR#30 [CLOSED] Fix document files showing as .bin in WhatsApp
+- [ ] PR#31 [CLOSED] Fix document and audio files showing as .bin in WhatsApp
+- [ ] PR#32 [CLOSED] Fix reactions to other users' messages silently failing
+- [ ] PR#33 [CLOSED] Add /api/download endpoint for media retrieval
+- [ ] PR#34 [CLOSED] build(deps): bump next from 16.1.1 to 16.2.3 in /whatsapp-web-ui
+- [ ] PR#36 [CLOSED] feat(api): add authenticated media download endpoint
+- [ ] PR#37 [MERGED] fix: send documents with correct mime type and filename
+- [ ] PR#38 [MERGED] fix postcss alert
+- [ ] PR#40 [MERGED] fix: stabilize include_last_message=false query paths
+- [ ] PR#41 [MERGED] Fix core message persistence
+- [ ] PR#42 [MERGED] Curate MCP tool surface
+- [ ] PR#43 [MERGED] MCP toolset gating + Docker image optimisation (2.43GB → 837MB)
+- [ ] PR#44 [MERGED] Reduce memory limits to match actual usage
+- [ ] PR#45 [MERGED] build(deps): bump idna from 3.13 to 3.15 in /whatsapp-mcp-server
+- [ ] PR#46 [MERGED] build(deps): bump starlette from 1.0.0 to 1.0.1 in /whatsapp-mcp-server
+- [ ] PR#50 [MERGED] build(deps): bump pyjwt from 2.12.1 to 2.13.0 in /whatsapp-mcp-server
+- [ ] PR#51 [MERGED] build(deps-dev): bump js-yaml from 4.1.1 to 4.2.0 in /whatsapp-web-ui
+- [ ] PR#52 [MERGED] build(deps): bump python-multipart from 0.0.27 to 0.0.31 in /whatsapp-mcp-server
+- [ ] PR#53 [MERGED] build(deps): bump starlette from 1.0.1 to 1.3.1 in /whatsapp-mcp-server
+- [ ] PR#54 [MERGED] build(deps): bump cryptography from 48.0.0 to 48.0.1 in /whatsapp-mcp-server
+- [ ] PR#55 [MERGED] feat(mcp): optional on-device voice transcription via mlx-whisper
+- [ ] PR#56 [MERGED] feat(mcp): optional semantic recall over message history
+- [ ] PR#58 [MERGED] build(deps): bump pydantic-settings from 2.14.1 to 2.14.2 in /whatsapp-mcp-server
+- [ ] PR#59 [MERGED] build(deps): bump gradio from 6.14.0 to 6.15.0 in /whatsapp-mcp-server
+- [ ] PR#61 [CLOSED] changed logging
+- [ ] PR#62 [CLOSED] feat(web-ui): add chat list and message history views (NILA-107)
+- [ ] PR#63 [MERGED] Fix failing Security Scan workflow
+- [ ] PR#64 [MERGED] build(deps): bump gradio from 6.15.0 to 6.15.1 in /whatsapp-mcp-server
+- [ ] PR#65 [MERGED] build(deps): bump mcp from 1.27.1 to 1.28.1 in /whatsapp-mcp-server
+- [ ] PR#66 [MERGED] build(deps): bump idna from 3.13 to 3.15 in /whatsapp-mcp-server
+- [ ] PR#67 [MERGED] Resolve LID recipients to their phone JID before sending
+- [ ] PR#68 [MERGED] build(deps): bump next from 16.2.6 to 16.2.11 in /whatsapp-web-ui
+- [ ] PR#69 [MERGED] build(deps): bump cryptography from 48.0.1 to 50.0.0 in /whatsapp-mcp-server
+- [ ] PR#71 [MERGED] fix(mcp): resolve LID↔phone JID equivalents in read-path queries
+- [ ] PR#73 [MERGED] fix: import strings in config package (main does not compile)
+- [ ] PR#74 [MERGED] fix(security): resolve symlinks & match path boundaries in validateMediaPath
+- [ ] PR#75 [MERGED] Cap mcp below 2.0, which removed mcp.server.fastmcp
+- [ ] PR#76 [MERGED] Accept base64 file content in send_file
+- [ ] PR#77 [CLOSED] fix: LID resolution on read path — conversations split across @lid and @s.whatsapp.net formats
+- [ ] PR#80 [MERGED] build(deps): bump next from 16.2.11 to 16.3.3 in /whatsapp-web-ui
+- [ ] PR#81 [OPEN] fix: make Python type checks pass
+- [ ] PR#82 [OPEN] build(deps): bump anyio from 4.13.0 to 4.14.2 in /whatsapp-mcp-server
+- [ ] PR#84 [OPEN] fix: decrypt and persist poll votes, track current vote state
+- [ ] PR#86 [OPEN] fix: resolve download_media's relative path against the bridge's cwd
+- [ ] PR#87 [OPEN] build(deps): bump pyjwt from 2.13.0 to 2.15.0 in /whatsapp-mcp-server
+
+## Jochem-van-Appeldoorn/whatsapp-mcp-server — 0 issues, 1 PRs
+
+### PRs
+- [ ] PR#1 [MERGED] Tear down the old socket before reconnecting (fixes 408 reconnect loop)
+
+## jonzarecki/wa-mcp — 0 issues, 31 PRs
+
+### PRs
+- [ ] PR#1 [CLOSED] Bump the go_modules group across 1 directory with 2 updates
+- [ ] PR#2 [CLOSED] Bump filippo.io/edwards25519 from 1.1.0 to 1.1.1 in the go_modules group across 1 directory
+- [ ] PR#3 [CLOSED] ci: bump docker/login-action from 3 to 4
+- [ ] PR#4 [CLOSED] ci: bump actions/checkout from 5 to 6
+- [ ] PR#5 [CLOSED] ci: bump actions/cache from 4 to 5
+- [ ] PR#6 [CLOSED] ci: bump actions/setup-go from 5 to 6
+- [ ] PR#7 [CLOSED] ci: bump docker/build-push-action from 5 to 6
+- [ ] PR#8 [OPEN] deps: Bump github.com/mark3labs/mcp-go from 0.44.1 to 0.45.0 in the mcp-go group
+- [ ] PR#9 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.37
+- [ ] PR#10 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.38
+- [ ] PR#11 [CLOSED] deps: Bump github.com/rs/zerolog from 1.34.0 to 1.35.0
+- [ ] PR#12 [CLOSED] ci: Bump actions/stale from 9 to 10
+- [ ] PR#13 [CLOSED] ci: Bump docker/build-push-action from 6 to 7
+- [ ] PR#14 [CLOSED] ci: Bump docker/setup-qemu-action from 3 to 4
+- [ ] PR#15 [CLOSED] ci: Bump docker/metadata-action from 5 to 6
+- [ ] PR#16 [CLOSED] ci: Bump docker/setup-buildx-action from 3 to 4
+- [ ] PR#17 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.40
+- [ ] PR#18 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.42
+- [ ] PR#19 [CLOSED] deps: Bump github.com/rs/zerolog from 1.34.0 to 1.35.1
+- [ ] PR#20 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.44
+- [ ] PR#21 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.45
+- [ ] PR#22 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.47
+- [ ] PR#23 [CLOSED] ci: Bump actions/checkout from 5 to 7
+- [ ] PR#24 [CLOSED] deps: Bump github.com/buger/jsonparser from 1.1.1 to 1.1.2
+- [ ] PR#25 [CLOSED] deps: Bump golang.org/x/net from 0.50.0 to 0.55.0
+- [ ] PR#26 [CLOSED] deps: Bump filippo.io/edwards25519 from 1.1.0 to 1.1.1
+- [ ] PR#27 [CLOSED] deps: Bump golang.org/x/crypto from 0.48.0 to 0.52.0
+- [ ] PR#28 [CLOSED] ci: Bump actions/setup-go from 6 to 7
+- [ ] PR#29 [CLOSED] ci: Bump actions/stale from 9 to 11
+- [ ] PR#30 [CLOSED] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.50
+- [ ] PR#31 [OPEN] deps: Bump github.com/mattn/go-sqlite3 from 1.14.34 to 1.14.52
+
+## kahflane/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## lharries/whatsapp-mcp — 127 issues, 235 PRs
+
+### Issues
+- [ ] I#2 [CLOSED] Incorrect repo URL in README
+- [ ] I#3 [CLOSED] Error when starting Claude
+- [ ] I#4 [CLOSED] How do you recommend running this on windows?
+- [ ] I#5 [CLOSED] Whatsapp Groups
+- [ ] I#7 [CLOSED] MCP not working on my cursor
+- [ ] I#8 [CLOSED] not an issue - Cursor IDE tool calls (for all tools) stopped working an hour ago
+- [ ] I#9 [OPEN] Claude cannot find the contact by their name
+- [ ] I#10 [CLOSED] Typo
+- [ ] I#13 [CLOSED] Getting HTTP Connection Pool Error.
+- [ ] I#17 [CLOSED] Trying to Integrate with AGNO agent but its not working
+- [ ] I#18 [OPEN] Unable to filter messages by chat_jid in Windows + Cursor
+- [ ] I#19 [OPEN] Not Install the dependency when I run uv pip install e .
+- [ ] I#20 [OPEN] Server disconnected
+- [ ] I#21 [OPEN] Issue with searching and getting messages using Cursor
+- [ ] I#23 [OPEN] unable to send messages
+- [ ] I#24 [CLOSED] Names instead of numbers on group
+- [ ] I#25 [CLOSED] Feature Request: Enhance Go Bridge API for Sending Media Messages (Images, Audio, etc.)
+- [ ] I#27 [CLOSED] cgo: C compiler "gcc" not found
+- [ ] I#29 [CLOSED] Is the release safe?
+- [ ] I#33 [CLOSED] list_messages using sender_phone_number lists also my own messages
+- [ ] I#35 [OPEN] Configuration file for Windows and restarting of machine
+- [ ] I#36 [OPEN] [whatsapp] [info] Client transport closed
+- [ ] I#37 [OPEN] search_contacts - parameterize LIMIT
+- [ ] I#38 [OPEN] Failed to connect to database: failed to upgrade database: Binary was compiled with 'CGO_ENABLED=0', go-sqlite3
+- [ ] I#39 [OPEN] new column "media_type" in db
+- [ ] I#40 [OPEN] Unable to send message due to HTTP error 404.
+- [ ] I#41 [OPEN] list_messages format broken
+- [ ] I#42 [CLOSED] Security issues raised by invariantlabs
+- [ ] I#43 [OPEN] send_file is not working
+- [ ] I#44 [OPEN] Failed to create client
+- [ ] I#45 [OPEN] Invalid type for parameter 'chat_jid' when handling interactive/button messages
+- [ ] I#46 [OPEN] Client Closed not able to connect to the server
+- [ ] I#47 [OPEN] Get metadata in media messages
+- [ ] I#48 [OPEN] Get name from chat GetContact
+- [ ] I#51 [OPEN] Deploy MCP server on smithery.ai
+- [ ] I#52 [OPEN] Is there a way to connect this MCP server to openWeb UI
+- [ ] I#53 [OPEN] Update README with Ubuntu 24 Installation Instructions
+- [ ] I#56 [CLOSED] cc1.exe: sorry, unimplemented: 64-bit mode not compiled in
+- [ ] I#57 [OPEN] Potential Security Issue
+- [ ] I#58 [OPEN] Message sent false Error sending message: failed to get device list: failed to send usync query: info query timed out
+- [ ] I#62 [OPEN] issue with group messages , Message sent false Error sending message: failed to get device list: unknown user server 'lid'
+- [ ] I#63 [OPEN] Failed to connect
+- [ ] I#64 [OPEN] Simulating Real User Behavior
+- [ ] I#65 [OPEN] Whatsapp-MCP-Server is not connecting with Claude
+- [ ] I#66 [OPEN] Group Members
+- [ ] I#69 [OPEN] Could you please integrate the Evenlabs API with this server?
+- [ ] I#70 [OPEN] Cannot run the bridge on Windows
+- [ ] I#73 [OPEN] [Feature] - Ability to Delete Single or Multiple Chats (Including Saved and Unsaved Contacts)
+- [ ] I#78 [OPEN] sending blank images
+- [ ] I#80 [OPEN] "success": false, "message": "Error: HTTP 500
+- [ ] I#83 [OPEN] Upgrade mcp package to newer version
+- [ ] I#84 [OPEN] Transcribing Audio
+- [ ] I#85 [OPEN] Manually have to run the bridge in order for the MCP to work?
+- [ ] I#86 [OPEN] how to fix this
+- [ ] I#87 [OPEN] Add manifest.json for DXT
+- [ ] I#88 [OPEN] Running Whatsapp bridge in the background
+- [ ] I#90 [OPEN] Message Delete and leave chat Support
+- [ ] I#94 [OPEN] Client outdated (405) connect failure
+- [ ] I#97 [OPEN] Messages not syncing with messages.db after sent by MCP Client
+- [ ] I#99 [CLOSED] Unexpected EOF erro
+- [ ] I#104 [CLOSED] Compilation errors with updated whatsmeow library - missing context.Context parameters
+- [ ] I#108 [OPEN] واتساب
+- [ ] I#109 [OPEN] API Breaking Changes - Missing context.Context Parameters After Dependency Update
+- [ ] I#113 [CLOSED] Can't send messeges directly
+- [ ] I#120 [CLOSED] Error Sending Messages
+- [ ] I#121 [OPEN] How to add support for giving reply to specific message ?
+- [ ] I#123 [OPEN] Cannot use the MCP as connector on ChatGPT
+- [ ] I#124 [OPEN] I'm facing this error
+- [ ] I#126 [OPEN] This project seems dead and broken (according to comments). Which one is the most active fork?
+- [ ] I#129 [OPEN] Suspected security issue — please provide security contact (whatsapp-mcp)
+- [ ] I#136 [OPEN] Client version Outdated
+- [ ] I#140 [OPEN] Adding a url for QR-code pairing
+- [ ] I#144 [OPEN] feat: add sender_name field to MCP list_messages and list_chats output
+- [ ] I#146 [OPEN] Timestamp timezone ambiguity - all messages/chats lack timezone context
+- [ ] I#147 [OPEN] feat: Add message reaction support
+- [ ] I#149 [OPEN] feat: Add GitHub Actions CI for automated testing
+- [ ] I#151 [OPEN] Is this now abandonware or it's still worth giving it a shot?
+- [ ] I#153 [OPEN] Client outdated error (405) and GetGroupInfo API breaking change after whatsmeow update
+- [ ] I#154 [OPEN] GetGroupInfo API Breaking Change
+- [ ] I#164 [OPEN] 10+ PRs fixing the 405 error are sitting unmerged since September
+- [ ] I#166 [CLOSED] Add graceful shutdown handler for clean disconnects
+- [ ] I#170 [OPEN] whatsmeow breaking API change: missing context.Context in several function calls
+- [ ] I#187 [OPEN] Community Extension: Added Polls, Reactions, and Events support 🚀
+- [ ] I#192 [OPEN] receiving error  and not loading the qr code from whatsmeow. giving this error  Client outdated (405) connect failure (client version: 2.3000.1029399661)
+- [ ] I#198 [OPEN] Contact identity confusion: whatsmeow's LID mappings and contact store are never synced to messages.db
+- [ ] I#202 [CLOSED] Your project is listed on Spark — claim your listing
+- [ ] I#204 [OPEN] List WhatsApp MCP on MCPHosting marketplace — 80% creator revenue share
+- [ ] I#210 [CLOSED] QR Code works - WhatsApp showing Linked Device - When sending: Server is initializing
+- [ ] I#214 [OPEN] Your MCP server is now indexed on Joy Trust Network
+- [ ] I#215 [OPEN] [Security] Bridge REST API binds to 0.0.0.0 by default — LAN-exposed unauthenticated /api/send and /api/download
+- [ ] I#216 [OPEN] Client outdated (405) error on startup — whatsmeow dependency needs update
+- [ ] I#218 [OPEN] Add policy enforcement for message sending
+- [ ] I#220 [OPEN] Request: Add maintainers or transfer repo — 20+ PRs waiting, community eager to help
+- [ ] I#222 [OPEN] WhatsApp MCP cannot download older sent PDF attachments and returns 403
+- [ ] I#225 [OPEN] Last message issue list_messages
+- [ ] I#237 [OPEN] [Client ERROR] Client outdated (405) connect failure (client version: 2.3000.1021018791)
+- [ ] I#238 [OPEN] Bot messages not appearing in real-time in Audit Thread panel
+- [ ] I#241 [OPEN] CWE-22 Path Traversal Vulnerability in `/api/send` Endpoint Allows Arbitrary File Read
+- [ ] I#246 [OPEN] MCPSafe deep scan: 13 high-severity findings, score 67/100 — badge available
+- [ ] I#247 [OPEN] Security scan results for whatsapp-mcp — MCPSafe AIVSS 67/100 (Grade D)
+- [ ] I#263 [OPEN] Is this repo dead?
+- [ ] I#266 [OPEN] LID chats display raw JID instead of contact name
+- [ ] I#278 [OPEN] perf: message/chat queries do full-table scans; add SQLite indexes
+- [ ] I#280 [OPEN] perf: content search (LIKE %q%) does a full table scan; add FTS5
+- [ ] I#282 [OPEN] correctness+perf: last-message JOIN uses timestamp equality; can duplicate or drop chat rows
+- [ ] I#285 [OPEN] lebanon
+- [ ] I#286 [OPEN] perf: format_messages_list calls get_sender_name once per message (N+1 SQL + N+1 sqlite3.connect)
+- [ ] I#287 [OPEN] perf: whatsapp.py opens a fresh HTTP connection per bridge call; use a module-level requests.Session
+- [ ] I#288 [OPEN] perf: every list_* / get_* opens a fresh sqlite3 connection; cache per thread
+- [ ] I#289 [OPEN] feat: Auto-download & transcribe voice/audio messages
+- [ ] I#290 [OPEN] feat: Auto-download & transcribe voice/audio messages
+- [ ] I#297 [OPEN] Opencode
+- [ ] I#309 [OPEN] Your MCP server is listed on DReview
+- [ ] I#310 [OPEN] Approved native WhatsApp event does not appear and may degrade to mismatched plain text
+- [ ] I#327 [OPEN] Documents sent via send_file arrive as unnamed .bin files (missing mime type + FileName)
+- [ ] I#330 [CLOSED] [BUG CRÍTICO] Timestamp Go→Python: fromisoformat não aceita formato time.String()
+- [ ] I#331 [CLOSED] [BUG] Gate de envio não normaliza JIDs (@lid vs @s.whatsapp.net)
+- [ ] I#332 [CLOSED] [BUG] Loop de sessão ao registrar MCP em múltiplos clientes
+- [ ] I#333 [CLOSED] [BUG] Instalador registra config enquanto Claude está aberto, registro é apagado
+- [ ] I#334 [CLOSED] [BUG] checksums.txt não cobre whatsapp-mcp-server.zip
+- [ ] I#335 [CLOSED] [DOC/BUG] Problemas de instalação no Windows (v0.1.2)
+- [ ] I#336 [CLOSED] [DOC/BUG] Relatório completo de instalação Windows v0.1.2 (12 problemas)
+- [ ] I#337 [CLOSED] [DOC/BUG] Relatório de instalação macOS v0.1.2 (10 problemas)
+- [ ] I#338 [CLOSED] [BUG] Issues de uso real: Queda MCP derruba ponte + JID duplicado (D-11 a D-14)
+- [ ] I#339 [CLOSED] [BUG] status() health enganoso — health congelado em instâncias externas
+- [ ] I#340 [CLOSED] [HARDENING] L1: LimitReader body + L2: Rate limit envio
+- [ ] I#344 [OPEN] /api/download returns 403 for all media, even though the stored media URL works fine via direct HTTP — restarting the bridge does not fix it
+
+### PRs
+- [ ] PR#1 [MERGED] Update README.md
+- [ ] PR#6 [MERGED] Support for group chats
+- [ ] PR#11 [MERGED] docs: add Windows compatibility instructions to README
+- [ ] PR#12 [MERGED] docs: update README.md
+- [ ] PR#14 [CLOSED] suppressing the mcp.server.fastmcp import statement
+- [ ] PR#15 [OPEN] Added support for buttons and list messages in extractTextContent function
+- [ ] PR#16 [CLOSED] Fix schema validation error for date_range in list_messages for expanded compatibility
+- [ ] PR#22 [MERGED] Update README.md
+- [ ] PR#26 [CLOSED] Add WhatsApp analytics dashboard with enhanced filters and visualizations
+- [ ] PR#28 [CLOSED] socketIO for new messages
+- [ ] PR#30 [MERGED] Improve date handling
+- [ ] PR#31 [MERGED] feat: send files and audio messages
+- [ ] PR#32 [MERGED] Fix typo in README.md
+- [ ] PR#34 [MERGED] feat: handle incoming media (images, audio, videos, documents) and show names in group messages
+- [ ] PR#49 [OPEN] Modified main.go and server to get names properly
+- [ ] PR#50 [OPEN] So it works on Cline
+- [ ] PR#54 [CLOSED] Refactor data handling and enhance WhatsApp MCP server
+- [ ] PR#55 [CLOSED] Add safe-containers, merging in a single docker image, improving the onboarding workflow
+- [ ] PR#59 [OPEN] Added message read status real time and history sync, and function for listing unread messages
+- [ ] PR#60 [OPEN] Add uploads directory to send_file and send_audio_message
+- [ ] PR#61 [OPEN] Allow MCP to run inside docker
+- [ ] PR#67 [OPEN] Add WhatsApp auto-responder system with rule-based responses
+- [ ] PR#68 [OPEN] Implement caption extraction from media messages
+- [ ] PR#71 [OPEN] Fix typo in README: 'meda' to 'media'
+- [ ] PR#72 [OPEN] Add open mcp marketplace api support
+- [ ] PR#74 [CLOSED] attempt fix for WA communities lid issue
+- [ ] PR#75 [OPEN] Fix bug with `list_chats` tool when `include_last_message` is false
+- [ ] PR#76 [OPEN] upgrade whatmeow (to support sending messages to group chats)
+- [ ] PR#77 [OPEN] Fix: Correct pyproject.toml for MCP server and add README
+- [ ] PR#79 [OPEN] Quick fix to fix space escape character in Claude app path
+- [ ] PR#81 [OPEN] Added Docker support
+- [ ] PR#82 [OPEN] Improve documentation and fix audio file download issues
+- [ ] PR#89 [CLOSED] Webhook
+- [ ] PR#91 [CLOSED] Devin/1753105496 user management UI
+- [ ] PR#92 [OPEN] Fix Issue #70: Cannot run the bridge on Windows
+- [ ] PR#93 [OPEN] Fix Data Handling and Output Formatting
+- [ ] PR#95 [OPEN] Updated go libraries, and made code updates to update the libraries api changes. 
+- [ ] PR#96 [OPEN] Fix WebSocket error 1006 by updating whatsmeow and adding context parameters
+- [ ] PR#98 [OPEN] feat: Adding a tool to create a new WhatsApp group
+- [ ] PR#100 [OPEN] Create Dockerfile
+- [ ] PR#101 [OPEN] feat: Add comprehensive status monitoring system with MCP resources and web dashboard
+- [ ] PR#102 [CLOSED] update main.go
+- [ ] PR#103 [CLOSED] feat: Add Claude Code Bridge for WhatsApp self-message integration
+- [ ] PR#105 [CLOSED] Fix whatsmeow API compatibility - add context.Context parameters
+- [ ] PR#106 [CLOSED] Fix both websocket and outgoing messages
+- [ ] PR#107 [OPEN] MCP Trust Score
+- [ ] PR#110 [OPEN] Fix whatsmeow API compatibility by adding context parameters
+- [ ] PR#111 [CLOSED] Runnbale version
+- [ ] PR#112 [CLOSED] Dont trigger webhook on group message
+- [ ] PR#114 [OPEN] Update dependencies and add context to API calls
+- [ ] PR#115 [CLOSED] Create executable script
+- [ ] PR#116 [OPEN] Fix: Update whatsmeow library and add required context parameters
+- [ ] PR#117 [OPEN] fix: update whatsmeow library and add required context parameters
+- [ ] PR#118 [OPEN] whatsmeow version updated
+- [ ] PR#119 [CLOSED] Feature/multiple wa nodes
+- [ ] PR#122 [CLOSED] Feature 003: Code Quality and Maintainability Improvements
+- [ ] PR#125 [CLOSED] Update go.mau.fi/whatsmeow
+- [ ] PR#127 [OPEN] Updates dependencies and adds context support
+- [ ] PR#128 [OPEN] feat: Complete TypeScript migration - Backend implementation with MCP…
+- [ ] PR#130 [CLOSED] Feature/multiple wa nodes
+- [ ] PR#131 [CLOSED] feat: add minimal WhatsApp Cloud Sync MVP
+- [ ] PR#132 [CLOSED] Feature/multiple wa nodes
+- [ ] PR#133 [CLOSED] fix: update whatsmeow to context-aware API
+- [ ] PR#134 [OPEN] feat: update whatsmeow dependencies and improve connection handling
+- [ ] PR#135 [CLOSED] Disable webhook
+- [ ] PR#137 [OPEN] Fix: Update whatsmeow library to resolve 'Client outdated' error
+- [ ] PR#138 [OPEN] update to latest version of whatsmeow
+- [ ] PR#139 [OPEN] chore: update whatsmeow and dependencies to latest versions
+- [ ] PR#141 [OPEN] fix: update whatsmeow API calls to include required context parameter
+- [ ] PR#142 [OPEN] feat: Add tool annotations for improved LLM tool understanding
+- [ ] PR#143 [OPEN] fix(security): add authentication, path traversal protection, and log sanitization
+- [ ] PR#145 [OPEN] feat: Add Docker deployment with HTTP-based QR authentication
+- [ ] PR#148 [OPEN] feat: add message reaction support
+- [ ] PR#150 [OPEN] ci: add GitHub Actions workflow for Go and Python
+- [ ] PR#152 [CLOSED] chore: update Go dependencies
+- [ ] PR#155 [OPEN] upgrade to latest WA apis
+- [ ] PR#156 [OPEN] fix: use message ID for media filenames to prevent overwrites
+- [ ] PR#157 [OPEN] fix: proper MIME types for documents and filename display
+- [ ] PR#158 [CLOSED] fix: update whatsmeow API compatibility
+- [ ] PR#159 [OPEN] Fix incorrect versions, chat names and sender resolution in WhatsApp bridge and MCP server
+- [ ] PR#160 [OPEN] Feat: Add Docker SSE infrastructure and multi-client support
+- [ ] PR#161 [CLOSED] Update whatsmeow library and fix API compatibility
+- [ ] PR#162 [OPEN] Fix WebSocket error 1006 by updating whatsmeow and adding context params
+- [ ] PR#163 [OPEN] Update whatsmeow to fix 405 client outdated error
+- [ ] PR#165 [OPEN] feat: event-driven WhatsApp → Claude auto-reply daemon
+- [ ] PR#167 [OPEN] Update dependencies to latest whatsmeow version
+- [ ] PR#168 [OPEN] fix: update whatsmeow to latest and fix context.Context API changes
+- [ ] PR#169 [CLOSED] fix: update whatsmeow API calls to pass context.Context
+- [ ] PR#171 [CLOSED] Add Windows build workflow
+- [ ] PR#172 [OPEN] Update whatsmeow to fix 405 client outdated error
+- [ ] PR#173 [OPEN] fix: resolve contact names from address book instead of phone numbers
+- [ ] PR#174 [OPEN] fix: bind API to localhost and update whatsmeow
+- [ ] PR#175 [CLOSED] feat: implement autonomous agent mode for WhatsApp MCP
+- [ ] PR#176 [CLOSED] Improve agent mode
+- [ ] PR#177 [OPEN] Update whatsapp bridge for latest whatsmeow API
+- [ ] PR#178 [OPEN] feat: add reply/quote context to messages
+- [ ] PR#179 [OPEN] fix: whatsmeow dependencies and usages
+- [ ] PR#180 [CLOSED] Claude/add railway config u15y g
+- [ ] PR#181 [OPEN] fix: Unicode-safe chat search + auto-detect business bridge DB
+- [ ] PR#183 [OPEN] Add SSE endpoint and MCP resource notifications for real-time events
+- [ ] PR#184 [CLOSED] feat: add local audio transcription via faster-whisper
+- [ ] PR#185 [OPEN] fix: update whatsmeow to resolve WhatsApp 405 client outdated error
+- [ ] PR#186 [OPEN] fix: update whatsmeow to fix Client outdated (405) error
+- [ ] PR#188 [CLOSED] Fix timestamp timezone ambiguity (RFC 3339 UTC) — closes #146
+- [ ] PR#189 [OPEN] security: harden Go bridge against multiple attack vectors
+- [ ] PR#190 [OPEN] fix: update whatsmeow and add required context.Context params
+- [ ] PR#191 [OPEN] feat: SSE pub/sub stream, resolve-contacts endpoint, and LID phone number fix
+- [ ] PR#193 [OPEN] fix: bump whatsmeow + add context.Background() to restore WhatsApp connectivity
+- [ ] PR#194 [OPEN] fix: update whatsmeow API calls to include context parameter
+- [ ] PR#195 [OPEN] Fix the not showing QR code error
+- [ ] PR#196 [CLOSED] docs: add Fronteir AI hosted deployment option
+- [ ] PR#197 [OPEN] feat(bridge): extract text from interactive WhatsApp messages
+- [ ] PR#199 [OPEN] Fix document MIME types and add FileName to DocumentMessage
+- [ ] PR#200 [OPEN] Add optional caption parameter to send_file
+- [ ] PR#201 [OPEN] feat: add quoted reply support to send_message
+- [ ] PR#203 [OPEN] Add Codex CLI plugin manifest
+- [ ] PR#205 [CLOSED] Add Codex plugin quality gate CI
+- [ ] PR#207 [OPEN] fix: update whatsmeow dependency to fix websocket 1006 connection error
+- [ ] PR#208 [OPEN] fix: update whatsmeow for WhatsApp protocol compatibility
+- [ ] PR#209 [OPEN] Fix contact lookup for WhatsApp LID (Linked Device ID) migration
+- [ ] PR#211 [CLOSED] feat: add sticker message support in WhatsApp bridge
+- [ ] PR#212 [CLOSED] Add Argo codec support and update dependencies
+- [ ] PR#213 [CLOSED] Stickers integration
+- [ ] PR#217 [OPEN] fix: update whatsmeow to resolve 405 client outdated error
+- [ ] PR#219 [CLOSED] fix: resolve LID JIDs to phone-number JIDs
+- [ ] PR#221 [OPEN] Resolve contact names from whatsmeow store and show them in terminal
+- [ ] PR#223 [CLOSED] Fix
+- [ ] PR#224 [OPEN] security: bind REST API to 127.0.0.1 by default (opt-in LAN via BIND_ADDR)
+- [ ] PR#226 [OPEN] fix: add context.Context args to whatsmeow API calls
+- [ ] PR#227 [OPEN] Add Docker support for whatsapp-mcp
+- [ ] PR#228 [OPEN] Upgrade whatsmeow to fix websocket 1006 disconnect on handshake
+- [ ] PR#229 [OPEN] Persist text outbounds locally so single-device-account readers see own-sends
+- [ ] PR#230 [OPEN] Bump whatsmeow + thread context.Context through 5 call sites
+- [ ] PR#231 [OPEN] optimization of code
+- [ ] PR#232 [OPEN] This will work with latest Go Liberary compatability
+- [ ] PR#233 [OPEN] Update README.md
+- [ ] PR#234 [CLOSED] Update Python MCP dependencies for security fixes
+- [ ] PR#235 [CLOSED] feat: add WhatsApp label management tools
+- [ ] PR#236 [OPEN] Fix documents arriving as "Untitled" with no preview
+- [ ] PR#239 [OPEN] feat: add create_group and leave_group MCP tools
+- [ ] PR#240 [OPEN] Fix build compatibility with updated whatsmeow (context.Context API)
+- [ ] PR#242 [CLOSED] feat: make bridge port and MCP API URL configurable via env vars
+- [ ] PR#243 [CLOSED] fix: set explicit mime + FileName on document uploads
+- [ ] PR#244 [CLOSED] feat: normalize LID -> PN at write time + startup migration
+- [ ] PR#245 [OPEN] fix: update whatsmeow to latest and fix API compatibility
+- [ ] PR#248 [OPEN] feat: upgrade dependencies and implement phone number pairing flow in whatsapp-bridge
+- [ ] PR#249 [OPEN] Multi tenant
+- [ ] PR#250 [OPEN] Update whatsmeow + adapt to context.Context API
+- [ ] PR#251 [CLOSED] [codex] Update WhatsApp bridge for current whatsmeow
+- [ ] PR#252 [OPEN] Add Windows startup helper script (iniciar-bridge.bat)
+- [ ] PR#253 [CLOSED] fix: update whatsmeow to latest API + fix Windows CGO build
+- [ ] PR#254 [CLOSED] Fix 405 client outdated error and add phone-number pairing
+- [ ] PR#255 [CLOSED] fix: update whatsmeow API compatibility, add QR PNG export, fix MCP s…
+- [ ] PR#256 [CLOSED] Fix/whatsmeow api compat and qr pngupdate whatsmeow API compatibility, add QR PNG export, fix MCP serialization
+- [ ] PR#257 [OPEN] Fixed whatsapp api calls
+- [ ] PR#258 [OPEN] fix: update whatsmeow to latest and fix breaking context API changes
+- [ ] PR#259 [OPEN] fix: update whatsmeow to latest and fix context.Context API (resolves 405 client outdated)
+- [ ] PR#260 [OPEN] fix: update whatsmeow API calls + add PNG QR code fallback
+- [ ] PR#261 [CLOSED] Upgrade whatsmeow and fix context compiler errors
+- [ ] PR#264 [OPEN] Capture WhatsApp Business messages (DHL, banks, OTP) + Windows background runner
+- [ ] PR#265 [OPEN] Fix 405 client-outdated connect failure and persist outgoing messages
+- [ ] PR#267 [OPEN] fix: resolve LID-based contact names and lookups
+- [ ] PR#268 [OPEN] Capture media captions instead of dropping them
+- [ ] PR#269 [OPEN] Support multiple WhatsApp accounts in a single MCP server
+- [ ] PR#270 [OPEN] fix(bridge): media downloads fail with 403 + colliding filenames on resync
+- [ ] PR#271 [OPEN] Security hardening: media-path allowlist + pagination caps
+- [ ] PR#272 [OPEN] fix: bump whatsmeow to latest + persist REST-sent messages for read-back
+- [ ] PR#273 [OPEN] fix(bridge): recover expired media via WhatsApp media-retry protocol (+ whatsmeow bump, pair-by-code)
+- [ ] PR#274 [OPEN] fix(bridge): bump whatsmeow + add ctx.Context to updated API calls (closes #237)
+- [ ] PR#275 [OPEN] fix(bridge): guard media_path against CWE-22 path traversal in /api/send (closes #241)
+- [ ] PR#276 [OPEN] feat(mcp): add sender_name / last_sender_name fields (closes #144)
+- [ ] PR#277 [OPEN] feat: add reply_to_message_id + reply_to_sender_jid on send_message (closes #121)
+- [ ] PR#279 [OPEN] perf(bridge): add SQLite indexes on messages + chats hot paths (closes #278)
+- [ ] PR#281 [OPEN] perf: FTS5-backed content search, ~500x speedup on selective queries (closes #280)
+- [ ] PR#283 [OPEN] fix: last-message JOIN uses rowid subquery, not timestamp equality (closes #282)
+- [ ] PR#284 [OPEN] Add optional Windows unattended-run toolkit (hidden autostart + QR-recovery watchdog)
+- [ ] PR#291 [CLOSED] feat(security): mitigate lethal trifecta — approval gate, rate limiting, audit logging, path restriction
+- [ ] PR#292 [OPEN] docs: add Autohand Code MCP setup
+- [ ] PR#293 [CLOSED] feat: recover offline messages via history sync
+- [ ] PR#294 [OPEN] fix(bridge): update whatsmeow to fix 405 client-outdated connect failure
+- [ ] PR#295 [OPEN] fix: Update whatsmeow API calls & switch to pure-Go SQLite driver
+- [ ] PR#296 [OPEN] Add Docker container setup and fix outdated whatsmeow client
+- [ ] PR#298 [OPEN] Add an optional Node/wppconnect bridge (interactive buttons + old-message media download)
+- [ ] PR#299 [OPEN] fix: update whatsmeow to fix WhatsApp client outdated (405) connection error
+- [ ] PR#300 [OPEN] fixed the whatsapp client error
+- [ ] PR#301 [OPEN] Whatsmeow api compatibility and mcp serialization
+- [ ] PR#302 [OPEN] Fix WhatsApp 405 connect failure (whatsmeow upgrade) and resolve LID chat names
+- [ ] PR#303 [CLOSED] Local readonly
+- [ ] PR#304 [CLOSED] fix: resolve @lid recipients instead of silently sending to nobody
+- [ ] PR#305 [CLOSED] Security: patch 30 CVEs + bump whatsmeow to fix client version 405
+- [ ] PR#307 [OPEN] Fix outdated client, media download 403, and LID contact lookup
+- [ ] PR#308 [OPEN] Upgrade whatsmeow to fix "Client outdated (405)" connect failure
+- [ ] PR#311 [CLOSED] feat(bridge): GET /api/qr — in-app QR pairing endpoint
+- [ ] PR#312 [CLOSED] Withdrawn
+- [ ] PR#313 [CLOSED] Add mark messages read MCP tool
+- [ ] PR#314 [CLOSED] feat: add message read receipts
+- [ ] PR#315 [OPEN] fix(bridge): whatsmeow bump + context API migration, and optional pair-by-phone-number login
+- [ ] PR#316 [OPEN] Fix: send documents with correct MIME type and filename (no more .bin)
+- [ ] PR#317 [CLOSED] Fix poll voting for LID-identified senders
+- [ ] PR#318 [OPEN] Fix "client outdated (405)" by updating whatsmeow; add phone-number pairing
+- [ ] PR#319 [OPEN] Add optional JID whitelist to restrict chat access
+- [ ] PR#320 [OPEN] fix: media download 403 and same-second filename collision in whatsapp-bridge
+- [ ] PR#321 [OPEN] feat: support @mentions in the send message API
+- [ ] PR#322 [CLOSED] Add webhook notifications, fix media direct_path, track quoted messages
+- [ ] PR#323 [OPEN] Bump whatsmeow dependency and thread context.Context through client calls
+- [ ] PR#324 [OPEN] Fix media download 403s by capturing direct_path from the protobuf
+- [ ] PR#325 [OPEN] Track quoted message IDs for replies
+- [ ] PR#326 [OPEN] Add webhook notifications for new messages
+- [ ] PR#328 [OPEN] Fix documents arriving as unnamed .bin files (mime type + FileName)
+- [ ] PR#329 [CLOSED] fix: serialize MCP tool results as dicts for HTTP FastMCP 1.12
+- [ ] PR#341 [CLOSED] Port to Windows, and track whether the local copy has caught up
+- [ ] PR#342 [OPEN] feat: support document MIME types (PDF, Office, etc) and set FileName on DocumentMessage
+- [ ] PR#343 [OPEN] Adopt LukasHaas codebase (newer whatsmeow, LID support, unified tools) + bugfixes
+- [ ] PR#345 [OPEN] fix(bridge): store non-text messages (reactions, polls, edits, location, contacts, stickers) instead of silently dropping them
+- [ ] PR#346 [OPEN] Fix empty list_chats with include_last_message=False, and stop diagnostics corrupting the MCP stdio channel
+- [ ] PR#347 [OPEN] [DRAFT] fix(bridge): capture direct_path for incoming media to fix download 403s
+- [ ] PR#348 [OPEN] Update whatsmeow for current WhatsApp pairing flow
+- [ ] PR#349 [OPEN] Ignore the compiled bridge binary
+- [ ] PR#350 [OPEN] fix: store captions sent with images, videos and documents
+- [ ] PR#351 [OPEN] Fix connection (405) and all media downloads (403), plus media served from the wrong message
+- [ ] PR#352 [OPEN] Update whatsmeow and fix media download
+- [ ] PR#353 [OPEN] Add native PDF/document MIME types and fix media download reliability
+- [ ] PR#354 [OPEN] Support reactions/edits, fix caption capture, and fix media download 403
+- [ ] PR#355 [OPEN] fix: update whatsmeow so the bridge can connect again
+- [ ] PR#356 [OPEN] feat: group management, join tracking and automatic welcome messages
+- [ ] PR#357 [CLOSED] Multi-account support, full history sync and chat export
+- [ ] PR#358 [CLOSED] Disable webhook
+- [ ] PR#359 [OPEN] Add local voice message transcription
+- [ ] PR#360 [OPEN] Add image and video viewing
+- [ ] PR#361 [OPEN] fix: media download 403 caused by query-string stripping
+- [ ] PR#362 [CLOSED] Opencode hub integration
+- [ ] PR#363 [OPEN] fix: update whatsmeow to context-aware API
+- [ ] PR#364 [OPEN] Add on-demand history backfill for a chat
+- [ ] PR#365 [OPEN] feat(bridge): add phone number code pairing support via -phone flag
+- [ ] PR#366 [OPEN] Authenticate bridge access, contain media paths, and restore client compatibility
+
+## MuhammadMustafa18/whatsapp-mcp-server — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## NIXKnight/WhatsApp-MCP — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## OmarYousef95/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## operation-hp/WA-MCP — 0 issues, 9 PRs
+
+### PRs
+- [ ] PR#1 [OPEN] Bump form-data from 4.0.2 to 4.0.4
+- [ ] PR#2 [OPEN] Bump js-yaml
+- [ ] PR#3 [OPEN] Bump body-parser from 2.2.0 to 2.2.1
+- [ ] PR#4 [OPEN] Bump express from 5.1.0 to 5.2.1
+- [ ] PR#5 [CLOSED] Bump @modelcontextprotocol/sdk from 1.10.2 to 1.24.0
+- [ ] PR#6 [CLOSED] Bump qs from 6.14.0 to 6.14.1
+- [ ] PR#7 [CLOSED] Bump @modelcontextprotocol/sdk from 1.10.2 to 1.25.2
+- [ ] PR#8 [OPEN] Bump @modelcontextprotocol/sdk from 1.10.2 to 1.26.0
+- [ ] PR#9 [OPEN] Bump qs from 6.14.0 to 6.14.2
+
+## Shloimy15e/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## ste-bah/whatsapp-mcp — 0 issues, 0 PRs (trackers empty; README/feature-level accounting)
+
+## verygoodplugins/whatsapp-mcp — 38 issues, 223 PRs
+
+### Issues
+- [ ] I#21 [CLOSED] .
+- [ ] I#22 [CLOSED] Can't install it
+- [ ] I#25 [CLOSED] Risks of using it
+- [ ] I#29 [CLOSED] search_contacts returns empty — contacts not synced from whatsmeow store
+- [ ] I#36 [CLOSED] feat: CLI flag to request full history at pair time
+- [ ] I#38 [CLOSED] feat: capture incoming WhatsApp call events
+- [ ] I#73 [CLOSED] get_message_context crashes with Pydantic validation error (returns dataclass instead of dict)
+- [ ] I#74 [CLOSED] get_contact_chats returns duplicate entries (one per message instead of one per chat)
+- [ ] I#89 [OPEN] feat: get members in a group chat
+- [ ] I#94 [CLOSED] bug: documents sent via bridge appear as "Untitled" without previews
+- [ ] I#98 [CLOSED] bug: bridge ignores ProtocolMessage_REVOKE; retracted messages stay live in messages.db
+- [ ] I#102 [CLOSED] Outgoing messages sometimes vanish from messages.db: send API reports success but list_messages cannot find them later
+- [ ] I#106 [CLOSED] feat: capture inbound reactions + /api/react to send them
+- [ ] I#107 [CLOSED] feat: persist quoted_message_id and send quoted replies
+- [ ] I#111 [CLOSED] Auto-recovery LTHash mismatch fails — bridge stuck at 'SendAppState failed: 409 conflict' even after FetchAppState(fullSync=true) and purging whatsmeow_app_state_mutation_macs + version
+- [ ] I#115 [CLOSED] Add optional macOS launchd installer for bridge
+- [ ] I#121 [CLOSED] README demo video asset anchor
+- [ ] I#142 [CLOSED] bug: download_media / send_* return HTTP 401 in containerized deploys (.bridge-token resolved relative to __file__)
+- [ ] I#150 [OPEN] Webhook forwarding is always-on via a fixed loopback default (no opt-out, no auth)
+- [ ] I#156 [CLOSED] feat: configurable linked-device name (WHATSAPP_DEVICE_NAME) instead of "whatsmeow"
+- [ ] I#159 [OPEN] feat: support @-mentions in send_message
+- [ ] I#167 [CLOSED] feat: on-demand history sync - request older messages for a specific chat at runtime
+- [ ] I#178 [OPEN] Configurable, least-privilege access to WhatsApp conversations
+- [ ] I#194 [CLOSED] feat: persist chat read state in messages.db (chats.last_read_time)
+- [ ] I#197 [OPEN] Message search matches substrings, misses accented words, and scans the full table
+- [ ] I#199 [CLOSED] feat: add explicit message read receipts
+- [ ] I#205 [OPEN] QR pairing never completes on WhatsApp Business account: phone shows "Check your connection", bridge only receives unhandled
+- [ ] I#216 [OPEN] HTTP transport rejects every non-loopback request with 421: FastMCP is constructed before WHATSAPP_MCP_HOST is applied
+- [ ] I#217 [OPEN] feat: expose filename on list_messages / get_message_context
+- [ ] I#219 [OPEN] Event coverage: native polls (creation + encrypted vote decoding)
+- [ ] I#222 [OPEN] feat: send real WhatsApp stickers via send_file
+- [ ] I#223 [OPEN] feat: at-rest encryption (or documented mitigation) for whatsapp.db / messages.db
+- [ ] I#238 [CLOSED] feat: don't auto-download status media; allow disabling media auto-download
+- [ ] I#245 [CLOSED] feat(mcp): media is unreachable for clients without filesystem access (view_media + transcribe_audio)
+- [ ] I#249 [CLOSED] bug: macOS launchd monitor exits when sandbox denies .bridge-token
+- [ ] I#251 [OPEN] feat: "Advance chat privacy was turned on"
+- [ ] I#254 [OPEN] feat: Opt-in approval marker on write tools, and a read-only mode
+- [ ] I#256 [OPEN] Individual chats keep a phone number as their name forever; chats I start get my own number
+
+### PRs
+- [ ] PR#1 [MERGED] chore(deps): bump actions/setup-python from 5 to 6
+- [ ] PR#2 [MERGED] chore(deps): bump github.com/mattn/go-sqlite3 from 1.14.32 to 1.14.33 in /whatsapp-bridge in the go-dependencies group
+- [ ] PR#3 [MERGED] chore(deps): bump golangci/golangci-lint-action from 6 to 9
+- [ ] PR#4 [MERGED] chore(deps): bump github/codeql-action from 3 to 4
+- [ ] PR#5 [MERGED] chore(deps): bump astral-sh/setup-uv from 5 to 7
+- [ ] PR#6 [MERGED] chore(deps): bump actions/setup-go from 5 to 6
+- [ ] PR#7 [MERGED] fix: handle LID contacts + pushName
+- [ ] PR#8 [MERGED] fix: resolve phone number JIDs to LIDs before sending
+- [ ] PR#9 [MERGED] fix: read WHATSAPP_BRIDGE_PORT env var for REST API port
+- [ ] PR#11 [MERGED] ci: add manual dispatch and fix golangci-lint compatibility
+- [ ] PR#12 [MERGED] fix: resolve LID JIDs to phone-based JIDs for consistent chat storage
+- [ ] PR#13 [MERGED] fix: migrate legacy @lid chat rows to phone JIDs
+- [ ] PR#14 [MERGED] ci: modernize linting and add release workflow for first fork release
+- [ ] PR#15 [MERGED] release: adopt Release Please for automated versioning/changelog
+- [ ] PR#16 [MERGED] chore(main): release 0.1.0
+- [ ] PR#17 [MERGED] chore(deps): bump golangci/golangci-lint-action from 7 to 9
+- [ ] PR#18 [MERGED] chore(deps): bump github.com/mattn/go-sqlite3 from 1.14.33 to 1.14.34 in /whatsapp-bridge in the go-dependencies group
+- [ ] PR#19 [MERGED] chore(deps): bump actions/checkout from 4 to 6
+- [ ] PR#20 [CLOSED] Claude/add whatsapp read endpoints 13 cz7
+- [ ] PR#23 [MERGED] Update command to run WhatsApp bridge
+- [ ] PR#24 [CLOSED] chore: update local Claude Code permission settings
+- [ ] PR#26 [CLOSED] fix: contact name resolution + configurable bind address
+- [ ] PR#27 [MERGED] Handle StreamReplaced event to recover from session conflicts
+- [ ] PR#28 [CLOSED] feat: security fixes + feature backports (localhost bind, Unicode search, quoted replies, RFC 3339)
+- [ ] PR#30 [MERGED] fix: resolve contacts from whatsmeow store (whatsapp.db)
+- [ ] PR#31 [MERGED] chore(deps): bump softprops/action-gh-release from 2 to 3
+- [ ] PR#32 [CLOSED] chore(deps): bump the production-dependencies group in /whatsapp-mcp-server with 2 updates
+- [ ] PR#33 [MERGED] chore(deps): update pytest requirement from >=8.0.0 to >=9.0.3 in /whatsapp-mcp-server
+- [ ] PR#34 [MERGED] chore(deps): update pytest-asyncio requirement from >=0.24.0 to >=1.3.0 in /whatsapp-mcp-server
+- [ ] PR#35 [MERGED] chore(deps): update ruff requirement from >=0.8.0 to >=0.15.11 in /whatsapp-mcp-server
+- [ ] PR#37 [MERGED] feat(bridge): --full-history-pair flag to request full history at pair time
+- [ ] PR#39 [MERGED] feat(bridge): capture incoming WhatsApp call events
+- [ ] PR#40 [MERGED] fix(bridge): include message ID in media filenames to prevent same-second collisions
+- [ ] PR#41 [MERGED] fix(bridge): auto-download runs after StoreMessage to avoid lookup race
+- [ ] PR#42 [MERGED] fix(bridge): surface image/video/document captions in extractTextContent
+- [ ] PR#43 [MERGED] fix(mcp): match messages by both phone number and LID via whatsmeow_lid_map
+- [ ] PR#44 [MERGED] fix: pin anyio<4.9 to avoid cancel scope regression on startup
+- [ ] PR#45 [MERGED] feat: add image media support in webhook forwarding
+- [ ] PR#46 [MERGED] ci: bump Go toolchain to 1.25 across workflows
+- [ ] PR#47 [MERGED] docs: add ROADMAP, AGENTS, CONTRIBUTING, CODEOWNERS, issue/PR templates
+- [ ] PR#48 [MERGED] chore(main): release 0.2.0
+- [ ] PR#49 [MERGED] chore(deps): bump the production-dependencies group across 1 directory with 3 updates
+- [ ] PR#50 [MERGED] docs: update remaining "go run main.go" references to "go run ."
+- [ ] PR#51 [MERGED] docs: document WHATSMEOW_DB_PATH env var
+- [ ] PR#52 [MERGED] chore: add @edmenendez as codeowner for bridge + whatsapp.py
+- [ ] PR#53 [CLOSED] chore(template): sync from mcp-ecosystem
+- [ ] PR#54 [MERGED] chore: untrack .claude/settings.local.json
+- [ ] PR#55 [MERGED] fix: security hardening for LAN exposure and Unicode search
+- [ ] PR#56 [MERGED] fix(bridge): resolve @lid sender to phone JID in webhook payload
+- [ ] PR#57 [MERGED] chore(deps): bump starlette from 0.46.1 to 0.49.1 in /whatsapp-mcp-server
+- [ ] PR#58 [CLOSED] chore(deps): bump python-dotenv from 1.1.0 to 1.2.2 in /whatsapp-mcp-server
+- [ ] PR#59 [CLOSED] chore(deps): bump pygments from 2.19.1 to 2.20.0 in /whatsapp-mcp-server
+- [ ] PR#60 [CLOSED] chore(deps): bump urllib3 from 2.3.0 to 2.6.3 in /whatsapp-mcp-server
+- [ ] PR#61 [CLOSED] chore(deps): bump pytest from 9.0.2 to 9.0.3 in /whatsapp-mcp-server
+- [ ] PR#62 [MERGED] chore(deps): consolidate dependabot groups
+- [ ] PR#63 [MERGED] chore(deps): update pytest-asyncio requirement from >=0.24.0 to >=1.3.0 in /whatsapp-mcp-server in the pip-version-updates group
+- [ ] PR#64 [CLOSED] chore(deps): bump the actions-version-updates group across 1 directory with 2 updates
+- [ ] PR#65 [MERGED] fix(ci): make dependabot auto-approve non-fatal
+- [ ] PR#66 [MERGED] chore(main): release 0.2.1
+- [ ] PR#67 [MERGED] docs: add contributors section and updating instructions to README
+- [ ] PR#68 [CLOSED] ci: skip code checks on docs-only PRs
+- [ ] PR#69 [MERGED] ci: delegate Dependabot auto-merge to org reusable workflow
+- [ ] PR#70 [MERGED] chore(deps): bump googleapis/release-please-action from 4 to 5 in the actions-version-updates group across 1 directory
+- [ ] PR#71 [MERGED] chore(deps): bump filippo.io/edwards25519 from 1.1.0 to 1.1.1 in /whatsapp-bridge in the gomod-security-updates group across 1 directory
+- [ ] PR#72 [MERGED] chore(deps): bump h11 from 0.14.0 to 0.16.0 in /whatsapp-mcp-server
+- [ ] PR#75 [CLOSED] chore(security): defense-in-depth hardening
+- [ ] PR#76 [MERGED] Persist outbound messages to local SQLite after SendMessage
+- [ ] PR#77 [CLOSED] Fix list_chats(include_last_message=False) returning empty list
+- [ ] PR#78 [MERGED] docs: Update SECURITY.md with enhanced security policy
+- [ ] PR#79 [MERGED] fix(server): list_chats/get_chat error when include_last_message=False
+- [ ] PR#80 [MERGED] chore(deps): bump github.com/mattn/go-sqlite3 from 1.14.42 to 1.14.44 in /whatsapp-bridge in the gomod-version-updates group
+- [ ] PR#81 [CLOSED] chore(deps): update ruff requirement from >=0.15.11 to >=0.15.12 in /whatsapp-mcp-server in the pip-version-updates group across 1 directory
+- [ ] PR#82 [MERGED] fix: send and track disappearing-message settings correctly
+- [ ] PR#83 [CLOSED] feat: add send_poll tool and /api/send/poll endpoint
+- [ ] PR#84 [CLOSED] fix(bridge): store outbound messages in local DB at send time
+- [ ] PR#85 [MERGED] chore(deps): bump python-multipart from 0.0.26 to 0.0.27 in /whatsapp-mcp-server
+- [ ] PR#86 [MERGED] chore(deps): bump the pip-version-updates group across 1 directory with 2 updates
+- [ ] PR#87 [CLOSED] Add WhatsApp group management tools
+- [ ] PR#88 [MERGED] chore(deps): bump urllib3 from 2.3.0 to 2.7.0 in /whatsapp-mcp-server
+- [ ] PR#90 [MERGED] refactor(bridge): share recipient JID resolution
+- [ ] PR#91 [MERGED] fix(bridge): pass message store when sending messages
+- [ ] PR#92 [CLOSED] feat(bridge): caller-fingerprinting on /api/send for downstream-producer identification
+- [ ] PR#93 [MERGED] chore: ignore local /store runtime directory
+- [ ] PR#95 [MERGED] fix(bridge): set FileName and detect MIME for document sends
+- [ ] PR#96 [MERGED] fix(bridge): log send caller identity
+- [ ] PR#97 [MERGED] fix(mcp): resolve bare numeric LIDs
+- [ ] PR#99 [MERGED] fix(bridge): handle ProtocolMessage_REVOKE (delete-for-everyone) events
+- [ ] PR#100 [CLOSED] chore(deps): bump the pip-version-updates group across 1 directory with 2 updates
+- [ ] PR#101 [MERGED] chore(main): release 0.3.0
+- [ ] PR#103 [CLOSED] fix(bridge): persist outgoing messages on send instead of relying on events.Message echo
+- [ ] PR#104 [MERGED] chore(deps): bump idna from 3.10 to 3.15 in /whatsapp-mcp-server
+- [ ] PR#105 [CLOSED] feat(windows): add Windows startup bat scripts + bump mcp to 1.27.1
+- [ ] PR#108 [MERGED] feat: capture inbound reactions and add /api/react endpoint
+- [ ] PR#109 [MERGED] feat: persist inbound quoted_message_id and add reply support to /api/send
+- [ ] PR#110 [MERGED] feat(bridge): add support for stickers
+- [ ] PR#112 [MERGED] feat(mcp): support http and sse transports via env var
+- [ ] PR#113 [MERGED] chore(deps): bump the pip-version-updates group across 1 directory with 3 updates
+- [ ] PR#114 [CLOSED] feat: implement typed failure-mode errors (EC1/EC2/EC5) and local-only DB configuration assertions
+- [ ] PR#116 [MERGED] feat(bridge): add macOS launchd installer
+- [ ] PR#117 [MERGED] docs(readme): document app state recovery
+- [ ] PR#118 [MERGED] chore(deps): sync Python lockfile
+- [ ] PR#119 [MERGED] fix(mcp): serialize message context result
+- [ ] PR#120 [MERGED] fix(mcp): deduplicate contact chat results
+- [ ] PR#122 [MERGED] docs(readme): add demo video overview
+- [ ] PR#123 [MERGED] chore(main): release 0.4.0
+- [ ] PR#124 [MERGED] chore(deps): bump starlette from 0.49.1 to 1.0.1 in /whatsapp-mcp-server
+- [ ] PR#125 [MERGED] chore(deps): bump github.com/mattn/go-sqlite3 from 1.14.44 to 1.14.45 in /whatsapp-bridge in the gomod-version-updates group across 1 directory
+- [ ] PR#126 [CLOSED] chore(deps): bump the pip-version-updates group across 1 directory with 2 updates
+- [ ] PR#127 [MERGED] docs: make AGENTS.md canonical and fix FORWARD_SELF default
+- [ ] PR#128 [MERGED] fix(bridge): bump whatsmeow so WhatsApp accepts new device pairing
+- [ ] PR#129 [MERGED] feat(bridge): forward reaction webhook events
+- [ ] PR#130 [MERGED] fix: escape monitor-script shell vars in launchd installer
+- [ ] PR#131 [CLOSED] feat: expose pairing QR + programmatic relink (start REST server before pairing)
+- [ ] PR#132 [MERGED] fix(bridge): keep CDN auth tokens in directPath to fix 403 media downloads
+- [ ] PR#133 [CLOSED] Claude/loving dijkstra 776t9x
+- [ ] PR#134 [MERGED] fix(bridge): extract text from Template, Button, Interactive, and List messages
+- [ ] PR#135 [MERGED] fix(bridge): fall back to local whatsmeow_contacts for chat name resolution
+- [ ] PR#136 [MERGED] chore(deps): bump pyjwt from 2.12.1 to 2.13.0 in /whatsapp-mcp-server
+- [ ] PR#137 [MERGED] chore(deps): bump python-multipart from 0.0.27 to 0.0.31 in /whatsapp-mcp-server
+- [ ] PR#138 [MERGED] chore(deps): bump cryptography from 46.0.7 to 48.0.1 in /whatsapp-mcp-server
+- [ ] PR#139 [MERGED] chore(deps): bump starlette from 1.0.1 to 1.3.1 in /whatsapp-mcp-server
+- [ ] PR#140 [MERGED] chore(deps): bump actions/checkout from 6 to 7 in the actions-version-updates group
+- [ ] PR#141 [CLOSED] chore(deps): bump the pip-version-updates group across 1 directory with 4 updates
+- [ ] PR#143 [CLOSED] fix(server): resolve .bridge-token from WHATSMEOW_DB_PATH for containerized deploys
+- [ ] PR#144 [MERGED] perf(bridge): index messages(chat_jid) to speed up LID migration
+- [ ] PR#145 [MERGED] fix(mcp): resolve bridge token from whatsmeow db path
+- [ ] PR#146 [MERGED] chore(main): release 0.4.1
+- [ ] PR#147 [MERGED] chore(deps): bump github.com/mattn/go-sqlite3 from 1.14.48 to 1.14.49 in /whatsapp-bridge in the gomod-version-updates group across 1 directory
+- [ ] PR#148 [CLOSED] chore(deps): bump the pip-version-updates group across 1 directory with 4 updates
+- [ ] PR#149 [MERGED] fix(bridge): preserve original timestamp on retry-redelivered messages
+- [ ] PR#151 [CLOSED] Codex/upstream v0.4.1 pcc
+- [ ] PR#152 [CLOSED] feat: add group participants to get_chat and resolve contact names
+- [ ] PR#153 [MERGED] fix(bridge): authenticate outbound webhook POSTs with bridge token
+- [ ] PR#154 [MERGED] chore(main): release 0.4.2
+- [ ] PR#155 [MERGED] feat(bridge): persist chat read state from read receipts + history-sync backfill
+- [ ] PR#157 [MERGED] feat(bridge): configurable linked-device name via WHATSAPP_DEVICE_NAME
+- [ ] PR#158 [OPEN] fix(bridge): refuse to start when another bridge holds the session
+- [ ] PR#160 [CLOSED] feat(mcp): add @-mention support to send_message
+- [ ] PR#161 [CLOSED] fix(bridge): bump whatsmeow to fix pairing "check your connection" failures
+- [ ] PR#162 [CLOSED] Whatsapp pairing fixes
+- [ ] PR#163 [CLOSED] feat: add Windows live pairing page (auto-refreshing QR in browser)
+- [ ] PR#164 [MERGED] chore(deps): bump mcp from 1.27.1 to 1.28.1 in /whatsapp-mcp-server
+- [ ] PR#165 [CLOSED] chore(deps): bump actions/setup-go from 6 to 7 in the actions-version-updates group
+- [ ] PR#166 [CLOSED] delete_message tool, optional caption on send_file, and a media-download 403 fix
+- [ ] PR#168 [MERGED] feat(bridge): add on-demand history sync for a single chat
+- [ ] PR#169 [CLOSED] feat(mcp): add transcribe_audio tool for voice messages
+- [ ] PR#170 [CLOSED] fix: keep query params in media direct path (403 on all downloads)
+- [ ] PR#171 [OPEN] fix(bridge): read top-level participant for history-sync group senders
+- [ ] PR#172 [CLOSED] chore(deps): bump the actions-version-updates group across 1 directory with 2 updates
+- [ ] PR#173 [MERGED] fix(bridge): forward native WhatsApp activation metadata
+- [ ] PR#174 [MERGED] ci: support merge queue checks
+- [ ] PR#175 [CLOSED] fix(bridge): webhook captionless audio messages
+- [ ] PR#176 [CLOSED] fix(bridge): store and webhook contact/vCard shares
+- [ ] PR#177 [MERGED] fix: exit orphaned stdio MCP servers on parent death
+- [ ] PR#179 [CLOSED] feat: add configurable WhatsApp MCP access controls
+- [ ] PR#180 [CLOSED] feat: add a configurable Bridge port
+- [ ] PR#181 [CLOSED] chore(deps): bump the actions-version-updates group across 1 directory with 3 updates
+- [ ] PR#182 [MERGED] fix(bridge): bump whatsmeow for client compatibility
+- [ ] PR#183 [CLOSED] chore(deps): bump cryptography from 48.0.1 to 50.0.0 in /whatsapp-mcp-server
+- [ ] PR#184 [CLOSED] Docs: empty WEBHOOK_URL does not disable the webhook; ignore rotated logs
+- [ ] PR#185 [MERGED] chore(deps): bump the actions-version-updates group across 1 directory with 2 updates
+- [ ] PR#186 [OPEN] fix: exit via os._exit in signal handler to avoid shutdown SIGABRT
+- [ ] PR#187 [OPEN] perf(bridge,mcp): reduce SQLite contention and unindexed scans in message context lookups
+- [ ] PR#188 [MERGED] fix(deps): preserve Intel macOS cryptography installs
+- [ ] PR#189 [MERGED] chore(main): release 0.5.0
+- [ ] PR#190 [MERGED] feat(mcp): add @-mention support to send_message
+- [ ] PR#191 [MERGED] chore(main): release 0.5.1
+- [ ] PR#192 [OPEN] feat: delete_message tool (revoke for everyone, or local-only)
+- [ ] PR#193 [MERGED] feat: optional caption on send_file
+- [ ] PR#195 [OPEN] feat(bridge): add WEBHOOK_ENABLED to opt out of outbound webhooks
+- [ ] PR#196 [CLOSED] chore: repo hygiene for Dynamic Devices fork
+- [ ] PR#198 [OPEN] feat(mcp): search messages through an FTS5 index
+- [ ] PR#200 [CLOSED] feat: add explicit message read receipts
+- [ ] PR#201 [MERGED] feat: add explicit message read receipts
+- [ ] PR#202 [MERGED] chore(main): release 0.6.0
+- [ ] PR#203 [MERGED] fix: harden read-state observe/act after #155 and #201
+- [ ] PR#204 [MERGED] feat(bridge): add outbound webhook opt-out
+- [ ] PR#206 [OPEN] fix(bridge): redraw QR code on every rotation during pairing
+- [ ] PR#207 [CLOSED] chore(deps): bump google.golang.org/protobuf from 1.36.11 to 1.36.12 in /whatsapp-bridge in the gomod-version-updates group
+- [ ] PR#208 [OPEN] chore(deps): bump the pip-version-updates group across 1 directory with 5 updates
+- [ ] PR#209 [CLOSED] feat: mark messages as read (bridge + MCP)
+- [ ] PR#210 [CLOSED] feat: add inbound typing/presence tracking
+- [ ] PR#211 [CLOSED] chore(deps): bump the gomod-version-updates group across 1 directory with 2 updates
+- [ ] PR#212 [OPEN] fix(bridge): resolve quoted-reply participant to a JID clients can match
+- [ ] PR#213 [OPEN] fix(bridge): redraw the pairing QR code on every rotation
+- [ ] PR#214 [OPEN] fix(bridge): persist shared contact cards (vCards) as searchable text
+- [ ] PR#215 [OPEN] chore: sync uv.lock to 0.6.0
+- [ ] PR#218 [MERGED] fix(bridge): document filename leaked the sender's absolute path
+- [ ] PR#220 [MERGED] fix(bridge): preserve message ID in text webhooks
+- [ ] PR#221 [MERGED] fix(bridge): persist upload metadata for outbound media
+- [ ] PR#224 [OPEN] feat(bridge): support sending real WhatsApp stickers
+- [ ] PR#225 [OPEN] fix(mcp): anchor contact lookups on the JID user part
+- [ ] PR#226 [OPEN] fix(mcp): clamp pagination lower bounds
+- [ ] PR#227 [MERGED] fix(mcp): remove the converted audio temp file after send
+- [ ] PR#228 [OPEN] chore(mcp): sync uv.lock with 0.6.0 package version
+- [ ] PR#229 [OPEN] fix(bridge): only advance chat last_message_time when a message row is stored
+- [ ] PR#230 [MERGED] fix(bridge): guard resolveLIDChat against a client without a LID store
+- [ ] PR#231 [MERGED] fix(bridge): skip media downloads when the message row failed to store
+- [ ] PR#232 [OPEN] fix(mcp): compare list_messages after/before as instants, not strings
+- [ ] PR#233 [OPEN] fix(mcp): open messages.db read-only and fail loudly when it is missing
+- [ ] PR#234 [OPEN] fix(bridge): derive history-sync chat timestamp from the newest stored message
+- [ ] PR#235 [OPEN] fix(bridge): compare stored timestamps as instants, not strings
+- [ ] PR#236 [OPEN] fix(mcp): order and compare message timestamps as instants, not strings
+- [ ] PR#237 [MERGED] feat(bridge): skip status media and add WHATSAPP_AUTO_DOWNLOAD_MEDIA opt-out
+- [ ] PR#239 [OPEN] fix(bridge): recover expired attachment downloads
+- [ ] PR#240 [MERGED] docs: explain where runtime data is stored and how to relocate it
+- [ ] PR#241 [MERGED] fix(bridge): tighten store and media permissions to owner-only
+- [ ] PR#242 [OPEN] fix(bridge): write the pairing QR to a PNG the camera can read
+- [ ] PR#243 [MERGED] fix(bridge): render every rotated pairing QR code
+- [ ] PR#244 [MERGED] fix(deps): bump whatsmeow for the companion_reg_refresh pairing flow
+- [ ] PR#246 [MERGED] feat(mcp): add view_media so media is reachable without a filesystem
+- [ ] PR#247 [MERGED] feat(mcp): transcribe voice notes with configurable providers
+- [ ] PR#248 [MERGED] chore(deps): bump anyio from 4.9.0 to 4.14.2 in /whatsapp-mcp-server
+- [ ] PR#250 [MERGED] fix(bridge): keep launchd monitor alive when the token file read is denied
+- [ ] PR#252 [OPEN] fix(mcp): honour WHATSAPP_MCP_HOST for the DNS-rebinding allow-list
+- [ ] PR#253 [MERGED] chore(main): release 0.7.0
+- [ ] PR#255 [OPEN] feat!: read-only server, plus the whatsapp-video skill (#1)
+- [ ] PR#257 [OPEN] fix: resolve LID before sending to new phone contacts
+- [ ] PR#258 [OPEN] feat(bridge): add GET /api/group-info to list a group's members
+- [ ] PR#259 [OPEN] fix(bridge): send to the JID a number is registered under
+- [ ] PR#260 [OPEN] fix(bridge): re-resolve chat names stored as a bare number
+- [ ] PR#261 [OPEN] fix(bridge): never name a DM after our own number
+- [ ] PR#262 [OPEN] fix(mcp): fall back to whatsmeow contacts for placeholder chat names
+
+---
+**Grand total: 248 issues + 781 PRs = 1029 items**
