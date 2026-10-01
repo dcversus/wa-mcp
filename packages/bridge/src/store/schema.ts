@@ -113,6 +113,35 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `;
 
+const MIGRATION_V2 = `
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+  content,
+  chat_jid UNINDEXED,
+  message_id UNINDEXED,
+  timestamp UNINDEXED,
+  tokenize = 'unicode61 remove_diacritics 2'
+);
+INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
+  SELECT content, chat_jid, id, timestamp FROM messages WHERE content IS NOT NULL;
+CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+  INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
+  VALUES (new.content, new.chat_jid, new.id, new.timestamp);
+END;
+CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+  DELETE FROM messages_fts WHERE message_id = old.id AND chat_jid = old.chat_jid;
+  INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
+  VALUES (new.content, new.chat_jid, new.id, new.timestamp);
+END;
+CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+  DELETE FROM messages_fts WHERE message_id = old.id AND chat_jid = old.chat_jid;
+END;
+`;
+
+const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
+  { version: 1, sql: SCHEMA_V1 },
+  { version: 2, sql: MIGRATION_V2 },
+];
+
 export function openStore(dir: string): Store {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);
@@ -120,11 +149,18 @@ export function openStore(dir: string): Store {
   const db = new DatabaseSync(dbPath);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");
-  db.exec(SCHEMA_V1);
-  db.prepare("INSERT OR IGNORE INTO migrations (version, applied_at) VALUES (?, ?)").run(
-    1,
-    new Date().toISOString(),
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
   );
+  const markApplied = db.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)");
+  for (const migration of MIGRATIONS) {
+    const applied = db.prepare("SELECT 1 FROM migrations WHERE version = ?").get(migration.version);
+    if (applied !== undefined) {
+      continue;
+    }
+    db.exec(migration.sql);
+    markApplied.run(migration.version, new Date().toISOString());
+  }
   chmodSync(dbPath, 0o600);
   return {
     db,

@@ -6,7 +6,12 @@ import { proto } from "@whiskeysockets/baileys";
 import type { WAMessage } from "@whiskeysockets/baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
-import { getMessageContext, listChats, listMessages, searchMessages } from "../../src/store/queries.ts";
+import {
+  getMessageContext,
+  listChats,
+  listMessages,
+  searchMessages,
+} from "../../src/store/queries.ts";
 
 const GROUP_A = "120363428874442773@g.us";
 const GROUP_B = "120363999999999999@g.us";
@@ -23,10 +28,11 @@ function message(
   timestamp: number,
   text: string,
   overrides: Partial<WAMessage> = {},
+  content: proto.IMessage = { conversation: text },
 ): WAMessage {
   return {
     key: { remoteJid: chatJid, fromMe: false, id, participant: SENDER },
-    message: { conversation: text },
+    message: content,
     messageTimestamp: timestamp,
     pushName: "Vasilisa",
     ...overrides,
@@ -91,7 +97,17 @@ test("listMessages filters by chat, sender and instant bounds", () => {
   const store = makeStore();
   try {
     storeMessage(store, message("A1", GROUP_A, 1000, "one"));
-    storeMessage(store, message("A2", GROUP_A, 2000, "two", { key: { remoteJid: GROUP_A, fromMe: false, id: "A2", participant: "358403334444@s.whatsapp.net" } }));
+    storeMessage(
+      store,
+      message("A2", GROUP_A, 2000, "two", {
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "A2",
+          participant: "358403334444@s.whatsapp.net",
+        },
+      }),
+    );
     storeMessage(store, message("A3", GROUP_A, 3000, "three"));
     storeMessage(store, message("B1", GROUP_B, 2500, "other chat"));
     const all = listMessages(store, { chatJid: GROUP_A });
@@ -116,7 +132,11 @@ test("listMessages filters by chat, sender and instant bounds", () => {
 test("listMessages clamps pagination and maps rows to camelCase", () => {
   const store = makeStore();
   try {
-    for (const [id, ts] of [["M1", 1000], ["M2", 2000], ["M3", 3000]] as const) {
+    for (const [id, ts] of [
+      ["M1", 1000],
+      ["M2", 2000],
+      ["M3", 3000],
+    ] as const) {
       storeMessage(store, message(id, GROUP_A, ts, `text ${id}`));
     }
     const page = listMessages(store, { chatJid: GROUP_A, limit: 2, offset: -10 });
@@ -134,7 +154,13 @@ test("listMessages clamps pagination and maps rows to camelCase", () => {
 test("getMessageContext returns adjacent rows in the same chat", () => {
   const store = makeStore();
   try {
-    for (const [id, ts] of [["T1", 1000], ["T2", 2000], ["T3", 3000], ["T4", 4000], ["T5", 5000]] as const) {
+    for (const [id, ts] of [
+      ["T1", 1000],
+      ["T2", 2000],
+      ["T3", 3000],
+      ["T4", 4000],
+      ["T5", 5000],
+    ] as const) {
       storeMessage(store, message(id, GROUP_A, ts, `msg ${id}`));
     }
     storeMessage(store, message("X1", GROUP_B, 3500, "not this chat"));
@@ -168,7 +194,11 @@ test("searchMessages supports OR and phrase queries", () => {
     storeMessage(store, message("S1", GROUP_A, 1000, "pizza night"));
     storeMessage(store, message("S2", GROUP_A, 3000, "pizza and burger"));
     storeMessage(store, message("S3", GROUP_B, 2000, "burger time"));
-    expect(searchMessages(store, "pizza OR burger", {}).map((row) => row.id)).toEqual(["S2", "S3", "S1"]);
+    expect(searchMessages(store, "pizza OR burger", {}).map((row) => row.id)).toEqual([
+      "S2",
+      "S3",
+      "S1",
+    ]);
     expect(searchMessages(store, '"pizza night"', {}).map((row) => row.id)).toEqual(["S1"]);
     expect(searchMessages(store, '"pizza burger"', {})).toEqual([]);
   } finally {
@@ -233,8 +263,12 @@ test("fts stays in sync through the full message lifecycle", () => {
     expect(searchMessages(store, "original", {})).toHaveLength(1);
     storeMessage(
       store,
-      waMessage(
-        { key: { remoteJid: GROUP_A, fromMe: false, id: "EDIT1", participant: SENDER } },
+      message(
+        "EDIT1",
+        GROUP_A,
+        6000,
+        "ignored",
+        {},
         {
           protocolMessage: {
             type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,

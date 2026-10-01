@@ -12,6 +12,7 @@ const EXPECTED_TABLES = [
   "events",
   "media_files",
   "messages",
+  "messages_fts",
   "meta",
   "migrations",
   "poll_options",
@@ -57,6 +58,7 @@ test("schema v1 creates exactly the expected tables", () => {
       .all()
       .map((row) => String((row as { name: string }).name))
       .filter((name) => !name.startsWith("sqlite_"))
+      .filter((name) => !name.startsWith("messages_fts_"))
       .sort();
     expect(tables).toEqual(EXPECTED_TABLES);
   } finally {
@@ -115,7 +117,9 @@ test("WAL mode and busy_timeout are configured", () => {
 test("migrations records schema versions 1 and 2", () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-store-")));
   try {
-    const rows = store.db.prepare("SELECT version, applied_at FROM migrations ORDER BY version").all();
+    const rows = store.db
+      .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
+      .all();
     expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
