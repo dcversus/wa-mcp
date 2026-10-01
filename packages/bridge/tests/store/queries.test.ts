@@ -286,3 +286,19 @@ test("fts stays in sync through the full message lifecycle", () => {
     store.close();
   }
 });
+
+test("fetchMessageFromStore reconstructs a sendable message or returns null", () => {
+  const store = makeStore();
+  try {
+    storeMessage(store, message("F1", GROUP_A, 5000, "forward me"));
+    const fetched = fetchMessageFromStore(store, "F1");
+    if (!fetched) throw new Error("message not found");
+    expect(fetched.key.id).toBe("F1");
+    expect(fetched.key.remoteJid).toBe(GROUP_A);
+    expect(fetched.key.fromMe).toBe(false);
+    expect(fetched.message?.conversation).toBe("forward me");
+    expect(fetchMessageFromStore(store, "MISSING")).toBeNull();
+  } finally {
+    store.close();
+  }
+});
