@@ -228,7 +228,6 @@ test("list_contacts, set_alias and get_unread_counts call their endpoints", asyn
   ]);
 });
 
-
 test("update_profile posts name and status", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/profile": { ok: true } });
   const tool = toolByName("update_profile");

@@ -445,6 +445,86 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "update_profile",
+    description: "Update your WhatsApp profile name and/or about status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        status: { type: "string", description: "About text" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body: Record<string, unknown> = {};
+      if (args.name !== undefined) {
+        body.name = args.name;
+      }
+      if (args.status !== undefined) {
+        body.status = args.status;
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/profile", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "set_privacy",
+    description:
+      "Set one privacy setting. Keys: readReceipts, online, lastSeen, profilePic, status, groups, calls, messages.",
+    inputSchema: {
+      type: "object",
+      required: ["key", "value"],
+      properties: {
+        key: {
+          type: "string",
+          description:
+            "readReceipts | online | lastSeen | profilePic | status | groups | calls | messages",
+        },
+        value: { type: "string", description: "Allowed values depend on the key" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const key = requireString(args, "key");
+      const value = requireString(args, "value");
+      const payload = (await bridgeFetch(toolCtx, "/api/privacy", {
+        method: "POST",
+        body: JSON.stringify({ [key]: value }),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "block_unblock",
+    description: "Block or unblock a contact.",
+    inputSchema: {
+      type: "object",
+      required: ["jid", "block"],
+      properties: {
+        jid: { type: "string" },
+        block: { type: "boolean" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { jid: requireString(args, "jid"), block: args.block === true };
+      const payload = (await bridgeFetch(toolCtx, "/api/block", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "get_blocklist",
+    description: "List blocked contacts.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx) => {
+      const payload = (await bridgeFetch(toolCtx, "/api/blocklist")) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {
