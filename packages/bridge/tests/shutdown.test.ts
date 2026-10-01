@@ -55,7 +55,7 @@ test("SIGTERM and SIGINT both get handlers registered", () => {
 test("stop closes http, bridge, store in order, then exits 0", async () => {
   const proc = fakeProcess();
   const { order, deps } = orderedDeps();
-  const hooks = installShutdownHooks({ ...deps, processLike: proc });
+  installShutdownHooks({ ...deps, processLike: proc });
   const handler = proc.handlers.get("SIGTERM");
   if (!handler) throw new Error("SIGTERM handler missing");
   void handler();
@@ -68,7 +68,7 @@ test("stop closes http, bridge, store in order, then exits 0", async () => {
 test("a second signal does not exit twice", async () => {
   const proc = fakeProcess();
   const { deps } = orderedDeps();
-  const hooks = installShutdownHooks({ ...deps, processLike: proc });
+  installShutdownHooks({ ...deps, processLike: proc });
   const handler = proc.handlers.get("SIGTERM");
   if (!handler) throw new Error("SIGTERM handler missing");
   void handler();
@@ -94,7 +94,7 @@ test("a hanging close forces exit 0 within 3 seconds", async () => {
   vi.useFakeTimers();
   const proc = fakeProcess();
   const hang = () => new Promise<void>(() => {});
-  const hooks = installShutdownHooks({
+  installShutdownHooks({
     processLike: proc,
     http: { close: hang },
     bridge: { close: hang },
