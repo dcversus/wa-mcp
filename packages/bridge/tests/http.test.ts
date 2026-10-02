@@ -1469,3 +1469,103 @@ test("notification rule CRUD end to end", async () => {
   const empty = await fetch(url(bridge, "/api/notifications"), { headers: authHeader });
   expect(((await empty.json()) as { rules: unknown[] }).rules).toHaveLength(0);
 });
+
+function groupSocket(): WASocket {
+  const fns = {
+    groupCreate: vi.fn(async () => ({ id: "120363888888888888@g.us", subject: "Test Group", participants: [] })),
+    groupLeave: vi.fn(async () => {}),
+    groupUpdateSubject: vi.fn(async () => {}),
+    groupUpdateDescription: vi.fn(async () => {}),
+    groupParticipantsUpdate: vi.fn(async () => [{ status: "200", jid: "358401111111@s.whatsapp.net" }]),
+    groupSettingUpdate: vi.fn(async () => {}),
+    groupInviteCode: vi.fn(async () => "CODE123"),
+    groupFetchAllParticipating: vi.fn(async () => ({})),
+  };
+  return fns as unknown as WASocket;
+}
+
+test("group endpoints drive the engine", async () => {
+  const socket = groupSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+
+  const createdGroup = await fetch(url(bridge, "/api/group/create"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ subject: "Test Group", participants: ["358401111111@s.whatsapp.net"] }),
+  });
+  expect(createdGroup.status).toBe(200);
+  expect(((await createdGroup.json()) as { group: { id: string } }).group.id).toBe("120363888888888888@g.us");
+  expect((socket.groupCreate as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("Test Group", [
+    "358401111111@s.whatsapp.net",
+  ]);
+
+  const participants = await fetch(url(bridge, "/api/group/participants"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "120363888888888888@g.us", jids: ["358401111111@s.whatsapp.net"], action: "promote" }),
+  });
+  expect(participants.status).toBe(200);
+  expect((socket.groupParticipantsUpdate as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+    "120363888888888888@g.us",
+    ["358401111111@s.whatsapp.net"],
+    "promote",
+  );
+
+  const meta = await fetch(url(bridge, "/api/group/meta"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "120363888888888888@g.us", subject: "New Subject", description: "desc" }),
+  });
+  expect(meta.status).toBe(200);
+  expect((socket.groupUpdateSubject as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+    "120363888888888888@g.us",
+    "New Subject",
+  );
+  expect((socket.groupUpdateDescription as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+    "120363888888888888@g.us",
+    "desc",
+  );
+
+  const settings = await fetch(url(bridge, "/api/group/settings"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "120363888888888888@g.us", setting: "announcement" }),
+  });
+  expect(settings.status).toBe(200);
+  expect((socket.groupSettingUpdate as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+    "120363888888888888@g.us",
+    "announcement",
+  );
+
+  const invite = await fetch(url(bridge, "/api/group/invite/120363888888888888@g.us"), { headers: authHeader });
+  expect(invite.status).toBe(200);
+  expect(((await invite.json()) as { invite_code: string }).invite_code).toBe("CODE123");
+
+  const leave = await fetch(url(bridge, "/api/group/leave"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "120363888888888888@g.us" }),
+  });
+  expect(leave.status).toBe(200);
+  expect((socket.groupLeave as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith("120363888888888888@g.us");
+
+  const badParticipants = await fetch(url(bridge, "/api/group/participants"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "g@g.us", jids: ["x"], action: "teleport" }),
+  });
+  expect(badParticipants.status).toBe(400);
+  const badSettings = await fetch(url(bridge, "/api/group/settings"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ group_jid: "g@g.us", setting: "louder" }),
+  });
+  expect(badSettings.status).toBe(400);
+});
