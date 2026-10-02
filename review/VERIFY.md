@@ -37,3 +37,31 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - Reproducible via scripts/pack-release.sh
 - T41 coverage gates — PASS — @vitest/coverage-v8@5.0.1 + root vite alias (npm:@voidzero-dev/vite-plus-core@1.0.0, fixes vitest peer pairing with vitepress's vite 5 lacking ./module-runner); thresholds in vite.config.ts: bridge lines 80 (actual 82.89), mcp-server 80 (88.36), shared 90 (97.77); engine proven to bite: 'Coverage for lines (97.77%) does not meet global threshold (99%)' → exit 1; CI test job runs the three `pnpm --filter <pkg> exec vp test --coverage` gates (local-verified, CI confirmation pending billing fix); lifecycle.test.ts made hermetic (afterEach closes handles — leaked real reconnect timers fired mid-test under coverage slowdown, 1 failed | 260 passed → 3×261 green)
 - T42 docker install — PASS — scripts/docker-install-test.sh exit 0 on node:22 (docker 27.4.0, tarball sha256 325a60d7…): nested bridge bin resolved via require.resolve from installed cli (`/tmp/node_modules/@wa-mcp/cli/node_modules/@wa-mcp/bridge/dist/bin.mjs`), /health {"version":"0.9.0"}, doctor all-green, FRESH-CONTAINER INSTALL TEST: PASS; node:20 image impossible (node:sqlite ≥22.5) — floor raised, ratification requested in BLOCKED.md
+
+## 2026-10-02 — T43 evidence sweep vs GOAL §1–§18 checkboxes (append-only)
+
+Missing-evidence sweep. Everything below is either a newly recorded PASS for
+work that lacked a VERIFY line, or an honest PENDING / OUT-OF-SCOPE marker —
+no checkbox is claimed without evidence.
+
+- T-A engine fork pin — PASS — `baileys` pinned to github:doryani-ai/Baileys#fix/companion-reg-refresh (ADR 0011); installed engine verified: companion_reg_refresh handler present (2 refs in socket.js, companion-reg-client-utils.js shipped); 361/361 at pin time, 369/369 now.
+- T38 pair subcommand — PASS — `wa-mcp pair` (--qr default, --code <phone>, --bridge-url/--token, 180s timeout, exit codes) RED bbbc201 → GREEN 20d0ee2; QR surface superseded by the T39 ANSI-render PASS above.
+- T-C onboarding e2e — PASS — scripts/onboarding-test.sh: fresh mktemp dir → bridge dist bin → pairing-eligible → POST /api/pairing-code (REAL WhatsApp codes issued: 7824-V5NY, KB21-QT91, FSPH-27AF) → daemon restart → negative control (still pairing-eligible, not connected); commit 6f34491.
+- Web UI first-run deadlock — PASS — root cause: main.ts was never rewired onto renderFrame (prior commit message overclaimed); rewritten + CDP smoke (headless Chrome) proves #/pairing and #/settings render non-empty with no stored token; commit 228873d.
+- QR pool exhaustion recovery — PASS — lifecycle regression: 3 rounds qr → close(428) → advance 60s → fresh QR re-issued, daemon survives without manual restart; commit df297d2.
+- §1 ci-matrix (current main) — PENDING ci — GitHub Actions billing: runs 36979526866/36979823287 never start (owner action, BLOCKED.md). Local equivalents green (check/test/build). Last full-matrix green was 36909341285 on an older main.
+- §2 QR/pairing live scan — PENDING live — pairing still fails: handshake reaches WhatsApp but creds.update never persists (auth dir empty) and registration cycles repeat with identical devicePairingData. Engine analysis (this session): `requestPairingCode` sets `creds.me` in the shared auth state and nothing clears it; the fork's companion_reg_refresh rotation is gated on `!creds.me` → adv secret never rotates after the server retires it → QR advertises dead material; with `creds.me` set every reconnect takes the login branch (socket.js:322) instead of registration. Proposed fix (RED+GREEN): strip `creds.me`/`pairingCode` on reconnect when `creds.registered !== true` + serialize/error-log saveCreds — not yet implemented; instrumented rescan next.
+- §4 extras (schedule_message, templates, autoreply, send_event, restrict_sending, broadcast, logout, view_once, check_number_exists, status posts, send_buttons/list live) — OUT-OF-SCOPE 0.9 — store tables exist (migrations v5/v6) but no tools/endpoints; ACCOUNTING OUT-OF-SCOPE rows. No PASS claimed.
+- §5/§6 extras (fetch_history, catch_up digest, MCP prompts, bulk export, view_image/video frames, auto-download pipeline, mlx/openai/elevenlabs engines) — OUT-OF-SCOPE 0.9 — ACCOUNTING rows; mock transcribe/tts only (T28 PASS line above).
+- §7/§8 extras (ephemeral timers, member labels, newsletters, reject_call, star/pin, mute) — OUT-OF-SCOPE 0.9 — ACCOUNTING rows (groups core set probed live, T26).
+- §9 extras (webhooks, JSONL feed, wait_for_message, /metrics, StreamReplaced recovery, caller fingerprinting) — OUT-OF-SCOPE 0.9 — ACCOUNTING rows; SSE core probed live (T25).
+- §10 extras (WA_ALLOWED_JIDS, WA_READ_ONLY, exposed-tools gating, at-rest encryption, prompt-injection marking, DNS-rebinding guard, Keychain, per-tool timeouts) — OUT-SCOPE 0.9 — security floor shipped: loopback, bearer 401-matrix, 1MB cap, rate limit, send guard + kill switch, structured errors, path confinement (T7/T14/T16/T18/T24 PASS lines above); audit high+ / gitleaks / no-publish green in CI pre-billing.
+- §11 extras (launchd/systemd/TaskScheduler services, update/uninstall/restart/logs, DXT manifest, docker compose, registries/directories, WA_PROXY) — OUT-OF-SCOPE 0.9 — no-publish contract; install/doctor/status/start/stop/skills/pair PASS lines above.
+- §13 accounting — PASS — 1,029 rows, vocabulary asserted, accounting:check green (CI run 36955241911 pre-billing; green locally now).
+- §14 unit+coverage — PASS — 369/369; thresholds enforced per package (T41).
+- §14 MCP conformance — PASS(unit) — scripted JSON-RPC client probes: initialize/tools-list/tools-call round-trips, stdio child-process, /mcp HTTP (T19/T20/T28).
+- §14 live smoke (nightly) — PENDING live — requires paired session; same gate as §2.
+- §14 CI release job + commitlint/changesets — OUT-OF-SCOPE 0.9 — no-publish guard forbids release wiring; conventional commits enforced by review discipline.
+- §15 docs — PASS — 11 ADRs now (0001–0010 + 0011 engine fork); VitePress build green; docs:coverage 30/30; CHANGELOG updated with onboarding round.
+- §16 web UI on a paired session — PENDING live — all routes render (T39 CDP); chat history against a live store needs pairing.
+- §18 Cloud API dual channel — NOT BUILT 0.9 — Phase-K decision pending orchestrator; ACCOUNTING rows.

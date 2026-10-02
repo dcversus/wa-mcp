@@ -98,3 +98,18 @@ deferred — see deviations.
 
 - All 6 packages at 0.9.0; SERVER_INFO 0.9.0; check/test/build green post-bump.
 - Packed: wa-mcp-0.9.0.tgz (cli publish artifact), sha256 recorded in VERIFY.md, tarball gitignored.
+
+## Phase I — §15 docs + §13 accounting (gate GREEN; CI badge BLOCKED-billing)
+
+- Docs: 10 ADRs (0001–0010) + ADR 0011 (engine pairing fork pin) — T33 + T-A; VitePress build green (docs:build 1.85s); docs:coverage 30/30 (every registry tool documented); CHANGELOG 0.9.0 section — orchestrator-validated.
+- Accounting: 1,029 census items dispositioned (BACKLOG-FULL → ACCOUNTING), `accounting:check` wired into the CI security job — green locally and in pre-billing run 36955241911 — T32.
+- Verdict: GREEN on every mechanically checkable item. CI badge re-confirmation BLOCKED (GitHub Actions billing — runs never start).
+
+## Phase J — release gates (PARTIAL: local gates GREEN; CI + live BLOCKED, by design)
+
+- Coverage gates (T41): per-package line thresholds enforced — bridge 80 (actual 82.89), mcp-server 80 (88.36 lines / 88.53 stmts), shared 90 (97.77); vitest engine proven to bite (99% probe against 97.77% → exit 1); wired into the ci.yml test job and verified locally with the exact CI commands (`pnpm --filter <pkg> exec vp test --coverage`).
+- Fresh-container install (T42): `scripts/docker-install-test.sh` exit 0 on node:22 (docker 27.4.0) after the nested-bridge-bin resolution fix — npm install tarball → `npx wa-mcp install` verified → doctor bridge-down rows → daemon start → `/health {"version":"0.9.0"}` → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS. DEVIATION: contract image node:20 is impossible (bridge store is node:sqlite, ≥22.5) — floor raised to `>=22.5.0`, owner ratification pending (BLOCKED.md).
+- Release tarball: wa-mcp-0.9.0.tgz sha256 325a60d7… (fork engine + pair CLI + web fixes), reproducible via `scripts/pack-release.sh`; bundled socket.js verified to carry companion_reg_refresh (2 refs).
+- CI-green: BLOCKED — GitHub Actions billing (runs 36979526866+ never start; owner action recorded 5d17b71). Local gates green: vp check exit 0, vp test 369/369.
+- Live smoke: BLOCKED — pairing scan. Live pairing still fails (creds.update never persists; engine analysis complete: stale `creds.me` from earlier pairing-code calls blocks the fork's adv-secret rotation — identical devicePairingData across cycles); instrumented rescan is the next step.
+- Verdict: PARTIAL honestly — every gate runnable without pairing or paid CI is green; the two open items are external blockers, not missing work.
