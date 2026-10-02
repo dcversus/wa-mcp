@@ -1,10 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import {
-  appendEvent,
-  eventLine,
-  openStatusStream,
-  type FeedLine,
-} from "../src/events-feed.ts";
+import { appendEvent, eventLine, openStatusStream, type FeedLine } from "../src/events-feed.ts";
 
 test("appendEvent keeps the newest 50 lines in order", () => {
   let feed: FeedLine[] = [];
@@ -24,11 +19,15 @@ test("appendEvent does not mutate the input array", () => {
 });
 
 test("eventLine maps connection updates to a readable detail", () => {
+  expect(eventLine({ type: "connection.update", payload: { connection: "open" } })).toMatchObject({
+    type: "connection.update",
+    detail: "open",
+  });
   expect(
-    eventLine({ type: "connection.update", payload: { connection: "open" } }),
-  ).toMatchObject({ type: "connection.update", detail: "open" });
-  expect(
-    eventLine({ type: "messages.upsert", payload: { messages: [{ key: { id: "m1" }, pushName: "V" }] } }),
+    eventLine({
+      type: "messages.upsert",
+      payload: { messages: [{ key: { id: "m1" }, pushName: "V" }] },
+    }),
   ).toMatchObject({ type: "messages.upsert", detail: "V" });
   expect(eventLine({ type: "creds.update", payload: {} })).toMatchObject({
     type: "creds.update",
@@ -38,7 +37,12 @@ test("eventLine maps connection updates to a readable detail", () => {
 
 test("openStatusStream wires an EventSource to onLine and closes cleanly", () => {
   const lines: FeedLine[] = [];
-  const sources: Array<{ url: string; close: () => void; onmessage: ((e: { data: string }) => void) | null }> = [];
+  const sources: Array<{
+    url: string;
+    closed: boolean;
+    close: () => void;
+    onmessage: ((e: { data: string }) => void) | null;
+  }> = [];
   class FakeEventSource {
     public onmessage: ((e: { data: string }) => void) | null = null;
     public closed = false;
@@ -56,7 +60,9 @@ test("openStatusStream wires an EventSource to onLine and closes cleanly", () =>
     onLine: (line) => lines.push(line),
   });
   expect(sources[0]?.url).toBe("http://bridge/events?token=tok");
-  sources[0]?.onmessage?.({ data: JSON.stringify({ type: "connection.update", payload: { connection: "open" } }) });
+  sources[0]?.onmessage?.({
+    data: JSON.stringify({ type: "connection.update", payload: { connection: "open" } }),
+  });
   expect(lines).toEqual([{ at: expect.any(Number), type: "connection.update", detail: "open" }]);
   stream.close();
   expect(sources[0]?.closed).toBe(true);
@@ -64,10 +70,16 @@ test("openStatusStream wires an EventSource to onLine and closes cleanly", () =>
 
 test("openStatusStream ignores malformed frames", () => {
   const lines: FeedLine[] = [];
+  const sources: Array<FakeEventSource> = [];
   class FakeEventSource {
     public onmessage: ((e: { data: string }) => void) | null = null;
-    constructor(public url: string) {}
-    close(): void {}
+    public closed = false;
+    constructor(public url: string) {
+      sources.push(this);
+    }
+    close(): void {
+      this.closed = true;
+    }
   }
   const stream = openStatusStream({
     url: "http://bridge",
@@ -75,10 +87,10 @@ test("openStatusStream ignores malformed frames", () => {
     EventSourceImpl: FakeEventSource as unknown as typeof EventSource,
     onLine: (line) => lines.push(line),
   });
-  sources_push(stream);
-  function sources_push(_s: unknown): void {}
-  const source = (stream as unknown as { source: FakeEventSource }).source;
+  const source = sources[0]!;
   source.onmessage?.({ data: "not-json" });
   source.onmessage?.({ data: JSON.stringify({ type: "creds.update", payload: {} }) });
   expect(lines.length).toBe(1);
+  stream.close();
+  expect(source.closed).toBe(true);
 });

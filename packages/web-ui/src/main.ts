@@ -20,6 +20,7 @@ import {
   type PairingHealth,
   type PairingView,
 } from "./pages-pairing.ts";
+import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
 import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
@@ -58,6 +59,44 @@ async function refreshPairing(): Promise<void> {
 
 function currentPairingView(): PairingView {
   return pairingView;
+}
+
+// ---- live status feed (T52): bounded SSE feed + 5s health poll
+let statusFeed: FeedLine[] = [];
+let statusStream: { close(): void } | null = null;
+let statusPoll: ReturnType<typeof setInterval> | null = null;
+
+function startStatusLive(): void {
+  if (statusStream === null && typeof EventSource === "function") {
+    statusStream = openStatusStream({
+      url: settings.bridgeUrl,
+      token: settings.token,
+      onLine: (line) => {
+        statusFeed = appendEvent(statusFeed, line);
+        const list = document.querySelector("#status-dashboard .events");
+        if (list !== null) {
+          list.innerHTML = feedHtml(statusFeed);
+        }
+      },
+    });
+  }
+  if (statusPoll === null) {
+    statusPoll = setInterval(() => {
+      if (location.hash !== "#/status" && location.hash !== "#/health") {
+        return;
+      }
+      void renderCurrent();
+    }, 5_000);
+  }
+}
+
+function stopStatusLive(): void {
+  statusStream?.close();
+  statusStream = null;
+  if (statusPoll !== null) {
+    clearInterval(statusPoll);
+    statusPoll = null;
+  }
 }
 
 // ---- chat experience state (T51-B)
@@ -214,6 +253,7 @@ function bindRoute(): void {
   }
   if (hash === "#/status" || hash === "#/health") {
     bindStatusControls();
+    startStatusLive();
     return;
   }
   if (hash === "#/pairing") {
@@ -594,6 +634,9 @@ function bindSettingsForm(): void {
 }
 
 window.addEventListener("hashchange", () => {
+  if (location.hash !== "#/status" && location.hash !== "#/health") {
+    stopStatusLive();
+  }
   if (pairingPoll !== null && location.hash !== "#/pairing") {
     clearInterval(pairingPoll);
     pairingPoll = null;
