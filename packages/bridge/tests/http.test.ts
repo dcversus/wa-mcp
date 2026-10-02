@@ -1702,3 +1702,33 @@ test("POST /api/tts synthesizes and optionally sends as voice", async () => {
   });
   expect(empty.status).toBe(400);
 });
+
+test("GET / serves the web ui shell unauthed; assets are confined", async () => {
+  const uiDir = mkdtempSync(join(tmpdir(), "wa-mcp-ui-"));
+  writeFileSync(join(uiDir, "index.html"), "<html><body>wa-mcp shell</body></html>");
+  mkdirSync(join(uiDir, "assets"), { recursive: true });
+  writeFileSync(join(uiDir, "assets", "app.js"), "console.log(1)");
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle(), { token: "test-token", store, uiDir });
+  created.push(bridge);
+  const shell = await fetch(url(bridge, "/"));
+  expect(shell.status).toBe(200);
+  expect(shell.headers.get("content-type")).toContain("text/html");
+  expect(await shell.text()).toContain("wa-mcp shell");
+  const asset = await fetch(url(bridge, "/assets/app.js"));
+  expect(asset.status).toBe(200);
+  expect(await asset.text()).toBe("console.log(1)");
+  const escape = await fetch(url(bridge, "/assets/..%2F..%2Findex.html"));
+  expect(escape.status).toBe(400);
+  const missing = await fetch(url(bridge, "/assets/nope.js"));
+  expect(missing.status).toBe(404);
+  const apiStillJson = await fetch(url(bridge, "/api/nope"), { headers: authHeader });
+  expect(((await apiStillJson.json()) as { error: { code: string } }).error.code).toBe("NOT_FOUND");
+  const noUi = await fetch(url(await (async () => {
+    const b = await createHttpServer(stubHandle(), { token: "test-token", store });
+    created.push(b);
+    return b;
+  })(), "/"));
+  expect(noUi.status).toBe(404);
+});
