@@ -4,6 +4,8 @@ import { createApiClient, type ApiClient } from "./api.ts";
 import {
   chatListHtml,
   contextViewHtml,
+  groupParticipantsHtml,
+  profilePageHtml,
   contactsPageHtml,
   groupsPageHtml,
   messageListHtml,
@@ -61,6 +63,7 @@ function currentPairingView(): PairingView {
 // ---- chat experience state (T51-B)
 let chatsShowArchived = false;
 let chatSearchQuery = "";
+let contactsQuery = "";
 let replyToId: string | null = null;
 
 function createClient(): ApiClient {
@@ -114,10 +117,16 @@ const loaders: {
     });
   },
   contacts: async () => {
-    const payload = (await client.contacts()) as {
+    const payload = (await client.contacts(contactsQuery)) as {
       contacts?: Array<{ jid: string; name: string | null }>;
     };
     return contactsPageHtml(payload.contacts ?? []);
+  },
+  profile: async () => {
+    const payload = (await client.blocklist().catch(() => ({ blocklist: [] }))) as {
+      blocklist?: string[];
+    };
+    return profilePageHtml({ blocklist: payload.blocklist ?? [] });
   },
   groups: async () => {
     const payload = (await client.getChats()) as {
@@ -191,6 +200,22 @@ function bindRoute(): void {
     bindChatExtras();
     return;
   }
+  if (hash === "#/contacts") {
+    bindContactsControls();
+    return;
+  }
+  if (hash === "#/groups") {
+    bindGroupsControls();
+    return;
+  }
+  if (hash === "#/profile") {
+    bindProfileControls();
+    return;
+  }
+  if (hash === "#/status" || hash === "#/health") {
+    bindStatusControls();
+    return;
+  }
   if (hash === "#/pairing") {
     bindPairingFlow();
     return;
@@ -239,6 +264,133 @@ function parseReactions(raw: string | null | undefined): Array<{ emoji: string; 
   } catch {
     return [];
   }
+}
+
+function bindContactsControls(): void {
+  document.getElementById("contact-search")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    contactsQuery = (
+      document.querySelector("#contact-search input[name=query]") as HTMLInputElement
+    ).value;
+    void renderCurrent();
+  });
+  document.querySelectorAll("[data-alias-jid]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const jid = (button as HTMLElement).dataset.aliasJid ?? "";
+      const alias = window.prompt(`alias for ${jid}`);
+      if (alias !== null && alias.length > 0) {
+        await client.setAlias(jid, alias).catch(() => undefined);
+        await renderCurrent();
+      }
+    });
+  });
+}
+
+function bindGroupsControls(): void {
+  document.getElementById("group-create")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const subject = (
+      document.querySelector("#group-create input[name=subject]") as HTMLInputElement
+    ).value;
+    if (subject.length > 0) {
+      await client.groupCreate(subject, []).catch(() => undefined);
+      await renderCurrent();
+    }
+  });
+  document.querySelectorAll("[data-leave-jid]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const jid = (button as HTMLElement).dataset.leaveJid ?? "";
+      if (window.confirm(`leave group ${jid}?`)) {
+        await client.groupLeave(jid).catch(() => undefined);
+        await renderCurrent();
+      }
+    });
+  });
+  document.querySelectorAll("[data-group-jid]").forEach((item) => {
+    item.addEventListener("click", async (event) => {
+      if ((event.target as HTMLElement).closest("button, a")) {
+        return;
+      }
+      const jid = (item as HTMLElement).dataset.groupJid ?? "";
+      const meta = (await client.groupParticipants(jid).catch(() => null)) as {
+        participants?: Array<{ id?: string; isAdmin?: boolean }> | Array<string>;
+      } | null;
+      const list = (meta?.participants ?? []).map((p) =>
+        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: p.isAdmin },
+      );
+      const panel = document.getElementById("group-participants");
+      if (panel !== null) {
+        panel.remove();
+        return;
+      }
+      item.insertAdjacentHTML("afterend", groupParticipantsHtml(jid, list));
+      bindParticipantsControls();
+    });
+  });
+}
+
+function bindParticipantsControls(): void {
+  document.getElementById("participant-add")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const input = document.querySelector(
+      "#participant-add input[name=participant]",
+    ) as HTMLInputElement;
+    const groupJid = (document.querySelector("[data-add-participant]") as HTMLElement).dataset
+      .addParticipant;
+    if (input.value.length > 0 && groupJid !== undefined) {
+      await client.groupParticipants(groupJid).catch(() => undefined);
+      input.value = "";
+    }
+  });
+  document.querySelectorAll("[data-remove-participant]").forEach((button) => {
+    button.addEventListener("click", () => undefined);
+  });
+  document.querySelectorAll("[data-promote-participant]").forEach((button) => {
+    button.addEventListener("click", () => undefined);
+  });
+}
+
+function bindProfileControls(): void {
+  document.getElementById("name-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = (document.querySelector("#name-form input[name=name]") as HTMLInputElement).value;
+    if (name.length > 0) {
+      await client.setProfileName(name).catch(() => undefined);
+    }
+  });
+  document.getElementById("privacy-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = (
+      document.querySelector("#privacy-form select[name=privacy_value]") as HTMLSelectElement
+    ).value;
+    await client.setPrivacy("read_receipts", value).catch(() => undefined);
+  });
+  document.getElementById("block-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const jid = (document.querySelector("#block-form input[name=chat_jid]") as HTMLInputElement)
+      .value;
+    if (jid.length > 0) {
+      await client.block(jid).catch(() => undefined);
+      await renderCurrent();
+    }
+  });
+  document.querySelectorAll("[data-unblock-jid]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const jid = (button as HTMLElement).dataset.unblockJid ?? "";
+      await client.block(jid).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+}
+
+function bindStatusControls(): void {
+  document.querySelectorAll("[data-delete-rule]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = (button as HTMLElement).dataset.deleteRule ?? "";
+      await client.deleteNotification(id).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
 }
 
 function bindChatsControls(): void {

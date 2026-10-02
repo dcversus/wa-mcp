@@ -24,6 +24,7 @@ export type Route =
   | "unread"
   | "contacts"
   | "groups"
+  | "profile"
   | "settings"
   | "health"
   | "pairing";
@@ -35,6 +36,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "unread", pattern: "unread" },
   { route: "contacts", pattern: "contacts" },
   { route: "groups", pattern: "groups" },
+  { route: "profile", pattern: "profile" },
   { route: "settings", pattern: "settings" },
   { route: "health", pattern: "health" },
   { route: "pairing", pattern: "pairing" },

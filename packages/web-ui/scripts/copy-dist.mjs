@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +11,8 @@ if (!existsSync(join(source, "index.html"))) {
   );
   process.exit(1);
 }
+// replace wholesale: stale hashed bundles would otherwise accumulate
+rmSync(target, { recursive: true, force: true });
 mkdirSync(dirname(target), { recursive: true });
 cpSync(source, target, { recursive: true });
 console.log(

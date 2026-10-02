@@ -31,6 +31,9 @@ export interface ApiClient {
   sendTts(chatJid: string, text: string): Promise<unknown>;
   sendPresence(chatJid: string, state: string): Promise<unknown>;
   getContext(chatJid: string, messageId: string, limit?: number): Promise<unknown>;
+  block(chatJid: string): Promise<unknown>;
+  setPrivacy(key: string, value: string): Promise<unknown>;
+  setProfileName(name: string): Promise<unknown>;
 }
 
 export function createApiClient(opts: ApiClientOptions): ApiClient {
@@ -107,6 +110,9 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     transcribe: (messageId) => post("/api/transcribe", { message_id: messageId }),
     sendTts: (chatJid, text) => post("/api/tts", { chat_jid: chatJid, text }),
     sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, state }),
+    block: (chatJid) => post("/api/block", { chat_jid: chatJid, block: true }),
+    setPrivacy: (privacy_key, value) => post("/api/privacy", { privacy_key, value }),
+    setProfileName: (name) => post("/api/profile", { name }),
     getContext: (chatJid, messageId, radius) => {
       const params = new URLSearchParams({ chat_jid: chatJid, message_id: messageId });
       if (radius !== undefined) {

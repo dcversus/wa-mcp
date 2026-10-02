@@ -6,6 +6,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "unread", label: "Unread", href: "#/unread" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "groups", label: "Groups", href: "#/groups" },
+  { id: "profile", label: "Profile", href: "#/profile" },
   { id: "pairing", label: "Pairing", href: "#/pairing" },
   { id: "settings", label: "Settings", href: "#/settings" },
 ];
@@ -201,4 +202,33 @@ export function healthHtml(health: Record<string, unknown>): string {
   return `<dl class="health">${Object.entries(health)
     .map(([key, value]) => `<dt>${key}</dt><dd>${String(value)}</dd>`)
     .join("")}</dl>`;
+}
+
+export function profilePageHtml(input: { blocklist: string[] }): string {
+  const entries = input.blocklist
+    .map(
+      (jid) =>
+        `<li data-blocked-jid="${escapeHtml(jid)}"><code>${escapeHtml(jid)}</code> <button data-unblock-jid="${escapeHtml(jid)}">unblock</button></li>`,
+    )
+    .join("");
+  return `<section id="profile-page"><h2>Profile</h2>
+<form id="name-form"><label>display name<input name="name" placeholder="new display name" /></label><button type="submit">set name</button></form>
+<h3>privacy</h3>
+<form id="privacy-form"><label>read receipts<select name="privacy_value"><option value="all">all</option><option value="none">none</option></select></label><button type="submit">apply</button></form>
+<h3>blocked contacts</h3>
+<form id="block-form"><label>block a JID<input name="chat_jid" placeholder="358…@s.whatsapp.net" /></label><button type="submit">block</button></form>
+<ul class="blocklist">${entries}</ul></section>`;
+}
+
+export function groupParticipantsHtml(
+  groupJid: string,
+  participants: Array<{ id: string; isAdmin?: boolean }>,
+): string {
+  const items = participants
+    .map(
+      (participant) =>
+        `<li data-participant-jid="${escapeHtml(participant.id)}"><code>${escapeHtml(participant.id)}</code>${participant.isAdmin ? ' <span class="admin-flag">admin</span>' : ""} <button data-remove-participant="${escapeHtml(groupJid)}" data-participant="${escapeHtml(participant.id)}">remove</button> <button data-promote-participant="${escapeHtml(groupJid)}" data-participant="${escapeHtml(participant.id)}">promote</button></li>`,
+    )
+    .join("");
+  return `<div id="group-participants"><h3>participants</h3><ul>${items}</ul><form id="participant-add"><input name="participant" placeholder="358…@s.whatsapp.net" /><button type="submit" data-add-participant="${escapeHtml(groupJid)}">add</button></form></div>`;
 }
