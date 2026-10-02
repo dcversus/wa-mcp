@@ -2043,3 +2043,44 @@ test("/events accepts a token query param so EventSource can connect (T52)", asy
   const wrong = await fetch(url(bridge, "/events?token=wrong-token"));
   expect(wrong.status).toBe(401);
 });
+
+describe("T53 pairing token", () => {
+  test("/health carries an ephemeral pairingToken", async () => {
+    const bridge = await startServer();
+    const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+    expect(typeof body.pairingToken).toBe("string");
+    expect((body.pairingToken as string).length).toBeGreaterThanOrEqual(32);
+  });
+
+  test("pairingToken opens the pairing endpoints without the session token", async () => {
+    const bridge = await startServer();
+    const health = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+    const pairingToken = health.pairingToken as string;
+    const qr = await fetch(url(bridge, "/api/qr"), {
+      headers: { authorization: `Bearer ${pairingToken}` },
+    });
+    expect(qr.status).not.toBe(401);
+    const resume = await fetch(url(bridge, "/api/pair/resume"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${pairingToken}` },
+    });
+    expect(resume.status).toBe(200);
+  });
+
+  test("pairingToken does NOT open account data", async () => {
+    const bridge = await startServer();
+    const health = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${health.pairingToken as string}` },
+    });
+    expect(chats.status).toBe(401);
+  });
+
+  test("the session token still works on pairing endpoints", async () => {
+    const bridge = await startServer();
+    const qr = await fetch(url(bridge, "/api/qr"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(qr.status).not.toBe(401);
+  });
+});
