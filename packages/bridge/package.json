@@ -22,10 +22,10 @@
   "dependencies": {
     "@wa-mcp/mcp-server": "workspace:*",
     "@wa-mcp/shared": "workspace:*",
+    "baileys": "github:doryani-ai/Baileys#fix/companion-reg-refresh",
     "pino": "^9.14.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
-    "baileys": "github:doryani-ai/Baileys#fix/companion-reg-refresh"
+    "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
     "@types/node": "^24",

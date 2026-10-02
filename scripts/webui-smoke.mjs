@@ -28,7 +28,10 @@ const chrome = spawn(
 );
 
 const devtoolsUrl = await new Promise((resolve, reject) => {
-  const timer = setTimeout(() => reject(new Error("chrome did not expose a debug port within 10s")), 10_000);
+  const timer = setTimeout(
+    () => reject(new Error("chrome did not expose a debug port within 10s")),
+    10_000,
+  );
   const handle = (data) => {
     const match = String(data).match(/DevTools listening on (ws:\/\/\S+)/);
     if (match) {
@@ -63,14 +66,21 @@ ws.onmessage = (event) => {
     return;
   }
   if (msg.method === "Runtime.consoleAPICalled") {
-    pageDiagnostics.push(`console.${msg.params.type}: ${msg.params.args.map((arg) => arg.value ?? arg.description ?? "").join(" ")}`);
+    pageDiagnostics.push(
+      `console.${msg.params.type}: ${msg.params.args.map((arg) => arg.value ?? arg.description ?? "").join(" ")}`,
+    );
   }
   if (msg.method === "Runtime.exceptionThrown") {
-    pageDiagnostics.push(`page exception: ${msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text}`);
+    pageDiagnostics.push(
+      `page exception: ${msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text}`,
+    );
   }
   for (let index = eventWaiters.length - 1; index >= 0; index -= 1) {
     const waiter = eventWaiters[index];
-    if (waiter.method === msg.method && (waiter.sessionId === undefined || waiter.sessionId === msg.sessionId)) {
+    if (
+      waiter.method === msg.method &&
+      (waiter.sessionId === undefined || waiter.sessionId === msg.sessionId)
+    ) {
       eventWaiters.splice(index, 1);
       waiter.resolve(msg.params);
     }
@@ -80,7 +90,14 @@ ws.onmessage = (event) => {
 function waitForEvent(method, sessionId) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`event timeout: ${method}`)), 8000);
-    eventWaiters.push({ method, sessionId, resolve: (params) => { clearTimeout(timer); resolve(params); } });
+    eventWaiters.push({
+      method,
+      sessionId,
+      resolve: (params) => {
+        clearTimeout(timer);
+        resolve(params);
+      },
+    });
   });
 }
 
@@ -106,7 +123,11 @@ function pageCall(method, params = {}) {
 }
 
 async function evaluate(expression) {
-  const result = await pageCall("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+  const result = await pageCall("Runtime.evaluate", {
+    expression,
+    returnByValue: true,
+    awaitPromise: true,
+  });
   if (result.exceptionDetails) {
     throw new Error(result.exceptionDetails.exception?.description ?? "page exception");
   }
@@ -130,9 +151,13 @@ await goto(`${bridgeUrl}/#/pairing`);
 await evaluate("try { localStorage.clear(); } catch {}");
 await goto(`${bridgeUrl}/#/pairing`);
 
-await evaluate(`window.addEventListener("error", (event) => console.error("window error:", event.message)); window.addEventListener("unhandledrejection", (event) => console.error("unhandled:", String(event.reason)));`);
+await evaluate(
+  `window.addEventListener("error", (event) => console.error("window error:", event.message)); window.addEventListener("unhandledrejection", (event) => console.error("unhandled:", String(event.reason)));`,
+);
 const pairingApp = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
-const scriptInfo = await evaluate(`Array.from(document.scripts).map((script) => script.src).join(", ")`);
+const scriptInfo = await evaluate(
+  `Array.from(document.scripts).map((script) => script.src).join(", ")`,
+);
 console.log(`scripts: ${scriptInfo}`);
 for (const line of pageDiagnostics) {
   console.log(`diag: ${line}`);
@@ -159,7 +184,8 @@ console.log(`#/pairing app innerHTML length: ${pairingApp.length}`);
 
 await goto(`${bridgeUrl}/#/settings`);
 const settingsApp = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
-if (!settingsApp.includes('id="settings-form"')) fail("#/settings did not render the settings form");
+if (!settingsApp.includes('id="settings-form"'))
+  fail("#/settings did not render the settings form");
 if (!settingsApp.includes('id="bridge-url"') || !settingsApp.includes('id="token"')) {
   fail("#/settings is missing the bridge-url/token inputs");
 }

@@ -336,3 +336,16 @@ test("qr rotations update getLastQr", async () => {
   sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-rotation-2" });
   expect(handle.getLastQr()).toBe("QRDATA-rotation-2");
 });
+
+test("qr pool exhaustion reconnects and reissues a qr", async () => {
+  vi.useFakeTimers();
+  const { latest, handle } = await startArranged();
+  for (let round = 0; round < 3; round += 1) {
+    latest().emit("connection.update", { connection: "connecting", qr: `QR-ROUND-${round}` });
+    latest().emit("connection.update", closeEvent(428));
+    await vi.advanceTimersByTimeAsync(60_000);
+  }
+  latest().emit("connection.update", { connection: "connecting", qr: "QR-FINAL" });
+  expect(handle.status).toBe("qr");
+  expect(handle.getLastQr()).toBe("QR-FINAL");
+});

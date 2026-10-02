@@ -1,19 +1,14 @@
 import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
-import { chatListHtml, healthHtml, messageListHtml, qrHtml, settingsHtml, unreadHtml } from "./pages.ts";
-import { loadSettings, needsToken, saveSettings, type WebSettings } from "./state.ts";
-import { resolveRoute, type RoutePattern } from "./router.ts";
-
-const ROUTES: Array<RoutePattern<Route>> = [
-  { route: "chats", pattern: "chats" },
-  { route: "chat", pattern: "chat/:jid" },
-  { route: "unread", pattern: "unread" },
-  { route: "settings", pattern: "settings" },
-  { route: "health", pattern: "health" },
-  { route: "pairing", pattern: "pairing" },
-];
-
-const NAV_HTML = `<a href="#/chats">Chats</a><a href="#/unread">Unread</a><a href="#/health">Health</a><a href="#/pairing">Pairing</a><a href="#/settings">Settings</a>`;
+import {
+  chatListHtml,
+  healthHtml,
+  messageListHtml,
+  qrHtml,
+  settingsHtml,
+  unreadHtml,
+} from "./pages.ts";
+import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
 let client: ApiClient = createClient();
@@ -125,7 +120,9 @@ function bindMarkRead(): void {
       const payload = (await client.getMessages(chatJid, 200)) as {
         messages: Array<{ id: string; isUnread: boolean }>;
       };
-      const unreadIds = payload.messages.filter((message) => message.isUnread).map((message) => message.id);
+      const unreadIds = payload.messages
+        .filter((message) => message.isUnread)
+        .map((message) => message.id);
       if (unreadIds.length > 0) {
         await client.markRead(chatJid, unreadIds);
       }
