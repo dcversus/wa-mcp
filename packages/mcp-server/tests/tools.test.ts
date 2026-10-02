@@ -64,6 +64,7 @@ test("the registry exposes the full launch set", () => {
     "get_group_invite",
     "transcribe_message",
     "send_voice_note",
+    "get_pairing_code",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -370,4 +371,14 @@ test("transcribe_message and send_voice_note hit their endpoints", async () => {
   await voice.handler(toolCtx, { text: "say hi", chat_jid: "g@g.us" });
   expect(calls[1]?.url).toBe("http://bridge.test:8080/api/tts");
   expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ text: "say hi", chat_jid: "g@g.us" });
+});
+
+test("get_pairing_code posts the phone to the bridge", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/pairing-code": { code: "ABCD-1234" } });
+  const tool = toolByName("get_pairing_code");
+  if (!tool) throw new Error("get_pairing_code missing");
+  const result = await tool.handler({ ...ctx, fetchFn }, { phone: "+358 497 773 518" });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/pairing-code");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ phone: "+358 497 773 518" });
+  expect(result.content[0]?.text).toContain("ABCD-1234");
 });

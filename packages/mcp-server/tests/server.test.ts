@@ -83,6 +83,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "get_group_invite",
     "transcribe_message",
     "send_voice_note",
+    "get_pairing_code",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");

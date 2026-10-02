@@ -29,6 +29,7 @@ function makeFakeSocket(): WASocket {
   }));
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
+  const requestPairingCode = vi.fn(async (phone: string) => "ABCD1234");
   const updateProfileName = vi.fn(async () => {});
   const updateProfileStatus = vi.fn(async () => {});
   const updateProfilePicture = vi.fn(async () => {});
@@ -39,6 +40,7 @@ function makeFakeSocket(): WASocket {
     sendMessage,
     readMessages,
     sendPresenceUpdate,
+    requestPairingCode,
     updateProfileName,
     updateProfileStatus,
     updateProfilePicture,
@@ -1740,4 +1742,44 @@ test("GET / serves the web ui shell unauthed; assets are confined", async () => 
     ),
   );
   expect(noUi.status).toBe(404);
+});
+
+test("POST /api/pairing-code returns the formatted code while pairing", async () => {
+  const socket = makeFakeSocket();
+  (socket as unknown as { requestPairingCode: ReturnType<typeof vi.fn>; status: string }).requestPairingCode =
+    vi.fn(async () => "ABCD1234");
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("qr", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/pairing-code"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ phone: "+358 497 773 518" }),
+  });
+  expect(res.status).toBe(200);
+  expect(((await res.json()) as { code: string }).code).toBe("ABCD-1234");
+  const bad = await fetch(url(bridge, "/api/pairing-code"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ phone: "1234567" }),
+  });
+  expect(bad.status).toBe(400);
+  const wrongState = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(wrongState);
+  const conflict = await fetch(url(wrongState, "/api/pairing-code"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ phone: "358497773518" }),
+  });
+  expect(conflict.status).toBe(409);
+  expect(((await conflict.json()) as { error: { code: string } }).error.code).toBe("PAIRING_STATE");
 });
