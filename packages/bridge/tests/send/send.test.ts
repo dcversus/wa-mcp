@@ -9,8 +9,12 @@ import { listMessages } from "../../src/store/queries.ts";
 
 function fakeSocket(): { sock: WASocket; sendMessage: ReturnType<typeof vi.fn> } {
   const sendMessage = vi.fn(async (jid: string, content: unknown) => ({
-    key: { remoteJid: jid, fromMe: false, id: "SENTID1" },
-    message: content,
+    key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
+    // emulate the engine: {text} input → extendedTextMessage proto
+    message:
+      (content as { text?: string }).text !== undefined
+        ? { extendedTextMessage: { text: (content as { text: string }).text } }
+        : content,
   }));
   return { sock: { sendMessage } as unknown as WASocket, sendMessage };
 }
@@ -32,24 +36,20 @@ afterEach(async () => {
 
 test("sends via the socket to a normalized jid and returns the message id", async () => {
   const socket = fakeSocket();
-  const result = await sendViaSocket(socket.sock, "+358 497 773 518", { conversation: "hi" });
+  const result = await sendViaSocket(socket.sock, "+358 497 773 518", { text: "hi" });
   expect(result).toEqual({ messageId: "SENTID1", chatJid: "358497773518@s.whatsapp.net" });
   expect(socket.sendMessage).toHaveBeenCalledTimes(1);
   expect(socket.sendMessage).toHaveBeenCalledWith(
     "358497773518@s.whatsapp.net",
-    expect.objectContaining({ conversation: "hi" }),
+    expect.objectContaining({ text: "hi" }),
+    undefined, // no quoted message — T54-era reply wiring passes it only when set
   );
 });
 
 test("persists the outbound row with is_from_me set", async () => {
   const store = freshStore();
   const socket = fakeSocket();
-  await sendViaSocket(
-    socket.sock,
-    "358497773518@s.whatsapp.net",
-    { conversation: "hi" },
-    { store },
-  );
+  await sendViaSocket(socket.sock, "358497773518@s.whatsapp.net", { text: "hi" }, { store });
   const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
   expect(row.is_from_me).toBe(1);
   expect(row.is_unread).toBe(0);
@@ -61,16 +61,14 @@ test("WA_SENDS_DISABLED=1 refuses every send without touching the socket", async
   process.env.WA_SENDS_DISABLED = "1";
   const socket = fakeSocket();
   await expect(
-    sendViaSocket(socket.sock, "358497773518@s.whatsapp.net", { conversation: "hi" }),
+    sendViaSocket(socket.sock, "358497773518@s.whatsapp.net", { text: "hi" }),
   ).rejects.toMatchObject({ code: "SENDS_DISABLED" });
   expect(socket.sendMessage).not.toHaveBeenCalled();
 });
 
 test("an unresolvable recipient fails as INVALID_JID before the socket", async () => {
   const socket = fakeSocket();
-  await expect(
-    sendViaSocket(socket.sock, "not-a-jid!", { conversation: "hi" }),
-  ).rejects.toMatchObject({
+  await expect(sendViaSocket(socket.sock, "not-a-jid!", { text: "hi" })).rejects.toMatchObject({
     code: "INVALID_JID",
   });
   expect(socket.sendMessage).not.toHaveBeenCalled();
@@ -85,9 +83,7 @@ test("SendError carries code and message", () => {
 
 test("an unparsable recipient with an at-sign fails as INVALID_JID before the socket", async () => {
   const socket = fakeSocket();
-  await expect(
-    sendViaSocket(socket.sock, "garbage@@@", { conversation: "hi" }),
-  ).rejects.toMatchObject({
+  await expect(sendViaSocket(socket.sock, "garbage@@@", { text: "hi" })).rejects.toMatchObject({
     code: "INVALID_JID",
   });
   expect(socket.sendMessage).not.toHaveBeenCalled();
@@ -131,7 +127,7 @@ describe("T56 LID resolution", () => {
     const result = await sendViaSocket(
       socket,
       "358497773518@s.whatsapp.net",
-      { conversation: "lid probe" },
+      { text: "lid probe" },
       { store },
     );
     expect(sentJids).toEqual(["221900000001937@lid"]);

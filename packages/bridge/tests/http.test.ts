@@ -30,7 +30,12 @@ const GROUP_B = "120363999999999999@g.us";
 function makeFakeSocket(): WASocket {
   const sendMessage = vi.fn(async (jid: string, content: unknown) => ({
     key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
-    message: content,
+    // emulate the engine: generateWAMessageContent turns {text} into an
+    // extendedTextMessage proto — the returned WAMessage carries THAT
+    message:
+      (content as { text?: string }).text !== undefined
+        ? { extendedTextMessage: { text: (content as { text: string }).text } }
+        : content,
   }));
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
@@ -870,10 +875,10 @@ test("POST /api/send routes kind=reaction through the socket", async () => {
   });
   expect(status).toBe(200);
   const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-    reactionMessage?: { text?: string; key?: { id?: string } };
+    react?: { text?: string; key?: { id?: string } };
   };
-  expect(call.reactionMessage?.text).toBe("🔥");
-  expect(call.reactionMessage?.key?.id).toBe("TARGET9");
+  expect(call.react?.text).toBe("🔥");
+  expect(call.react?.key?.id).toBe("TARGET9");
 });
 
 test("POST /api/send routes kind=edit through the socket", async () => {
@@ -894,10 +899,11 @@ test("POST /api/send routes kind=edit through the socket", async () => {
   });
   expect(status).toBe(200);
   const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-    protocolMessage?: { key?: { id?: string }; editedMessage?: { conversation?: string } };
+    edit?: { id?: string };
+    text?: string;
   };
-  expect(call.protocolMessage?.key?.id).toBe("TARGET9");
-  expect(call.protocolMessage?.editedMessage?.conversation).toBe("corrected");
+  expect(call.edit?.id).toBe("TARGET9");
+  expect(call.text).toBe("corrected");
 });
 
 test("POST /api/send routes kind=forward from the store", async () => {
@@ -919,10 +925,12 @@ test("POST /api/send routes kind=forward from the store", async () => {
   expect(status).toBe(200);
   expect(body.message_id).toBe("SENTID1");
   const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-    conversation?: string;
-    extendedTextMessage?: { text?: string };
+    forward?: { key?: { id?: string }; message?: { conversation?: string } };
   };
-  expect(call.conversation ?? call.extendedTextMessage?.text).toBe("spread this");
+  expect((call.forward as { key?: { id?: string } } | undefined)?.key?.id).toBe("FWD1");
+  expect(
+    (call.forward as { message?: { conversation?: string } } | undefined)?.message?.conversation,
+  ).toBe("spread this");
   const missing = await postSend(bridge, {
     kind: "forward",
     chat_jid: "358497773518@s.whatsapp.net",
@@ -965,19 +973,12 @@ test("POST /api/send routes location, contact and poll kinds", async () => {
   });
   expect(poll.status).toBe(200);
   const sent = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
-  expect((sent[0]?.[1] as { locationMessage?: { name?: string } }).locationMessage?.name).toBe(
-    "Kallio",
+  expect((sent[0]?.[1] as { location?: { name?: string } }).location?.name).toBe("Kallio");
+  expect((sent[1]?.[1] as { contacts?: { displayName?: string } }).contacts?.displayName).toBe(
+    "John Doe",
   );
-  expect(
-    (sent[1]?.[1] as { contactMessage?: { displayName?: string } }).contactMessage?.displayName,
-  ).toBe("John Doe");
-  const pollArg = sent[2]?.[1] as
-    | { pollCreationMessageV3?: { name?: string } }
-    | { pollCreationMessage?: { name?: string } };
-  const pollName =
-    ("pollCreationMessageV3" in pollArg ? pollArg.pollCreationMessageV3?.name : undefined) ??
-    ("pollCreationMessage" in pollArg ? pollArg.pollCreationMessage?.name : undefined);
-  expect(pollName).toBe("Lunch?");
+  const pollArg = sent[2]?.[1] as { poll?: { name?: string } };
+  expect(pollArg.poll?.name).toBe("Lunch?");
 });
 
 test("POST /api/send validates per-kind fields and rejects unknown kinds", async () => {
@@ -2198,81 +2199,106 @@ test("send failures are LOGGED before the 500 (T56: silent failures forbidden)",
 });
 
 describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
-  function wireContent(bridge: Awaited<ReturnType<typeof startServer>>): Record<string, unknown> {
-    const socket = stubSocketOf(bridge);
+  async function makeWireServer(): Promise<{
+    bridge: Awaited<ReturnType<typeof startServer>>;
+    socket: WASocket;
+  }> {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-wire-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-wire-media-")),
+      sendGuard: new SendGuard(store),
+    });
+    created.push(bridge);
+    return { bridge, socket };
+  }
+  function wireContent(socket: WASocket): Record<string, unknown> {
     const calls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
     return (calls[calls.length - 1]?.[1] ?? {}) as Record<string, unknown>;
   }
-  function stubSocketOf(bridge: Awaited<ReturnType<typeof startServer>>): WASocket {
-    return (bridge as unknown as { handle: { socket: WASocket } }).handle.socket;
+  async function post(
+    bridge: Awaited<ReturnType<typeof startServer>>,
+    body: unknown,
+  ): Promise<Response> {
+    return fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
 
   test("text sends {text} — not a built proto conversation", async () => {
-    const bridge = await startServer();
-    const res = await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", text: "hi" }),
-    });
+    const { bridge, socket } = await makeWireServer();
+    const res = await post(bridge, { chat_jid: "1@s.whatsapp.net", text: "hi" });
     expect(res.status).toBe(200);
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     expect(content.text).toBe("hi");
     expect(content.conversation).toBeUndefined();
   });
 
   test("reaction sends {react: {key, text}}", async () => {
-    const bridge = await startServer();
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", kind: "reaction", message_id: "m1", emote: "👍" }),
+    const { bridge, socket } = await makeWireServer();
+    await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "reaction",
+      message_id: "m1",
+      emote: "👍",
     });
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     expect((content.react as { text?: string })?.text).toBe("👍");
-    expect(((content.react as { key?: { id?: string } })?.key)?.id).toBe("m1");
+    expect((content.react as { key?: { id?: string } })?.key?.id).toBe("m1");
     expect(content.reactionMessage).toBeUndefined();
   });
 
   test("edit sends {edit: key, text}", async () => {
-    const bridge = await startServer();
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", kind: "edit", message_id: "m1", text: "edited" }),
+    const { bridge, socket } = await makeWireServer();
+    await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "edit",
+      message_id: "m1",
+      text: "edited",
     });
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     expect((content.edit as { id?: string })?.id).toBe("m1");
     expect(content.text).toBe("edited");
     expect(content.protocolMessage).toBeUndefined();
   });
 
   test("forward sends {forward: <original message>}", async () => {
-    let bridge: Awaited<ReturnType<typeof startServer>> | null = null;
-    bridge = await bootWithStore((store) => seedRow(store, "m1", "1@s.whatsapp.net", 1, "original"));
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", kind: "forward", message_id: "m1" }),
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-wire-fwd-")));
+    openedStores.push(store);
+    seedRow(store, "m1", "1@s.whatsapp.net", 1, "original");
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store),
     });
-    const content = wireContent(bridge);
+    created.push(bridge);
+    const res = await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "forward",
+      message_id: "m1",
+    });
+    expect(res.status).toBe(200);
+    const content = wireContent(socket);
     expect((content.forward as { key?: { id?: string } })?.key?.id).toBe("m1");
     expect(content.forwardedMessage).toBeUndefined();
   });
 
   test("location sends {location: {degreesLatitude, degreesLongitude, name}}", async () => {
-    const bridge = await startServer();
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_jid: "1@s.whatsapp.net",
-        kind: "location",
-        latitude: 60.17,
-        longitude: 24.94,
-        label: "home",
-      }),
+    const { bridge, socket } = await makeWireServer();
+    await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "location",
+      latitude: 60.17,
+      longitude: 24.94,
+      label: "home",
     });
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     const location = content.location as { degreesLatitude?: number; name?: string } | undefined;
     expect(location?.degreesLatitude).toBe(60.17);
     expect(location?.name).toBe("home");
@@ -2280,18 +2306,14 @@ describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
   });
 
   test("contact sends {contacts: {displayName, contacts: [{vcard}]}}", async () => {
-    const bridge = await startServer();
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_jid: "1@s.whatsapp.net",
-        kind: "contact",
-        contact_name: "V",
-        phones: ["+358123"],
-      }),
+    const { bridge, socket } = await makeWireServer();
+    await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "contact",
+      contact_name: "V",
+      phones: ["+358123"],
     });
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     const contacts = content.contacts as {
       displayName?: string;
       contacts?: Array<{ vcard?: string }>;
@@ -2302,18 +2324,14 @@ describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
   });
 
   test("poll sends {poll: {name, values}}", async () => {
-    const bridge = await startServer();
-    await fetch(url(bridge, "/api/send"), {
-      method: "POST",
-      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_jid: "1@s.whatsapp.net",
-        kind: "poll",
-        poll_name: "Lunch?",
-        options: ["a", "b"],
-      }),
+    const { bridge, socket } = await makeWireServer();
+    await post(bridge, {
+      chat_jid: "1@s.whatsapp.net",
+      kind: "poll",
+      poll_name: "Lunch?",
+      options: ["a", "b"],
     });
-    const content = wireContent(bridge);
+    const content = wireContent(socket);
     const poll = content.poll as { name?: string; values?: string[] } | undefined;
     expect(poll?.name).toBe("Lunch?");
     expect(poll?.values).toEqual(["a", "b"]);

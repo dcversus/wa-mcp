@@ -15,6 +15,8 @@ export class SendError extends Error {
 
 export interface SendOptions {
   store?: Store;
+  /** quoted message for replies — passed to the engine's quoted contextInfo */
+  quoted?: WAMessage;
 }
 
 export interface SendResult {
@@ -54,7 +56,7 @@ export async function resolveLidJid(socket: WASocket, jid: string): Promise<stri
 export async function sendViaSocket(
   socket: WASocket,
   chatJid: string,
-  content: proto.IMessage | AnyMessageContent,
+  content: AnyMessageContent,
   opts: SendOptions = {},
 ): Promise<SendResult> {
   if (process.env.WA_SENDS_DISABLED === "1") {
@@ -68,13 +70,27 @@ export async function sendViaSocket(
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
   }
   const wireJid = await resolveLidJid(socket, jid);
-  const sent = await socket.sendMessage(wireJid, content as AnyMessageContent);
+  const sent = await socket.sendMessage(
+    wireJid,
+    content as AnyMessageContent,
+    opts.quoted !== undefined ? { quoted: opts.quoted } : undefined,
+  );
+  // production sockets return the engine-GENERATED proto in sent.message;
+  // if a socket omits it, synthesize the text proto so persistence keeps the
+  // sent text (the "socket return omits it" contract)
   const messageId = sent?.key?.id ?? "";
   if (sent !== undefined && opts.store !== undefined) {
+    const echoed = (sent as { message?: proto.IMessage }).message;
+    const text = (content as { text?: string }).text;
+    const message =
+      echoed ??
+      (typeof text === "string"
+        ? ({ extendedTextMessage: { text } } as proto.IMessage)
+        : (content as proto.IMessage));
     const outbound = {
       ...sent,
       key: { ...sent.key, remoteJid: jid, fromMe: true },
-      message: content as proto.IMessage,
+      message,
     } as WAMessage;
     storeMessage(opts.store, outbound);
   }

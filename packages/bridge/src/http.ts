@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { AnyMessageContent, proto } from "baileys";
+import type { AnyMessageContent, WAMessage } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
@@ -60,15 +60,7 @@ import { downloadMessageMedia } from "./media/download.ts";
 import { createTranscriptionEngine, saveTranscript, getTranscript } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
-import {
-  buildContactMessage,
-  buildEditMessage,
-  buildForwardMessage,
-  buildLocationMessage,
-  buildPollMessage,
-  buildReactionMessage,
-  buildTextMessage,
-} from "./send/build.ts";
+import { buildVcard } from "./send/build.ts";
 import { SendError, sendViaSocket } from "./send/send.ts";
 import type { SendGuard } from "./send/safety.ts";
 
@@ -442,7 +434,8 @@ export async function createHttpServer(
     const chatJid = input.chat_jid;
     const kind = typeof input.kind === "string" ? input.kind : "text";
     let mediaToSave: ResolvedMedia | null = null;
-    let builder: () => Promise<proto.IMessage | AnyMessageContent>;
+    let quotedForWire: WAMessage | undefined;
+    let builder: () => Promise<AnyMessageContent>;
     switch (kind) {
       case "text": {
         if (typeof input.text !== "string" || input.text.length === 0) {
@@ -469,15 +462,20 @@ export async function createHttpServer(
           return;
         }
         const text: string = input.text;
-        const quoted = input.reply_to_message_id as string | undefined;
-        const linkPreview = input.link_preview as boolean | undefined;
-        builder = () =>
-          buildTextMessage({
-            text,
-            mentions: input.mentions as string[] | undefined,
-            quotedMessageId: quoted,
-            linkPreview,
-          });
+        const mentions = input.mentions as string[] | undefined;
+        const quotedId = input.reply_to_message_id as string | undefined;
+        if (quotedId !== undefined && opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        const quotedMessage =
+          quotedId !== undefined ? fetchMessageFromStore(opts.store!, quotedId) : null;
+        if (quotedId !== undefined && quotedMessage === null) {
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "quoted message not found" } });
+          return;
+        }
+        quotedForWire = quotedMessage ?? undefined;
+        builder = () => Promise.resolve({ text, ...(mentions !== undefined ? { mentions } : {}) });
         break;
       }
       case "reaction": {
@@ -491,7 +489,10 @@ export async function createHttpServer(
         }
         const messageId = input.message_id;
         const emote = input.emote;
-        builder = () => buildReactionMessage(chatJid, messageId, emote);
+        builder = () =>
+          Promise.resolve({
+            react: { key: { remoteJid: chatJid, id: messageId, fromMe: false }, text: emote },
+          });
         break;
       }
       case "edit": {
@@ -505,7 +506,8 @@ export async function createHttpServer(
         }
         const messageId = input.message_id;
         const text: string = input.text;
-        builder = () => Promise.resolve(buildEditMessage(chatJid, messageId, text));
+        builder = () =>
+          Promise.resolve({ edit: { remoteJid: chatJid, id: messageId, fromMe: true }, text });
         break;
       }
       case "forward": {
@@ -523,7 +525,7 @@ export async function createHttpServer(
           sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
           return;
         }
-        builder = () => buildForwardMessage(original);
+        builder = () => Promise.resolve({ forward: original });
         break;
       }
       case "location": {
@@ -537,8 +539,15 @@ export async function createHttpServer(
         }
         const latitude = input.latitude;
         const longitude = input.longitude;
+        const label = input.label as string | undefined;
         builder = () =>
-          buildLocationMessage(latitude, longitude, input.label as string | undefined);
+          Promise.resolve({
+            location: {
+              degreesLatitude: latitude,
+              degreesLongitude: longitude,
+              ...(label !== undefined ? { name: label } : {}),
+            },
+          });
         break;
       }
       case "contact": {
@@ -555,7 +564,13 @@ export async function createHttpServer(
         }
         const contactName = input.contact_name;
         const phones = input.phones as string[];
-        builder = () => Promise.resolve(buildContactMessage(contactName, phones));
+        builder = () =>
+          Promise.resolve({
+            contacts: {
+              displayName: contactName,
+              contacts: [{ vcard: buildVcard(contactName, phones) }],
+            },
+          });
         break;
       }
       case "image":
@@ -640,7 +655,13 @@ export async function createHttpServer(
         const pollName = input.poll_name;
         const options = input.options as string[];
         builder = () =>
-          buildPollMessage(pollName, options, input.selectable_count as number | undefined);
+          Promise.resolve({
+            poll: {
+              name: pollName,
+              values: options,
+              selectableCount: (input.selectable_count as number | undefined) ?? options.length - 1,
+            },
+          });
         break;
       }
       default:
@@ -687,7 +708,9 @@ export async function createHttpServer(
       return;
     }
     void builder()
-      .then((content) => sendViaSocket(socket, chatJid, content, opts))
+      .then((content) =>
+        sendViaSocket(socket, chatJid, content, { ...opts, quoted: quotedForWire }),
+      )
       .then(async (result) => {
         const saved: ResolvedMedia | null = mediaToSave;
         if (saved !== null && opts.mediaDir !== undefined && opts.store !== undefined) {
