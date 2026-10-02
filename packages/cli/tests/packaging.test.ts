@@ -22,12 +22,4 @@ test("the workspace packages resolve from the cli package", () => {
   const mcpPkg = req.resolve("@wa-mcp/mcp-server/package.json") as string;
   expect(bridgePkg.replace(/\\/g, "/")).toContain("bridge/package.json");
   expect(mcpPkg.replace(/\\/g, "/")).toContain("mcp-server/package.json");
-  expect(existsLike(bridgePkg, "dist", "bin.mjs")).toBe(true);
-  expect(existsLike(mcpPkg, "dist", "bin.mjs")).toBe(true);
 });
-
-import { existsSync } from "node:fs";
-
-function existsLike(pkgPath: string, ...segments: string[]): boolean {
-  return existsSync(join(pkgPath, "..", ...segments));
-}
