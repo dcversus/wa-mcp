@@ -182,6 +182,10 @@ if (pairingApp.length === 0) {
   fail("#/pairing rendered an empty #app");
 }
 console.log(`#/pairing app innerHTML length: ${pairingApp.length}`);
+console.log(`#/pairing app content: ${pairingApp.slice(0, 200)}`);
+for (const line of pageDiagnostics.slice(-8)) {
+  console.log(`diag(pairing): ${line}`);
+}
 if (pairingApp.includes('id="settings-form"') || pairingApp.includes('id="token"'))
   fail("#/pairing still shows a token wall (T53: pairing must be tokenless)");
 if (!pairingApp.includes('id="pairing"')) fail("#/pairing is missing the pairing/qr container");
@@ -219,11 +223,13 @@ console.log(`nav rendered: ok (${nav.length} chars)`);
 await goto(`${bridgeUrl}/#/chats`);
 const inlineForm = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 const inlineHash = await evaluate(`location.hash`);
-if (!inlineForm.includes('id="settings-form"') || !inlineForm.includes('id="token"'))
-  fail("#/chats did not render the inline token form (T54)");
+if (inlineForm.includes('id="settings-form"') || inlineForm.includes('id="token"'))
+  fail("#/chats still shows a token form (T54 revised: the ephemeral UI token authenticates)");
+if (!inlineForm.includes("chat-list") && !inlineForm.includes("chats-page"))
+  fail(`#/chats did not render the chats page tokenless: ${inlineForm.slice(0, 120)}`);
 if (!String(inlineHash).startsWith("#/chats"))
   fail(`#/chats redirected away to ${inlineHash} (T54 no-redirect contract)`);
-console.log(`#/chats tokenless → inline form, hash stays: ok (hash=${inlineHash})`);
+console.log(`#/chats tokenless → chats page via UI token, hash stays: ok (hash=${inlineHash})`);
 await evaluate(
   `localStorage.setItem("wa-mcp-settings", JSON.stringify({ bridgeUrl: "${bridgeUrl}", token: "${sessionToken}" }))`,
 );
@@ -236,13 +242,15 @@ for (let attempt = 0; attempt < 10; attempt += 1) {
 }
 console.log(`stored settings: ${await evaluate(`localStorage.getItem("wa-mcp-settings")`)}`);
 console.log(`#/chats app html (pre-reload): ${chatsPage.slice(0, 120)}`);
-await evaluate(`location.reload()`);
-await new Promise((resolve) => setTimeout(resolve, 1500));
+await goto(`${bridgeUrl}/#/chats`);
 chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 console.log(`#/chats app html (post-reload): ${chatsPage.slice(0, 120)}`);
 if (!chatsPage.includes("chat-list") && !chatsPage.includes("chats-page"))
   fail(`#/chats with a stored token did not render the chats page: ${chatsPage.slice(0, 120)}`);
 console.log(`#/chats with stored token renders the page: ok`);
+for (const line of pageDiagnostics.slice(-12)) {
+  console.log(`diag: ${line}`);
+}
 chrome.kill();
 console.log("webui-smoke PASS");
 process.exit(0);

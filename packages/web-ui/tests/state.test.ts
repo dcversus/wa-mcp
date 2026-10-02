@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
+  defaultBridgeUrl,
   effectiveToken,
   loadPairingToken,
   loadSettings,
@@ -54,4 +55,8 @@ describe("T54 token resolution", () => {
     expect(effectiveToken({ bridgeUrl: "b", token: "" }, "pair")).toBe("pair");
     expect(effectiveToken({ bridgeUrl: "b", token: "" }, "")).toBe("");
   });
+});
+
+test("defaultBridgeUrl falls back to loopback in bare-node contexts", () => {
+  expect(defaultBridgeUrl()).toBe("http://127.0.0.1:8080");
 });

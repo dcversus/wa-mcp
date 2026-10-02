@@ -1556,11 +1556,29 @@ export async function createHttpServer(
     if (presented === null && req.method === "GET" && path === "/events") {
       presented = new URL(req.url ?? "/", "http://localhost").searchParams.get("token");
     }
-    // the ephemeral pairing token authorizes ONLY the public pairing surface
-    const PAIRING_PATHS = new Set(["/api/qr", "/api/pairing-code", "/api/pair/resume"]);
-    const pairingAuthorized =
-      PAIRING_PATHS.has(path) && presented !== null && tokenMatches(presented, pairingToken);
-    if (!pairingAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
+    // ephemeral UI token scope (T54 revised): reads + messaging for the local
+    // web UI; destructive/config mutations keep the daemon token
+    const UI_TOKEN_POST = new Set([
+      "/api/send",
+      "/api/read",
+      "/api/presence",
+      "/api/tts",
+      "/api/transcribe",
+      "/api/pairing-code",
+      "/api/pair/resume",
+      "/api/group/participants",
+    ]);
+    const uiTokenAuthorized =
+      presented !== null &&
+      tokenMatches(presented, pairingToken) &&
+      (path === "/events" ||
+        path === "/api/qr" ||
+        path === "/api/pair/resume" ||
+        path === "/api/pairing-code" ||
+        path.startsWith("/api/media/") ||
+        (req.method === "GET" && path.startsWith("/api/")) ||
+        (req.method === "POST" && UI_TOKEN_POST.has(path)));
+    if (!uiTokenAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
       });

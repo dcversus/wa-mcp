@@ -10,7 +10,16 @@ export interface SettingsStorage {
 
 const SETTINGS_KEY = "wa-mcp-settings";
 
-export const DEFAULT_SETTINGS: WebSettings = { bridgeUrl: "http://127.0.0.1:8080", token: "" };
+/** When served BY the bridge (the normal case) the UI must call its own
+ * origin; the 8080 default only applies to bare-node contexts (tests). */
+export function defaultBridgeUrl(): string {
+  if (typeof location !== "undefined" && location.origin.startsWith("http")) {
+    return location.origin;
+  }
+  return "http://127.0.0.1:8080";
+}
+
+export const DEFAULT_SETTINGS: WebSettings = { bridgeUrl: defaultBridgeUrl(), token: "" };
 
 export function loadSettings(storage: SettingsStorage): WebSettings {
   const raw = storage.getItem(SETTINGS_KEY);
@@ -21,7 +30,9 @@ export function loadSettings(storage: SettingsStorage): WebSettings {
     const parsed = JSON.parse(raw) as Partial<WebSettings>;
     return {
       bridgeUrl:
-        typeof parsed.bridgeUrl === "string" ? parsed.bridgeUrl : DEFAULT_SETTINGS.bridgeUrl,
+        typeof parsed.bridgeUrl === "string" && parsed.bridgeUrl.length > 0
+          ? parsed.bridgeUrl
+          : DEFAULT_SETTINGS.bridgeUrl,
       token: typeof parsed.token === "string" ? parsed.token : "",
     };
   } catch {

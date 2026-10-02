@@ -2068,13 +2068,22 @@ describe("T53 pairing token", () => {
     expect(resume.status).toBe(200);
   });
 
-  test("pairingToken does NOT open account data", async () => {
+  test("pairingToken reads chats but never opens destructive/config mutations (T54 revised)", async () => {
     const bridge = await startServer();
     const health = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
     const chats = await fetch(url(bridge, "/api/chats"), {
       headers: { authorization: `Bearer ${health.pairingToken as string}` },
     });
-    expect(chats.status).toBe(401);
+    expect(chats.status).not.toBe(401);
+    const privacy = await fetch(url(bridge, "/api/privacy"), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${health.pairingToken as string}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ privacy_key: "read_receipts", value: "none" }),
+    });
+    expect(privacy.status).toBe(401);
   });
 
   test("the session token still works on pairing endpoints", async () => {

@@ -77,18 +77,20 @@ test("no token + #/settings renders the form without touching the hash", async (
   expect(state.hashChanges).toBe(0);
 });
 
-test("no token + other route renders the token form INLINE on the same route (T54)", async () => {
+test("no token + #/chats renders the chats page via the ephemeral UI token (T54 revised)", async () => {
   const state = fakeDom("#/chats");
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
-    loaders: { chats: boom("chats") },
+    loaders: {
+      chats: async () => '<section id="chats-page"><ul class="chat-list"></ul></section>',
+    },
   });
   expect(state.hashChanges).toBe(0);
   expect(state.hash).toBe("#/chats");
-  expect(state.appHtml).toContain('id="settings-form"');
-  expect(state.appHtml).toContain('id="token"');
-  expect(state.appHtml).toContain("cat ~/.wa-mcp/token");
+  expect(state.appHtml).toContain("chat-list");
+  expect(state.appHtml).not.toContain('id="settings-form"');
+  expect(state.appHtml).not.toContain("cat ~");
 });
 
 test("nav is populated on every render", async () => {

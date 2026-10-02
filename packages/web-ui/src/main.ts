@@ -47,14 +47,30 @@ let pairingView: PairingView = {
   countdownPct: 0,
 };
 
+/** Fetch the public /health and adopt its ephemeral token — runs on EVERY
+ * route so all loaders authenticate without any user action (T54). */
+async function syncPairingToken(): Promise<void> {
+  const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+  adoptPairingToken(health);
+}
+
+function adoptPairingToken(health: PairingHealth): void {
+  if (typeof health.pairingToken === "string" && health.pairingToken !== pairingToken) {
+    // the ephemeral token rotates per daemon boot — persist the fresh one so
+    // all UI pages authenticate without any user action
+    pairingToken = health.pairingToken;
+    savePairingToken(localStorage, pairingToken);
+    client = createClient();
+  }
+}
+
 async function refreshPairing(): Promise<void> {
   const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
-  if (
-    settings.token.length === 0 &&
-    typeof health.pairingToken === "string" &&
-    health.pairingToken !== pairingToken
-  ) {
+  if (typeof health.pairingToken === "string" && health.pairingToken !== pairingToken) {
+    // the ephemeral token rotates per daemon boot — persist the fresh one on
+    // every health fetch so ALL UI pages authenticate without any user action
     pairingToken = health.pairingToken;
+    savePairingToken(localStorage, pairingToken);
     client = createClient();
   }
   const qr = await client
@@ -159,10 +175,20 @@ function dom() {
 }
 
 async function renderCurrent(): Promise<void> {
-  settings = loadSettings(localStorage);
-  client = createClient();
-  await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
-  bindRoute();
+  try {
+    settings = loadSettings(localStorage);
+    // every route needs the fresh ephemeral token before its loaders run
+    await syncPairingToken();
+    client = createClient();
+    await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
+    bindRoute();
+  } catch (err) {
+    console.error("render failed:", err);
+    const app = document.getElementById("app");
+    if (app !== null) {
+      app.innerHTML = `<p class="danger">render failed: ${String(err instanceof Error ? err.message : err)}</p>`;
+    }
+  }
 }
 
 const loaders: {

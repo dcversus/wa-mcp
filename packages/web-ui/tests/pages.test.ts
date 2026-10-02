@@ -11,7 +11,6 @@ import {
   qrHtml,
   settingsHtml,
   statusDashboardHtml,
-  tokenRequiredHtml,
   unreadHtml,
 } from "../src/pages.ts";
 
@@ -255,9 +254,8 @@ describe("T51-C/D profile + groups participants", () => {
   });
 });
 
-test("tokenRequiredHtml explains the token + cat hint, escaped settings (T54)", () => {
-  const html = tokenRequiredHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" }, "#/chats");
-  expect(html).toContain('id="settings-form"');
-  expect(html).toContain("cat ~/.wa-mcp/token");
-  expect(html).toContain("#/chats");
+test("settingsHtml marks the token field optional (T54 revised)", () => {
+  const html = settingsHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
+  expect(html).toContain("optional");
+  expect(html).not.toContain("cat ~");
 });

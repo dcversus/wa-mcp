@@ -4,10 +4,9 @@ import {
   navHtml,
   settingsHtml,
   statusDashboardHtml,
-  tokenRequiredHtml,
 } from "./pages.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
-import { needsToken, type WebSettings } from "./state.ts";
+import { type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
 
 export interface AppDom {
@@ -60,13 +59,6 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   dom.setNav(navHtml(match?.route ?? "status"));
   if (match === null) {
     dom.setApp("<p>not found</p>");
-    return;
-  }
-  if (match.route !== "settings" && match.route !== "pairing" && needsToken(settings)) {
-    // T53: pairing is the PUBLIC surface (ephemeral pairingToken) — tokenless.
-    // T54: every other account route renders the token form INLINE on the same
-    // route — redirecting to settings made post-pairing navigation feel broken.
-    dom.setApp(tokenRequiredHtml(settings, dom.getHash()));
     return;
   }
   if (match.route === "settings") {

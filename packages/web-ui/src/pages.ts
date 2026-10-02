@@ -186,7 +186,7 @@ export function unreadHtml(entries: Array<UnreadEntryView>): string {
 }
 
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${settings.bridgeUrl}" /></label><label>Token<input id="token" value="${settings.token}" /></label><button type="submit">Save</button></form>`;
+  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${settings.bridgeUrl}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" value="${settings.token}" /></label><button type="submit">Save</button></form>`;
 }
 
 export function pairingHtml(settings: { bridgeUrl: string; token: string }): string {
@@ -235,9 +235,3 @@ export function groupParticipantsHtml(
 
 /** T54: a 401 on a just-navigated route renders the token form INLINE on the
  * same route (no redirect loop) with the exact recovery hint. */
-export function tokenRequiredHtml(
-  settings: { bridgeUrl: string; token: string },
-  route: string,
-): string {
-  return `<section id="token-required"><h2>token required</h2><p>this page needs the bridge token. find it on the daemon host with <code>cat ~/.wa-mcp/token</code> — paste it once below. route stays: <code>${escapeHtml(route)}</code></p>${settingsHtml(settings)}</section>`;
-}
