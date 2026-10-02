@@ -119,6 +119,32 @@ export async function startBridge(
     );
   };
 
+  /** pairing-time pollution: requestPairingCode sets me+pairingCode and nothing
+   * in the engine ever clears them (Object.assign only adds). With me present
+   * the handshake takes the login branch (fork socket.js) instead of
+   * registration, and companion_reg_refresh skips adv rotation (its !creds.me
+   * gate) — the QR then advertises retired material forever. Strip ONLY the
+   * pairing fields when no completed pairing exists (creds.account is the
+   * pollution-safe marker): noise/identity keys SURVIVE, so this is the same
+   * device identity re-registering, not a new one — the anti-abuse cooldown is
+   * not burned by a wipe, and a genuinely paired session keeps me (its 515
+   * continuation NEEDS the login branch). */
+  const stripPairingPollution = (): void => {
+    if (state.creds.account !== undefined) {
+      return;
+    }
+    if (state.creds.me === undefined && state.creds.pairingCode === undefined) {
+      return;
+    }
+    delete state.creds.me;
+    delete state.creds.pairingCode;
+    void queueSave();
+    opts.logger?.info(
+      {},
+      "stripped stale pairing fields (me, pairingCode) — next handshake is a fresh registration",
+    );
+  };
+
   const scheduleReconnect = (): void => {
     if (reconnectPending) {
       return;
@@ -134,6 +160,7 @@ export async function startBridge(
   };
 
   const connect = (): void => {
+    stripPairingPollution();
     if (state.creds.account !== undefined) {
       // a completed pairing resets the budget; these connects are handshake
       // continuations (515 restart step), never fresh registrations

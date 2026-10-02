@@ -554,33 +554,45 @@ test(
   },
 );
 
-test("strips stale pairing fields on boot so registration + rotation work (T48)", { timeout: 15_000 }, async () => {
-  currentCreds.me = { id: "9999999999@s.whatsapp.net", name: "~" };
-  currentCreds.pairingCode = "ABCD-1234";
-  mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
-  const savesBefore = mockSaveCreds.mock.calls.length;
-  await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
-  expect(currentCreds.me).toBeUndefined();
-  expect(currentCreds.pairingCode).toBeUndefined();
-  expect(mockSaveCreds.mock.calls.length).toBeGreaterThan(savesBefore);
-});
+test(
+  "strips stale pairing fields on boot so registration + rotation work (T48)",
+  { timeout: 15_000 },
+  async () => {
+    currentCreds.me = { id: "9999999999@s.whatsapp.net", name: "~" };
+    currentCreds.pairingCode = "ABCD-1234";
+    mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+    const savesBefore = mockSaveCreds.mock.calls.length;
+    await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+    expect(currentCreds.me).toBeUndefined();
+    expect(currentCreds.pairingCode).toBeUndefined();
+    expect(mockSaveCreds.mock.calls.length).toBeGreaterThan(savesBefore);
+  },
+);
 
-test("keeps me on a genuinely paired session (515 login branch intact, T48)", { timeout: 15_000 }, async () => {
-  currentCreds.account = { details: new Uint8Array() };
-  currentCreds.me = { id: "358497773518@s.whatsapp.net", name: "Versus" };
-  mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
-  await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
-  expect(currentCreds.me).toBeDefined();
-});
+test(
+  "keeps me on a genuinely paired session (515 login branch intact, T48)",
+  { timeout: 15_000 },
+  async () => {
+    currentCreds.account = { details: new Uint8Array() };
+    currentCreds.me = { id: "358497773518@s.whatsapp.net", name: "Versus" };
+    mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+    await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+    expect(currentCreds.me).toBeDefined();
+  },
+);
 
-test("a saveCreds failure is logged as an error, not swallowed (T48)", { timeout: 15_000 }, async () => {
-  const errorSpy = vi.fn();
-  const sock = fakeSocket();
-  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  mockSaveCreds.mockRejectedValueOnce(new Error("disk full"));
-  await trackedStart("/tmp/wa-mcp-test-auth", {
-    logger: { error: errorSpy } as unknown as BridgeLogger,
-  });
-  sock.emit("creds.update", { routingInfo: new Uint8Array() });
-  await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled(), { timeout: 5_000 });
-});
+test(
+  "a saveCreds failure is logged as an error, not swallowed (T48)",
+  { timeout: 15_000 },
+  async () => {
+    const errorSpy = vi.fn();
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    mockSaveCreds.mockRejectedValueOnce(new Error("disk full"));
+    await trackedStart("/tmp/wa-mcp-test-auth", {
+      logger: { error: errorSpy } as unknown as BridgeLogger,
+    });
+    sock.emit("creds.update", { routingInfo: new Uint8Array() });
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled(), { timeout: 5_000 });
+  },
+);
