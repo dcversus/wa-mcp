@@ -2,12 +2,16 @@
   "name": "@wa-mcp/mcp-server",
   "version": "0.9.0",
   "private": true,
+  "bin": {
+    "mcp-server": "./dist/bin.mjs"
+  },
   "files": [
     "dist"
   ],
   "type": "module",
   "exports": {
     ".": "./dist/index.mjs",
+    "./bin": "./dist/bin.mjs",
     "./package.json": "./package.json"
   },
   "scripts": {

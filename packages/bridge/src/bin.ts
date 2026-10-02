@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  realpathSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -65,8 +72,21 @@ export async function ensureToken(config: BridgeConfig): Promise<string> {
   return generated;
 }
 
-export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> {
+export async function main(
+  cli: { dataDir?: string; port?: string; uiDir?: string } = {},
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
   const config = buildConfig(env);
+  if (cli.dataDir !== undefined) {
+    config.dataDir = cli.dataDir;
+    config.tokenPath = join(cli.dataDir, "token");
+  }
+  if (cli.port !== undefined) {
+    config.port = Number(cli.port);
+  }
+  if (cli.uiDir !== undefined) {
+    config.uiDir = cli.uiDir;
+  }
   const logger = pino({ level: env.WA_LOG_LEVEL ?? "info" }, pino.destination({ fd: 2 }));
   let lock;
   try {
@@ -97,6 +117,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
     qrPngPath,
     qrDir: config.dataDir,
     store,
+    version: "0.9.0",
     sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
   });
@@ -107,6 +128,21 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
   installShutdownHooks({ http: server, bridge: handle, store, lock, logger });
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  void main();
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
+) {
+  const cli: { dataDir?: string; port?: string; uiDir?: string } = {};
+  const argv = process.argv.slice(2);
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--data-dir" || arg === "--port" || arg === "--ui-dir") {
+      const value = argv[index + 1];
+      if (value !== undefined) {
+        cli[arg.slice(2) as "dataDir" | "port" | "uiDir"] = value;
+        index += 1;
+      }
+    }
+  }
+  void main(cli);
 }

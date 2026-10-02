@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { handleRpcLine, type JsonRpcResponse, type ServerContext } from "./server.ts";
@@ -63,6 +64,9 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
   );
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
+) {
   void main(process.argv.slice(2));
 }

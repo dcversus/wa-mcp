@@ -23,4 +23,5 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - §10 security CI — PASS — T27 run 36947830588 10/10 jobs (audit high+, gitleaks, no-publish guard)
 - §6 media download — PASS(unit) — T24 traversal 400 / unknown 404 / EMPTY→NOT_FOUND mapping; real-media joins live gate
 - §15 docs — PASS — T33 docs:build 1.85s, docs:coverage 30/30, 10 ADRs, CHANGELOG section
-- §19 pack — PASS — wa-mcp-0.9.0.tgz sha256 e6bd2a49b58c3b7a01a58300ba6398f5de4c57b60f09bffb9832d833e6a71687 (cli publish artifact, gitignored)
+- §19 pack — PASS — wa-mcp-0.9.0.tgz sha256 7b40734531ef592289e75e07b0ac57fd1155150b0b5d4590a979d6ba5ce913e0 (self-contained: bundled @wa-mcp/bridge+mcp-server+shared with transitive tree, gitignored)
+- §11 sandbox tarball install — PASS — fresh dir: npm init + npm install file:wa-mcp-0.9.0.tgz → npx wa-mcp install (cursor verified) → start → /health 200 {"status":"qr"} on --port 8123 → doctor all-ok rows → status renders (2026-10-02, output in commit c98d7e2-era packaging fix)
