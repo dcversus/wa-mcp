@@ -7,7 +7,8 @@ import pino from "pino";
 vi.mock("baileys", () => ({
   makeWASocket: vi.fn(),
   useMultiFileAuthState: vi.fn(),
-  DisconnectReason: { loggedOut: 401 },
+  initAuthCreds: vi.fn(() => ({ advSecretKey: "fresh", registrationId: 1 })),
+  DisconnectReason: { loggedOut: 401, restartRequired: 515, connectionClosed: 428 },
 }));
 
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
@@ -143,13 +144,15 @@ test("backoff caps at 60 seconds", async () => {
   expect(mockMakeWASocket).toHaveBeenCalledTimes(8);
 });
 
-test("logged out never reconnects", async () => {
+test("logged out wipes creds and starts a fresh registration (T45B contract)", async () => {
   vi.useFakeTimers();
   const { latest, handle } = await startArranged();
   latest().emit("connection.update", closeEvent(DisconnectReason.loggedOut));
   expect(handle.status).toBe("logged-out");
+  expect(handle.hasPairedAccount()).toBe(false);
   await vi.advanceTimersByTimeAsync(120_000);
-  expect(mockMakeWASocket).toHaveBeenCalledTimes(1);
+  // dead creds are never retried: the new socket is a fresh registration
+  expect(mockMakeWASocket).toHaveBeenCalledTimes(2);
 });
 
 test("a successful connect resets the backoff attempt counter", async () => {
@@ -313,14 +316,18 @@ test("all engine events forward through the bus", async () => {
   expect(seen.map((event) => event.type)).toEqual([...EVENT_NAMES]);
 });
 
-test("credentials updates persist through saveCreds", async () => {
-  const saveCreds = vi.fn();
-  mockAuthState.mockResolvedValue({ state: {} as unknown as AuthenticationState, saveCreds });
+test("credentials updates persist through the serialized save chain", async () => {
+  const saveCreds = vi.fn(async () => {});
+  mockAuthState.mockResolvedValue({
+    state: { creds: {} } as unknown as AuthenticationState,
+    saveCreds,
+  });
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
   await trackedStart("/tmp/wa-mcp-test-auth", {});
   sock.emit("creds.update", { noiseKey: "rotated" });
-  expect(saveCreds).toHaveBeenCalled();
+  // the save is chained (never interleaved): flush the microtask queue
+  await vi.waitFor(() => expect(saveCreds).toHaveBeenCalled());
 });
 
 test("getLastQr is null before any qr event", async () => {
@@ -405,8 +412,8 @@ test("device_removed 401 wipes creds, persists, and re-registers (T45B)", async 
   latest().emit("connection.update", closeEvent(401));
   expect(handle.status).toBe("logged-out");
   expect(handle.hasPairedAccount()).toBe(false);
-  expect(mockSaveCreds).toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(2_000);
+  expect(mockSaveCreds).toHaveBeenCalled();
   expect(sockets.length).toBe(socketsBefore + 1);
   latest().emit("connection.update", { connection: "connecting", qr: "QR-FRESH" });
   expect(handle.status).toBe("qr");

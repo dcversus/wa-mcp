@@ -1,4 +1,4 @@
-import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
+import { DisconnectReason, initAuthCreds, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { UserFacingSocketConfig, WABrowserDescription, WASocket } from "baileys";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -63,6 +63,35 @@ export async function startBridge(
   let socket: WASocket;
   const qrPngPath = opts.qrPngPath ?? join(homedir(), ".wa-mcp", "qr.png");
 
+  // serialized credential writes: never fire-and-forget, never interleaved
+  let saveChain: Promise<void> = Promise.resolve();
+  const queueSave = (): Promise<void> => {
+    saveChain = saveChain.then(saveCreds).catch((err: unknown) => {
+      opts.logger?.error({ err }, "saveCreds failed");
+    });
+    return saveChain;
+  };
+
+  const closeCode = (update: ConnectionUpdate): number | undefined => {
+    return (update.lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)
+      ?.output?.statusCode;
+  };
+
+  /** 401-class close: the server has invalidated this identity (device_removed,
+   * loggedOut). Wipe local material so the next socket is a FRESH registration,
+   * never a retry of dead creds. */
+  const wipeCreds = (): void => {
+    const fresh = initAuthCreds();
+    for (const key of Object.keys(state.creds)) {
+      delete (state.creds as Record<string, unknown>)[key];
+    }
+    Object.assign(state.creds, fresh);
+    opts.logger?.warn(
+      { reason: "401" },
+      "device removed by server, re-pairing required (local credentials wiped)",
+    );
+  };
+
   const scheduleReconnect = (): void => {
     const delay = Math.min(1000 * 2 ** reconnectAttempt, 60_000);
     reconnectAttempt += 1;
@@ -89,8 +118,25 @@ export async function startBridge(
           if (status === "connected") {
             reconnectAttempt = 0;
           }
-          if (status === "reconnecting") {
-            scheduleReconnect();
+          if (status === "reconnecting" || status === "logged-out") {
+            const code = closeCode(update);
+            if (code === DisconnectReason.restartRequired) {
+              // 515 is the paired handshake step after pair-success, not a
+              // failure: reconnect IMMEDIATELY with the same creds or WhatsApp
+              // removes the brand-new device (401 device_removed).
+              reconnectAttempt = 0;
+              void queueSave().then(() => {
+                connect();
+              });
+            } else if (status === "logged-out") {
+              wipeCreds();
+              reconnectAttempt = 0;
+              void queueSave().then(() => {
+                scheduleReconnect();
+              });
+            } else {
+              scheduleReconnect();
+            }
           }
           const qr = update.qr;
           if (qr !== undefined) {
@@ -102,7 +148,7 @@ export async function startBridge(
           }
         }
         if (name === "creds.update") {
-          void saveCreds();
+          void queueSave();
         }
         bus.emit({ type: name, payload } as WaEvent);
       });
