@@ -255,6 +255,16 @@ importers:
         version: 1.0.0(@types/node@24.19.0)(@vitest/ui@5.0.1)(typescript@7.0.2)
 
   packages/cli:
+    dependencies:
+      '@wa-mcp/bridge':
+        specifier: workspace:*
+        version: link:../bridge
+      '@wa-mcp/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
+      '@wa-mcp/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/node':
         specifier: ^24

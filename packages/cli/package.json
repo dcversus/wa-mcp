@@ -18,9 +18,19 @@
     "test": "vp test",
     "check": "vp check"
   },
+  "dependencies": {
+    "@wa-mcp/bridge": "workspace:*",
+    "@wa-mcp/mcp-server": "workspace:*",
+    "@wa-mcp/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^24",
     "typescript": "^7.0.2",
     "vite-plus": "^1.0.0"
-  }
+  },
+  "bundledDependencies": [
+    "@wa-mcp/bridge",
+    "@wa-mcp/mcp-server",
+    "@wa-mcp/shared"
+  ]
 }

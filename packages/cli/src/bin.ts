@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
 import { runDoctor } from "./doctor.ts";
 import { installSkills } from "./skills.ts";
@@ -11,9 +12,16 @@ import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
 const DEFAULT_DATA_DIR = join(process.env.HOME ?? "", ".wa-mcp");
 
-function bridgeProcessPath(): string {
-  return fileURLToPath(new URL("../../bridge/dist/bin.mjs", import.meta.url));
+const req = createRequire(import.meta.url);
+
+function packageDir(name: string): string {
+  return dirname(req.resolve(`${name}/package.json`));
 }
+
+const BRIDGE_BIN = join(packageDir("@wa-mcp/bridge"), "dist", "bin.mjs");
+const MCP_BIN = join(packageDir("@wa-mcp/mcp-server"), "dist", "bin.mjs");
+const BRIDGE_WEB = join(packageDir("@wa-mcp/bridge"), "dist", "web");
+const SKILLS_SOURCE = join(packageDir("@wa-mcp/cli"), "skills", "wa-mcp");
 
 async function main(argv: string[]): Promise<void> {
   const { command, flags, positionals } = parseArgs(argv);
@@ -21,16 +29,11 @@ async function main(argv: string[]): Promise<void> {
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
   if (command === "install") {
+    const token = flags.token ?? readToken(dataDir) ?? "";
     const spec = {
       command: process.execPath,
-      args: [
-        bridgeProcessPath(),
-        "--bridge-url",
-        bridgeUrl,
-        "--token",
-        flags.token ?? readToken(dataDir) ?? "",
-      ],
-      env: { WA_TOKEN: flags.token ?? readToken(dataDir) ?? "" },
+      args: [MCP_BIN, "--bridge-url", bridgeUrl, "--token", token],
+      env: { WA_TOKEN: token },
     };
     const targets = (flags.target !== undefined ? [flags.target] : [...PLATFORMS]) as Array<string>;
     let failures = 0;
@@ -54,8 +57,7 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
   if (command === "skills" && positionals[0] === "install") {
-    const cliRoot = fileURLToPath(new URL("../../..", import.meta.url));
-    const result = installSkills({ home, sourceDir: join(cliRoot, "skills", "wa-mcp") });
+    const result = installSkills({ home, sourceDir: SKILLS_SOURCE });
     console.log(`skills installed: ${result.skillDir}`);
     console.log(`command: ${result.commandFile}`);
     return;
@@ -96,18 +98,18 @@ async function main(argv: string[]): Promise<void> {
     }
   }
   if (command === "start") {
-    const entry = bridgeProcessPath();
-    if (!existsSync(entry)) {
-      console.error(`bridge entry not found: ${entry}`);
+    if (!existsSync(BRIDGE_BIN)) {
+      console.error(`bridge entry not found: ${BRIDGE_BIN}`);
       process.exitCode = 1;
       return;
     }
     const child = spawn(
       process.execPath,
-      [entry, "--data-dir", dataDir, "--port", flags.port ?? "8080"],
+      [BRIDGE_BIN, "--data-dir", dataDir, "--port", flags.port ?? "8080"],
       {
         detached: true,
         stdio: "ignore",
+        env: { ...process.env, WA_UI_DIR: BRIDGE_WEB },
       },
     );
     child.unref();
@@ -130,7 +132,7 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|doctor|status|start|stop> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...]`,
+    `wa-mcp — usage: wa-mcp <install|doctor|status|start|stop|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...]`,
   );
 }
 
