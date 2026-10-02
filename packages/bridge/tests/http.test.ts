@@ -1228,9 +1228,16 @@ const MEDIA_PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
   const downloadMediaMessage = async (message: {
-    message?: { imageMessage?: unknown };
+    message?: Record<string, unknown>;
   }): Promise<Buffer> => {
-    if (message.message?.imageMessage === undefined) {
+    const content = message.message ?? {};
+    const hasMedia =
+      content.imageMessage !== undefined ||
+      content.videoMessage !== undefined ||
+      content.audioMessage !== undefined ||
+      content.documentMessage !== undefined ||
+      content.stickerMessage !== undefined;
+    if (!hasMedia) {
       throw new Error("message is not a media message");
     }
     return MEDIA_PNG;
@@ -1601,7 +1608,12 @@ test("POST /api/transcribe downloads if needed, caches and returns the transcrip
   const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
   mediaDirs.push(mediaDir);
   storeMessage(store, {
-    key: { remoteJid: GROUP_A, fromMe: false, id: "VOICE1", participant: "358401112222@s.whatsapp.net" },
+    key: {
+      remoteJid: GROUP_A,
+      fromMe: false,
+      id: "VOICE1",
+      participant: "358401112222@s.whatsapp.net",
+    },
     message: { audioMessage: { url: "https://mmg.example/1.oga", mimetype: "audio/ogg" } },
     messageTimestamp: 1000,
     pushName: "Vasilisa",

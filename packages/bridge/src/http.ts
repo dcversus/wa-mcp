@@ -53,6 +53,8 @@ import {
   type ResolvedMedia,
 } from "./media/resolve.ts";
 import { downloadMessageMedia } from "./media/download.ts";
+import { createTranscriptionEngine, saveTranscript, getTranscript } from "./media/transcribe.ts";
+import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import {
   buildContactMessage,
@@ -1240,6 +1242,141 @@ export async function createHttpServer(
     sendJson(res, 405, { error: { code: "VALIDATION_ERROR", message: "method not allowed" } });
   };
 
+  const serveTranscribe = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+    const socket = handle.socket;
+    if (
+      socket === undefined ||
+      socket === null ||
+      opts.store === undefined ||
+      opts.mediaDir === undefined
+    ) {
+      sendJson(res, 501, {
+        error: { code: "NOT_IMPLEMENTED", message: "transcribe not configured" },
+      });
+      return;
+    }
+    const store = opts.store;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    const messageId = (parsed as { message_id?: unknown }).message_id;
+    if (typeof messageId !== "string" || !/^[A-Za-z0-9_-]+$/.test(messageId)) {
+      validationError(res, "message_id is required");
+      return;
+    }
+    const engineName = process.env.WA_TRANSCRIBE_ENGINE ?? "mock";
+    void (async () => {
+      const original = fetchMessageFromStore(store, messageId);
+      if (original === null) {
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+        return null;
+      }
+      const cached = getTranscript(store, original.key.remoteJid ?? "", messageId, engineName);
+      if (cached !== null) {
+        sendJson(res, 200, {
+          text: cached.text,
+          language: cached.language ?? undefined,
+          engine: engineName,
+          cached: true,
+        });
+        return null;
+      }
+      const row = store.db
+        .prepare("SELECT media_path FROM messages WHERE id = ?")
+        .get(messageId) as { media_path: string | null } | undefined;
+      let buffer: Buffer;
+      if (row?.media_path !== null && row?.media_path !== undefined) {
+        buffer = await readFile(row.media_path);
+      } else {
+        const downloaded = await downloadMessageMedia(socket, original, {
+          store,
+          mediaDir: opts.mediaDir as string,
+          messageId,
+        });
+        buffer = await readFile(downloaded.path);
+      }
+      const engine = createTranscriptionEngine(engineName);
+      const result = await engine.transcribe(buffer, "audio/ogg");
+      saveTranscript(
+        store,
+        original.key.remoteJid ?? "",
+        messageId,
+        engineName,
+        result.text,
+        result.language,
+      );
+      return { text: result.text, language: result.language, engine: engineName, cached: false };
+    })()
+      .then((payload) => {
+        if (payload !== null) {
+          sendJson(res, 200, payload);
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof MediaError && err.code === "EMPTY") {
+          sendJson(res, 404, {
+            error: { code: "NOT_FOUND", message: "message has no downloadable media" },
+          });
+          return;
+        }
+        sendJson(res, 500, { error: { code: "INTERNAL", message: "transcription failed" } });
+      });
+  };
+
+  const serveTts = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    const text = (parsed as { text?: unknown }).text;
+    const chatJid = (parsed as { chat_jid?: unknown }).chat_jid;
+    if (typeof text !== "string" || text.length === 0) {
+      validationError(res, "text is required");
+      return;
+    }
+    if (chatJid !== undefined && typeof chatJid !== "string") {
+      validationError(res, "chat_jid must be a string");
+      return;
+    }
+    const engine = new MockTtsEngine();
+    void engine
+      .synthesize(text)
+      .then(async (audio) => {
+        if (chatJid === undefined) {
+          sendJson(res, 200, { audio_base64: audio.buffer.toString("base64"), mime: audio.mime });
+          return;
+        }
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        const result = await sendViaSocket(socket, chatJid, {
+          audio: audio.buffer,
+          ptt: true,
+          mimetype: audio.mime,
+        } as AnyMessageContent);
+        sendJson(res, 200, { message_id: result.messageId });
+      })
+      .catch((err: unknown) => {
+        if (err instanceof SendError) {
+          const status = err.code === "SENDS_DISABLED" ? 403 : 400;
+          sendJson(res, status, { error: { code: err.code, message: err.message } });
+          return;
+        }
+        sendJson(res, 500, { error: { code: "INTERNAL", message: "tts failed" } });
+      });
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -1351,6 +1488,14 @@ export async function createHttpServer(
         path === "/api/group/leave"
       ) {
         serveGroup(path, req, res, body);
+        return;
+      }
+      if (path === "/api/transcribe" && req.method === "POST") {
+        serveTranscribe(req, res, body);
+        return;
+      }
+      if (path === "/api/tts" && req.method === "POST") {
+        serveTts(req, res, body);
         return;
       }
       if (
