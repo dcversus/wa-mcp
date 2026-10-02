@@ -3,10 +3,19 @@ import {
   chatListHtml,
   healthHtml,
   messageListHtml,
+  pairingHtml,
   qrHtml,
   settingsHtml,
   unreadHtml,
 } from "../src/pages.ts";
+
+test("pairingHtml embeds the token form above the qr area", () => {
+  const html = pairingHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
+  expect(html).toContain('id="pairing"');
+  expect(html).toContain('id="settings-form"');
+  expect(html).toContain('id="token"');
+  expect(html).toContain('id="qr-status"');
+});
 
 test("chatListHtml renders chats with unread badges", () => {
   const html = chatListHtml([

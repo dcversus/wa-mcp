@@ -40,7 +40,7 @@ function boom(name: string): () => Promise<string> {
   };
 }
 
-test("no token + #/pairing renders the settings form instead of looping", async () => {
+test("no token + #/pairing renders the token form inline with the qr area, no redirect", async () => {
   const state = fakeDom("#/pairing");
   await renderFrame({
     dom: state.io.dom,
@@ -52,8 +52,11 @@ test("no token + #/pairing renders the settings form instead of looping", async 
       health: boom("health"),
     },
   });
+  expect(state.hashChanges).toBe(0);
+  expect(state.hash).toBe("#/pairing");
+  expect(state.appHtml).toContain('id="pairing"');
   expect(state.appHtml).toContain('id="settings-form"');
-  expect(state.hash).toBe("#/settings");
+  expect(state.appHtml).toContain('id="token"');
   expect(state.navHtml).toContain("#/chats");
 });
 
