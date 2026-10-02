@@ -1593,3 +1593,100 @@ test("group endpoints drive the engine", async () => {
   });
   expect(badSettings.status).toBe(400);
 });
+
+test("POST /api/transcribe downloads if needed, caches and returns the transcript", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  storeMessage(store, {
+    key: { remoteJid: GROUP_A, fromMe: false, id: "VOICE1", participant: "358401112222@s.whatsapp.net" },
+    message: { audioMessage: { url: "https://mmg.example/1.oga", mimetype: "audio/ogg" } },
+    messageTimestamp: 1000,
+    pushName: "Vasilisa",
+  } as never);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/transcribe"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ message_id: "VOICE1" }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { text: string; engine: string };
+  expect(body.engine).toBe("mock");
+  expect(typeof body.text).toBe("string");
+  const row = store.db.prepare("SELECT media_path FROM messages WHERE id = 'VOICE1'").get() as {
+    media_path: string;
+  };
+  expect(row.media_path).not.toBeNull();
+  const again = await fetch(url(bridge, "/api/transcribe"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ message_id: "VOICE1" }),
+  });
+  const againBody = (await again.json()) as { text: string };
+  expect(againBody.text).toBe(body.text);
+  const transcript = store.db
+    .prepare("SELECT text FROM transcripts WHERE message_id = 'VOICE1' AND engine = 'mock'")
+    .get() as { text: string };
+  expect(transcript.text).toBe(body.text);
+  const missing = await fetch(url(bridge, "/api/transcribe"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ message_id: "NOPE" }),
+  });
+  expect(missing.status).toBe(404);
+});
+
+test("POST /api/tts synthesizes and optionally sends as voice", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-http-media-"));
+  mediaDirs.push(mediaDir);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    mediaDir,
+  });
+  created.push(bridge);
+  const synth = await fetch(url(bridge, "/api/tts"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ text: "say this" }),
+  });
+  expect(synth.status).toBe(200);
+  const synthBody = (await synth.json()) as { audio_base64: string; mime: string };
+  expect(synthBody.mime).toBe("audio/ogg");
+  expect(Buffer.from(synthBody.audio_base64, "base64").length).toBeGreaterThan(16);
+  const sent = await fetch(url(bridge, "/api/tts"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ text: "send this", chat_jid: "358497773518@s.whatsapp.net" }),
+  });
+  expect(sent.status).toBe(200);
+  const sentBody = (await sent.json()) as { message_id: string };
+  expect(sentBody.message_id).toBe("SENTID1");
+  const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    audio?: Buffer;
+    ptt?: boolean;
+    mimetype?: string;
+  };
+  expect(Buffer.isBuffer(call.audio)).toBe(true);
+  expect(call.ptt).toBe(true);
+  expect(call.mimetype).toBe("audio/ogg");
+  const empty = await fetch(url(bridge, "/api/tts"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(empty.status).toBe(400);
+});
