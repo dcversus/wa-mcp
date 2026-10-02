@@ -36,3 +36,21 @@ export function saveSettings(storage: SettingsStorage, settings: WebSettings): v
 export function needsToken(settings: WebSettings): boolean {
   return settings.token.length === 0;
 }
+
+const PAIRING_TOKEN_KEY = "wa-mcp-pairing-token";
+
+/** Ephemeral pairing token (from the public /health), persisted separately
+ * from the real session token so pairing pages work tokenless. */
+export function savePairingToken(storage: SettingsStorage, token: string): void {
+  storage.setItem(PAIRING_TOKEN_KEY, token);
+}
+
+export function loadPairingToken(storage: SettingsStorage): string {
+  return storage.getItem(PAIRING_TOKEN_KEY) ?? "";
+}
+
+/** Priority: saved session token wins; the ephemeral pairing token is the
+ * fallback so pairing pages work before any token is stored. */
+export function effectiveToken(settings: WebSettings, pairingToken: string): string {
+  return settings.token.length > 0 ? settings.token : pairingToken;
+}

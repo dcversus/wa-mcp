@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const bridgeUrl = process.argv[2] ?? "http://127.0.0.1:8080";
+const sessionToken = process.argv[4] ?? "smoke-token";
 const chromePath =
   process.argv[3] ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -213,6 +214,35 @@ const nav = await evaluate(`document.getElementById("nav")?.innerHTML ?? ""`);
 if (!nav.includes("#/chats")) fail("nav is empty");
 console.log(`nav rendered: ok (${nav.length} chars)`);
 
+// ---- T54: tokenless #/chats renders the inline token form on the SAME
+// route (no redirect); with a stored token the chats page renders.
+await goto(`${bridgeUrl}/#/chats`);
+const inlineForm = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+const inlineHash = await evaluate(`location.hash`);
+if (!inlineForm.includes('id="settings-form"') || !inlineForm.includes('id="token"'))
+  fail("#/chats did not render the inline token form (T54)");
+if (!String(inlineHash).startsWith("#/chats"))
+  fail(`#/chats redirected away to ${inlineHash} (T54 no-redirect contract)`);
+console.log(`#/chats tokenless → inline form, hash stays: ok (hash=${inlineHash})`);
+await evaluate(
+  `localStorage.setItem("wa-mcp-settings", JSON.stringify({ bridgeUrl: "${bridgeUrl}", token: "${sessionToken}" }))`,
+);
+await goto(`${bridgeUrl}/#/chats`);
+let chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+for (let attempt = 0; attempt < 10; attempt += 1) {
+  if (chatsPage.includes("chat-list") || chatsPage.includes("chats-page")) break;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+}
+console.log(`stored settings: ${await evaluate(`localStorage.getItem("wa-mcp-settings")`)}`);
+console.log(`#/chats app html (pre-reload): ${chatsPage.slice(0, 120)}`);
+await evaluate(`location.reload()`);
+await new Promise((resolve) => setTimeout(resolve, 1500));
+chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+console.log(`#/chats app html (post-reload): ${chatsPage.slice(0, 120)}`);
+if (!chatsPage.includes("chat-list") && !chatsPage.includes("chats-page"))
+  fail(`#/chats with a stored token did not render the chats page: ${chatsPage.slice(0, 120)}`);
+console.log(`#/chats with stored token renders the page: ok`);
 chrome.kill();
 console.log("webui-smoke PASS");
 process.exit(0);

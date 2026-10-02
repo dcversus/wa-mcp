@@ -232,3 +232,12 @@ export function groupParticipantsHtml(
     .join("");
   return `<div id="group-participants"><h3>participants</h3><ul>${items}</ul><form id="participant-add"><input name="participant" placeholder="358…@s.whatsapp.net" /><button type="submit" data-add-participant="${escapeHtml(groupJid)}">add</button></form></div>`;
 }
+
+/** T54: a 401 on a just-navigated route renders the token form INLINE on the
+ * same route (no redirect loop) with the exact recovery hint. */
+export function tokenRequiredHtml(
+  settings: { bridgeUrl: string; token: string },
+  route: string,
+): string {
+  return `<section id="token-required"><h2>token required</h2><p>this page needs the bridge token. find it on the daemon host with <code>cat ~/.wa-mcp/token</code> — paste it once below. route stays: <code>${escapeHtml(route)}</code></p>${settingsHtml(settings)}</section>`;
+}

@@ -77,15 +77,18 @@ test("no token + #/settings renders the form without touching the hash", async (
   expect(state.hashChanges).toBe(0);
 });
 
-test("no token + other route redirects once AND renders the form", async () => {
+test("no token + other route renders the token form INLINE on the same route (T54)", async () => {
   const state = fakeDom("#/chats");
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
     loaders: { chats: boom("chats") },
   });
-  expect(state.hash).toBe("#/settings");
+  expect(state.hashChanges).toBe(0);
+  expect(state.hash).toBe("#/chats");
   expect(state.appHtml).toContain('id="settings-form"');
+  expect(state.appHtml).toContain('id="token"');
+  expect(state.appHtml).toContain("cat ~/.wa-mcp/token");
 });
 
 test("nav is populated on every render", async () => {

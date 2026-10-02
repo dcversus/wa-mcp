@@ -21,12 +21,19 @@ import {
   type PairingView,
 } from "./pages-pairing.ts";
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
-import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
+import {
+  effectiveToken,
+  loadPairingToken,
+  loadSettings,
+  savePairingToken,
+  saveSettings,
+  type WebSettings,
+} from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
 // the ephemeral pairing token (from the public /health) powers the pairing
 // surface until a real session token is stored in settings
-let pairingToken = "";
+let pairingToken = loadPairingToken(localStorage);
 let client: ApiClient = createClient();
 
 // ---- live pairing state (T51-A): poll /health + /api/qr while on #/pairing
@@ -115,13 +122,21 @@ let chatsShowArchived = false;
 let chatSearchQuery = "";
 let contactsQuery = "";
 let replyToId: string | null = null;
+let lastUnauthorizedRender = 0;
 
 function createClient(): ApiClient {
   return createApiClient({
     baseUrl: settings.bridgeUrl,
-    token: settings.token.length > 0 ? settings.token : pairingToken,
+    token: effectiveToken(settings, pairingToken),
+    // T54: never yank the owner to settings — the inline token form renders
+    // on the current route instead (needsToken path in renderFrame). A stored
+    // but INVALID token must not loop: debounce re-renders per 401 burst.
     onUnauthorized: () => {
-      location.hash = "#/settings";
+      const now = Date.now();
+      if (now - lastUnauthorizedRender > 500) {
+        lastUnauthorizedRender = now;
+        void renderCurrent();
+      }
     },
   });
 }

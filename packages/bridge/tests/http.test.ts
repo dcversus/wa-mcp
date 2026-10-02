@@ -2085,3 +2085,75 @@ describe("T53 pairing token", () => {
     expect(qr.status).not.toBe(401);
   });
 });
+
+describe("T54 revised: ephemeral UI token scope", () => {
+  function uiToken(bridge: Awaited<ReturnType<typeof startServer>>): Promise<string> {
+    return (async () => {
+      const health = (await (await fetch(url(bridge, "/health"))).json()) as {
+        pairingToken: string;
+      };
+      return health.pairingToken;
+    })();
+  }
+
+  test("ui token reads account data (chats)", async () => {
+    const bridge = await startServer();
+    const token = await uiToken(bridge);
+    const res = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).not.toBe(401);
+  });
+
+  test("ui token may send and mark read (messaging scope)", async () => {
+    const bridge = await startServer();
+    const token = await uiToken(bridge);
+    const send = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", text: "x" }),
+    });
+    expect(send.status).not.toBe(401);
+    const read = await fetch(url(bridge, "/api/read"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", message_ids: ["m1"] }),
+    });
+    expect(read.status).not.toBe(401);
+  });
+
+  test("ui token is REFUSED for destructive/config mutations", async () => {
+    const bridge = await startServer();
+    const token = await uiToken(bridge);
+    const cases: Array<[string, string, string]> = [
+      ["/api/block", "POST", JSON.stringify({ chat_jid: "1@s.whatsapp.net", block: true })],
+      ["/api/privacy", "POST", JSON.stringify({ privacy_key: "read_receipts", value: "none" })],
+      ["/api/profile", "POST", JSON.stringify({ name: "x" })],
+      ["/api/group/leave", "POST", JSON.stringify({ group_jid: "1@g.us" })],
+      ["/api/group/create", "POST", JSON.stringify({ subject: "x", participants: [] })],
+    ];
+    for (const [path, method, body] of cases) {
+      const res = await fetch(url(bridge, path), {
+        method,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body,
+      });
+      expect(res.status).toBe(401);
+    }
+    const del = await fetch(url(bridge, "/api/notifications/rule-1"), {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(del.status).toBe(401);
+  });
+
+  test("the session token keeps full access", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/api/privacy"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ privacy_key: "read_receipts", value: "all" }),
+    });
+    expect(res.status).not.toBe(401);
+  });
+});

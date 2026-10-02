@@ -1,5 +1,13 @@
-import { expect, test } from "vite-plus/test";
-import { loadSettings, needsToken, saveSettings, type SettingsStorage } from "../src/state.ts";
+import { describe, expect, test } from "vite-plus/test";
+import {
+  effectiveToken,
+  loadPairingToken,
+  loadSettings,
+  needsToken,
+  savePairingToken,
+  saveSettings,
+  type SettingsStorage,
+} from "../src/state.ts";
 
 function memoryStorage(): SettingsStorage & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -31,4 +39,19 @@ test("corrupt stored settings fall back to defaults", () => {
 test("needsToken is true only without a token", () => {
   expect(needsToken({ bridgeUrl: "x", token: "" })).toBe(true);
   expect(needsToken({ bridgeUrl: "x", token: "t" })).toBe(false);
+});
+
+describe("T54 token resolution", () => {
+  test("pairing token persists under its own key", () => {
+    const storage = memoryStorage();
+    savePairingToken(storage, "pair-tok-1");
+    expect(storage.data.get("wa-mcp-pairing-token")).toBe("pair-tok-1");
+    expect(loadPairingToken(storage)).toBe("pair-tok-1");
+  });
+
+  test("effectiveToken: saved token wins, pairing token is the fallback", () => {
+    expect(effectiveToken({ bridgeUrl: "b", token: "real" }, "pair")).toBe("real");
+    expect(effectiveToken({ bridgeUrl: "b", token: "" }, "pair")).toBe("pair");
+    expect(effectiveToken({ bridgeUrl: "b", token: "" }, "")).toBe("");
+  });
 });
