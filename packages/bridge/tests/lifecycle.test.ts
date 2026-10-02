@@ -26,6 +26,8 @@ async function trackedStart(...args: Parameters<typeof startBridge>) {
 
 const mockMakeWASocket = vi.mocked(makeWASocket);
 const mockAuthState = vi.mocked(useMultiFileAuthState);
+const mockSaveCreds = vi.fn(async () => {});
+let currentCreds: Record<string, unknown>;
 
 type EvListener = (payload: unknown) => void;
 
@@ -59,11 +61,13 @@ async function started() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentCreds = {};
+  mockSaveCreds.mockImplementation(async () => {});
   mockAuthState.mockResolvedValue({
     // creds object mirrors the real AuthenticationState shape; tests that
     // simulate a completed pairing set creds.account on it
-    state: { creds: {} } as unknown as AuthenticationState,
-    saveCreds: async () => {},
+    state: { creds: currentCreds } as unknown as AuthenticationState,
+    saveCreds: mockSaveCreds,
   });
 });
 
@@ -373,4 +377,38 @@ test("hasPairedAccount is false before any completed pairing (T44)", async () =>
   latest().emit("connection.update", closeEvent(428));
   expect(handle.status).toBe("reconnecting");
   expect(handle.hasPairedAccount()).toBe(false);
+});
+
+test("515 restart-required reconnects immediately despite saturated backoff (T45A)", async () => {
+  vi.useFakeTimers();
+  const { sockets, latest } = await startArranged();
+  for (let round = 0; round < 5; round += 1) {
+    latest().emit("connection.update", { connection: "connecting", qr: `QR-SAT-${round}` });
+    latest().emit("connection.update", closeEvent(428));
+    await vi.advanceTimersByTimeAsync(60_000);
+  }
+  const socketsBefore = sockets.length;
+  const savesBefore = mockSaveCreds.mock.calls.length;
+  latest().emit("connection.update", closeEvent(515));
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(sockets.length).toBe(socketsBefore + 1);
+  expect(mockSaveCreds.mock.calls.length).toBeGreaterThan(savesBefore);
+});
+
+test("device_removed 401 wipes creds, persists, and re-registers (T45B)", async () => {
+  vi.useFakeTimers();
+  const { sockets, latest, handle } = await startArranged();
+  currentCreds.account = { details: new Uint8Array() };
+  currentCreds.me = { id: "358497773518@s.whatsapp.net", name: "Versus" };
+  expect(handle.hasPairedAccount()).toBe(true);
+  const socketsBefore = sockets.length;
+  latest().emit("connection.update", closeEvent(401));
+  expect(handle.status).toBe("logged-out");
+  expect(handle.hasPairedAccount()).toBe(false);
+  expect(mockSaveCreds).toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(sockets.length).toBe(socketsBefore + 1);
+  latest().emit("connection.update", { connection: "connecting", qr: "QR-FRESH" });
+  expect(handle.status).toBe("qr");
+  expect(handle.getLastQr()).toBe("QR-FRESH");
 });
