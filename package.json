@@ -7,7 +7,9 @@
     "check": "vp check",
     "test": "vp test",
     "build": "vp run -r build",
-    "ready": "vp check && vp test && vp build"
+    "ready": "vp check && vp test && vp build",
+    "accounting:gen": "node --experimental-strip-types scripts/gen-accounting.ts",
+    "accounting:check": "node --experimental-strip-types review/accounting-check.ts"
   },
   "devDependencies": {
     "@types/node": "^24",
