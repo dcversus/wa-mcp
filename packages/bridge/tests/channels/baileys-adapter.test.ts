@@ -4,29 +4,41 @@ import { BaileysAdapter } from "../../src/channels/baileys/adapter.ts";
 
 function makeBaileys(): ChannelFixture {
   let lastBody: unknown;
-  const inboundSubscribers = new Set<(m: unknown) => void>();
+  const inboundSubscribers = new Set<(m: { id: string; from: string; text: string }) => void>();
   const readModel = {
-    fetchChats: async () => [{ jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 }],
+    fetchChats: async () => [
+      { jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 },
+    ],
     fetchHistory: async () => ({
       messages: [
-        { id: "store-1", chatJid: "15551234567@s.whatsapp.net", from: "15551234567", timestamp: 1, text: "stored", isFromMe: false },
+        {
+          id: "store-1",
+          chatJid: "15551234567@s.whatsapp.net",
+          from: "15551234567",
+          timestamp: 1,
+          text: "stored",
+          isFromMe: false,
+        },
       ],
       nextCursor: null,
     }),
   };
   const adapter = new BaileysAdapter(
-    hasPairedAccount: () => true,
-    sendText: async (to: string, body: string) => {
-      lastBody = { to, body };
-      return { id: "BAILEYS-1", isFromMe: true as const };
+    {
+      hasPairedAccount: () => true,
+      sendText: async (to: string, body: string) => {
+        lastBody = { to, body };
+        return { id: "BAILEYS-1", isFromMe: true as const };
+      },
+      markRead: async () => {},
+      downloadMedia: async () => new Uint8Array([9, 9]),
+      checkContact: async (phone: string) => ({ registered: phone === "15551234567" }),
+      onInbound: (fn) => {
+        inboundSubscribers.add(fn);
+      },
     },
-    markRead: async () => {},
-    downloadMedia: async () => new Uint8Array([9, 9]),
-    checkContact: async (phone: string) => ({ registered: phone === "15551234567" }),
-    onInbound: (fn) => {
-      inboundSubscribers.add(fn);
-    },
-  }, readModel);
+    readModel,
+  );
   return {
     adapter,
     lastOutbound: () => lastBody,

@@ -27,7 +27,13 @@ const META_PAYLOAD = {
             metadata: { display_phone_number: "1555", phone_number_id: "109876543210987" },
             contacts: [{ profile: { name: "Versus" }, wa_id: "15551234567" }],
             messages: [
-              { from: "15551234567", id: "wamid.in1", timestamp: "1700000000", type: "text", text: { body: "hello" } },
+              {
+                from: "15551234567",
+                id: "wamid.in1",
+                timestamp: "1700000000",
+                type: "text",
+                text: { body: "hello" },
+              },
             ],
           },
         },
@@ -38,13 +44,19 @@ const META_PAYLOAD = {
 
 test("webhook GET verify echoes hub.challenge for the right verify token", () => {
   expect(
-    verifyWebhook({ "hub.mode": "subscribe", "hub.verify_token": "verify-me", "hub.challenge": "CHAL1" }, CONFIG),
+    verifyWebhook(
+      { "hub.mode": "subscribe", "hub.verify_token": "verify-me", "hub.challenge": "CHAL1" },
+      CONFIG,
+    ),
   ).toBe("CHAL1");
 });
 
 test("webhook GET verify rejects a wrong verify token", () => {
   expect(
-    verifyWebhook({ "hub.mode": "subscribe", "hub.verify_token": "wrong", "hub.challenge": "CHAL1" }, CONFIG),
+    verifyWebhook(
+      { "hub.mode": "subscribe", "hub.verify_token": "wrong", "hub.challenge": "CHAL1" },
+      CONFIG,
+    ),
   ).toBeNull();
   expect(verifyWebhook({ "hub.challenge": "CHAL1" }, CONFIG)).toBeNull();
 });
@@ -82,7 +94,9 @@ test("webhook status payloads normalize to status events", () => {
         changes: [
           {
             field: "messages",
-            value: { statuses: [{ id: "wamid.out1", status: "delivered", recipient_id: "15551234567" }] },
+            value: {
+              statuses: [{ id: "wamid.out1", status: "delivered", recipient_id: "15551234567" }],
+            },
           },
         ],
       },

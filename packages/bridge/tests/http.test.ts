@@ -13,6 +13,7 @@ vi.setConfig({ testTimeout: 20_000 });
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
+import { listMessages } from "../src/store/queries.ts";
 import { SendGuard } from "../src/send/safety.ts";
 import { upsertContact } from "../src/store/contacts.ts";
 
@@ -183,6 +184,7 @@ test("health leaks no other data", async () => {
   const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
   expect(Object.keys(body).sort()).toEqual(
     [
+      "channel",
       "connected",
       "loggedIn",
       "pairingAttempts",
@@ -1919,6 +1921,8 @@ describe("cloud channel surface (T50)", () => {
   });
 
   async function startCloudServer() {
+    const cloudStore = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-cloud-store-")));
+    openedStores.push(cloudStore);
     const { CloudApiAdapter } = await import("../src/channels/cloud/adapter.ts");
     const { readCloudConfig } = await import("../src/channels/cloud/config.ts");
     const config = readCloudConfig({
@@ -1930,18 +1934,21 @@ describe("cloud channel surface (T50)", () => {
     const cloudAdapter = new CloudApiAdapter(config);
     const bridge = await createHttpServer(cloudHandle, {
       token: "test-token",
-      store,
+      store: cloudStore,
       mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-cloud-")),
       cloud: { adapter: cloudAdapter, config },
     });
     created.push(bridge);
-    return { bridge, config };
+    return { bridge, config, store: cloudStore };
   }
 
   test("GET /webhooks/cloud echoes hub.challenge for the right verify token", async () => {
     const { bridge, config } = await startCloudServer();
     const res = await fetch(
-      url(bridge, `/webhooks/cloud?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(config.verifyToken)}&hub.challenge=CHAL1`),
+      url(
+        bridge,
+        `/webhooks/cloud?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(config.verifyToken)}&hub.challenge=CHAL1`,
+      ),
     );
     expect(res.status).toBe(200);
     await expect(res.text()).resolves.toBe("CHAL1");
@@ -1949,12 +1956,18 @@ describe("cloud channel surface (T50)", () => {
 
   test("GET /webhooks/cloud rejects a wrong verify token with 403", async () => {
     const { bridge } = await startCloudServer();
-    const res = await fetch(url(bridge, "/webhooks/cloud?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=CHAL1"));
+    const res = await fetch(
+      url(bridge, "/webhooks/cloud?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=CHAL1"),
+    );
     expect(res.status).toBe(403);
   });
 
   test("POST /webhooks/cloud stores a signed inbound message and rejects bad signatures", async () => {
-    const { bridge, config } = await startCloudServer();
+    const { bridge, config, store: cloudStore } = await startCloudServer();
+    const cloudRows = (id: string) =>
+      listMessages(cloudStore, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).filter(
+        (r) => r.id === id,
+      );
     const payload = {
       object: "whatsapp_business_account",
       entry: [
@@ -1965,7 +1978,13 @@ describe("cloud channel surface (T50)", () => {
               value: {
                 contacts: [{ profile: { name: "V" }, wa_id: "15551234567" }],
                 messages: [
-                  { from: "15551234567", id: "wamid.store1", timestamp: "1700000000", type: "text", text: { body: "store me" } },
+                  {
+                    from: "15551234567",
+                    id: "wamid.store1",
+                    timestamp: "1700000000",
+                    type: "text",
+                    text: { body: "store me" },
+                  },
                 ],
               },
             },
@@ -1987,7 +2006,7 @@ describe("cloud channel surface (T50)", () => {
       body,
     });
     expect(good.status).toBe(200);
-    const rows = store.listMessages("15551234567@s.whatsapp.net", 10);
+    const rows = cloudRows("wamid.store1");
     expect(rows.some((row) => row.id === "wamid.store1" && row.content === "store me")).toBe(true);
   });
 

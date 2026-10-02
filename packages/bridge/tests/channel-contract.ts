@@ -12,12 +12,7 @@ export interface ChannelFixture {
    * baileys: the built proto payload serialized for inspection) */
   lastOutbound(): unknown;
   /** push a provider-side inbound message into the adapter */
-  emitInbound(message: {
-    id: string;
-    from: string;
-    text: string;
-    timestamp?: number;
-  }): void;
+  emitInbound(message: { id: string; from: string; text: string; timestamp?: number }): void;
 }
 
 export function channelContractSuite(label: string, make: () => ChannelFixture): void {
@@ -61,7 +56,11 @@ export function channelContractSuite(label: string, make: () => ChannelFixture):
     const seen: Array<{ id: string; from: string; text: string }> = [];
     const unsubscribe = f.adapter.events().subscribe((event) => {
       if (event.type === "message") {
-        seen.push({ id: event.message.id, from: event.message.from, text: event.message.text ?? "" });
+        seen.push({
+          id: event.message.id,
+          from: event.message.from,
+          text: event.message.text ?? "",
+        });
       }
     });
     f.emitInbound({ id: "wamid.in1", from: "15551234567", text: "hello" });

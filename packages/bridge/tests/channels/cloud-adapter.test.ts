@@ -15,10 +15,19 @@ function makeCloud(): ChannelFixture {
   lastBody = undefined;
   const adapter = new CloudApiAdapter(CONFIG.config!, {
     readModel: {
-      fetchChats: async () => [{ jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 }],
+      fetchChats: async () => [
+        { jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 },
+      ],
       fetchHistory: async () => ({
         messages: [
-          { id: "store-1", chatJid: "15551234567@s.whatsapp.net", from: "15551234567", timestamp: 1, text: "stored", isFromMe: false },
+          {
+            id: "store-1",
+            chatJid: "15551234567@s.whatsapp.net",
+            from: "15551234567",
+            timestamp: 1,
+            text: "stored",
+            isFromMe: false,
+          },
         ],
         nextCursor: null,
       }),
@@ -47,7 +56,11 @@ function makeCloud(): ChannelFixture {
       return new Response(Buffer.from([1, 2, 3, 4]), { status: 200 });
     }) as unknown as typeof fetch,
   });
-  return { adapter, lastOutbound: () => lastBody, emitInbound: (m) => adapter.ingestWebhookMessage(m) };
+  return {
+    adapter,
+    lastOutbound: () => lastBody,
+    emitInbound: (m) => adapter.ingestWebhookMessage(m),
+  };
 }
 
 channelContractSuite("cloud", makeCloud);
@@ -72,10 +85,19 @@ test("[cloud] sends text via the Meta graph endpoint with bearer auth", async ()
   let seenAuth = "";
   const adapter = new CloudApiAdapter(CONFIG.config!, {
     readModel: {
-      fetchChats: async () => [{ jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 }],
+      fetchChats: async () => [
+        { jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 },
+      ],
       fetchHistory: async () => ({
         messages: [
-          { id: "store-1", chatJid: "15551234567@s.whatsapp.net", from: "15551234567", timestamp: 1, text: "stored", isFromMe: false },
+          {
+            id: "store-1",
+            chatJid: "15551234567@s.whatsapp.net",
+            from: "15551234567",
+            timestamp: 1,
+            text: "stored",
+            isFromMe: false,
+          },
         ],
         nextCursor: null,
       }),

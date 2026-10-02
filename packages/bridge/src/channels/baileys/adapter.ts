@@ -2,7 +2,6 @@ import type {
   ChannelAdapter,
   ChannelEvent,
   ChannelEventBus,
-  ChannelEventMapLike,
   ChannelName,
   ChannelReadModel,
   OutboundReceipt,
@@ -90,9 +89,7 @@ export class BaileysAdapter implements ChannelAdapter {
   }
 
   async fetchHistory(chatJid: string, cursor?: string) {
-    return (
-      this.readModel?.fetchHistory(chatJid, cursor) ?? { messages: [], nextCursor: null }
-    );
+    return this.readModel?.fetchHistory(chatJid, cursor) ?? { messages: [], nextCursor: null };
   }
 
   events(): ChannelEventBus {
@@ -106,7 +103,3 @@ export class BaileysAdapter implements ChannelAdapter {
     };
   }
 }
-
-// ChannelEventMapLike is reserved for wiring the full BaileysEventMap in;
-// keep the import surface stable for the foundation.
-export type { ChannelEventMapLike };

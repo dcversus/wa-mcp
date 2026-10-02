@@ -5,6 +5,9 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join, resolve } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
+import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
+import type { CloudChannelConfig } from "./channels/cloud/config.ts";
+import { storeMessage } from "./store/messages.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
 import {
   getUnreadCounts,
@@ -84,6 +87,14 @@ export interface HttpServerOptions {
   eventsHeartbeatMs?: number;
   uiDir?: string;
   rateLimitNow?: () => number;
+  /** GOAL §18: when present, the daemon serves the cloud channel surface
+   * (webhooks) and /health reports the cloud channel. */
+  cloud?: {
+    adapter: {
+      ingestWebhookMessage(m: { id: string; from: string; text: string; timestamp?: number }): void;
+    };
+    config: { verifyToken: string; appSecret: string };
+  };
 }
 
 const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker"]);
@@ -1457,10 +1468,76 @@ export async function createHttpServer(
           (handle.status === "reconnecting" && handle.hasPairedAccount()),
         pairingBlocked: budget.blocked,
         pairingAttempts: { used: budget.used, limit: budget.limit },
+        channel: opts.cloud ? "cloud" : "baileys",
+        credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
       });
       return;
+    }
+    if (opts.cloud && path === "/webhooks/cloud") {
+      if (req.method === "GET") {
+        const query: Record<string, string> = {};
+        for (const [key, value] of new URL(req.url ?? "/", "http://localhost").searchParams) {
+          query[key] = value;
+        }
+        const challenge = verifyWebhook(query, opts.cloud.config as CloudChannelConfig);
+        if (challenge === null) {
+          sendJson(res, 403, {
+            error: { code: "FORBIDDEN", message: "webhook verification failed" },
+          });
+          return;
+        }
+        res.writeHead(200, { "content-type": "text/plain" });
+        res.end(challenge);
+        return;
+      }
+      if (req.method === "POST") {
+        void readBodyWithCap(req, MAX_BODY_BYTES).then(({ fits, body }) => {
+          if (!fits) {
+            sendJson(res, 413, {
+              error: { code: "PAYLOAD_TOO_LARGE", message: "webhook body exceeds 1MB" },
+            });
+            return;
+          }
+          const signature = req.headers["x-hub-signature-256"] as string | undefined;
+          let events;
+          try {
+            events = parseWebhookEvent(
+              body.toString(),
+              signature,
+              opts.cloud!.config as CloudChannelConfig,
+            );
+          } catch {
+            sendJson(res, 403, {
+              error: { code: "FORBIDDEN", message: "webhook signature validation failed" },
+            });
+            return;
+          }
+          for (const event of events) {
+            if (event.type !== "message") {
+              continue;
+            }
+            opts.cloud!.adapter.ingestWebhookMessage({
+              id: event.message.id,
+              from: event.message.from,
+              text: event.message.text ?? "",
+              timestamp: event.message.timestamp,
+            });
+            if (opts.store !== undefined) {
+              storeMessage(opts.store, {
+                key: { remoteJid: event.message.chatJid, fromMe: false, id: event.message.id },
+                message:
+                  event.message.text === null ? undefined : { conversation: event.message.text },
+                messageTimestamp: event.message.timestamp,
+                pushName: undefined,
+              } as never);
+            }
+          }
+          sendJson(res, 200, { received: events.length });
+        });
+        return;
+      }
     }
     if (req.method === "GET" && (path === "/" || path.startsWith("/assets/"))) {
       serveStatic(path, res);
