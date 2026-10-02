@@ -1,10 +1,11 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test, vi } from "vite-plus/test";
+import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
-import { SendError, sendViaSocket } from "../../src/send/send.ts";
+import { resolveLidJid, SendError, sendViaSocket } from "../../src/send/send.ts";
+import { listMessages } from "../../src/store/queries.ts";
 
 function fakeSocket(): { sock: WASocket; sendMessage: ReturnType<typeof vi.fn> } {
   const sendMessage = vi.fn(async (jid: string, content: unknown) => ({
@@ -90,4 +91,49 @@ test("an unparsable recipient with an at-sign fails as INVALID_JID before the so
     code: "INVALID_JID",
   });
   expect(socket.sendMessage).not.toHaveBeenCalled();
+});
+
+describe("T56 LID resolution", () => {
+  function socketWithLidMapping(mapping: Record<string, string>): { socket: WASocket; sentJids: string[] } {
+    const sentJids: string[] = [];
+    const socket = {
+      signalRepository: {
+        lidMapping: {
+          getLIDForPN: async (pn: string) => mapping[pn] ?? null,
+        },
+      },
+      sendMessage: async (jid: string) => {
+        sentJids.push(jid);
+        return { key: { remoteJid: jid, fromMe: true, id: `id-${jid}` } };
+      },
+    } as unknown as WASocket;
+    return { socket, sentJids };
+  }
+
+  test("resolveLidJid maps a PN jid to its LID", async () => {
+    const { socket } = socketWithLidMapping({ "358497773518": "221900000001937" });
+    expect(await resolveLidJid(socket, "358497773518@s.whatsapp.net")).toBe("221900000001937@lid");
+  });
+
+  test("resolveLidJid passes through LIDs, groups and unmapped PNs", async () => {
+    const { socket } = socketWithLidMapping({});
+    expect(await resolveLidJid(socket, "221900000001937@lid")).toBe("221900000001937@lid");
+    expect(await resolveLidJid(socket, "1@g.us")).toBe("1@g.us");
+    expect(await resolveLidJid(socket, "1999@s.whatsapp.net")).toBe("1999@s.whatsapp.net");
+  });
+
+  test("sendViaSocket sends to the resolved LID but stores under the original chat", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-lid-")));
+    const { socket, sentJids } = socketWithLidMapping({ "358497773518": "221900000001937" });
+    const result = await sendViaSocket(
+      socket,
+      "358497773518@s.whatsapp.net",
+      { conversation: "lid probe" },
+      { store },
+    );
+    expect(sentJids).toEqual(["221900000001937@lid"]);
+    expect(result.chatJid).toBe("358497773518@s.whatsapp.net");
+    const rows = listMessages(store, { chatJid: "358497773518@s.whatsapp.net", limit: 5 });
+    expect(rows.some((row) => row.id === "id-221900000001937@lid" && row.isFromMe)).toBe(true);
+  });
 });
