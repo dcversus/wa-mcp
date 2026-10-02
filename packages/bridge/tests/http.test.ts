@@ -2028,3 +2028,18 @@ describe("cloud channel surface (T50)", () => {
     expect(body.credentialsValid).toBeUndefined();
   });
 });
+
+test("/events accepts a token query param so EventSource can connect (T52)", async () => {
+  const bridge = await startServer();
+  const controller = new AbortController();
+  try {
+    const res = await fetch(url(bridge, "/events?token=test-token"), { signal: controller.signal });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    controller.abort();
+  } finally {
+    controller.abort();
+  }
+  const wrong = await fetch(url(bridge, "/events?token=wrong-token"));
+  expect(wrong.status).toBe(401);
+});
