@@ -39,6 +39,17 @@ export async function runPair(deps: PairDeps): Promise<0 | 1> {
     return 0;
   }
 
+  if (health.pairingBlocked === true) {
+    const attempts = health.pairingAttempts as { used?: number; limit?: number } | undefined;
+    deps.print(
+      `pairing attempts exhausted — ${attempts?.used ?? "?"} of ${attempts?.limit ?? "?"} registrations without pairing; refusing to render a QR.`,
+    );
+    deps.print(
+      "WhatsApp's anti-abuse cooldown resets on every attempt, so retrying now deepens the lockout. Wait for the cooldown to clear, then restart the daemon or POST /api/pair/resume, and run 'wa-mcp pair' again.",
+    );
+    return 1;
+  }
+
   if (deps.codePhone !== undefined) {
     const payload = await bridgeJson(deps, "/api/pairing-code", {
       method: "POST",

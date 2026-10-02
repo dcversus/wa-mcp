@@ -236,6 +236,16 @@ export async function createHttpServer(
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
   const serveQr = (req: IncomingMessage, res: ServerResponse): void => {
+    if (handle.pairingBudget().blocked) {
+      sendJson(res, 429, {
+        error: {
+          code: "PAIRING_BLOCKED",
+          message:
+            "pairing attempts exhausted — WhatsApp anti-abuse cooldown is active; wait or call POST /api/pair/resume to retry",
+        },
+      });
+      return;
+    }
     const qr = handle.getLastQr();
     if (qr === null) {
       sendJson(res, 404, { error: { code: "NO_QR", message: "no qr code available yet" } });
@@ -1438,12 +1448,15 @@ export async function createHttpServer(
     }
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
     if (req.method === "GET" && path === "/health") {
+      const budget = handle.pairingBudget();
       sendJson(res, 200, {
         status: handle.status,
         connected: handle.status === "connected",
         loggedIn:
           handle.status === "connected" ||
           (handle.status === "reconnecting" && handle.hasPairedAccount()),
+        pairingBlocked: budget.blocked,
+        pairingAttempts: { used: budget.used, limit: budget.limit },
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
       });
@@ -1539,6 +1552,15 @@ export async function createHttpServer(
         path === "/api/group/leave"
       ) {
         serveGroup(path, req, res, body);
+        return;
+      }
+      if (path === "/api/pair/resume" && req.method === "POST") {
+        handle.resumePairing();
+        const budget = handle.pairingBudget();
+        sendJson(res, 200, {
+          resumed: true,
+          pairingAttempts: { used: budget.used, limit: budget.limit },
+        });
         return;
       }
       if (path === "/api/pairing-code" && req.method === "POST") {

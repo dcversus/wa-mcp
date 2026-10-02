@@ -14,7 +14,7 @@ vi.mock("baileys", () => ({
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
-import { startBridge } from "../src/lifecycle.ts";
+import { startBridge, type StartBridgeOptions } from "../src/lifecycle.ts";
 
 // handles started per test; afterEach closes them so no real reconnect
 // timer outlives its test and fires inside a later one
@@ -103,9 +103,14 @@ function multiSocketArrangement() {
   return { sockets, latest };
 }
 
-async function startArranged() {
+async function startArranged(extra: StartBridgeOptions = {}) {
   const arrangement = multiSocketArrangement();
-  const handle = await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+  // default the helper's budget high: only budget-contract tests opt into 3
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+    logger: pino({ level: "silent" }),
+    pairingAttemptLimit: 1_000_000,
+    ...extra,
+  });
   return { ...arrangement, handle };
 }
 
@@ -472,62 +477,79 @@ test(
   },
 );
 
-test("stops re-registering after the pairing attempt budget is exhausted (T46)", { timeout: 15_000 }, async () => {
-  vi.useFakeTimers();
-  const { sockets, latest, handle } = await startArranged();
-  // attempts 2 and 3: qr-pool auto-recovery minting new registrations
-  for (const round of [0, 1]) {
-    latest().emit("connection.update", { connection: "connecting", qr: `QR-BUDGET-${round}` });
+test(
+  "stops re-registering after the pairing attempt budget is exhausted (T46)",
+  { timeout: 15_000 },
+  async () => {
+    vi.useFakeTimers();
+    const { sockets, latest, handle } = await startArranged({ pairingAttemptLimit: 3 });
+    // attempts 2 and 3: qr-pool auto-recovery minting new registrations
+    for (const round of [0, 1]) {
+      latest().emit("connection.update", { connection: "connecting", qr: `QR-BUDGET-${round}` });
+      latest().emit("connection.update", closeEvent(408));
+      await vi.advanceTimersByTimeAsync(60_000);
+    }
+    expect(sockets.length).toBe(3);
+    expect(handle.pairingBudget()).toEqual({ blocked: false, used: 3, limit: 3 });
+    // a 4th registration must be refused outright
     latest().emit("connection.update", closeEvent(408));
     await vi.advanceTimersByTimeAsync(60_000);
-  }
-  expect(sockets.length).toBe(3);
-  expect(handle.pairingBudget()).toEqual({ blocked: false, used: 3, limit: 3 });
-  // a 4th registration must be refused outright
-  latest().emit("connection.update", closeEvent(408));
-  await vi.advanceTimersByTimeAsync(60_000);
-  expect(sockets.length).toBe(3);
-  expect(handle.status).toBe("pairing-blocked");
-  expect(handle.pairingBudget()).toEqual({ blocked: true, used: 3, limit: 3 });
-  // no new QR either: the last QR is still the pre-block one
-  expect(handle.getLastQr()).toBe("QR-BUDGET-1");
-});
+    expect(sockets.length).toBe(3);
+    expect(handle.status).toBe("pairing-blocked");
+    expect(handle.pairingBudget()).toEqual({ blocked: true, used: 3, limit: 3 });
+    // no new QR either: the last QR is still the pre-block one
+    expect(handle.getLastQr()).toBe("QR-BUDGET-1");
+  },
+);
 
-test("within-attempt qr rotations do not consume the budget (T46)", { timeout: 15_000 }, async () => {
-  vi.useFakeTimers();
-  const { latest, handle } = await startArranged();
-  for (const rotation of [0, 1, 2]) {
-    latest().emit("connection.update", { connection: "connecting", qr: `QR-ROT-${rotation}` });
-  }
-  expect(handle.pairingBudget()).toEqual({ blocked: false, used: 1, limit: 3 });
-});
+test(
+  "within-attempt qr rotations do not consume the budget (T46)",
+  { timeout: 15_000 },
+  async () => {
+    vi.useFakeTimers();
+    const { latest, handle } = await startArranged({ pairingAttemptLimit: 3 });
+    for (const rotation of [0, 1, 2]) {
+      latest().emit("connection.update", { connection: "connecting", qr: `QR-ROT-${rotation}` });
+    }
+    expect(handle.pairingBudget()).toEqual({ blocked: false, used: 1, limit: 3 });
+  },
+);
 
-test("515 reconnect after a real pairing does not consume the budget (T46)", { timeout: 15_000 }, async () => {
-  vi.useFakeTimers();
-  const { sockets, latest, handle } = await startArranged();
-  currentCreds.account = { details: new Uint8Array() };
-  expect(handle.hasPairedAccount()).toBe(true);
-  const socketsBefore = sockets.length;
-  latest().emit("connection.update", closeEvent(515));
-  await vi.advanceTimersByTimeAsync(5_000);
-  expect(sockets.length).toBe(socketsBefore + 1);
-  expect(handle.pairingBudget()).toEqual({ blocked: false, used: 0, limit: 3 });
-});
+test(
+  "515 reconnect after a real pairing does not consume the budget (T46)",
+  { timeout: 15_000 },
+  async () => {
+    vi.useFakeTimers();
+    const { sockets, latest, handle } = await startArranged({ pairingAttemptLimit: 3 });
+    currentCreds.account = { details: new Uint8Array() };
+    expect(handle.hasPairedAccount()).toBe(true);
+    const socketsBefore = sockets.length;
+    latest().emit("connection.update", closeEvent(515));
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(sockets.length).toBe(socketsBefore + 1);
+    expect(handle.pairingBudget()).toEqual({ blocked: false, used: 0, limit: 3 });
+  },
+);
 
-test("resumePairing resets the budget and re-enters the cycle (T46)", { timeout: 15_000 }, async () => {
-  vi.useFakeTimers();
-  const { sockets, latest, handle } = await startArranged();
-  for (const round of [0, 1]) {
-    latest().emit("connection.update", { connection: "connecting", qr: `QR-RES-${round}` });
+test(
+  "resumePairing resets the budget and re-enters the cycle (T46)",
+  { timeout: 15_000 },
+  async () => {
+    vi.useFakeTimers();
+    const { sockets, latest, handle } = await startArranged({ pairingAttemptLimit: 3 });
+    for (const round of [0, 1]) {
+      latest().emit("connection.update", { connection: "connecting", qr: `QR-RES-${round}` });
+      latest().emit("connection.update", closeEvent(408));
+      await vi.advanceTimersByTimeAsync(60_000);
+    }
     latest().emit("connection.update", closeEvent(408));
     await vi.advanceTimersByTimeAsync(60_000);
-  }
-  latest().emit("connection.update", closeEvent(408));
-  await vi.advanceTimersByTimeAsync(60_000);
-  expect(handle.status).toBe("pairing-blocked");
-  handle.resumePairing();
-  expect(handle.pairingBudget()).toEqual({ blocked: false, used: 0, limit: 3 });
-  await vi.advanceTimersByTimeAsync(60_000);
-  expect(sockets.length).toBe(4);
-  expect(handle.status).toBe("connecting");
-});
+    expect(handle.status).toBe("pairing-blocked");
+    handle.resumePairing();
+    // the resume connect is itself the first attempt of the fresh budget
+    expect(handle.pairingBudget()).toEqual({ blocked: false, used: 1, limit: 3 });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets.length).toBe(4);
+    expect(handle.status).toBe("connecting");
+  },
+);

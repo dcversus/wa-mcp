@@ -43,6 +43,11 @@ export interface BridgeHandle {
    * configureSuccessfulPairing — never by requestPairingCode, so pairing-code
    * attempts cannot fake it). */
   hasPairedAccount(): boolean;
+  /** registration-attempt accounting: WhatsApp's anti-abuse cooldown resets on
+   * every link attempt, so the daemon stops minting registrations at the limit. */
+  pairingBudget(): PairingBudget;
+  /** explicit user action: reset the budget and re-enter the pairing cycle. */
+  resumePairing(): void;
   close(): Promise<void>;
 }
 
@@ -81,6 +86,8 @@ export async function startBridge(
   let reconnectPending = false;
   let closed = false;
   let socket: WASocket;
+  const pairingLimit = opts.pairingAttemptLimit ?? 3;
+  let pairingUsed = 0;
   const qrPngPath = opts.qrPngPath ?? join(homedir(), ".wa-mcp", "qr.png");
 
   // serialized credential writes: never fire-and-forget, never interleaved
@@ -127,6 +134,20 @@ export async function startBridge(
   };
 
   const connect = (): void => {
+    if (state.creds.account !== undefined) {
+      // a completed pairing resets the budget; these connects are handshake
+      // continuations (515 restart step), never fresh registrations
+      pairingUsed = 0;
+    } else if (pairingUsed >= pairingLimit) {
+      status = "pairing-blocked";
+      opts.logger?.warn(
+        { used: pairingUsed, limit: pairingLimit },
+        `pairing attempts exhausted — ${pairingLimit} registrations without pairing; refusing to re-register (WhatsApp anti-abuse cooldown); restart daemon or call /api/pair/resume to retry`,
+      );
+      return;
+    } else {
+      pairingUsed += 1;
+    }
     const deviceName = opts.deviceName ?? process.env.WA_DEVICE_NAME ?? "wa-mcp";
     socket = makeWASocket({
       auth: state,
@@ -206,6 +227,18 @@ export async function startBridge(
     },
     getLastQr: () => lastQr,
     hasPairedAccount: () => state.creds.account !== undefined,
+    pairingBudget: () => ({
+      blocked: status === "pairing-blocked",
+      used: pairingUsed,
+      limit: pairingLimit,
+    }),
+    resumePairing: () => {
+      pairingUsed = 0;
+      if (status === "pairing-blocked") {
+        status = "connecting";
+      }
+      connect();
+    },
     close: async () => {
       closed = true;
       reconnectPending = false;

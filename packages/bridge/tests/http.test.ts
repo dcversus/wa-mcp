@@ -62,6 +62,7 @@ function stubHandle(
   hasPairedAccount = false,
   budget = { blocked: false, used: 0, limit: 3 },
 ): BridgeHandle {
+  let current = budget;
   return {
     status,
     events: createEventBus(),
@@ -69,8 +70,10 @@ function stubHandle(
     getLastQr: () => lastQr,
     socket,
     hasPairedAccount: () => hasPairedAccount,
-    pairingBudget: () => budget,
-    resumePairing: () => {},
+    pairingBudget: () => current,
+    resumePairing: () => {
+      current = { blocked: false, used: 0, limit: current.limit };
+    },
   };
 }
 
@@ -179,15 +182,15 @@ test("health leaks no other data", async () => {
   const bridge = await startServer();
   const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
   expect(Object.keys(body).sort()).toEqual(
-      [
-        "connected",
-        "loggedIn",
-        "pairingAttempts",
-        "pairingBlocked",
-        "status",
-        "uptime",
-        "version",
-      ].sort(),
+    [
+      "connected",
+      "loggedIn",
+      "pairingAttempts",
+      "pairingBlocked",
+      "status",
+      "uptime",
+      "version",
+    ].sort(),
   );
 });
 
@@ -1390,6 +1393,8 @@ test("GET /events streams bus events as SSE and cleans up on disconnect", async 
       close: async () => {},
       getLastQr: () => null,
       hasPairedAccount: () => false,
+      pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
+      resumePairing: () => {},
       socket: makeFakeSocket(),
     },
     { token: "test-token", store, eventsHeartbeatMs: 40 },
@@ -1446,6 +1451,8 @@ test("GET /events fans out to multiple concurrent clients", async () => {
       close: async () => {},
       getLastQr: () => null,
       hasPairedAccount: () => false,
+      pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
+      resumePairing: () => {},
       socket: makeFakeSocket(),
     },
     { token: "test-token", store },
@@ -1484,6 +1491,8 @@ test("GET /events sends heartbeats on the configured interval", async () => {
       close: async () => {},
       getLastQr: () => null,
       hasPairedAccount: () => false,
+      pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
+      resumePairing: () => {},
       socket: makeFakeSocket(),
     },
     { token: "test-token", store, eventsHeartbeatMs: 30 },
@@ -1879,8 +1888,10 @@ test("POST /api/pair/resume resets the budget (authed, T46)", async () => {
     used: 3,
     limit: 3,
   });
+  const baseResume = handle.resumePairing;
   handle.resumePairing = () => {
     resumed += 1;
+    baseResume();
   };
   const bridge = await createHttpServer(handle, { token: "test-token" });
   created.push(bridge);
