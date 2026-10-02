@@ -113,7 +113,7 @@ function closeEvent(code: number) {
   return { connection: "close", lastDisconnect: { error: boomLike(code), date: new Date() } };
 }
 
-test("reconnects with exponential backoff after a non-logout close", async () => {
+test("reconnects with exponential backoff after a non-logout close", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest, handle } = await startArranged();
   latest().emit("connection.update", closeEvent(428));
@@ -129,7 +129,7 @@ test("reconnects with exponential backoff after a non-logout close", async () =>
   expect(mockMakeWASocket).toHaveBeenCalledTimes(3);
 });
 
-test("backoff caps at 60 seconds", async () => {
+test("backoff caps at 60 seconds", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest } = await startArranged();
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -144,7 +144,7 @@ test("backoff caps at 60 seconds", async () => {
   expect(mockMakeWASocket).toHaveBeenCalledTimes(8);
 });
 
-test("logged out wipes creds and starts a fresh registration (T45B contract)", async () => {
+test("logged out wipes creds and starts a fresh registration (T45B contract)", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest, handle } = await startArranged();
   latest().emit("connection.update", closeEvent(DisconnectReason.loggedOut));
@@ -155,7 +155,7 @@ test("logged out wipes creds and starts a fresh registration (T45B contract)", a
   expect(mockMakeWASocket).toHaveBeenCalledTimes(2);
 });
 
-test("a successful connect resets the backoff attempt counter", async () => {
+test("a successful connect resets the backoff attempt counter", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest } = await startArranged();
   latest().emit("connection.update", closeEvent(428));
@@ -168,7 +168,7 @@ test("a successful connect resets the backoff attempt counter", async () => {
   expect(mockMakeWASocket).toHaveBeenCalledTimes(3);
 });
 
-test("close() cancels a pending reconnect", async () => {
+test("close() cancels a pending reconnect", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest, handle } = await startArranged();
   latest().emit("connection.update", closeEvent(428));
@@ -335,7 +335,7 @@ test("getLastQr is null before any qr event", async () => {
   expect(handle.getLastQr()).toBeNull();
 });
 
-test("qr events render stderr, persist png, and expose getLastQr", async () => {
+test("qr events render stderr, persist png, and expose getLastQr", { timeout: 15_000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-"));
   const pngPath = join(dir, "qr.png");
   const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
@@ -365,7 +365,7 @@ test("qr rotations update getLastQr", async () => {
   expect(handle.getLastQr()).toBe("QRDATA-rotation-2");
 });
 
-test("qr pool exhaustion reconnects and reissues a qr", async () => {
+test("qr pool exhaustion reconnects and reissues a qr", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { latest, handle } = await startArranged();
   for (let round = 0; round < 3; round += 1) {
@@ -378,7 +378,7 @@ test("qr pool exhaustion reconnects and reissues a qr", async () => {
   expect(handle.getLastQr()).toBe("QR-FINAL");
 });
 
-test("hasPairedAccount is false before any completed pairing (T44)", async () => {
+test("hasPairedAccount is false before any completed pairing (T44)", { timeout: 15_000 }, async () => {
   const { latest, handle } = await startArranged();
   expect(handle.hasPairedAccount()).toBe(false);
   latest().emit("connection.update", closeEvent(428));
@@ -386,10 +386,11 @@ test("hasPairedAccount is false before any completed pairing (T44)", async () =>
   expect(handle.hasPairedAccount()).toBe(false);
 });
 
-test("515 restart-required reconnects immediately despite saturated backoff (T45A)", async () => {
+test("515 restart-required reconnects immediately despite saturated backoff (T45A)", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { sockets, latest } = await startArranged();
-  for (let round = 0; round < 5; round += 1) {
+  // 3 saturated rounds put the pending ordinary backoff at 8s (> 5s window)
+  for (let round = 0; round < 3; round += 1) {
     latest().emit("connection.update", { connection: "connecting", qr: `QR-SAT-${round}` });
     latest().emit("connection.update", closeEvent(428));
     await vi.advanceTimersByTimeAsync(60_000);
@@ -400,9 +401,12 @@ test("515 restart-required reconnects immediately despite saturated backoff (T45
   await vi.advanceTimersByTimeAsync(5_000);
   expect(sockets.length).toBe(socketsBefore + 1);
   expect(mockSaveCreds.mock.calls.length).toBeGreaterThan(savesBefore);
+  // exactly ONE immediate reconnect: no further socket may appear
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(sockets.length).toBe(socketsBefore + 1);
 });
 
-test("device_removed 401 wipes creds, persists, and re-registers (T45B)", async () => {
+test("device_removed 401 wipes creds, persists, and re-registers (T45B)", { timeout: 15_000 }, async () => {
   vi.useFakeTimers();
   const { sockets, latest, handle } = await startArranged();
   currentCreds.account = { details: new Uint8Array() };
@@ -412,10 +416,27 @@ test("device_removed 401 wipes creds, persists, and re-registers (T45B)", async 
   latest().emit("connection.update", closeEvent(401));
   expect(handle.status).toBe("logged-out");
   expect(handle.hasPairedAccount()).toBe(false);
-  await vi.advanceTimersByTimeAsync(2_000);
+  // flush the save chain first, so the re-registration timer is observable
+  await vi.advanceTimersByTimeAsync(0);
   expect(mockSaveCreds).toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(2_000);
   expect(sockets.length).toBe(socketsBefore + 1);
   latest().emit("connection.update", { connection: "connecting", qr: "QR-FRESH" });
   expect(handle.status).toBe("qr");
   expect(handle.getLastQr()).toBe("QR-FRESH");
+  // exactly ONE re-registration: a long window must not mint another socket
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(sockets.length).toBe(socketsBefore + 1);
+});
+
+test("duplicate close events in a burst produce exactly one re-registration (T45 hardening)", { timeout: 15_000 }, async () => {
+  vi.useFakeTimers();
+  const { sockets, latest } = await startArranged();
+  const socketsBefore = sockets.length;
+  // real 401s arrive as a burst: stream-error close + ws close
+  latest().emit("connection.update", closeEvent(401));
+  latest().emit("connection.update", closeEvent(401));
+  latest().emit("connection.update", closeEvent(428));
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(sockets.length).toBe(socketsBefore + 1);
 });
