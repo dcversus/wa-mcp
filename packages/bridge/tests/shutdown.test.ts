@@ -58,7 +58,7 @@ test("stop closes http, bridge, store in order, then exits 0", async () => {
   installShutdownHooks({ ...deps, processLike: proc });
   const handler = proc.handlers.get("SIGTERM");
   if (!handler) throw new Error("SIGTERM handler missing");
-  void handler();
+  handler();
   await vi.waitFor(() => {
     expect(proc.exit).toHaveBeenCalledWith(0);
   });
@@ -71,11 +71,11 @@ test("a second signal does not exit twice", async () => {
   installShutdownHooks({ ...deps, processLike: proc });
   const handler = proc.handlers.get("SIGTERM");
   if (!handler) throw new Error("SIGTERM handler missing");
-  void handler();
+  handler();
   await vi.waitFor(() => {
     expect(proc.exit).toHaveBeenCalledTimes(1);
   });
-  void handler();
+  handler();
   await vi.waitFor(() => {
     expect(proc.exit).toHaveBeenCalledTimes(1);
   });
@@ -102,7 +102,7 @@ test("a hanging close forces exit 0 within 3 seconds", async () => {
   });
   const handler = proc.handlers.get("SIGTERM");
   if (!handler) throw new Error("SIGTERM handler missing");
-  void handler();
+  handler();
   await vi.advanceTimersByTimeAsync(2999);
   expect(proc.exit).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1);

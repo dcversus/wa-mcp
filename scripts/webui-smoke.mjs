@@ -181,6 +181,13 @@ if (pairingApp.length === 0) {
   fail("#/pairing rendered an empty #app");
 }
 console.log(`#/pairing app innerHTML length: ${pairingApp.length}`);
+if (!pairingApp.includes('id="settings-form"') || !pairingApp.includes('id="token"'))
+  fail("#/pairing does not render the token form inline (T39)");
+if (!pairingApp.includes('id="pairing"')) fail("#/pairing is missing the pairing/qr container");
+const pairingHash = await evaluate(`location.hash`);
+if (!String(pairingHash).startsWith("#/pairing"))
+  fail(`#/pairing redirected away to ${pairingHash} (T39 no-redirect contract)`);
+console.log(`#/pairing inline token form + no redirect: ok (hash=${pairingHash})`);
 
 await goto(`${bridgeUrl}/#/settings`);
 const settingsApp = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);

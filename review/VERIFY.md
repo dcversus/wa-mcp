@@ -25,3 +25,6 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - §15 docs — PASS — T33 docs:build 1.85s, docs:coverage 30/30, 10 ADRs, CHANGELOG section
 - §19 pack — PASS — wa-mcp-0.9.0.tgz sha256 7b40734531ef592289e75e07b0ac57fd1155150b0b5d4590a979d6ba5ce913e0 (self-contained: bundled @wa-mcp/bridge+mcp-server+shared with transitive tree, gitignored)
 - §11 sandbox tarball install — PASS — fresh dir: npm init + npm install file:wa-mcp-0.9.0.tgz → npx wa-mcp install (cursor verified) → start → /health 200 {"status":"qr"} on --port 8123 → doctor all-ok rows → status renders (2026-10-02, output in commit c98d7e2-era packaging fix)
+- T39 pair QR render — PASS — real `node packages/cli/dist/bin.mjs pair` on live daemon: 33-line ANSI terminal QR (qrcode toString type:terminal small) + wa.me copy/paste line + timeout hint; exit 1 at --timeout 8000 (no scan performed); RED 53b270e (3 failed) → GREEN 4e01a52 (cli 32/32)
+- T39 web pairing inline token — PASS — CDP smoke (headless Chrome, live daemon :8080, bundle index-QbcUp9S_.js): `#/pairing app innerHTML length: 280`, inline settings-form+token present, hash stays #/pairing (no redirect), #/settings form ok, nav ok → webui-smoke PASS; RED d0967cf (2 failed) → GREEN f90d3a4 (web-ui 27/27)
+- T39 full gate — vp check exit 0 (28 warnings across 110 files, pre-existing), vp test 365/365 (48 files)
