@@ -247,6 +247,9 @@ importers:
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
+      '@wa-mcp/web-ui':
+        specifier: workspace:*
+        version: link:../web-ui
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
