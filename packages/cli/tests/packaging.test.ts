@@ -1,0 +1,33 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { expect, test } from "vite-plus/test";
+
+const cliRoot = join(import.meta.dirname ?? ".", "..");
+const pkg = JSON.parse(readFileSync(join(cliRoot, "package.json"), "utf8")) as {
+  dependencies?: Record<string, string>;
+  bundledDependencies?: string[];
+};
+
+test("cli declares the runtime packages as bundled dependencies", () => {
+  for (const dep of ["@wa-mcp/bridge", "@wa-mcp/mcp-server", "@wa-mcp/shared"]) {
+    expect(pkg.dependencies?.[dep], dep).toBe("workspace:*");
+    expect(pkg.bundledDependencies, dep).toContain(dep);
+  }
+});
+
+test("the workspace packages resolve from the cli package", () => {
+  const req = createRequire(join(cliRoot, "package.json"));
+  const bridgePkg = req.resolve("@wa-mcp/bridge/package.json") as string;
+  const mcpPkg = req.resolve("@wa-mcp/mcp-server/package.json") as string;
+  expect(bridgePkg).toContain("@wa-mcp/bridge");
+  expect(mcpPkg).toContain("@wa-mcp/mcp-server");
+  expect(existsLike(bridgePkg, "dist", "bin.mjs")).toBe(true);
+  expect(existsLike(mcpPkg, "dist", "bin.mjs")).toBe(true);
+});
+
+import { existsSync } from "node:fs";
+
+function existsLike(pkgPath: string, ...segments: string[]): boolean {
+  return existsSync(join(pkgPath, "..", ...segments));
+}
