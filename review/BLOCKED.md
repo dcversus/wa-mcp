@@ -115,3 +115,10 @@ doctor (bridge-down FAIL rows expected) → daemon start → /health must contai
 then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'll run it.
 
 **Status:** BLOCKED on owner UI action. Everything else in TASK 35 delivered.
+
+## 2026-10-02 10:45 — GitHub Actions billing failure (owner action required)
+
+- CI runs 36979526866 + 36979823287: all jobs fail within 2-6s with "The job was not started because recent account payments have failed or your spending limit needs to be increased."
+- Zero code involved — jobs never started. Local gates stay green in the meantime (vp check/test/build).
+- Owner action: GitHub → Settings → Billing & plans → fix payment method or raise spending limit.
+- CI green-state verification deferred until billing is restored (Definition-of-DONE CI-matrix item blocked on this).
