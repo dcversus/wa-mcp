@@ -20,6 +20,67 @@ export interface ServerContext {
   fetchFn?: typeof fetch;
 }
 
+export interface WaResource {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+}
+
+export const WA_RESOURCES: WaResource[] = [
+  {
+    uri: "wa://chats",
+    name: "Chats",
+    description: "WhatsApp chat list with unread counts and previews",
+    mimeType: "application/json",
+  },
+  {
+    uri: "wa://unread",
+    name: "Unread counts",
+    description: "Per-chat unread message counts",
+    mimeType: "application/json",
+  },
+  {
+    uri: "wa://health",
+    name: "Bridge health",
+    description: "Bridge connection status",
+    mimeType: "application/json",
+  },
+];
+
+function resourcePath(uri: string): string | null {
+  if (uri === "wa://chats") {
+    return "/api/chats";
+  }
+  if (uri === "wa://unread") {
+    return "/api/unread";
+  }
+  if (uri === "wa://health") {
+    return "/health";
+  }
+  return null;
+}
+
+async function readResource(toolCtx: ToolContext, uri: string): Promise<Record<string, unknown>> {
+  const path = resourcePath(uri);
+  if (path === null) {
+    throw new ParamError(`unknown resource: ${uri}`);
+  }
+  const payload = (await bridgeFetchResource(toolCtx, path)) as Record<string, unknown>;
+  return {
+    contents: [{ uri, mimeType: "application/json", text: JSON.stringify(payload) }],
+  };
+}
+
+async function bridgeFetchResource(toolCtx: ToolContext, path: string): Promise<unknown> {
+  const fetchFn = toolCtx.fetchFn ?? fetch;
+  const response = await fetchFn(`${toolCtx.bridgeUrl}${path}`, {
+    method: "GET",
+    headers: { authorization: `Bearer ${toolCtx.token}` },
+  });
+  return response.json();
+}
+
 export const SERVER_INFO = { name: "wa-mcp", version: "0.0.0" } as const;
 export const PROTOCOL_VERSION = "2025-06-18";
 
@@ -101,7 +162,7 @@ export async function handleRpcMessage(
       case "initialize":
         return {
           protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, resources: {} },
           serverInfo: SERVER_INFO,
         };
       case "ping":
@@ -120,6 +181,19 @@ export async function handleRpcMessage(
           ctx.tools,
           request.params,
         );
+      case "resources/list":
+        return { resources: WA_RESOURCES };
+      case "resources/read": {
+        const params = request.params as { uri?: unknown } | undefined;
+        const uri = typeof params?.uri === "string" ? params.uri : undefined;
+        if (uri === undefined) {
+          throw new ParamError("uri is required");
+        }
+        return readResource(
+          { bridgeUrl: ctx.bridgeUrl, token: ctx.token, fetchFn: ctx.fetchFn },
+          uri,
+        );
+      }
       default:
         throw new MethodNotFoundError(String(request.method));
     }

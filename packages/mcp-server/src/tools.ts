@@ -725,6 +725,44 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "transcribe_message",
+    description: "Transcribe a voice note or audio message to text (mock engine by default).",
+    inputSchema: {
+      type: "object",
+      required: ["message_id"],
+      properties: { message_id: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { message_id: requireString(args, "message_id") };
+      const payload = (await bridgeFetch(toolCtx, "/api/transcribe", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "send_voice_note",
+    description:
+      "Synthesize text to speech (mock engine) and send it as a push-to-talk voice note.",
+    inputSchema: {
+      type: "object",
+      required: ["text", "chat_jid"],
+      properties: {
+        text: { type: "string" },
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { text: requireString(args, "text"), chat_jid: requireString(args, "chat_jid") };
+      const payload = (await bridgeFetch(toolCtx, "/api/tts", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {

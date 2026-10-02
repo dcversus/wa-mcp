@@ -962,7 +962,7 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
   };
   expect(body.jsonrpc).toBe("2.0");
   expect(body.id).toBe(1);
-  expect(body.result.capabilities).toEqual({ tools: {} });
+  expect(body.result.capabilities).toEqual({ tools: {}, resources: {} });
   expect(body.result.serverInfo.name).toBe("wa-mcp");
 });
 

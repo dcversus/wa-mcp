@@ -62,6 +62,8 @@ test("the registry exposes the full launch set", () => {
     "update_group_meta",
     "leave_group",
     "get_group_invite",
+    "transcribe_message",
+    "send_voice_note",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -350,7 +352,6 @@ test("group tools drive their endpoints", async () => {
   expect(calls[4]?.url).toBe("http://bridge.test:8080/api/group/invite/g%40us");
   expect(inviteResult.content[0]?.text).toContain("CODE9");
 });
-
 
 test("transcribe_message and send_voice_note hit their endpoints", async () => {
   const { fetchFn, calls } = mockFetch({

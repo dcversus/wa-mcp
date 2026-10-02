@@ -81,6 +81,8 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "update_group_meta",
     "leave_group",
     "get_group_invite",
+    "transcribe_message",
+    "send_voice_note",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
@@ -123,7 +125,7 @@ test("an unknown tool is an invalid-params error", async () => {
 });
 
 test("an unknown method is method-not-found", async () => {
-  const response = await handleRpcLine(makeRequest(6, "resources/list"), ctx);
+  const response = await handleRpcLine(makeRequest(6, "prompts/list"), ctx);
   if (response === null || response.error === undefined)
     throw new Error("expected an error response");
   expect(response.error.code).toBe(-32601);
@@ -166,31 +168,59 @@ test("missing required tool arguments surface as invalid params", async () => {
   expect(response.error.message).toContain("chat_jid");
 });
 
-
 test("resources/list exposes the wa resources", async () => {
   const response = await handleRpcLine(makeRequest(10, "resources/list"), ctx);
   const resources = resultOf(response).resources as Array<{ uri: string; name: string }>;
-  expect(resources.map((resource) => resource.uri)).toEqual(["wa://chats", "wa://unread", "wa://health"]);
+  expect(resources.map((resource) => resource.uri)).toEqual([
+    "wa://chats",
+    "wa://unread",
+    "wa://health",
+  ]);
 });
 
 test("resources/read fetches each resource over the bridge api", async () => {
   const calls: Array<string> = [];
   const fetchFn = (async (url: string | URL) => {
     calls.push(String(url));
-    const payload = String(url).endsWith("/api/unread") ? { unread: [] } : String(url).endsWith("/health") ? { status: "connected" } : { chats: [] };
-    return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+    const payload = String(url).endsWith("/api/unread")
+      ? { unread: [] }
+      : String(url).endsWith("/health")
+        ? { status: "connected" }
+        : { chats: [] };
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
   }) as unknown as typeof fetch;
   const toolCtx = { ...ctx, fetchFn };
-  const chats = await handleRpcLine(makeRequest(11, "resources/read", { uri: "wa://chats" }), toolCtx);
+  const chats = await handleRpcLine(
+    makeRequest(11, "resources/read", { uri: "wa://chats" }),
+    toolCtx,
+  );
   expect(calls[0]).toBe("http://127.0.0.1:8080/api/chats");
-  expect(JSON.parse(resultOf(chats)?.contents?.[0]?.text ?? "{}")).toEqual({ chats: [] });
-  const unread = await handleRpcLine(makeRequest(12, "resources/read", { uri: "wa://unread" }), toolCtx);
+  const chatsContent =
+    (resultOf(chats)?.contents as Array<{ text: string }> | undefined)?.[0]?.text ?? "{}";
+  expect(JSON.parse(chatsContent)).toEqual({ chats: [] });
+  const unread = await handleRpcLine(
+    makeRequest(12, "resources/read", { uri: "wa://unread" }),
+    toolCtx,
+  );
   expect(calls[1]).toBe("http://127.0.0.1:8080/api/unread");
-  expect(JSON.parse(resultOf(unread)?.contents?.[0]?.text ?? "{}")).toEqual({ unread: [] });
-  const health = await handleRpcLine(makeRequest(13, "resources/read", { uri: "wa://health" }), toolCtx);
+  const unreadContent =
+    (resultOf(unread)?.contents as Array<{ text: string }> | undefined)?.[0]?.text ?? "{}";
+  expect(JSON.parse(unreadContent)).toEqual({ unread: [] });
+  const health = await handleRpcLine(
+    makeRequest(13, "resources/read", { uri: "wa://health" }),
+    toolCtx,
+  );
   expect(calls[2]).toBe("http://127.0.0.1:8080/health");
-  expect(JSON.parse(resultOf(health)?.contents?.[0]?.text ?? "{}")).toEqual({ status: "connected" });
-  const unknown = await handleRpcLine(makeRequest(14, "resources/read", { uri: "wa://nope" }), toolCtx);
+  const healthContent =
+    (resultOf(health)?.contents as Array<{ text: string }> | undefined)?.[0]?.text ?? "{}";
+  expect(JSON.parse(healthContent)).toEqual({ status: "connected" });
+  const unknown = await handleRpcLine(
+    makeRequest(14, "resources/read", { uri: "wa://nope" }),
+    toolCtx,
+  );
   if (unknown?.error === undefined) throw new Error("expected an error response");
   expect(unknown.error.code).toBe(-32602);
 });
