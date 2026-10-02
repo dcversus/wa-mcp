@@ -1,22 +1,45 @@
 import { expect, test } from "vite-plus/test";
-import { chatListHtml, healthHtml, messageListHtml, qrHtml, settingsHtml, unreadHtml } from "../src/pages.ts";
+import {
+  chatListHtml,
+  healthHtml,
+  messageListHtml,
+  qrHtml,
+  settingsHtml,
+  unreadHtml,
+} from "../src/pages.ts";
 
 test("chatListHtml renders chats with unread badges", () => {
   const html = chatListHtml([
-    { jid: "a@g.us", name: "Alpha", unreadCount: 3, archived: false, lastMessage: null },
-    { jid: "b@g.us", name: "Beta", unreadCount: 0, archived: false, lastMessage: null },
+    { jid: "a@g.us", name: "Alpha", unreadCount: 3, lastMessage: null },
+    { jid: "b@g.us", name: "Beta", unreadCount: 0, lastMessage: null },
   ]);
   expect(html).toContain("Alpha");
   expect(html).toContain('data-jid="a@g.us"');
-  expect(html).toContain('class="unread-badge"');
-  expect(html).not.toContain('class="unread-badge"');
+  expect(html).toContain('<span class="unread-badge">3</span>');
+  expect(html).not.toContain('<span class="unread-badge">0</span>');
   expect(html).toContain("Beta");
 });
 
 test("messageListHtml renders messages with sender and text", () => {
   const html = messageListHtml("g@g.us", [
-    { id: "M1", chatJid: "g@g.us", senderName: "Vasilisa", timestamp: "2026-10-01T10:00:00.000Z", content: "hello", isFromMe: false, isUnread: false },
-    { id: "M2", chatJid: "g@g.us", senderName: "Me", timestamp: "2026-10-01T11:00:00.000Z", content: "hi", isFromMe: true, isUnread: false },
+    {
+      id: "M1",
+      chatJid: "g@g.us",
+      senderName: "Vasilisa",
+      timestamp: "2026-10-01T10:00:00.000Z",
+      content: "hello",
+      isFromMe: false,
+      isUnread: false,
+    },
+    {
+      id: "M2",
+      chatJid: "g@g.us",
+      senderName: "Me",
+      timestamp: "2026-10-01T11:00:00.000Z",
+      content: "hi",
+      isFromMe: true,
+      isUnread: false,
+    },
   ]);
   expect(html).toContain("hello");
   expect(html).toContain("Vasilisa");
@@ -47,7 +70,13 @@ test("qrHtml renders an image slot and status line", () => {
 });
 
 test("healthHtml renders status fields", () => {
-  const html = healthHtml({ status: "connected", connected: true, loggedIn: true, version: "0.0.0", uptime: 12 });
+  const html = healthHtml({
+    status: "connected",
+    connected: true,
+    loggedIn: true,
+    version: "0.0.0",
+    uptime: 12,
+  });
   expect(html).toContain("connected");
   expect(html).toContain("0.0.0");
   expect(html).toContain("12");

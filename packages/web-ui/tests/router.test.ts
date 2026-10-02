@@ -1,14 +1,15 @@
 import { expect, test } from "vite-plus/test";
 import { resolveRoute, type RoutePattern } from "../src/router.ts";
 
-const ROUTES: Array<RoutePattern<"chats" | "chat" | "unread" | "settings" | "health" | "pairing">> = [
-  { route: "chats", pattern: "chats" },
-  { route: "chat", pattern: "chat/:jid" },
-  { route: "unread", pattern: "unread" },
-  { route: "settings", pattern: "settings" },
-  { route: "health", pattern: "health" },
-  { route: "pairing", pattern: "pairing" },
-];
+const ROUTES: Array<RoutePattern<"chats" | "chat" | "unread" | "settings" | "health" | "pairing">> =
+  [
+    { route: "chats", pattern: "chats" },
+    { route: "chat", pattern: "chat/:jid" },
+    { route: "unread", pattern: "unread" },
+    { route: "settings", pattern: "settings" },
+    { route: "health", pattern: "health" },
+    { route: "pairing", pattern: "pairing" },
+  ];
 
 test("routes bare and #/ hashes to chats", () => {
   expect(resolveRoute("#/chats", ROUTES)?.route).toBe("chats");
