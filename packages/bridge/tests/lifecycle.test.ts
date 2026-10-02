@@ -364,3 +364,13 @@ test("qr pool exhaustion reconnects and reissues a qr", async () => {
   expect(handle.status).toBe("qr");
   expect(handle.getLastQr()).toBe("QR-FINAL");
 });
+
+test("hasPairedAccount is false before any completed pairing (T44)", async () => {
+  const { latest, handle } = await trackedStart("/tmp/wa-mcp-test-auth", {
+    logger: pino({ level: "silent" }),
+  });
+  expect(handle.hasPairedAccount()).toBe(false);
+  latest().emit("connection.update", closeEvent(428));
+  expect(handle.status).toBe("reconnecting");
+  expect(handle.hasPairedAccount()).toBe(false);
+});

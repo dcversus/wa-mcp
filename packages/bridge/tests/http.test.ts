@@ -55,6 +55,7 @@ function stubHandle(
   status: BridgeStatus = "connected",
   lastQr: string | null = null,
   socket: WASocket = makeFakeSocket(),
+  hasPairedAccount = false,
 ): BridgeHandle {
   return {
     status,
@@ -62,6 +63,7 @@ function stubHandle(
     close: async () => {},
     getLastQr: () => lastQr,
     socket,
+    hasPairedAccount: () => hasPairedAccount,
   };
 }
 
@@ -130,6 +132,39 @@ test("health reports connecting as not connected and not logged in", async () =>
   const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
   expect(body.status).toBe("connecting");
   expect(body.connected).toBe(false);
+  expect(body.loggedIn).toBe(false);
+});
+
+test("health reports reconnecting WITHOUT a paired account as not logged in (T44)", async () => {
+  // QR-pool recovery flaps through "reconnecting" with zero credentials on
+  // disk — that is "not logged out", never "logged in" (misled debugging twice).
+  const bridge = await createHttpServer(stubHandle("reconnecting"), { token: "test-token" });
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.status).toBe("reconnecting");
+  expect(body.connected).toBe(false);
+  expect(body.loggedIn).toBe(false);
+});
+
+test("health reports reconnecting WITH a completed pairing as logged in (T44)", async () => {
+  // creds.account is set only by configureSuccessfulPairing (real pair-success),
+  // never by requestPairingCode — the pollution-safe "past pairing" signal.
+  const bridge = await createHttpServer(stubHandle("reconnecting", null, undefined, true), {
+    token: "test-token",
+  });
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.status).toBe("reconnecting");
+  expect(body.loggedIn).toBe(true);
+});
+
+test("health reports qr as not logged in regardless of account state (T44)", async () => {
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA", undefined, true), {
+    token: "test-token",
+  });
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.status).toBe("qr");
   expect(body.loggedIn).toBe(false);
 });
 
