@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
@@ -1907,4 +1907,101 @@ test("POST /api/pair/resume resets the budget (authed, T46)", async () => {
   const body = (await res.json()) as { resumed: boolean; pairingAttempts: unknown };
   expect(body.resumed).toBe(true);
   expect(body.pairingAttempts).toEqual({ used: 0, limit: 3 });
+});
+
+describe("cloud channel surface (T50)", () => {
+  let crypto: typeof import("node:crypto");
+  const APP_SECRET = "appsecret-hex";
+  const cloudHandle = stubHandle("connected");
+
+  beforeAll(async () => {
+    crypto = await import("node:crypto");
+  });
+
+  async function startCloudServer() {
+    const { CloudApiAdapter } = await import("../src/channels/cloud/adapter.ts");
+    const { readCloudConfig } = await import("../src/channels/cloud/config.ts");
+    const config = readCloudConfig({
+      WA_CLOUD_ACCESS_TOKEN: "tok",
+      WA_CLOUD_PHONE_NUMBER_ID: "109876543210987",
+      WA_CLOUD_VERIFY_TOKEN: "verify-me",
+      WA_CLOUD_APP_SECRET: APP_SECRET,
+    }).config!;
+    const cloudAdapter = new CloudApiAdapter(config);
+    const bridge = await createHttpServer(cloudHandle, {
+      token: "test-token",
+      store,
+      mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-cloud-")),
+      cloud: { adapter: cloudAdapter, config },
+    });
+    created.push(bridge);
+    return { bridge, config };
+  }
+
+  test("GET /webhooks/cloud echoes hub.challenge for the right verify token", async () => {
+    const { bridge, config } = await startCloudServer();
+    const res = await fetch(
+      url(bridge, `/webhooks/cloud?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(config.verifyToken)}&hub.challenge=CHAL1`),
+    );
+    expect(res.status).toBe(200);
+    await expect(res.text()).resolves.toBe("CHAL1");
+  });
+
+  test("GET /webhooks/cloud rejects a wrong verify token with 403", async () => {
+    const { bridge } = await startCloudServer();
+    const res = await fetch(url(bridge, "/webhooks/cloud?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=CHAL1"));
+    expect(res.status).toBe(403);
+  });
+
+  test("POST /webhooks/cloud stores a signed inbound message and rejects bad signatures", async () => {
+    const { bridge, config } = await startCloudServer();
+    const payload = {
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          changes: [
+            {
+              field: "messages",
+              value: {
+                contacts: [{ profile: { name: "V" }, wa_id: "15551234567" }],
+                messages: [
+                  { from: "15551234567", id: "wamid.store1", timestamp: "1700000000", type: "text", text: { body: "store me" } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const body = JSON.stringify(payload);
+    const signature = `sha256=${crypto.createHmac("sha256", config.appSecret).update(body).digest("hex")}`;
+    const bad = await fetch(url(bridge, "/webhooks/cloud"), {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-hub-signature-256": "sha256=deadbeef" },
+      body,
+    });
+    expect(bad.status).toBe(403);
+    const good = await fetch(url(bridge, "/webhooks/cloud"), {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-hub-signature-256": signature },
+      body,
+    });
+    expect(good.status).toBe(200);
+    const rows = store.listMessages("15551234567@s.whatsapp.net", 10);
+    expect(rows.some((row) => row.id === "wamid.store1" && row.content === "store me")).toBe(true);
+  });
+
+  test("/health reports the channel and cloud credential validity", async () => {
+    const { bridge } = await startCloudServer();
+    const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+    expect(body.channel).toBe("cloud");
+    expect(body.credentialsValid).toBe(true);
+  });
+
+  test("/health reports the baileys channel by default", async () => {
+    const bridge = await startServer();
+    const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+    expect(body.channel).toBe("baileys");
+    expect(body.credentialsValid).toBeUndefined();
+  });
 });
