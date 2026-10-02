@@ -1,4 +1,4 @@
-import { settingsHtml } from "./pages.ts";
+import { pairingHtml, settingsHtml } from "./pages.ts";
 import { needsToken, type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
 
@@ -38,6 +38,13 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const match = resolveRoute(dom.getHash(), ROUTES);
   if (match === null) {
     dom.setApp("<p>not found</p>");
+    return;
+  }
+  if (match.route === "pairing" && needsToken(settings)) {
+    // Pairing must render in place: the token form sits inline above the qr
+    // area and the hash never moves (owner verdict: the redirect read as a
+    // broken page).
+    dom.setApp(pairingHtml(settings));
     return;
   }
   if (match.route !== "settings" && needsToken(settings)) {

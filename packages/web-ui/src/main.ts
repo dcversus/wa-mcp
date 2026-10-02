@@ -86,6 +86,12 @@ function bindRoute(): void {
     bindMarkRead();
     return;
   }
+  if (hash === "#/pairing") {
+    // inline token form (rendered when no token is stored) saves + reloads
+    // into the QR view on the same route
+    bindSettingsForm();
+    return;
+  }
   if (hash === "#/settings") {
     bindSettingsForm();
   }

@@ -57,6 +57,10 @@ export function settingsHtml(settings: { bridgeUrl: string; token: string }): st
   return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${settings.bridgeUrl}" /></label><label>Token<input id="token" value="${settings.token}" /></label><button type="submit">Save</button></form>`;
 }
 
+export function pairingHtml(settings: { bridgeUrl: string; token: string }): string {
+  return `<div id="pairing">${settingsHtml(settings)}<p id="qr-status">save the bridge token above to load the QR</p></div>`;
+}
+
 export function qrHtml(pngDataUrl: string | null): string {
   const src = pngDataUrl === null ? "" : ` src="${pngDataUrl}"`;
   return `<div id="pairing"><img id="qr-image"${src} /><p id="qr-status">waiting for scan…</p></div>`;
