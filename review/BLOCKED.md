@@ -130,3 +130,8 @@ then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'
 - PROPOSED DEFAULT (implemented, awaiting ratification): docker test image `node:20` → `node:22`, root `engines.node` `>=20` → `>=22.5.0`, doctor floor `minNodeMajor` 20 → 22. The CLI/MCP pieces run fine on 20 — the floor is the daemon's.
 - Alternative if node:20 support is a hard requirement for 0.9: replace node:sqlite with a bundled SQLite (native dep or WASM) — real scope, not a 0.9-patch.
 - Full pass evidence on node:22 (fresh container, tarball sha256 325a60d7…): install → doctor(bridge down rows) → daemon start (nested bin resolved) → /health {"version":"0.9.0"} → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS.
+
+## 2026-10-02 16:10 — WhatsApp anti-abuse cooldown (both owner accounts)
+- 'Can't link new devices right now' on both accounts; cooldown resets on every attempt; daemon's QR-pool recovery was re-registering every ~170s keeping it alive
+- ACTION TAKEN: daemon + CLI pair STOPPED (16:0x EEST); T46 budget landed so it cannot recur
+- PLAN: full quiet window ≥6h (target ~22:00 EEST), then ONE attempt via single daemon; if rejected again → accounts may be in the passkey/SHORTCAKE cohort (server-side gate, phased since ~2026-06-30; zeroclaw #8627 documents baileys/whatsmeow/whatsapp-rust all hit) → wait for engine forks to support it
