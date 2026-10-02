@@ -82,6 +82,7 @@ export interface HttpServerOptions {
   fetchFn?: typeof fetch;
   eventsHeartbeatMs?: number;
   uiDir?: string;
+  rateLimitNow?: () => number;
 }
 
 const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker"]);
@@ -231,6 +232,7 @@ export async function createHttpServer(
 ): Promise<BridgeHttp> {
   const startedAt = Date.now();
   const rate = opts.rateLimit ?? DEFAULT_RATE;
+  const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
   const serveQr = (req: IncomingMessage, res: ServerResponse): void => {
     const qr = handle.getLastQr();
@@ -1421,7 +1423,7 @@ export async function createHttpServer(
 
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
-    const gate = checkRate(ip, Date.now());
+    const gate = checkRate(ip, now());
     if (!gate.ok) {
       sendJson(
         res,

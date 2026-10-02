@@ -263,12 +263,16 @@ test("token bucket returns 429 with Retry-After when exhausted", async () => {
 });
 
 test("buckets refill over time", async () => {
-  const bridge = await startServer({ rateLimit: { capacity: 1, refillPerMinute: 6000 } });
+  let clock = 1_000_000;
+  const base = await startServer({
+    rateLimit: { capacity: 1, refillPerMinute: 6000 },
+    rateLimitNow: () => clock,
+  });
   const auth = { authorization: "Bearer test-token" };
-  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(501);
-  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(429);
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  expect((await fetch(url(bridge, "/api/messages"), { headers: auth })).status).toBe(501);
+  expect((await fetch(url(base, "/api/messages"), { headers: auth })).status).toBe(501);
+  expect((await fetch(url(base, "/api/messages"), { headers: auth })).status).toBe(429);
+  clock += 100;
+  expect((await fetch(url(base, "/api/messages"), { headers: auth })).status).toBe(501);
 });
 
 test("/api/qr requires auth", async () => {
