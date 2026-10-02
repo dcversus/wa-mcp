@@ -15,6 +15,18 @@ import {
 } from "./store/chats.ts";
 import { listContacts, setAlias } from "./store/contacts.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
+import {
+  createGroup,
+  getGroupInviteCode,
+  groupSettingUpdate,
+  leaveGroup,
+  updateGroupDescription,
+  updateGroupParticipants,
+  updateGroupSubject,
+  type GroupParticipantAction,
+  type GroupSetting,
+} from "./groups.ts";
+import { GroupValidationError } from "./groups.ts";
 import { createRule, deleteRule, listRules } from "./notifications.ts";
 import {
   ValidationError,
@@ -884,6 +896,144 @@ export async function createHttpServer(
     }
   };
 
+  const serveGroup = (
+    route: string,
+    req: IncomingMessage,
+    res: ServerResponse,
+    body: Buffer,
+  ): void => {
+    const socket = handle.socket;
+    if (socket === undefined || socket === null) {
+      sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    if (parsed === null || typeof parsed !== "object") {
+      validationError(res, "body must be a JSON object");
+      return;
+    }
+    const input = parsed as {
+      subject?: unknown;
+      participants?: unknown;
+      group_jid?: unknown;
+      jids?: unknown;
+      action?: unknown;
+      description?: unknown;
+      setting?: unknown;
+    };
+    const run = <T>(work: () => Promise<T>): void => {
+      void work()
+        .then((result) => {
+          sendJson(res, 200, result as Record<string, unknown>);
+        })
+        .catch((err: unknown) => {
+          if (err instanceof GroupValidationError || err instanceof ValidationError) {
+            sendJson(res, 400, { error: { code: err.code, message: err.message } });
+            return;
+          }
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "group operation failed" } });
+        });
+    };
+    if (route === "/api/group/create") {
+      if (typeof input.subject !== "string" || input.subject.length === 0) {
+        validationError(res, "subject is required");
+        return;
+      }
+      if (
+        !Array.isArray(input.participants) ||
+        input.participants.some((p) => typeof p !== "string")
+      ) {
+        validationError(res, "participants must be an array of strings");
+        return;
+      }
+      run(() =>
+        createGroup(socket, input.subject as string, input.participants as string[]).then(
+          (group) => ({ group }),
+        ),
+      );
+      return;
+    }
+    if (route === "/api/group/participants") {
+      if (typeof input.group_jid !== "string" || input.group_jid.length === 0) {
+        validationError(res, "group_jid is required");
+        return;
+      }
+      if (!Array.isArray(input.jids) || input.jids.some((jid) => typeof jid !== "string")) {
+        validationError(res, "jids must be an array of strings");
+        return;
+      }
+      if (typeof input.action !== "string") {
+        validationError(res, "action is required");
+        return;
+      }
+      run(() =>
+        updateGroupParticipants(
+          socket,
+          input.group_jid as string,
+          input.jids as string[],
+          input.action as GroupParticipantAction,
+        ).then((results) => ({ results })),
+      );
+      return;
+    }
+    if (route === "/api/group/meta") {
+      if (typeof input.group_jid !== "string" || input.group_jid.length === 0) {
+        validationError(res, "group_jid is required");
+        return;
+      }
+      if (input.subject === undefined && input.description === undefined) {
+        validationError(res, "subject or description is required");
+        return;
+      }
+      if (input.subject !== undefined && typeof input.subject !== "string") {
+        validationError(res, "subject must be a string");
+        return;
+      }
+      run(() => {
+        const subjectWork =
+          input.subject !== undefined
+            ? updateGroupSubject(socket, input.group_jid as string, input.subject as string)
+            : Promise.resolve();
+        const descriptionWork =
+          input.description !== undefined
+            ? updateGroupDescription(socket, input.group_jid as string, input.description as string)
+            : Promise.resolve();
+        return Promise.all([subjectWork, descriptionWork]).then(() => ({ ok: true }));
+      });
+      return;
+    }
+    if (route === "/api/group/settings") {
+      if (typeof input.group_jid !== "string" || input.group_jid.length === 0) {
+        validationError(res, "group_jid is required");
+        return;
+      }
+      if (typeof input.setting !== "string") {
+        validationError(res, "setting is required");
+        return;
+      }
+      run(() =>
+        groupSettingUpdate(socket, input.group_jid as string, input.setting as GroupSetting).then(
+          () => ({ ok: true }),
+        ),
+      );
+      return;
+    }
+    if (route === "/api/group/leave") {
+      if (typeof input.group_jid !== "string" || input.group_jid.length === 0) {
+        validationError(res, "group_jid is required");
+        return;
+      }
+      run(() => leaveGroup(socket, input.group_jid as string).then(() => ({ ok: true })));
+      return;
+    }
+  };
+
   const serveProfile = (
     route: string,
     req: IncomingMessage,
@@ -1173,6 +1323,34 @@ export async function createHttpServer(
       }
       if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
         mediaRoute(req.method ?? "GET", path.slice("/api/media/".length), res);
+        return;
+      }
+      if (path.startsWith("/api/group/invite/")) {
+        const groupJid = decodeURIComponent(path.slice("/api/group/invite/".length));
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        void getGroupInviteCode(socket, groupJid)
+          .then((invite_code) => {
+            sendJson(res, 200, { invite_code: invite_code ?? null });
+          })
+          .catch(() => {
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "invite code failed" } });
+          });
+        return;
+      }
+      if (
+        path === "/api/group/create" ||
+        path === "/api/group/participants" ||
+        path === "/api/group/meta" ||
+        path === "/api/group/settings" ||
+        path === "/api/group/leave"
+      ) {
+        serveGroup(path, req, res, body);
         return;
       }
       if (
