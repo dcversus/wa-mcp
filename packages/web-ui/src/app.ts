@@ -2,7 +2,6 @@ import {
   contactsPageHtml,
   groupsPageHtml,
   navHtml,
-  pairingHtml,
   settingsHtml,
   statusDashboardHtml,
 } from "./pages.ts";
@@ -62,14 +61,9 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     dom.setApp("<p>not found</p>");
     return;
   }
-  if (match.route === "pairing" && needsToken(settings)) {
-    // Pairing must render in place: the token form sits inline above the qr
-    // area and the hash never moves (owner verdict: the redirect read as a
-    // broken page).
-    dom.setApp(pairingHtml(settings));
-    return;
-  }
-  if (match.route !== "settings" && needsToken(settings)) {
+  if (match.route !== "settings" && match.route !== "pairing" && needsToken(settings)) {
+    // pairing is the PUBLIC surface (ephemeral pairingToken, T53): it renders
+    // tokenless; every account route still redirects to settings
     dom.setHash("#/settings");
     dom.setApp(settingsHtml(settings));
     return;

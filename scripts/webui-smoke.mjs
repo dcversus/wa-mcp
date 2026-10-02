@@ -181,13 +181,20 @@ if (pairingApp.length === 0) {
   fail("#/pairing rendered an empty #app");
 }
 console.log(`#/pairing app innerHTML length: ${pairingApp.length}`);
-if (!pairingApp.includes('id="settings-form"') || !pairingApp.includes('id="token"'))
-  fail("#/pairing does not render the token form inline (T39)");
+if (pairingApp.includes('id="settings-form"') || pairingApp.includes('id="token"'))
+  fail("#/pairing still shows a token wall (T53: pairing must be tokenless)");
 if (!pairingApp.includes('id="pairing"')) fail("#/pairing is missing the pairing/qr container");
+if (!pairingApp.includes("pane-methods") && !pairingApp.includes("pane-connecting") && !pairingApp.includes("pane-blocked"))
+  fail("#/pairing does not render a pairing flow pane (T53)");
 const pairingHash = await evaluate(`location.hash`);
 if (!String(pairingHash).startsWith("#/pairing"))
   fail(`#/pairing redirected away to ${pairingHash} (T39 no-redirect contract)`);
-console.log(`#/pairing inline token form + no redirect: ok (hash=${pairingHash})`);
+console.log(`#/pairing flow renders tokenless + no redirect: ok (hash=${pairingHash})`);
+console.log(
+  `#/pairing DOM: ${pairingApp.slice(0, 260)}... | localStorage wa-mcp-settings=${await evaluate(
+    `localStorage.getItem("wa-mcp-settings")`,
+  )}`,
+);
 
 await goto(`${bridgeUrl}/#/settings`);
 const settingsApp = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);

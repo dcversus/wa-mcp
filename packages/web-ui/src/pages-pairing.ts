@@ -3,6 +3,7 @@ import { escapeHtml } from "./escape.ts";
 export type PairingPane = "methods" | "blocked" | "connecting" | "paired" | "error";
 
 export interface PairingHealth {
+  pairingToken?: string;
   status?: string;
   connected?: boolean;
   pairingBlocked?: boolean;

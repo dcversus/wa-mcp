@@ -24,6 +24,9 @@ import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events
 import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
+// the ephemeral pairing token (from the public /health) powers the pairing
+// surface until a real session token is stored in settings
+let pairingToken = "";
 let client: ApiClient = createClient();
 
 // ---- live pairing state (T51-A): poll /health + /api/qr while on #/pairing
@@ -39,6 +42,14 @@ let pairingView: PairingView = {
 
 async function refreshPairing(): Promise<void> {
   const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+  if (
+    settings.token.length === 0 &&
+    typeof health.pairingToken === "string" &&
+    health.pairingToken !== pairingToken
+  ) {
+    pairingToken = health.pairingToken;
+    client = createClient();
+  }
   const qr = await client
     .getQr()
     .catch(() => ({ qr: null as string | null, png: null as string | null }));
@@ -108,7 +119,7 @@ let replyToId: string | null = null;
 function createClient(): ApiClient {
   return createApiClient({
     baseUrl: settings.bridgeUrl,
-    token: settings.token,
+    token: settings.token.length > 0 ? settings.token : pairingToken,
     onUnauthorized: () => {
       location.hash = "#/settings";
     },

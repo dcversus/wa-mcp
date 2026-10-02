@@ -1559,10 +1559,8 @@ export async function createHttpServer(
     // the ephemeral pairing token authorizes ONLY the public pairing surface
     const PAIRING_PATHS = new Set(["/api/qr", "/api/pairing-code", "/api/pair/resume"]);
     const pairingAuthorized =
-      PAIRING_PATHS.has(path) &&
-      presented !== null &&
-      tokenMatches(presented, pairingToken);
-    if ((!pairingAuthorized && (presented === null || !tokenMatches(presented, opts.token)))) {
+      PAIRING_PATHS.has(path) && presented !== null && tokenMatches(presented, pairingToken);
+    if (!pairingAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
       });
