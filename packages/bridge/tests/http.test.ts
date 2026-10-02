@@ -2166,3 +2166,33 @@ describe("T54 revised: ephemeral UI token scope", () => {
     expect(res.status).not.toBe(401);
   });
 });
+
+test("send failures are LOGGED before the 500 (T56: silent failures forbidden)", async () => {
+  const errors: Array<unknown> = [];
+  const logger = { error: (obj: unknown) => errors.push(obj), warn: () => {}, info: () => {} };
+  const socket = makeFakeSocket();
+  (socket.sendMessage as ReturnType<typeof vi.fn>).mockRejectedValue(
+    new Error("NoMatchingSessions failed to send"),
+  );
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-sendlog-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-sendlog-media-")),
+    sendGuard: new SendGuard(store),
+    logger,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", text: "x" }),
+  });
+  const bodyText = await res.text();
+  console.log("501 body:", bodyText);
+  expect(res.status).toBe(500);
+  expect(errors.length).toBeGreaterThan(0);
+  const first = errors[0] as { err?: { message?: string } };
+  expect(first.err?.message).toContain("NoMatchingSessions");
+});
