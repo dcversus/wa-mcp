@@ -60,6 +60,7 @@ function stubHandle(
   lastQr: string | null = null,
   socket: WASocket = makeFakeSocket(),
   hasPairedAccount = false,
+  budget = { blocked: false, used: 0, limit: 3 },
 ): BridgeHandle {
   return {
     status,
@@ -68,6 +69,8 @@ function stubHandle(
     getLastQr: () => lastQr,
     socket,
     hasPairedAccount: () => hasPairedAccount,
+    pairingBudget: () => budget,
+    resumePairing: () => {},
   };
 }
 
@@ -176,7 +179,15 @@ test("health leaks no other data", async () => {
   const bridge = await startServer();
   const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
   expect(Object.keys(body).sort()).toEqual(
-    ["connected", "loggedIn", "status", "uptime", "version"].sort(),
+      [
+        "connected",
+        "loggedIn",
+        "pairingAttempts",
+        "pairingBlocked",
+        "status",
+        "uptime",
+        "version",
+      ].sort(),
   );
 });
 
@@ -1825,4 +1836,64 @@ test("POST /api/pairing-code returns the formatted code while pairing", async ()
   });
   expect(conflict.status).toBe(409);
   expect(((await conflict.json()) as { error: { code: string } }).error.code).toBe("PAIRING_STATE");
+});
+
+test("health exposes the pairing budget honestly (T46)", async () => {
+  const bridge = await createHttpServer(
+    stubHandle("pairing-blocked", null, undefined, false, {
+      blocked: true,
+      used: 3,
+      limit: 3,
+    }),
+    { token: "test-token" },
+  );
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.pairingBlocked).toBe(true);
+  expect(body.pairingAttempts).toEqual({ used: 3, limit: 3 });
+});
+
+test("GET /api/qr refuses with 429 PAIRING_BLOCKED when the budget is exhausted (T46)", async () => {
+  const bridge = await createHttpServer(
+    stubHandle("pairing-blocked", "STALE-QR", undefined, false, {
+      blocked: true,
+      used: 3,
+      limit: 3,
+    }),
+    { token: "test-token" },
+  );
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/qr"), {
+    headers: { authorization: "Bearer test-token" },
+  });
+  expect(res.status).toBe(429);
+  const body = (await res.json()) as { error: { code: string; message: string } };
+  expect(body.error.code).toBe("PAIRING_BLOCKED");
+  expect(body.error.message).toContain("cooldown");
+});
+
+test("POST /api/pair/resume resets the budget (authed, T46)", async () => {
+  let resumed = 0;
+  const handle = stubHandle("pairing-blocked", null, undefined, false, {
+    blocked: true,
+    used: 3,
+    limit: 3,
+  });
+  handle.resumePairing = () => {
+    resumed += 1;
+  };
+  const bridge = await createHttpServer(handle, { token: "test-token" });
+  created.push(bridge);
+  const unauthed = await fetch(url(bridge, "/api/pair/resume"), { method: "POST" });
+  expect(unauthed.status).toBe(401);
+  expect(resumed).toBe(0);
+  const res = await fetch(url(bridge, "/api/pair/resume"), {
+    method: "POST",
+    headers: { authorization: "Bearer test-token" },
+  });
+  expect(res.status).toBe(200);
+  expect(resumed).toBe(1);
+  const body = (await res.json()) as { resumed: boolean; pairingAttempts: unknown };
+  expect(body.resumed).toBe(true);
+  expect(body.pairingAttempts).toEqual({ used: 0, limit: 3 });
 });

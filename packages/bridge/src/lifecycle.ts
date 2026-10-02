@@ -6,7 +6,13 @@ import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
 
-export type BridgeStatus = "connecting" | "qr" | "connected" | "reconnecting" | "logged-out";
+export type BridgeStatus =
+  | "connecting"
+  | "qr"
+  | "connected"
+  | "reconnecting"
+  | "logged-out"
+  | "pairing-blocked";
 
 export type BridgeLogger = UserFacingSocketConfig["logger"];
 
@@ -16,6 +22,16 @@ export interface StartBridgeOptions {
   deviceName?: string;
   logger?: BridgeLogger;
   qrPngPath?: string;
+  /** consecutive registrations without a completed pairing before the daemon
+   * stops minting new ones (WhatsApp anti-abuse: every attempt resets the
+   * server-side cooldown, so endless retries deepen the lockout). */
+  pairingAttemptLimit?: number;
+}
+
+export interface PairingBudget {
+  blocked: boolean;
+  used: number;
+  limit: number;
 }
 
 export interface BridgeHandle {

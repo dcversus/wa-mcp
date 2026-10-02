@@ -163,3 +163,28 @@ test("timeout exits 1 with a hint", async () => {
     true,
   );
 });
+
+test("pair refuses with an explanation when the bridge is pairing-blocked (T46)", async () => {
+  const deps = makeDeps({
+    fetchFn: (async (url: string | URL) => {
+      void url;
+      return new Response(
+        JSON.stringify({
+          status: "pairing-blocked",
+          connected: false,
+          loggedIn: false,
+          pairingBlocked: true,
+          pairingAttempts: { used: 3, limit: 3 },
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch,
+  });
+  const exit = await runPair(deps);
+  expect(exit).toBe(1);
+  const explanation = deps.writes.join("\n");
+  expect(explanation).toContain("pairing attempts exhausted");
+  expect(explanation).toContain("anti-abuse");
+  expect(explanation).toContain("pair/resume");
+  expect(deps.fetchCalls.some((call) => call.url.endsWith("/api/qr"))).toBe(false);
+});
