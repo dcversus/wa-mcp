@@ -19,7 +19,7 @@ const REQUIRED: Array<{ key: string; label: string }> = [
   { key: "WA_CLOUD_ACCESS_TOKEN", label: "access token" },
   { key: "WA_CLOUD_PHONE_NUMBER_ID", label: "phone number ID" },
   { key: "WA_CLOUD_VERIFY_TOKEN", label: "webhook verify token" },
-  { key: "WA_CLOUD_APP_SECRET", label: "app secret (webhook signature)" },
+  { key: "WA_CLOUD_APP_SECRET", label: "app secret" },
 ];
 
 export function readCloudConfig(env: Record<string, string | undefined>): CloudConfigResult {
@@ -44,4 +44,28 @@ export function readCloudConfig(env: Record<string, string | undefined>): CloudC
     },
     errors: [],
   };
+}
+
+export type ChannelSelection =
+  | { channel: "baileys" }
+  | { channel: "cloud"; config: CloudChannelConfig }
+  | { channel: "cloud"; errors: string[] };
+
+/** WA_CHANNEL selects the channel surface (default baileys). When cloud is
+ * selected the WA_CLOUD_* vars must resolve — errors name each missing var. */
+export function resolveChannel(env: Record<string, string | undefined>): ChannelSelection {
+  const selected = env.WA_CHANNEL ?? "baileys";
+  if (selected !== "cloud") {
+    if (selected !== "baileys") {
+      return {
+        channel: "cloud",
+        errors: [`WA_CHANNEL must be 'baileys' or 'cloud' (got '${selected}')`],
+      };
+    }
+    return { channel: "baileys" };
+  }
+  const result = readCloudConfig(env);
+  return result.ok
+    ? { channel: "cloud", config: result.config! }
+    : { channel: "cloud", errors: result.errors };
 }

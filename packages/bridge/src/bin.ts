@@ -17,6 +17,7 @@ import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
 import { installShutdownHooks } from "./shutdown.ts";
+import { resolveChannel } from "./channels/cloud/config.ts";
 import { SendGuard } from "./send/safety.ts";
 import { openStore } from "./store/schema.ts";
 
@@ -110,6 +111,24 @@ export async function main(
     logger,
     qrPngPath,
   });
+  const selection = resolveChannel(env);
+  let cloud: Parameters<typeof createHttpServer>[1]["cloud"];
+  if (selection.channel === "cloud" && "errors" in selection) {
+    logger.error(
+      { errors: selection.errors },
+      "cloud channel configuration invalid — daemon not started",
+    );
+    process.exitCode = 1;
+    return;
+  }
+  if (selection.channel === "cloud") {
+    const { CloudApiAdapter } = await import("./channels/cloud/adapter.ts");
+    cloud = {
+      adapter: new CloudApiAdapter(selection.config),
+      config: selection.config,
+    };
+    logger.info({ phoneNumberId: selection.config.phoneNumberId }, "cloud channel surface enabled");
+  }
   const server = await createHttpServer(handle, {
     token,
     host: config.host,
@@ -120,6 +139,7 @@ export async function main(
     version: "0.9.0",
     sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
+    cloud,
   });
   logger.info(
     { host: config.host, port: server.port, dataDir: config.dataDir },
