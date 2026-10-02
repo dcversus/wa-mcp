@@ -11,3 +11,16 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - §1 ci-matrix — PASS — run 36909341285 all 8 jobs success (check, build, test × 3 os × 2 node)
 - §1 branch-protection — DEFERRED — GitHub Pro required, BLOCKED.md
 - §2 jid-utils — PASS — commits f94b928(RED)+88f1ac9, 14/14 tests
+- §5/§8 contacts+chat-state — PASS — T21 live probe (merge/name-keep, alias lookup, search, unread→0, archived) + 236/236
+- §5/§8 presence+read+alias endpoints/tools — PASS — T22 live probe (readMessages+presence recorded, contacts search, unread cleared) + 246/246
+- §9 SSE+notifications — PASS — T25 live SSE probe (200 event-stream, connected frame, data JSON, heartbeats, 401) + 284/284
+- §7 groups — PASS — T26 live probe (create/meta/participants/promote/invite/leave round-trip, invalid action 400) + 292/292
+- §16 web UI — PASS — T29 live probe (GET / 200 built bundle, assets served, traversal 401, API auth intact) + 322/322
+- §11 cli — PASS — T30 sandbox probe (8 platforms written+read-back, antigravity command+serverUrl, idempotent) + 337/337
+- §12 skills — PASS — T31 sandbox probe (skills install + frontmatter check) + 344/344
+- §17 resources+transcribe — PASS — T28 live probe (wa:// list+read via /mcp, tts audio_base64 round-trip, transcribe NOT_FOUND mapping) + 301/301
+- §13 accounting — PASS — T32 accounting:check 1,029 rows green; CI security job step green (36955241911)
+- §10 security CI — PASS — T27 run 36947830588 10/10 jobs (audit high+, gitleaks, no-publish guard)
+- §6 media download — PASS(unit) — T24 traversal 400 / unknown 404 / EMPTY→NOT_FOUND mapping; real-media joins live gate
+- §15 docs — PASS — T33 docs:build 1.85s, docs:coverage 30/30, 10 ADRs, CHANGELOG section
+- §19 pack — PASS — wa-mcp-0.9.0.tgz sha256 e6bd2a49b58c3b7a01a58300ba6398f5de4c57b60f09bffb9832d833e6a71687 (cli publish artifact, gitignored)

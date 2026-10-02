@@ -90,3 +90,10 @@ version) must change. No other task blocked.
 - `wa-mcp` verified FREE at claim time; placeholder `wa-mcp@0.0.1` (name+description+repo link, 2 files, no code) built and dry-run clean.
 - `npm publish` → blocked by account 2FA (one-time password required). Orchestrator cannot read OTP codes — owner asked via Telegram for: OTP relay, self-publish, or 2FA-disable-then-retry.
 - Real 0.9.0 publish remains deferred (contract rule 2). Placeholder only claims the name.
+
+## 2026-10-02 — Remaining live gates (post Phase E–H)
+
+- Pairing gate (Phase B): owner QR scan → connected → restart persistence. All unit surfaces green; announced, waiting.
+- 14-kind send matrix (Phase D): needs the paired session; Test group + own number only.
+- Real-media download + transcription (Phase F/H): engine downloadMediaMessage against live media; unit paths mocked.
+- npm name-claim 2FA (above): placeholder publish blocked on OTP relay / self-publish / 2FA decision.

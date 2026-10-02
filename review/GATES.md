@@ -69,3 +69,32 @@ deferred — see deviations.
 - MCP server package: zero-dep JSON-RPC (SDK rejected: 11-dep web stack), 10→15 tools, stdio + /mcp HTTP transports — T19/T20, 216→225/225, live conformance probes (initialize/tools-list/tools-call/store-round-trip; stdio child-process)
 - LIVE 14-kind send matrix: DEFERRED — requires pairing (owner gate, same as Phase B live gate).
 - Verdict: unit-complete + MCP surface live; live-gate tracked in BLOCKED.md.
+
+## Phase E — §5 read path continued (unit gate GREEN)
+
+- contacts/chat-state store layer (merge semantics, aliases, unread, flags) — T21, 236/236, live probe (merge/name-keep, alias lookup, search, unread→0, archived flag)
+- presence/read-receipt wrappers + /api/read|presence|chat-state|contacts|unread|alias endpoints + 5 MCP tools — T22, 246/246, live probe (readMessages+presence socket calls recorded, contacts search, unread cleared, mark_chat_read idempotent)
+- Verdict: unit-complete; chat-flag live round-trip probed by orchestrator.
+
+## Phase F — §9 events + notifications (unit gate GREEN)
+
+- SSE /events (forwarding, heartbeat, disconnect cleanup, fan-out) + notification rules (CRUD + router, migration v5) + 3 MCP tools — T25, 284/284, live SSE probe (200 event-stream, connected frame, data JSON, heartbeats, 401)
+- Verdict: unit-complete; OS notification delivery is the documented post-0.9 hook.
+
+## Phase G — §7 groups (unit gate GREEN)
+
+- group wrappers + /api/group/* endpoints + 5 MCP tools — T26, 292/292, live probe (create/meta/participants/promote/invite/leave round-trip, invalid action 400)
+- Verdict: unit-complete; throwaway-group live cycle lands at Phase G live gate.
+
+## Phase H — §11/§12/§16/§17 distribution + surfaces (unit gate GREEN)
+
+- web UI (router/state/api/pages pure modules, static serving, SPA shell) — T29, 322/322, live probe (GET / 200 built bundle, assets, traversal 401, API auth intact)
+- cli bin (install/doctor/status/start/stop) — T30, 337/337, sandbox probe (8 platforms written+read-back, antigravity command+serverUrl, idempotent re-install)
+- skills + plugins (SKILL.md + references + installer) — T31, 344/344, sandbox probe (skills install + frontmatter)
+- MCP transport/tools — T20 (225/225) + T28 (301/301) live probes; docs (ADRs + vitepress + coverage 30/30) — T33; accounting (1,029 dispositions, CI green) — T32; security CI job — T27 (run 36947830588, 10/10)
+- Verdict: unit-complete; fresh-container `npx wa-mcp install` probe is the remaining §11 live gate.
+
+## Phase I/J prep — version 0.9.0 + pack + records (this entry)
+
+- All 6 packages at 0.9.0; SERVER_INFO 0.9.0; check/test/build green post-bump.
+- Packed: wa-mcp-0.9.0.tgz (cli publish artifact), sha256 recorded in VERIFY.md, tarball gitignored.
