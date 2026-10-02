@@ -265,10 +265,16 @@ importers:
       '@wa-mcp/shared':
         specifier: workspace:*
         version: link:../shared
+      qrcode:
+        specifier: ^1.5.4
+        version: 1.5.4
     devDependencies:
       '@types/node':
         specifier: ^24
         version: 24.19.0
+      '@types/qrcode':
+        specifier: ^1.5.6
+        version: 1.5.6
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

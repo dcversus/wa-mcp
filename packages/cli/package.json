@@ -21,10 +21,12 @@
   "dependencies": {
     "@wa-mcp/bridge": "workspace:*",
     "@wa-mcp/mcp-server": "workspace:*",
-    "@wa-mcp/shared": "workspace:*"
+    "@wa-mcp/shared": "workspace:*",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^24",
+    "@types/qrcode": "^1.5.6",
     "typescript": "^7.0.2",
     "vite-plus": "^1.0.0"
   },

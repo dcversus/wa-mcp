@@ -24,7 +24,7 @@ const MCP_BIN = join(packageDir("@wa-mcp/mcp-server"), "dist", "bin.mjs");
 const BRIDGE_WEB = join(packageDir("@wa-mcp/bridge"), "dist", "web");
 const SKILLS_SOURCE = join(packageDir("@wa-mcp/cli"), "skills", "wa-mcp");
 
-async function main(argv: string[]): Promise<void> {
+export async function main(argv: string[]): Promise<void> {
   const { command, flags, positionals } = parseArgs(argv);
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
@@ -157,7 +157,7 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|doctor|status|start|stop|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...]`,
+    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...]`,
   );
 }
 

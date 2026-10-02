@@ -7,6 +7,7 @@ export interface PairDeps {
   fetchFn?: typeof fetch;
   print: (line: string) => void;
   sleep?: (ms: number) => Promise<void>;
+  renderQr?: (text: string) => Promise<string>;
 }
 
 const DEFAULT_TIMEOUT_MS = 180_000;
@@ -54,7 +55,15 @@ export async function runPair(deps: PairDeps): Promise<0 | 1> {
   const qr = await bridgeJson(deps, "/api/qr");
   const qrValue = typeof qr.qr === "string" ? qr.qr : null;
   if (qrValue !== null) {
-    deps.print(`scan this QR with your phone (WhatsApp → Linked devices): ${qrValue}`);
+    const renderQr =
+      deps.renderQr ??
+      (async (text: string) => {
+        const { default: QRCode } = await import("qrcode");
+        return QRCode.toString(text, { type: "terminal", small: true });
+      });
+    deps.print("scan this QR with your phone (WhatsApp → Linked devices):");
+    deps.print(await renderQr(qrValue));
+    deps.print(`or paste this link on your phone to link without scanning: ${qrValue}`);
   }
 
   while (Date.now() < deadline) {
