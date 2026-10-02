@@ -3,7 +3,7 @@ import type { AnyMessageContent, proto } from "@whiskeysockets/baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
 import {
@@ -81,6 +81,7 @@ export interface HttpServerOptions {
   mediaDir?: string;
   fetchFn?: typeof fetch;
   eventsHeartbeatMs?: number;
+  uiDir?: string;
 }
 
 const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker"]);
@@ -102,6 +103,10 @@ const API_PATHS = new Set([
   "/events",
   "/mcp",
 ]);
+
+function sepChar(): string {
+  return process.platform === "win32" ? "\\" : "/";
+}
 
 interface TokenBucket {
   tokens: number;
@@ -1377,6 +1382,43 @@ export async function createHttpServer(
       });
   };
 
+  const serveStatic = (path: string, res: ServerResponse): void => {
+    const uiDir = opts.uiDir;
+    if (uiDir === undefined) {
+      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "web ui not configured" } });
+      return;
+    }
+    const relative = path === "/" ? "index.html" : path.slice(1);
+    if (relative.includes("..") || relative.includes("\\")) {
+      sendJson(res, 400, {
+        error: { code: "PATH_FORBIDDEN", message: "path escapes the ui directory" },
+      });
+      return;
+    }
+    const candidate = join(uiDir, relative);
+    if (!resolve(candidate).startsWith(resolve(uiDir) + sepChar())) {
+      sendJson(res, 400, {
+        error: { code: "PATH_FORBIDDEN", message: "path escapes the ui directory" },
+      });
+      return;
+    }
+    readFile(candidate)
+      .then((bytes) => {
+        const mime = candidate.endsWith(".html")
+          ? "text/html"
+          : candidate.endsWith(".js")
+            ? "text/javascript"
+            : candidate.endsWith(".css")
+              ? "text/css"
+              : "application/octet-stream";
+        res.writeHead(200, { "content-type": mime });
+        res.end(bytes);
+      })
+      .catch(() => {
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "file not found" } });
+      });
+  };
+
   const server: Server = createServer((req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, Date.now());
@@ -1400,6 +1442,10 @@ export async function createHttpServer(
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
       });
+      return;
+    }
+    if (req.method === "GET" && (path === "/" || path.startsWith("/assets/"))) {
+      serveStatic(path, res);
       return;
     }
     const presented = presentedBearer(req);

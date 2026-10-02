@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { mkdtempSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
@@ -1725,10 +1725,15 @@ test("GET / serves the web ui shell unauthed; assets are confined", async () => 
   expect(missing.status).toBe(404);
   const apiStillJson = await fetch(url(bridge, "/api/nope"), { headers: authHeader });
   expect(((await apiStillJson.json()) as { error: { code: string } }).error.code).toBe("NOT_FOUND");
-  const noUi = await fetch(url(await (async () => {
-    const b = await createHttpServer(stubHandle(), { token: "test-token", store });
-    created.push(b);
-    return b;
-  })(), "/"));
+  const noUi = await fetch(
+    url(
+      await (async () => {
+        const b = await createHttpServer(stubHandle(), { token: "test-token", store });
+        created.push(b);
+        return b;
+      })(),
+      "/",
+    ),
+  );
   expect(noUi.status).toBe(404);
 });
