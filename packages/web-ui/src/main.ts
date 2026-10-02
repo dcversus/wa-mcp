@@ -1,3 +1,4 @@
+import "./styles.css";
 import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
 import {
