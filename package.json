@@ -9,12 +9,16 @@
     "build": "vp run -r build",
     "ready": "vp check && vp test && vp build",
     "accounting:gen": "node --experimental-strip-types scripts/gen-accounting.ts",
-    "accounting:check": "node --experimental-strip-types review/accounting-check.ts"
+    "accounting:check": "node --experimental-strip-types review/accounting-check.ts",
+    "docs:build": "vitepress build docs",
+    "docs:gen": "node --experimental-strip-types scripts/gen-docs.ts",
+    "docs:coverage": "node --experimental-strip-types scripts/doc-coverage.ts"
   },
   "devDependencies": {
     "@types/node": "^24",
     "typescript": "^7.0.2",
-    "vite-plus": "^1.0.0"
+    "vite-plus": "^1.0.0",
+    "vitepress": "^1.6.4"
   },
   "engines": {
     "node": ">=20"
