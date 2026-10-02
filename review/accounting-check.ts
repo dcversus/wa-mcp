@@ -26,7 +26,7 @@ for (const row of dataRows) {
   if (cells.length !== 7) {
     fail(`row has ${cells.length} cells (expected 7): ${row.slice(0, 80)}`);
   }
-  const disposition = cells[5];
+  const disposition = cells[5] ?? "";
   if (!DISPOSITIONS.has(disposition)) {
     fail(`invalid disposition '${disposition}' in: ${row.slice(0, 80)}`);
   }

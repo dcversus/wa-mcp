@@ -19,13 +19,16 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
   const fetchFn = opts.fetchFn ?? fetch;
   const call = async (path: string, init?: RequestInit & { json?: unknown }): Promise<Response> => {
     const { json, ...rest } = init ?? {};
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      authorization: `Bearer ${opts.token}`,
+    };
+    if (rest.headers !== undefined) {
+      Object.assign(headers, rest.headers);
+    }
     const response = await fetchFn(`${opts.baseUrl}${path}`, {
       method: json !== undefined ? "POST" : "GET",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${opts.token}`,
-        ...(rest.headers ?? {}),
-      },
+      headers,
       ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
     });
     if (response.status === 401) {

@@ -21,12 +21,12 @@ interface Item {
 
 function parseCensus(text: string): Item[] {
   const items: Item[] = [];
-  let repo = "";
+  let repo: string | undefined;
   for (const lineRaw of text.split("\n")) {
     const line = lineRaw.trim();
     const repoMatch = line.match(/^## (\S+)\/\S+/);
     if (repoMatch) {
-      repo = repoMatch[1];
+      repo = repoMatch[1] ?? "";
       continue;
     }
     const itemMatch = line.match(/^- \[ \] (I#|PR#)(\d+) \[(OPEN|CLOSED|MERGED)\] (.+)$/);
@@ -36,11 +36,11 @@ function parseCensus(text: string): Item[] {
     const item = line.match(/^- \[ \] ((?:I|PR)#\d+) \[(OPEN|CLOSED|MERGED)\] (.+)$/);
     if (item && repo !== "") {
       items.push({
-        repo,
-        id: item[1],
-        kind: item[1].startsWith("I#") ? "issue" : "pr",
-        state: item[2],
-        title: item[3],
+        repo: repo ?? "",
+        id: item[1] ?? "",
+        kind: (item[1] ?? "").startsWith("I#") ? "issue" : "pr",
+        state: item[2] ?? "",
+        title: item[3] ?? "",
       });
     }
   }
@@ -286,8 +286,6 @@ function dispositionFor(item: Item): { disposition: Disposition; note: string } 
   };
 }
 
-const repoHeader: Record<string, string> = {};
-
 function main(): void {
   const censusPath = join(process.cwd(), "review", "BACKLOG-FULL.md");
   const census = readFileSync(censusPath, "utf8");
@@ -318,7 +316,7 @@ function main(): void {
     "",
     "| disposition | count |",
     "|---|---|",
-    ...DISPOSITIONS.map((d) => `| ${d} | ${counts.get(d) ?? 0} |`),
+    ...[...DISPOSITIONS].map((d) => `| ${d} | ${counts.get(d) ?? 0} |`),
     `| **total** | **${items.length}** |`,
     "",
     "## Rows",
