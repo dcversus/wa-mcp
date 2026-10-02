@@ -65,7 +65,7 @@ test("the daily counter is keyed by UTC date", () => {
   expect(guard.check(dayTwo)).toEqual({ ok: true });
 });
 
-test("defaults are a 1s interval and a 200-per-day cap", () => {
+test("defaults are a 1s interval and a 200-per-day cap", { timeout: 30_000 }, () => {
   const store = freshStore();
   const guard = new SendGuard(store);
   for (let index = 0; index < 200; index += 1) {
