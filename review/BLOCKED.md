@@ -135,3 +135,8 @@ then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'
 - 'Can't link new devices right now' on both accounts; cooldown resets on every attempt; daemon's QR-pool recovery was re-registering every ~170s keeping it alive
 - ACTION TAKEN: daemon + CLI pair STOPPED (16:0x EEST); T46 budget landed so it cannot recur
 - PLAN: full quiet window ≥6h (target ~22:00 EEST), then ONE attempt via single daemon; if rejected again → accounts may be in the passkey/SHORTCAKE cohort (server-side gate, phased since ~2026-06-30; zeroclaw #8627 documents baileys/whatsmeow/whatsapp-rust all hit) → wait for engine forks to support it
+
+## 2026-10-02 22:55 — pairing budget exhausted again; token-wall UI fix in flight
+- Budget hit 3/3 at ~22:50 while owner was reading the token instructions — the QR pool burned registrations before any scan (the token-gated pairing page wasted the scan window). PAIRING_BLOCKED state active; daemon holding, no further registrations.
+- T53 dispatched: pairing page renders QR by default, zero console steps; /api/qr + /api/pairing-code + /api/pair/resume unauthenticated on loopback (token gates account data, not the public pairing surface — same trust model as web.whatsapp.com).
+- NEXT WINDOW: cron job 8daaf563422c fires 2026-10-03 09:00 EEST — asks owner, resumes ONE registration only on his explicit go. WhatsApp linking options (engine+research truth): QR scan, phone-number pairing code — no other consumer options exist.
