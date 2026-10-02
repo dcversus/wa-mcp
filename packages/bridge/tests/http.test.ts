@@ -29,7 +29,7 @@ function makeFakeSocket(): WASocket {
   }));
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
-  const requestPairingCode = vi.fn(async (phone: string) => "ABCD1234");
+  const requestPairingCode = vi.fn(async () => "ABCD1234");
   const updateProfileName = vi.fn(async () => {});
   const updateProfileStatus = vi.fn(async () => {});
   const updateProfilePicture = vi.fn(async () => {});
