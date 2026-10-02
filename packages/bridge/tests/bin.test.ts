@@ -32,7 +32,7 @@ test("buildConfig reads every override from env", () => {
   expect(config.deviceName).toBe("dc-bridge");
   expect(config.syncFullHistory).toBe(true);
   expect(config.token).toBe("env-secret");
-  expect(config.tokenPath).toBe("/tmp/wa-data/token");
+  expect(config.tokenPath).toBe(join("/tmp/wa-data", "token"));
 });
 
 test("buildConfig accepts true and rejects other values for WA_SYNC_FULL_HISTORY", () => {
