@@ -57,6 +57,11 @@ test("the registry exposes the full launch set", () => {
     "list_notification_rules",
     "add_notification_rule",
     "delete_notification_rule",
+    "create_group",
+    "update_group_participants",
+    "update_group_meta",
+    "leave_group",
+    "get_group_invite",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
@@ -305,4 +310,38 @@ test("notification rule tools hit their endpoints", async () => {
     chat_jid: "g@g.us",
     unread_only: true,
   });
+});
+
+
+test("group tools drive their endpoints", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/group/create": { group: { id: "G1@g.us" } },
+    "/api/group/participants": { results: [] },
+    "/api/group/meta": { ok: true },
+    "/api/group/leave": { ok: true },
+    "/api/group/invite/g%40us": { invite_code: "CODE9" },
+  });
+  const toolCtx = { ...ctx, fetchFn };
+  const create = toolByName("create_group");
+  if (!create) throw new Error("create_group missing");
+  await create.handler(toolCtx, { subject: "Test Group", participants: ["358401111111@s.whatsapp.net"] });
+  const participants = toolByName("update_group_participants");
+  if (!participants) throw new Error("update_group_participants missing");
+  await participants.handler(toolCtx, { group_jid: "g@g.us", jids: ["x"], action: "promote" });
+  const meta = toolByName("update_group_meta");
+  if (!meta) throw new Error("update_group_meta missing");
+  await meta.handler(toolCtx, { group_jid: "g@g.us", subject: "S", description: "D" });
+  const leave = toolByName("leave_group");
+  if (!leave) throw new Error("leave_group missing");
+  await leave.handler(toolCtx, { group_jid: "g@g.us" });
+  const invite = toolByName("get_group_invite");
+  if (!invite) throw new Error("get_group_invite missing");
+  const inviteResult = await invite.handler(toolCtx, { group_jid: "g@us" });
+  const bodies = calls.map((call) => (call.body === undefined ? null : JSON.parse(call.body)));
+  expect(bodies[0]).toEqual({ subject: "Test Group", participants: ["358401111111@s.whatsapp.net"] });
+  expect(bodies[1]).toEqual({ group_jid: "g@g.us", jids: ["x"], action: "promote" });
+  expect(bodies[2]).toEqual({ group_jid: "g@g.us", subject: "S", description: "D" });
+  expect(bodies[3]).toEqual({ group_jid: "g@g.us" });
+  expect(calls[4]?.url).toBe("http://bridge.test:8080/api/group/invite/g%40us");
+  expect(inviteResult.content[0]?.text).toContain("CODE9");
 });

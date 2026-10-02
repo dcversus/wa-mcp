@@ -76,6 +76,11 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "list_notification_rules",
     "add_notification_rule",
     "delete_notification_rule",
+    "create_group",
+    "update_group_participants",
+    "update_group_meta",
+    "leave_group",
+    "get_group_invite",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
