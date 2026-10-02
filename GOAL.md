@@ -31,7 +31,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 ## 2. Bridge (`packages/bridge`) — Baileys daemon
 
 - [ ] QR pairing: `get_login_qr`/`get_qr_code` endpoint + every rotation rendered (VGP #243/#213; biliboss/delltrak), ASCII→stderr + PNG file (VGP #242), phone pairing code `WA_PAIRING_NUMBER` / `get_pairing_code` (kahflane wa_get_pairing_code; lharries PR#248/#254/#365; VGP), companion refresh (VGP #244) — verify: `pair` shows ≥2 QR rotations, PNG opens; pair-by-code completes without QR — PENDING: live (pairing); endpoints+rotation+budget unit/CLI verified (T39/T46/T48); scan completion pending
-- [ ] Session persistence `~/.wa-mcp/auth/` 0700 — verify: restart daemon → no QR — PENDING: live (pairing); auth 0700 shipped (T9); restart-no-QR needs a paired session
+- [x] Session persistence `~/.wa-mcp/auth/` 0700 — verify: restart daemon → no QR — VERIFY: live 2026-10-03 — daemon restart with persisted creds took the login branch, zero re-registrations, connected (VERIFY.md live-smoke section)
 - [ ] Reconnect: backoff, auto-reconnect unless logged-out — verify: `kill -9` → service restarts → `/health` `connected:true` ≤60s — PENDING: live (pairing); backoff+515-immediate unit-verified (T45A); connected:true needs pairing
 - [x] Single-instance lock (VGP #158) — verify: 2nd daemon start → exit 1 "session held" — VERIFY: T10 lock tests ('session held')
 - [x] Event bus, all Baileys events typed: `messages.upsert/update`, `message-receipt.update`, `presence.update`, `chats.update/upsert`, `contacts.upsert`, `groups.update`, `groups-participants.update`, `call`, `connection.update`, `creds.update`, `group-participants.request` — verify: synthetic event → typed subscriber (unit) — VERIFY: T6/T10 events tests
