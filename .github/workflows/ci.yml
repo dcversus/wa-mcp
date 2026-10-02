@@ -64,7 +64,7 @@ jobs:
         run: |
           ! grep -rEn "npm[ ]publish|pnpm[ ]publish|npmjs[.]org" --include="*.ts" --include="*.mjs" --include="*.yml" packages scripts .github/workflows
       - name: accounting census check
-        run: vp run accounting:check
+        run: pnpm run accounting:check
 
   test:
     needs: build

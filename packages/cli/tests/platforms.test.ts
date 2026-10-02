@@ -1,5 +1,8 @@
 import { expect, test } from "vite-plus/test";
+import { join } from "node:path";
 import { PLATFORMS, resolveConfigPath } from "../src/platforms.ts";
+
+const HOME = "/home/test";
 
 test("all eight platforms are known", () => {
   expect([...PLATFORMS].sort()).toEqual(
@@ -17,18 +20,17 @@ test("all eight platforms are known", () => {
 });
 
 test("paths resolve under the provided home", () => {
-  const home = "/home/test";
-  expect(resolveConfigPath("claude-code", home)).toBe("/home/test/.claude.json");
-  expect(resolveConfigPath("claude-desktop", home)).toBe(
-    "/home/test/Library/Application Support/Claude/claude_desktop_config.json",
+  expect(resolveConfigPath("claude-code", HOME)).toBe(join(HOME, ".claude.json"));
+  expect(resolveConfigPath("claude-desktop", HOME)).toBe(
+    join(HOME, "Library", "Application Support", "Claude", "claude_desktop_config.json"),
   );
-  expect(resolveConfigPath("cursor", home)).toBe("/home/test/.cursor/mcp.json");
-  expect(resolveConfigPath("codex", home)).toBe("/home/test/.codex/config.toml");
-  expect(resolveConfigPath("pi", home)).toBe("/home/test/.pi/mcp/wa-mcp.json");
-  expect(resolveConfigPath("hermes", home)).toBe("/home/test/.hermes/config.yaml");
-  expect(resolveConfigPath("grok", home)).toBe("/home/test/.grok/mcp.json");
-  expect(resolveConfigPath("antigravity", home)).toBe(
-    "/home/test/.gemini/antigravity/mcp_config.json",
+  expect(resolveConfigPath("cursor", HOME)).toBe(join(HOME, ".cursor", "mcp.json"));
+  expect(resolveConfigPath("codex", HOME)).toBe(join(HOME, ".codex", "config.toml"));
+  expect(resolveConfigPath("pi", HOME)).toBe(join(HOME, ".pi", "mcp", "wa-mcp.json"));
+  expect(resolveConfigPath("hermes", HOME)).toBe(join(HOME, ".hermes", "config.yaml"));
+  expect(resolveConfigPath("grok", HOME)).toBe(join(HOME, ".grok", "mcp.json"));
+  expect(resolveConfigPath("antigravity", HOME)).toBe(
+    join(HOME, ".gemini", "antigravity", "mcp_config.json"),
   );
 });
 
