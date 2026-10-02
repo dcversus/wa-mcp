@@ -1441,7 +1441,9 @@ export async function createHttpServer(
       sendJson(res, 200, {
         status: handle.status,
         connected: handle.status === "connected",
-        loggedIn: handle.status === "connected" || handle.status === "reconnecting",
+        loggedIn:
+          handle.status === "connected" ||
+          (handle.status === "reconnecting" && handle.hasPairedAccount()),
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
       });

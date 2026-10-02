@@ -60,7 +60,9 @@ async function started() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuthState.mockResolvedValue({
-    state: {} as unknown as AuthenticationState,
+    // creds object mirrors the real AuthenticationState shape; tests that
+    // simulate a completed pairing set creds.account on it
+    state: { creds: {} } as unknown as AuthenticationState,
     saveCreds: async () => {},
   });
 });
@@ -366,9 +368,7 @@ test("qr pool exhaustion reconnects and reissues a qr", async () => {
 });
 
 test("hasPairedAccount is false before any completed pairing (T44)", async () => {
-  const { latest, handle } = await trackedStart("/tmp/wa-mcp-test-auth", {
-    logger: pino({ level: "silent" }),
-  });
+  const { latest, handle } = await startArranged();
   expect(handle.hasPairedAccount()).toBe(false);
   latest().emit("connection.update", closeEvent(428));
   expect(handle.status).toBe("reconnecting");

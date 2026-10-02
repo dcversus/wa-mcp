@@ -65,3 +65,4 @@ no checkbox is claimed without evidence.
 - §15 docs — PASS — 11 ADRs now (0001–0010 + 0011 engine fork); VitePress build green; docs:coverage 30/30; CHANGELOG updated with onboarding round.
 - §16 web UI on a paired session — PENDING live — all routes render (T39 CDP); chat history against a live store needs pairing.
 - §18 Cloud API dual channel — NOT BUILT 0.9 — Phase-K decision pending orchestrator; ACCOUNTING rows.
+- T44 health loggedIn truth — PASS — /health loggedIn is now `connected` OR (`reconnecting` AND handle.hasPairedAccount()); signal = creds.account, set only by configureSuccessfulPairing, never by requestPairingCode (pollution-safe — creds.me was the monitoring trap); QR-pool flapping with empty auth/ now reports loggedIn=false; RED 801333e (2 failed: reconnecting-without-account lied true; getter missing) → GREEN; pair/doctor gate on connected/reachability (display-only loggedIn, no behavior change)

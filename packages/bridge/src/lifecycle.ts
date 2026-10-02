@@ -23,6 +23,10 @@ export interface BridgeHandle {
   readonly events: EventBus;
   readonly socket: WASocket;
   getLastQr(): string | null;
+  /** true only once a real pair-success configured the account (creds.account set by
+   * configureSuccessfulPairing — never by requestPairingCode, so pairing-code
+   * attempts cannot fake it). */
+  hasPairedAccount(): boolean;
   close(): Promise<void>;
 }
 
@@ -116,6 +120,7 @@ export async function startBridge(
       return socket;
     },
     getLastQr: () => lastQr,
+    hasPairedAccount: () => state.creds.account !== undefined,
     close: async () => {
       if (reconnectTimer !== null) {
         clearTimeout(reconnectTimer);
