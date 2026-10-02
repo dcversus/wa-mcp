@@ -73,7 +73,7 @@ export async function main(argv: string[]): Promise<void> {
         print: console.log,
       });
       if (exit !== 0) {
-        process.exitCode = 1;
+        process.exitCode = exit;
       }
     } catch (err) {
       console.error(`pair failed: ${err instanceof Error ? err.message : String(err)}`);

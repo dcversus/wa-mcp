@@ -62,7 +62,9 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
       ? `reachable at ${options.bridgeUrl}`
       : `returned ${response.status}`;
   } catch (err) {
-    healthDetail = `unreachable: ${err instanceof Error ? err.message : String(err)}`;
+    healthDetail = `unreachable at ${options.bridgeUrl} — is the daemon running? (${
+      err instanceof Error ? err.message : String(err)
+    })`;
   }
   checks.push({ name: "bridge health", ok: healthOk, detail: healthDetail });
   return { ok: checks.every((check) => check.ok), checks };

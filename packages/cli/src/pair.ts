@@ -26,14 +26,22 @@ async function bridgeJson(
   return (await response.json()) as Record<string, unknown>;
 }
 
-export async function runPair(deps: PairDeps): Promise<0 | 1> {
+export async function runPair(deps: PairDeps): Promise<0 | 1 | 2> {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = deps.pollIntervalMs ?? DEFAULT_POLL_MS;
   const sleep =
     deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const deadline = Date.now() + timeoutMs;
 
-  const health = await bridgeJson(deps, "/health");
+  let health: Record<string, unknown>;
+  try {
+    health = await bridgeJson(deps, "/health");
+  } catch {
+    deps.print(
+      `bridge unreachable at ${deps.baseUrl} — is the daemon running? start it with: wa-mcp start (or node packages/bridge/dist/bin.mjs)`,
+    );
+    return 2;
+  }
   if (health.connected === true) {
     deps.print("already paired");
     return 0;
