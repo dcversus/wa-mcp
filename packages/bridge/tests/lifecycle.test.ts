@@ -15,6 +15,15 @@ import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "bail
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
 import { startBridge } from "../src/lifecycle.ts";
 
+// handles started per test; afterEach closes them so no real reconnect
+// timer outlives its test and fires inside a later one
+const LIVE_HANDLES: Array<{ close(): Promise<void> }> = [];
+async function trackedStart(...args: Parameters<typeof startBridge>) {
+  const handle = await startBridge(...args);
+  LIVE_HANDLES.push(handle);
+  return handle;
+}
+
 const mockMakeWASocket = vi.mocked(makeWASocket);
 const mockAuthState = vi.mocked(useMultiFileAuthState);
 
@@ -44,7 +53,7 @@ function boomLike(statusCode: number): Error {
 async function started() {
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  const handle = await startBridge("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
   return { sock, handle };
 }
 
@@ -58,6 +67,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  // every started handle leaks a real reconnect timer until closed; a timer
+  // firing mid-test (coverage slows the suite enough to expose it) flips
+  // status to "reconnecting" in later tests
+  for (const handle of LIVE_HANDLES.splice(0)) {
+    try {
+      void handle.close();
+    } catch {
+      // already-closed handles are fine; the timer is what matters
+    }
+  }
 });
 
 function multiSocketArrangement() {
@@ -79,7 +98,7 @@ function multiSocketArrangement() {
 
 async function startArranged() {
   const arrangement = multiSocketArrangement();
-  const handle = await startBridge("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", { logger: pino({ level: "silent" }) });
   return { ...arrangement, handle };
 }
 
@@ -154,7 +173,7 @@ test("WA_DEVICE_NAME overrides the browser device name", async () => {
   try {
     const sock = fakeSocket();
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-    await startBridge("/tmp/wa-mcp-test-auth", {});
+    await trackedStart("/tmp/wa-mcp-test-auth", {});
     const call = mockMakeWASocket.mock.calls[0];
     if (!call) throw new Error("makeWASocket was not called");
     expect((call[0] as UserFacingSocketConfig).browser).toEqual(["dc-bridge", "chrome", "0.9.0"]);
@@ -168,7 +187,7 @@ test("opts.deviceName beats WA_DEVICE_NAME", async () => {
   try {
     const sock = fakeSocket();
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-    await startBridge("/tmp/wa-mcp-test-auth", { deviceName: "explicit-name" });
+    await trackedStart("/tmp/wa-mcp-test-auth", { deviceName: "explicit-name" });
     const call = mockMakeWASocket.mock.calls[0];
     if (!call) throw new Error("makeWASocket was not called");
     expect((call[0] as UserFacingSocketConfig).browser).toEqual([
@@ -185,7 +204,7 @@ test("startBridge builds auth state from the store dir and sockets with fixed op
   const logger = pino({ level: "silent" });
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  await startBridge("/tmp/wa-mcp-test-auth", { logger });
+  await trackedStart("/tmp/wa-mcp-test-auth", { logger });
   expect(mockAuthState).toHaveBeenCalledWith("/tmp/wa-mcp-test-auth");
   const call = mockMakeWASocket.mock.calls[0];
   if (!call) throw new Error("makeWASocket was not called");
@@ -201,7 +220,7 @@ test("startBridge builds auth state from the store dir and sockets with fixed op
 test("syncFullHistory passes through from opts", async () => {
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  await startBridge("/tmp/wa-mcp-test-auth", { syncFullHistory: true });
+  await trackedStart("/tmp/wa-mcp-test-auth", { syncFullHistory: true });
   const call = mockMakeWASocket.mock.calls[0];
   if (!call) throw new Error("makeWASocket was not called");
   expect((call[0] as UserFacingSocketConfig).syncFullHistory).toBe(true);
@@ -210,7 +229,7 @@ test("syncFullHistory passes through from opts", async () => {
 test("browser descriptor passes through from opts", async () => {
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  await startBridge("/tmp/wa-mcp-test-auth", { browser: ["wa-mcp", "desktop", "1.2.3"] });
+  await trackedStart("/tmp/wa-mcp-test-auth", { browser: ["wa-mcp", "desktop", "1.2.3"] });
   const call = mockMakeWASocket.mock.calls[0];
   if (!call) throw new Error("makeWASocket was not called");
   expect((call[0] as UserFacingSocketConfig).browser).toEqual(["wa-mcp", "desktop", "1.2.3"]);
@@ -293,7 +312,7 @@ test("credentials updates persist through saveCreds", async () => {
   mockAuthState.mockResolvedValue({ state: {} as unknown as AuthenticationState, saveCreds });
   const sock = fakeSocket();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-  await startBridge("/tmp/wa-mcp-test-auth", {});
+  await trackedStart("/tmp/wa-mcp-test-auth", {});
   sock.emit("creds.update", { noiseKey: "rotated" });
   expect(saveCreds).toHaveBeenCalled();
 });
@@ -310,7 +329,7 @@ test("qr events render stderr, persist png, and expose getLastQr", async () => {
   try {
     const sock = fakeSocket();
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
-    const handle = await startBridge("/tmp/wa-mcp-test-auth", { qrPngPath: pngPath });
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { qrPngPath: pngPath });
     sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-rotation-1" });
     expect(handle.status).toBe("qr");
     expect(handle.getLastQr()).toBe("QRDATA-rotation-1");

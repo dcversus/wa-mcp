@@ -90,6 +90,12 @@ jobs:
           pnpm --filter @wa-mcp/shared build
           pnpm --filter @wa-mcp/mcp-server build
           pnpm exec vp test
+      - name: coverage thresholds (bridge 80, mcp-server 80, shared 90 lines)
+        if: matrix.node == 22
+        run: |
+          pnpm --filter @wa-mcp/shared exec vp test --coverage
+          pnpm --filter @wa-mcp/bridge exec vp test --coverage
+          pnpm --filter @wa-mcp/mcp-server exec vp test --coverage
       - uses: actions/setup-node@v4
         if: matrix.node == 20
         with:

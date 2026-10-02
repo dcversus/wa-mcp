@@ -35,3 +35,4 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - Fresh sandbox: npm install tgz → 0 vulnerabilities → bin runs with pair in usage
 - sha256: 325a60d738b796cd0a99b51f804ac1dc16058b85e8441338263ec9c6e9941e02
 - Reproducible via scripts/pack-release.sh
+- T41 coverage gates — PASS — @vitest/coverage-v8@5.0.1 + root vite alias (npm:@voidzero-dev/vite-plus-core@1.0.0, fixes vitest peer pairing with vitepress's vite 5 lacking ./module-runner); thresholds in vite.config.ts: bridge lines 80 (actual 82.89), mcp-server 80 (88.36), shared 90 (97.77); engine proven to bite: 'Coverage for lines (97.77%) does not meet global threshold (99%)' → exit 1; CI test job runs the three `pnpm --filter <pkg> exec vp test --coverage` gates (local-verified, CI confirmation pending billing fix); lifecycle.test.ts made hermetic (afterEach closes handles — leaked real reconnect timers fired mid-test under coverage slowdown, 1 failed | 260 passed → 3×261 green)

@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
+import config from "../vite.config.ts";
 
 test("coverage gate: shared enforces the 90% line threshold", () => {
-  const config = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
-  const parsed = JSON.parse(config.slice(config.indexOf("{"), config.lastIndexOf("}") + 1)) as never;
-  expect(parsed).toMatchObject({ test: { coverage: { thresholds: { lines: 90 } } } });
+  expect(config).toMatchObject({
+    test: { coverage: { thresholds: { lines: 90 } } },
+  });
 });
