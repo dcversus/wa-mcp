@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Fresh-container install test (GOAL §11, contract node:20 path).
-# Mounts ONLY the packed tarball into a node:20 container — no repo checkout —
+# Fresh-container install test (GOAL §11).
+# Image is node:22 (was node:20 in the original contract): the bridge store
+# uses node:sqlite (DatabaseSync), which exists only from node 22.5 — a
+# node:20 container cannot start the daemon at all. See review/BLOCKED.md.
+# Mounts ONLY the packed tarball into a node:22 container — no repo checkout —
 # and proves: npm install file:tarball → wa-mcp install → doctor (bridge-down rows)
 # → daemon start → /health 200 with version 0.9.0 → doctor all-green → stop.
 #
@@ -20,5 +23,5 @@ docker run --rm \
   -v "$TARBALL:/mnt/wa-mcp-0.9.0.tgz:ro" \
   -v "$(cd "$(dirname "$0")" && pwd)/docker-install-test-inner.sh:/mnt/test.sh:ro" \
   -e HOME=/tmp/h \
-  node:20 \
+  node:22 \
   bash /mnt/test.sh
