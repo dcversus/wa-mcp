@@ -17,6 +17,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: |
+          pnpm --filter @wa-mcp/shared build
+          pnpm --filter @wa-mcp/mcp-server build
       - run: pnpm exec vp check
 
   build:
