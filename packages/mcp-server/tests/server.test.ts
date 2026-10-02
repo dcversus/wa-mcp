@@ -25,7 +25,7 @@ test("initialize returns protocol version, capabilities and server info", async 
   );
   const result = resultOf(response);
   expect(typeof result.protocolVersion).toBe("string");
-  expect(result.capabilities).toEqual({ tools: {} });
+  expect(result.capabilities).toEqual({ tools: {}, resources: {} });
   expect(result.serverInfo).toEqual(SERVER_INFO);
   expect(SERVER_INFO.name).toBe("wa-mcp");
   expect(typeof SERVER_INFO.version).toBe("string");
@@ -164,4 +164,33 @@ test("missing required tool arguments surface as invalid params", async () => {
     throw new Error("expected an error response");
   expect(response.error.code).toBe(-32602);
   expect(response.error.message).toContain("chat_jid");
+});
+
+
+test("resources/list exposes the wa resources", async () => {
+  const response = await handleRpcLine(makeRequest(10, "resources/list"), ctx);
+  const resources = resultOf(response).resources as Array<{ uri: string; name: string }>;
+  expect(resources.map((resource) => resource.uri)).toEqual(["wa://chats", "wa://unread", "wa://health"]);
+});
+
+test("resources/read fetches each resource over the bridge api", async () => {
+  const calls: Array<string> = [];
+  const fetchFn = (async (url: string | URL) => {
+    calls.push(String(url));
+    const payload = String(url).endsWith("/api/unread") ? { unread: [] } : String(url).endsWith("/health") ? { status: "connected" } : { chats: [] };
+    return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+  }) as unknown as typeof fetch;
+  const toolCtx = { ...ctx, fetchFn };
+  const chats = await handleRpcLine(makeRequest(11, "resources/read", { uri: "wa://chats" }), toolCtx);
+  expect(calls[0]).toBe("http://127.0.0.1:8080/api/chats");
+  expect(JSON.parse(resultOf(chats)?.contents?.[0]?.text ?? "{}")).toEqual({ chats: [] });
+  const unread = await handleRpcLine(makeRequest(12, "resources/read", { uri: "wa://unread" }), toolCtx);
+  expect(calls[1]).toBe("http://127.0.0.1:8080/api/unread");
+  expect(JSON.parse(resultOf(unread)?.contents?.[0]?.text ?? "{}")).toEqual({ unread: [] });
+  const health = await handleRpcLine(makeRequest(13, "resources/read", { uri: "wa://health" }), toolCtx);
+  expect(calls[2]).toBe("http://127.0.0.1:8080/health");
+  expect(JSON.parse(resultOf(health)?.contents?.[0]?.text ?? "{}")).toEqual({ status: "connected" });
+  const unknown = await handleRpcLine(makeRequest(14, "resources/read", { uri: "wa://nope" }), toolCtx);
+  if (unknown?.error === undefined) throw new Error("expected an error response");
+  expect(unknown.error.code).toBe(-32602);
 });

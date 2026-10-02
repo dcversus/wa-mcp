@@ -350,3 +350,23 @@ test("group tools drive their endpoints", async () => {
   expect(calls[4]?.url).toBe("http://bridge.test:8080/api/group/invite/g%40us");
   expect(inviteResult.content[0]?.text).toContain("CODE9");
 });
+
+
+test("transcribe_message and send_voice_note hit their endpoints", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/transcribe": { text: "mock transcript", engine: "mock" },
+    "/api/tts": { message_id: "V1" },
+  });
+  const toolCtx = { ...ctx, fetchFn };
+  const transcribe = toolByName("transcribe_message");
+  if (!transcribe) throw new Error("transcribe_message missing");
+  const transcript = await transcribe.handler(toolCtx, { message_id: "M1" });
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/transcribe");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ message_id: "M1" });
+  expect(transcript.content[0]?.text).toContain("mock transcript");
+  const voice = toolByName("send_voice_note");
+  if (!voice) throw new Error("send_voice_note missing");
+  await voice.handler(toolCtx, { text: "say hi", chat_jid: "g@g.us" });
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/tts");
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ text: "say hi", chat_jid: "g@g.us" });
+});
