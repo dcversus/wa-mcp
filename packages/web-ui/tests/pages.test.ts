@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import {
   chatListHtml,
   healthHtml,
@@ -7,6 +7,7 @@ import {
   qrHtml,
   settingsHtml,
   unreadHtml,
+  contextViewHtml,
   navHtml,
   statusDashboardHtml,
 } from "../src/pages.ts";
@@ -126,4 +127,51 @@ test("status dashboard renders health fields with escaping (T51)", () => {
   expect(html).toContain("pairing rules");
   expect(html).not.toContain("<script>x</script>");
   expect(html).toContain("&lt;script&gt;");
+});
+
+describe("T51-B chats", () => {
+  test("chatListHtml shows preview, timestamp, archived toggle and search; escapes names", () => {
+    const html = chatListHtml(
+      [
+        { jid: "1@s.whatsapp.net", name: '<script>x</script>', unreadCount: 2, lastMessage: { text: "yo", timestamp: "2026-10-02T10:00:00Z" } },
+        { jid: "2@g.us", name: "Arch", unreadCount: 0, archived: true },
+      ],
+      { showArchived: false },
+    );
+    expect(html).toContain('id="chat-search"');
+    expect(html).toContain('id="archived-toggle"');
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>x</script>");
+    expect(html).toContain("yo");
+    expect(html).toContain('data-archived="1"');
+  });
+
+  test("messageListHtml renders media labels, polls, quotes, reactions; escapes text", () => {
+    const html = messageListHtml("1@s.whatsapp.net", [
+      { id: "m1", chatJid: "1@s.whatsapp.net", senderName: "V", timestamp: "2026-10-02T10:00:00Z", content: "<b>bold</b>", isFromMe: false, mediaType: "image" },
+      { id: "m2", chatJid: "1@s.whatsapp.net", senderName: "V", timestamp: "2026-10-02T10:01:00Z", content: null, isFromMe: true, poll: { question: "Lunch?", options: ["A", "B"] } },
+      { id: "m3", chatJid: "1@s.whatsapp.net", senderName: "V", timestamp: "2026-10-02T10:02:00Z", content: "replying", isFromMe: false, quoted: { text: "original", senderName: "V" }, reactions: [{ emoji: "👍", count: 2 }] },
+    ]);
+    expect(html).toContain("📷 image");
+    expect(html).toContain("📊 Lunch?");
+    expect(html).toContain("A · B");
+    expect(html).toContain("original");
+    expect(html).toContain("👍");
+    expect(html).not.toContain("<b>bold</b>");
+    expect(html).toContain("&lt;b&gt;bold&lt;/b&gt;");
+  });
+
+  test("unreadHtml gains a mark-all-read action", () => {
+    const html = unreadHtml([{ chatJid: "1@s.whatsapp.net", unreadCount: 3 }]);
+    expect(html).toContain('id="mark-all-read"');
+  });
+
+  test("contextViewHtml renders ±N around a message with escaping", () => {
+    const html = contextViewHtml("m2", [
+      { id: "m1", chatJid: "c", senderName: "A", timestamp: "t", content: "before", isFromMe: false },
+      { id: "m2", chatJid: "c", senderName: "B", timestamp: "t", content: "<i>target</i>", isFromMe: true },
+    ]);
+    expect(html).toContain('id="context-view"');
+    expect(html).toContain("&lt;i&gt;target&lt;/i&gt;");
+  });
 });
