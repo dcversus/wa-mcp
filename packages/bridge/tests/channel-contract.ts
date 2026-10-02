@@ -1,6 +1,8 @@
 /** Identical contract suite every ChannelAdapter must satisfy (GOAL §18):
  * the same store feeds both channels, so reads must normalize identically;
- * only the transport (send/events/media/pair) differs. */
+ * only the transport (send/events/media/pair) differs.
+ * NOTE: template sending is a Cloud API capability (§18); baileys templates
+ * are OUT-OF-SCOPE 0.9 — that contract lives in the cloud-only suite. */
 import { expect, test } from "vite-plus/test";
 import type { ChannelAdapter } from "../src/channels/types.ts";
 
@@ -25,21 +27,6 @@ export function channelContractSuite(label: string, make: () => ChannelFixture):
     expect(receipt.id.length).toBeGreaterThan(0);
     expect(receipt.isFromMe).toBe(true);
     expect(receipt.channel).toBe(f.adapter.channel);
-  });
-
-  test(`[${label}] sendMessage(template) carries template name, language and vars`, async () => {
-    const f = make();
-    await f.adapter.sendMessage({
-      kind: "template",
-      to: "15551234567",
-      template: "order_update",
-      language: "en_US",
-      vars: ["VAL1", "VAL2"],
-    });
-    const body = JSON.stringify(f.lastOutbound());
-    expect(body).toContain("order_update");
-    expect(body).toContain("en_US");
-    expect(body).toContain("VAL1");
   });
 
   test(`[${label}] markRead resolves for message ids`, async () => {

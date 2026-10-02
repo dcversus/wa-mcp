@@ -5,7 +5,16 @@ import { BaileysAdapter } from "../../src/channels/baileys/adapter.ts";
 function makeBaileys(): ChannelFixture {
   let lastBody: unknown;
   const inboundSubscribers = new Set<(m: unknown) => void>();
-  const adapter = new BaileysAdapter({
+  const readModel = {
+    fetchChats: async () => [{ jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 }],
+    fetchHistory: async () => ({
+      messages: [
+        { id: "store-1", chatJid: "15551234567@s.whatsapp.net", from: "15551234567", timestamp: 1, text: "stored", isFromMe: false },
+      ],
+      nextCursor: null,
+    }),
+  };
+  const adapter = new BaileysAdapter(
     hasPairedAccount: () => true,
     sendText: async (to: string, body: string) => {
       lastBody = { to, body };
@@ -14,17 +23,10 @@ function makeBaileys(): ChannelFixture {
     markRead: async () => {},
     downloadMedia: async () => new Uint8Array([9, 9]),
     checkContact: async (phone: string) => ({ registered: phone === "15551234567" }),
-    fetchChats: async () => [{ jid: "15551234567@s.whatsapp.net", name: "Store Chat", lastTimestamp: 1 }],
-    fetchHistory: async () => ({
-      messages: [
-        { id: "store-1", chatJid: "15551234567@s.whatsapp.net", from: "15551234567", timestamp: 1, text: "stored", isFromMe: false },
-      ],
-      nextCursor: null,
-    }),
     onInbound: (fn) => {
       inboundSubscribers.add(fn);
     },
-  });
+  }, readModel);
   return {
     adapter,
     lastOutbound: () => lastBody,
