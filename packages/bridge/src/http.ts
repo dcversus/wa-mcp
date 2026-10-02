@@ -1543,7 +1543,12 @@ export async function createHttpServer(
       serveStatic(path, res);
       return;
     }
-    const presented = presentedBearer(req);
+    // EventSource cannot set headers: the SSE endpoint may carry the token
+    // as a query parameter instead (constant-time compared below like the header)
+    const presented =
+      req.method === "GET" && path === "/events" && presentedBearer(req) === null
+        ? new URL(req.url ?? "/", "http://localhost").searchParams.get("token")
+        : presentedBearer(req);
     if (presented === null || !tokenMatches(presented, opts.token)) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
