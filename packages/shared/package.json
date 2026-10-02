@@ -19,10 +19,5 @@
     "@types/node": "^24",
     "typescript": "^7.0.2",
     "vite-plus": "^1.0.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "vitest>vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
-    }
   }
 }
