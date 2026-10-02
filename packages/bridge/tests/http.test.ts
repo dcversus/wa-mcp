@@ -6,6 +6,10 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
+
+// real ports + real sqlite + real fs: under CI/loaded machines the 5s default
+// flakes (whole file can take 200s wall). Nothing here legitimately needs >20s.
+vi.setConfig({ testTimeout: 20_000 });
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";

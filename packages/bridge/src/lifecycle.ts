@@ -60,6 +60,10 @@ export async function startBridge(
   let lastQr: string | null = null;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** a reconnect is scheduled or chained; closes arriving in a burst (real 401s
+   * come as stream-error close + ws close) must not stack multiple sockets */
+  let reconnectPending = false;
+  let closed = false;
   let socket: WASocket;
   const qrPngPath = opts.qrPngPath ?? join(homedir(), ".wa-mcp", "qr.png");
 
@@ -93,9 +97,14 @@ export async function startBridge(
   };
 
   const scheduleReconnect = (): void => {
+    if (reconnectPending) {
+      return;
+    }
+    reconnectPending = true;
     const delay = Math.min(1000 * 2 ** reconnectAttempt, 60_000);
     reconnectAttempt += 1;
     reconnectTimer = setTimeout(() => {
+      reconnectPending = false;
       connect();
     }, delay);
     reconnectTimer.unref();
@@ -124,16 +133,30 @@ export async function startBridge(
               // 515 is the paired handshake step after pair-success, not a
               // failure: reconnect IMMEDIATELY with the same creds or WhatsApp
               // removes the brand-new device (401 device_removed).
-              reconnectAttempt = 0;
-              void queueSave().then(() => {
-                connect();
-              });
+              if (!reconnectPending && !closed) {
+                reconnectPending = true;
+                reconnectAttempt = 0;
+                void queueSave().then(() => {
+                  if (closed) {
+                    return;
+                  }
+                  reconnectPending = false;
+                  connect();
+                });
+              }
             } else if (status === "logged-out") {
-              wipeCreds();
-              reconnectAttempt = 0;
-              void queueSave().then(() => {
-                scheduleReconnect();
-              });
+              if (!reconnectPending && !closed) {
+                reconnectPending = true;
+                wipeCreds();
+                reconnectAttempt = 0;
+                void queueSave().then(() => {
+                  if (closed) {
+                    return;
+                  }
+                  reconnectPending = false;
+                  scheduleReconnect();
+                });
+              }
             } else {
               scheduleReconnect();
             }
@@ -168,6 +191,8 @@ export async function startBridge(
     getLastQr: () => lastQr,
     hasPairedAccount: () => state.creds.account !== undefined,
     close: async () => {
+      closed = true;
+      reconnectPending = false;
       if (reconnectTimer !== null) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
