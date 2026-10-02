@@ -97,3 +97,11 @@ no checkbox is claimed without evidence.
 - T56 LID resolution + send logging — PASS — send failures now log full error (the 'Invalid media type' root-cause chain was visible in the daemon log); PN→LID resolution via signalRepository.lidMapping (Vasilisa 351930017568 ↔ LID 55600000009854)
 - T57 wire-shape fix — PASS — live send succeeded after AnyMessageContent input-shape conversion (489/489 suite)
 - Bugs found BY the live session (mocks could not): T54 token-wall nav, T55 ingestion never wired, T56 silent send failures + LID resolution, T57 proto-vs-input content shape — all fixed same session
+- §7 group send live — PASS — POST /api/send → 120363428874442773@g.us → message_id 3EB023AEC42A55CBA1B99C; store row is_from_me=1
+- §9 SSE live — PASS — GET /events: ': connected' frame + data: connection.update {connection: open}; bearer-gated
+- §8 presence live — PASS — POST /api/presence composing → {ok:true}
+- §5 read-state live — PASS — POST /api/read message_ids=[3EB0FFA46AD226F4251266] → {read:1}; /api/unread → []
+- §5 FTS live — PASS — /api/search?q=round-trip → 1 hit (the sent message id)
+- §5 context+messages live — PASS — /api/context radius=5 → 1; /api/messages chat_jid → 1
+- §17 MCP live — PASS — initialize → serverInfo wa-mcp; tools/list → 31 tools; tools/call list_chats → 2 chats through JSON-RPC against the LIVE bridge
+- §13 contacts live — empty is correct (fresh test account, no contact sync yet); /api/profile is POST-update by design (GET rejected as body-validation — matches route design)
