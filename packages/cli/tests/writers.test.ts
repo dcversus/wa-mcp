@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { listRegisteredPlatforms, writeServerEntry, type Platform } from "../src/writers.ts";
 
-const SPEC = { command: "node", args: ["/opt/wa-mcp/mcp-server/bin.mjs"], env: { WA_TOKEN: "tok" } };
+const SPEC = {
+  command: "node",
+  args: ["/opt/wa-mcp/mcp-server/bin.mjs"],
+  env: { WA_TOKEN: "tok" },
+};
 
 function fakeHome(): string {
   const dir = join(tmpdir(), `wa-mcp-cli-${Math.random().toString(36).slice(2)}`);
@@ -35,7 +39,10 @@ const PLATFORM_SHAPE: Record<Platform, () => void> = {
 test("json platforms merge into existing config without dupes", () => {
   const home = fakeHome();
   const claudeJson = join(home, ".claude.json");
-  writeFileSync(claudeJson, JSON.stringify({ otherSetting: true, mcpServers: { other: { command: "x" } } }));
+  writeFileSync(
+    claudeJson,
+    JSON.stringify({ otherSetting: true, mcpServers: { other: { command: "x" } } }),
+  );
   writeServerEntry("claude-code", { home, spec: SPEC });
   writeServerEntry("claude-code", { home, spec: SPEC });
   const parsed = JSON.parse(readFileSync(claudeJson, "utf8")) as {
@@ -74,7 +81,9 @@ test("hermes yaml gets mcp_servers.wa-mcp and preserves other keys", () => {
 test("antigravity carries command and args keys", () => {
   const home = fakeHome();
   writeServerEntry("antigravity", { home, spec: SPEC });
-  const parsed = JSON.parse(readFileSync(join(home, ".gemini", "antigravity", "mcp_config.json"), "utf8")) as {
+  const parsed = JSON.parse(
+    readFileSync(join(home, ".gemini", "antigravity", "mcp_config.json"), "utf8"),
+  ) as {
     mcpServers: { "wa-mcp": { command?: string; serverUrl?: string } };
   };
   expect(parsed.mcpServers["wa-mcp"].command).toBe("node");

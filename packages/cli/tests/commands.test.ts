@@ -2,7 +2,15 @@ import { expect, test } from "vite-plus/test";
 import { buildStatusSummary, parseArgs } from "../src/commands.ts";
 
 test("parseArgs extracts command, flags and positionals", () => {
-  const parsed = parseArgs(["install", "--target", "cursor", "--home", "/h", "--bridge-url", "http://b"]);
+  const parsed = parseArgs([
+    "install",
+    "--target",
+    "cursor",
+    "--home",
+    "/h",
+    "--bridge-url",
+    "http://b",
+  ]);
   expect(parsed.command).toBe("install");
   expect(parsed.flags.target).toBe("cursor");
   expect(parsed.flags.home).toBe("/h");
