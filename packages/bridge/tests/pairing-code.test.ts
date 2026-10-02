@@ -3,20 +3,25 @@ import type { WASocket } from "@whiskeysockets/baileys";
 import { formatPairingCode, requestPairingCode } from "../src/pairing-code.ts";
 
 function fakeSocket(code = "ABCD1234") {
-  const requestPairingCode = vi.fn(async () => code);
-  return { sock: { requestPairingCode } as unknown as WASocket, requestPairingCode };
+  const requestPairingCodeMock = vi.fn(async (_phone: string) => code);
+  return {
+    sock: { requestPairingCode: requestPairingCodeMock } as unknown as WASocket,
+    requestPairingCodeMock,
+  };
 }
 
 test("requestPairingCode strips the phone to digits and forwards it", async () => {
-  const { sock, requestPairingCode: codeMock } = fakeSocket();
+  const { sock, requestPairingCodeMock } = fakeSocket();
   await requestPairingCode(sock, "+358 497 773 518");
-  expect(codeMock).toHaveBeenCalledTimes(1);
-  expect(codeMock.mock.calls[0]?.[0]).toBe("358497773518");
+  expect(requestPairingCodeMock).toHaveBeenCalledTimes(1);
+  expect(requestPairingCodeMock.mock.calls[0]?.[0]).toBe("358497773518");
 });
 
 test("requestPairingCode formats the 8-char code as XXXX-XXXX", async () => {
   const { sock } = fakeSocket("ABCD1234");
-  expect(await requestPairingCode(sock, "358497773518")).toBe("ABCD-1234");
+  const code = await requestPairingCode(sock, "358497773518");
+  expect(formatPairingCode("ABCD1234")).toBe("ABCD-1234");
+  expect(code).toBe("ABCD-1234");
 });
 
 test("requestPairingCode rejects phones outside 8-15 digits", async () => {
