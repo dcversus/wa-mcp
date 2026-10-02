@@ -97,3 +97,21 @@ version) must change. No other task blocked.
 - 14-kind send matrix (Phase D): needs the paired session; Test group + own number only.
 - Real-media download + transcription (Phase F/H): engine downloadMediaMessage against live media; unit paths mocked.
 - npm name-claim 2FA (above): placeholder publish blocked on OTP relay / self-publish / 2FA decision.
+
+## 2026-10-02 — Docker fresh-container install test (TASK 35) blocked on daemon
+
+**Blocker:** Docker Desktop 27.4.0 is installed but the daemon is down. Start attempt
+(`open -a Docker`) is stuck on the **privileged-helper authorization prompt**
+(osascript `docker-desktop-privileged` waiting for owner approval) — an owner UI action.
+No alternative runtime on this machine (no podman/colima/lima).
+
+**Ready to run:** `scripts/docker-install-test.sh` + `scripts/docker-install-test-inner.sh`
+(syntax-checked). The inner script executes the exact GOAL §11 contract: node:20 container
+(tarball mounted, no repo checkout) → npm install file:tarball → npx wa-mcp install →
+doctor (bridge-down FAIL rows expected) → daemon start → /health must contain
+`"version":"0.9.0"` → doctor all-green → stop.
+
+**Owner action:** approve the Docker Desktop helper prompt (or start Docker Desktop),
+then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'll run it.
+
+**Status:** BLOCKED on owner UI action. Everything else in TASK 35 delivered.
