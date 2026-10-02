@@ -102,3 +102,33 @@ test("with a token, route loaders render into the app", async () => {
   });
   expect(state.appHtml).toContain("health ok");
 });
+
+test("unknown channel + status route renders the status dashboard (T51)", async () => {
+  const state = fakeDom("#/status");
+  await renderFrame({
+    dom: state.io.dom,
+    settings: WITH_TOKEN,
+    loaders: { status: async () => '<section id="status-dashboard">ok</section>' },
+  });
+  expect(state.appHtml).toContain("status-dashboard");
+});
+
+test("contacts route resolves (T51)", async () => {
+  const state = fakeDom("#/contacts");
+  await renderFrame({
+    dom: state.io.dom,
+    settings: WITH_TOKEN,
+    loaders: { contacts: async () => '<ul id="contacts-list"></ul>' },
+  });
+  expect(state.appHtml).toContain("contacts-list");
+});
+
+test("groups route resolves (T51)", async () => {
+  const state = fakeDom("#/groups");
+  await renderFrame({
+    dom: state.io.dom,
+    settings: WITH_TOKEN,
+    loaders: { groups: async () => '<ul id="groups-list"></ul>' },
+  });
+  expect(state.appHtml).toContain("groups-list");
+});

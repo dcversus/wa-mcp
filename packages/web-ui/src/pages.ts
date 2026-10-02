@@ -1,3 +1,73 @@
+import { escapeHtml } from "./escape.ts";
+
+const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
+  { id: "status", label: "Status", href: "#/status" },
+  { id: "chats", label: "Chats", href: "#/chats" },
+  { id: "unread", label: "Unread", href: "#/unread" },
+  { id: "contacts", label: "Contacts", href: "#/contacts" },
+  { id: "groups", label: "Groups", href: "#/groups" },
+  { id: "pairing", label: "Pairing", href: "#/pairing" },
+  { id: "settings", label: "Settings", href: "#/settings" },
+];
+
+export function navHtml(active: string): string {
+  return NAV_SECTIONS.map(
+    (section) =>
+      `<a href="${section.href}"${section.id === active ? ' class="active"' : ""} data-nav="${section.id}">${section.label}</a>`,
+  ).join("");
+}
+
+export interface StatusDashboardInput {
+  health: Record<string, unknown>;
+  notifications: Array<{ id: string; chat_jid?: string; pattern?: string }>;
+  events: Array<{ type: string; at: number; detail?: string }>;
+}
+
+export function statusDashboardHtml(input: StatusDashboardInput): string {
+  const fields = Object.entries(input.health)
+    .filter(([key]) => key !== "channel" || input.health.channel !== undefined)
+    .map(
+      ([key, value]) =>
+        `<div class="stat"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`,
+    )
+    .join("");
+  const rules = input.notifications
+    .map(
+      (rule) =>
+        `<li data-rule-id="${escapeHtml(rule.id)}"><span>${escapeHtml(rule.chat_jid ?? "*")}</span> <code>${escapeHtml(rule.pattern ?? "")}</code> <button data-delete-rule="${escapeHtml(rule.id)}">delete</button></li>`,
+    )
+    .join("");
+  const feed = input.events
+    .map(
+      (event) =>
+        `<li><time>${new Date(event.at).toISOString()}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
+    )
+    .join("");
+  return `<section id="status-dashboard"><h2>Status</h2><dl class="stats">${fields}</dl><h3>pairing rules</h3><ul class="rules">${rules}</ul><h3>events</h3><ul class="events">${feed}</ul></section>`;
+}
+
+export function contactsPageHtml(contacts: Array<{ jid: string; name: string | null }>): string {
+  const items = contacts
+    .map(
+      (contact) =>
+        `<li data-contact-jid="${escapeHtml(contact.jid)}"><span class="contact-name">${escapeHtml(contact.name ?? contact.jid)}</span> <code>${escapeHtml(contact.jid)}</code> <button data-alias-jid="${escapeHtml(contact.jid)}">set alias</button></li>`,
+    )
+    .join("");
+  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" /></form><ul id="contacts-list">${items}</ul></section>`;
+}
+
+export function groupsPageHtml(
+  groups: Array<{ jid: string; name: string | null; unreadCount: number }>,
+): string {
+  const items = groups
+    .map(
+      (group) =>
+        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button data-leave-jid="${escapeHtml(group.jid)}">leave</button></li>`,
+    )
+    .join("");
+  return `<section id="groups-page"><form id="group-create"><input name="subject" placeholder="group subject" /><button type="submit">create group</button></form><ul id="groups-list">${items}</ul></section>`;
+}
+
 export interface ChatSummaryView {
   jid: string;
   name: string | null;

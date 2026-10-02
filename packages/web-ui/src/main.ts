@@ -3,10 +3,12 @@ import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
 import {
   chatListHtml,
-  healthHtml,
+  contactsPageHtml,
+  groupsPageHtml,
   messageListHtml,
   qrHtml,
   settingsHtml,
+  statusDashboardHtml,
   unreadHtml,
 } from "./pages.ts";
 import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
@@ -51,6 +53,31 @@ async function renderCurrent(): Promise<void> {
 const loaders: {
   [R in Route]: (params: Record<string, string>) => Promise<string>;
 } = {
+  status: async () => {
+    const [health, notifications] = await Promise.all([
+      client.getHealth(),
+      client.notifications().catch(() => ({ rules: [] })),
+    ]);
+    return statusDashboardHtml({
+      health,
+      notifications:
+        (notifications as { rules?: Array<{ id: string; chat_jid?: string; pattern?: string }> })
+          .rules ?? [],
+      events: [],
+    });
+  },
+  contacts: async () => {
+    const payload = (await client.contacts()) as {
+      contacts?: Array<{ jid: string; name: string | null }>;
+    };
+    return contactsPageHtml(payload.contacts ?? []);
+  },
+  groups: async () => {
+    const payload = (await client.getChats()) as {
+      chats?: Array<{ jid: string; name: string | null; unreadCount: number }>;
+    };
+    return groupsPageHtml((payload.chats ?? []).filter((chat) => chat.jid.endsWith("@g.us")));
+  },
   chats: async () => {
     const payload = (await client.getChats()) as { chats: Parameters<typeof chatListHtml>[0] };
     return chatListHtml(payload.chats);
@@ -66,7 +93,8 @@ const loaders: {
     return unreadHtml(payload.unread);
   },
   settings: async () => settingsHtml(settings),
-  health: async () => healthHtml(await client.getHealth()),
+  health: async () =>
+    statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
     const qr = await client.getQr();
     return qrHtml(qr.png === null ? null : `data:image/png;base64,${qr.png}`);

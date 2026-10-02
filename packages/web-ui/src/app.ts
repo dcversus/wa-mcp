@@ -1,4 +1,11 @@
-import { pairingHtml, settingsHtml } from "./pages.ts";
+import {
+  contactsPageHtml,
+  groupsPageHtml,
+  navHtml,
+  pairingHtml,
+  settingsHtml,
+  statusDashboardHtml,
+} from "./pages.ts";
 import { needsToken, type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
 
@@ -9,18 +16,28 @@ export interface AppDom {
   setApp(html: string): void;
 }
 
-export type Route = "chats" | "chat" | "unread" | "settings" | "health" | "pairing";
+export type Route =
+  | "status"
+  | "chats"
+  | "chat"
+  | "unread"
+  | "contacts"
+  | "groups"
+  | "settings"
+  | "health"
+  | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
+  { route: "status", pattern: "status" },
   { route: "chats", pattern: "chats" },
   { route: "chat", pattern: "chat/:jid" },
   { route: "unread", pattern: "unread" },
+  { route: "contacts", pattern: "contacts" },
+  { route: "groups", pattern: "groups" },
   { route: "settings", pattern: "settings" },
   { route: "health", pattern: "health" },
   { route: "pairing", pattern: "pairing" },
 ];
-
-export const NAV_HTML = `<a href="#/chats">Chats</a><a href="#/unread">Unread</a><a href="#/health">Health</a><a href="#/pairing">Pairing</a><a href="#/settings">Settings</a>`;
 
 export type RouteLoaders = Partial<
   Record<Route, (params: Record<string, string>) => Promise<string>>
@@ -34,8 +51,8 @@ export interface RenderFrameIo {
 
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const { dom, settings, loaders } = io;
-  dom.setNav(NAV_HTML);
   const match = resolveRoute(dom.getHash(), ROUTES);
+  dom.setNav(navHtml(match?.route ?? "status"));
   if (match === null) {
     dom.setApp("<p>not found</p>");
     return;
@@ -56,7 +73,15 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     dom.setApp(settingsHtml(settings));
     return;
   }
-  const loader = loaders[match.route];
+  const loader =
+    loaders[match.route] ??
+    (match.route === "status"
+      ? async () => statusDashboardHtml({ health: {}, notifications: [], events: [] })
+      : match.route === "contacts"
+        ? async () => contactsPageHtml([])
+        : match.route === "groups"
+          ? async () => groupsPageHtml([])
+          : undefined);
   if (loader === undefined) {
     dom.setApp("<p>not implemented</p>");
     return;

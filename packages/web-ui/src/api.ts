@@ -13,6 +13,23 @@ export interface ApiClient {
   getUnread(): Promise<{ unread: Array<{ chatJid: string; unreadCount: number }> }>;
   getHealth(): Promise<Record<string, unknown>>;
   markRead(chatJid: string, messageIds: string[]): Promise<unknown>;
+  pairingCode(phone: string): Promise<{ code?: string; error?: { code: string; message: string } }>;
+  resumePairing(): Promise<{ resumed: boolean }>;
+  search(query: string, limit?: number): Promise<unknown>;
+  contacts(query?: string): Promise<unknown>;
+  setAlias(chatJid: string, alias: string): Promise<unknown>;
+  groupParticipants(groupJid: string): Promise<unknown>;
+  groupCreate(subject: string, participants: string[]): Promise<unknown>;
+  groupLeave(groupJid: string): Promise<unknown>;
+  notifications(): Promise<unknown>;
+  deleteNotification(id: string): Promise<unknown>;
+  profile(): Promise<unknown>;
+  privacy(): Promise<unknown>;
+  blocklist(): Promise<unknown>;
+  downloadMedia(messageId: string): Promise<unknown>;
+  transcribe(messageId: string): Promise<unknown>;
+  sendTts(chatJid: string, text: string): Promise<unknown>;
+  sendPresence(chatJid: string, state: string): Promise<unknown>;
 }
 
 export function createApiClient(opts: ApiClientOptions): ApiClient {
@@ -27,7 +44,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       Object.assign(headers, rest.headers);
     }
     const response = await fetchFn(`${opts.baseUrl}${path}`, {
-      method: json !== undefined ? "POST" : "GET",
+      ...rest,
+      method: json !== undefined ? "POST" : (rest.method ?? "GET"),
       headers,
       ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
     });
@@ -40,6 +58,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     const response = await call(path, init);
     return (await response.json()) as T;
   };
+  const post = <T>(path: string, json: unknown): Promise<T> =>
+    jsonCall<T>(path, { method: "POST", json });
   return {
     getChats: () => jsonCall("/api/chats"),
     getMessages: (chatJid, limit) => {
@@ -49,15 +69,42 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       }
       return jsonCall(`/api/messages?${params.toString()}`);
     },
-    sendMessage: (chatJid, text) =>
-      jsonCall("/api/send", { method: "POST", json: { chat_jid: chatJid, text } }),
+    sendMessage: (chatJid, text) => post("/api/send", { chat_jid: chatJid, text }),
     getQr: () => jsonCall("/api/qr"),
     getUnread: () => jsonCall("/api/unread"),
     getHealth: () => jsonCall("/health"),
     markRead: (chatJid, messageIds) =>
-      jsonCall("/api/read", {
-        method: "POST",
-        json: { chat_jid: chatJid, message_ids: messageIds },
-      }),
+      post("/api/read", { chat_jid: chatJid, message_ids: messageIds }),
+    pairingCode: (phone) => post("/api/pairing-code", { phone }),
+    resumePairing: () => post("/api/pair/resume", {}),
+    search: (query, limit) => {
+      const params = new URLSearchParams({ query });
+      if (limit !== undefined) {
+        params.set("limit", String(limit));
+      }
+      return jsonCall(`/api/search?${params.toString()}`);
+    },
+    contacts: (query) => {
+      const params = new URLSearchParams();
+      if (query !== undefined) {
+        params.set("query", query);
+      }
+      const suffix = params.toString();
+      return jsonCall(`/api/contacts${suffix ? `?${suffix}` : ""}`);
+    },
+    setAlias: (chatJid, alias) => post("/api/alias", { chat_jid: chatJid, alias }),
+    groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),
+    groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
+    groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
+    notifications: () => jsonCall("/api/notifications"),
+    deleteNotification: (id) =>
+      jsonCall(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    profile: () => jsonCall("/api/profile"),
+    privacy: () => jsonCall("/api/privacy"),
+    blocklist: () => jsonCall("/api/blocklist"),
+    downloadMedia: (messageId) => post(`/api/media/${encodeURIComponent(messageId)}`, {}),
+    transcribe: (messageId) => post("/api/transcribe", { message_id: messageId }),
+    sendTts: (chatJid, text) => post("/api/tts", { chat_jid: chatJid, text }),
+    sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, state }),
   };
 }

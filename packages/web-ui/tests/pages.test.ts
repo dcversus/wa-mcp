@@ -7,6 +7,8 @@ import {
   qrHtml,
   settingsHtml,
   unreadHtml,
+  navHtml,
+  statusDashboardHtml,
 } from "../src/pages.ts";
 
 test("pairingHtml embeds the token form above the qr area", () => {
@@ -89,4 +91,39 @@ test("healthHtml renders status fields", () => {
   expect(html).toContain("connected");
   expect(html).toContain("0.0.0");
   expect(html).toContain("12");
+});
+
+test("sidebar nav lists the full section set with active state (T51)", () => {
+  const html = navHtml("chats");
+  for (const section of [
+    "Status",
+    "Chats",
+    "Unread",
+    "Contacts",
+    "Groups",
+    "Pairing",
+    "Settings",
+  ]) {
+    expect(html).toContain(section);
+  }
+  expect(html).toContain('class="active" data-nav="chats"');
+});
+
+test("status dashboard renders health fields with escaping (T51)", () => {
+  const html = statusDashboardHtml({
+    health: {
+      status: "qr",
+      connected: false,
+      pairingBlocked: false,
+      uptime: 42,
+      version: "0.9.0",
+      channel: "baileys",
+    },
+    notifications: [{ id: "r1", chat_jid: "1@g.us", pattern: "ping" }],
+    events: [{ type: "connection.update", at: 1, detail: "<script>x</script>" }],
+  });
+  expect(html).toContain("qr");
+  expect(html).toContain("pairing rules");
+  expect(html).not.toContain("<script>x</script>");
+  expect(html).toContain("&lt;script&gt;");
 });

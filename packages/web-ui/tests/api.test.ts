@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { createApiClient } from "../src/api.ts";
 
 function mockFetch(
@@ -101,5 +101,104 @@ test("markRead posts chat_jid and message ids", async () => {
   expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
     chat_jid: "g@g.us",
     message_ids: ["M1"],
+  });
+});
+
+describe("task-51 client surface", () => {
+  function recordingClient() {
+    const calls: Array<{ path: string; init?: RequestInit & { json?: unknown } }> = [];
+    const client = createApiClient({
+      baseUrl: "http://bridge",
+      token: "tok",
+      fetchFn: (async (url: string | URL, init?: RequestInit) => {
+        calls.push({ path: String(url).slice("http://bridge".length), init });
+        return new Response("{}", { status: 200 });
+      }) as unknown as typeof fetch,
+      onUnauthorized: () => {},
+    });
+    return { client, calls };
+  }
+
+  test("pairingCode posts the phone to /api/pairing-code", async () => {
+    const { client, calls } = recordingClient();
+    await client.pairingCode("358497773518");
+    expect(calls[0]?.path).toBe("/api/pairing-code");
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ phone: "358497773518" });
+  });
+
+  test("resumePairing posts /api/pair/resume", async () => {
+    const { client, calls } = recordingClient();
+    await client.resumePairing();
+    expect(calls[0]?.path).toBe("/api/pair/resume");
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  test("search hits /api/search with the query", async () => {
+    const { client, calls } = recordingClient();
+    await client.search("pizza", 5);
+    expect(calls[0]?.path).toBe("/api/search?query=pizza&limit=5");
+  });
+
+  test("contacts lists with optional query", async () => {
+    const { client, calls } = recordingClient();
+    await client.contacts("ali");
+    expect(calls[0]?.path).toBe("/api/contacts?query=ali");
+  });
+
+  test("setAlias posts chat_jid + alias", async () => {
+    const { client, calls } = recordingClient();
+    await client.setAlias("123@s.whatsapp.net", "Andreas");
+    expect(calls[0]?.path).toBe("/api/alias");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      chat_jid: "123@s.whatsapp.net",
+      alias: "Andreas",
+    });
+  });
+
+  test("group ops hit the group endpoints", async () => {
+    const { client, calls } = recordingClient();
+    await client.groupParticipants("1@g.us");
+    await client.groupCreate("Test", ["1@s.whatsapp.net"]);
+    await client.groupLeave("1@g.us");
+    expect(calls.map((c) => c.path)).toEqual([
+      "/api/group/participants",
+      "/api/group/create",
+      "/api/group/leave",
+    ]);
+  });
+
+  test("notifications list + delete", async () => {
+    const { client, calls } = recordingClient();
+    await client.notifications();
+    await client.deleteNotification("rule-1");
+    expect(calls[0]?.path).toBe("/api/notifications");
+    expect(calls[1]?.path).toBe("/api/notifications/rule-1");
+    expect(calls[1]?.init?.method).toBe("DELETE");
+  });
+
+  test("profile/privacy/blocklist read paths", async () => {
+    const { client, calls } = recordingClient();
+    await client.profile();
+    await client.privacy();
+    await client.blocklist();
+    expect(calls.map((c) => c.path)).toEqual(["/api/profile", "/api/privacy", "/api/blocklist"]);
+  });
+
+  test("media + transcribe + tts", async () => {
+    const { client, calls } = recordingClient();
+    await client.downloadMedia("msg-1");
+    await client.transcribe("msg-1");
+    await client.sendTts("123@s.whatsapp.net", "hello");
+    expect(calls[0]?.path).toBe("/api/media/msg-1");
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(calls[1]?.path).toBe("/api/transcribe");
+    expect(calls[2]?.path).toBe("/api/tts");
+  });
+
+  test("sendPresence notifies typing", async () => {
+    const { client, calls } = recordingClient();
+    await client.sendPresence("123@s.whatsapp.net", "composing");
+    expect(calls[0]?.path).toBe("/api/presence");
   });
 });
