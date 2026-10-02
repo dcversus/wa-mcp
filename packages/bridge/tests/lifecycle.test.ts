@@ -1,4 +1,5 @@
 import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
@@ -8,6 +9,13 @@ vi.mock("baileys", () => ({
   makeWASocket: vi.fn(),
   useMultiFileAuthState: vi.fn(),
   initAuthCreds: vi.fn(() => ({ advSecretKey: "fresh", registrationId: 1 })),
+  proto: {
+    Message: {
+      ProtocolMessage: {
+        Type: { REVOKE: 0, MESSAGE_EDIT: 14, EPHEMERAL_SETTING: 3, STATUS_MENTION_MESSAGE: 4 },
+      },
+    },
+  },
   DisconnectReason: { loggedOut: 401, restartRequired: 515, connectionClosed: 428 },
 }));
 
@@ -629,7 +637,9 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
       messages: [makeMsg("m2", "one"), makeMsg("m3", "two", true)],
       type: "append",
     });
-    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(2);
+    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(
+      2,
+    );
   });
 
   test("messaging-history.set bulk-persists inside one transaction", async () => {
@@ -641,9 +651,15 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
       contacts: [],
       messages: [makeMsg("h1", "old one"), makeMsg("h2", "old two"), makeMsg("h3", "old three")],
     });
-    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(3);
+    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(
+      3,
+    );
     const chats = listChats(store, {});
-    expect(chats.some((chat) => chat.jid === "15551234567@s.whatsapp.net" && chat.name === "History Chat")).toBe(true);
+    expect(
+      chats.some(
+        (chat) => chat.jid === "15551234567@s.whatsapp.net" && chat.name === "History Chat",
+      ),
+    ).toBe(true);
   });
 
   test("media messages persist their media_type metadata", async () => {
@@ -654,7 +670,13 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
       messages: [
         {
           key: { remoteJid: "15551234567@s.whatsapp.net", fromMe: false, id: "img1" },
-          message: { imageMessage: { caption: "pic", url: "https://mm.example/x", mediaKey: new Uint8Array(1) } },
+          message: {
+            imageMessage: {
+              caption: "pic",
+              url: "https://mm.example/x",
+              mediaKey: new Uint8Array(1),
+            },
+          },
           messageTimestamp: 1700000001,
         } as unknown as WAMessage,
       ],

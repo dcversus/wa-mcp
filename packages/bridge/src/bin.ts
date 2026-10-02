@@ -110,6 +110,7 @@ export async function main(
     deviceName: config.deviceName,
     logger,
     qrPngPath,
+    store,
   });
   const selection = resolveChannel(env);
   let cloud: Parameters<typeof createHttpServer>[1]["cloud"];

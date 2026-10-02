@@ -3,6 +3,7 @@ import type { BaileysEventMap } from "baileys";
 export type WaEventMap = {
   "connection.update": BaileysEventMap["connection.update"];
   "messages.upsert": BaileysEventMap["messages.upsert"];
+  "messaging-history.set": BaileysEventMap["messaging-history.set"];
   "message-receipt.update": BaileysEventMap["message-receipt.update"];
   "presence.update": BaileysEventMap["presence.update"];
   "chats.update": BaileysEventMap["chats.update"];
@@ -27,6 +28,7 @@ export type Unsubscribe = () => void;
 export const EVENT_NAMES = [
   "connection.update",
   "messages.upsert",
+  "messaging-history.set",
   "message-receipt.update",
   "presence.update",
   "chats.update",

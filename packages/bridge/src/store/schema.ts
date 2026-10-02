@@ -206,3 +206,17 @@ export function openStore(dir: string): Store {
     },
   };
 }
+
+/** Run fn inside a single SQLite transaction (bulk history syncs must be
+ * atomic and must not partially persist on a mid-batch failure). */
+export function withTransaction<T>(store: Store, fn: () => T): T {
+  store.db.exec("BEGIN");
+  try {
+    const result = fn();
+    store.db.exec("COMMIT");
+    return result;
+  } catch (err) {
+    store.db.exec("ROLLBACK");
+    throw err;
+  }
+}

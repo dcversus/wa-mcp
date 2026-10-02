@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
+import { storeMessage, upsertChatMeta } from "./store/messages.ts";
+import { withTransaction } from "./store/schema.ts";
+import type { Store } from "./store/schema.ts";
+import type { WAMessage } from "baileys";
 
 export type BridgeStatus =
   | "connecting"
@@ -22,6 +26,8 @@ export interface StartBridgeOptions {
   deviceName?: string;
   logger?: BridgeLogger;
   qrPngPath?: string;
+  /** when attached, live messages + history sync persist (GOAL §3 ingest) */
+  store?: Store;
   /** consecutive registrations without a completed pairing before the daemon
    * stops minting new ones (WhatsApp anti-abuse: every attempt resets the
    * server-side cooldown, so endless retries deepen the lockout). */
@@ -232,6 +238,42 @@ export async function startBridge(
             void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
               opts.logger?.warn({ err }, "failed to persist qr png");
             });
+          }
+        }
+        if (name === "messages.upsert") {
+          // live inbound traffic: notify (real-time) and append (post-reconnect
+          // backlog) both persist; media_path stays null until download
+          const upsert = payload as { messages?: WAMessage[] };
+          if (opts.store !== undefined) {
+            for (const message of upsert.messages ?? []) {
+              storeMessage(opts.store, message);
+            }
+          }
+        }
+        if (name === "messaging-history.set") {
+          // the initial history sync: potentially thousands of rows — one
+          // transaction, never partially persisted
+          const history = payload as {
+            chats?: Array<{ id: string; name?: string }>;
+            messages?: WAMessage[];
+          };
+          if (opts.store !== undefined) {
+            const store = opts.store;
+            const count = withTransaction(store, () => {
+              for (const chat of history.chats ?? []) {
+                if (typeof chat.id === "string" && chat.id.length > 0) {
+                  upsertChatMeta(store, chat);
+                }
+              }
+              let stored = 0;
+              for (const message of history.messages ?? []) {
+                if (storeMessage(store, message)) {
+                  stored += 1;
+                }
+              }
+              return stored;
+            });
+            opts.logger?.info({ messages: count }, "history sync persisted");
           }
         }
         if (name === "creds.update") {

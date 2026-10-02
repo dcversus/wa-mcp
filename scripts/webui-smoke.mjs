@@ -184,7 +184,11 @@ console.log(`#/pairing app innerHTML length: ${pairingApp.length}`);
 if (pairingApp.includes('id="settings-form"') || pairingApp.includes('id="token"'))
   fail("#/pairing still shows a token wall (T53: pairing must be tokenless)");
 if (!pairingApp.includes('id="pairing"')) fail("#/pairing is missing the pairing/qr container");
-if (!pairingApp.includes("pane-methods") && !pairingApp.includes("pane-connecting") && !pairingApp.includes("pane-blocked"))
+if (
+  !pairingApp.includes("pane-methods") &&
+  !pairingApp.includes("pane-connecting") &&
+  !pairingApp.includes("pane-blocked")
+)
   fail("#/pairing does not render a pairing flow pane (T53)");
 const pairingHash = await evaluate(`location.hash`);
 if (!String(pairingHash).startsWith("#/pairing"))

@@ -143,3 +143,13 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     .run(chatJid, senderNameOf(message, senderJid), extracted.text, timestamp);
   return true;
 }
+
+/** History-sync chat metadata (name only; message-driven fields win). */
+export function upsertChatMeta(store: Store, chat: { id: string; name?: string }): void {
+  store.db
+    .prepare(
+      `INSERT INTO chats (jid, name) VALUES (?, ?)
+       ON CONFLICT(jid) DO UPDATE SET name = COALESCE(NULLIF(excluded.name, ''), chats.name)`,
+    )
+    .run(chat.id, chat.name ?? null);
+}
