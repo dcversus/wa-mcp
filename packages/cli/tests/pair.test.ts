@@ -188,3 +188,18 @@ test("pair refuses with an explanation when the bridge is pairing-blocked (T46)"
   expect(explanation).toContain("pair/resume");
   expect(deps.fetchCalls.some((call) => call.url.endsWith("/api/qr"))).toBe(false);
 });
+
+test("bridge down: explains unreachability with the url and exits 2 (T47)", async () => {
+  const deps = makeDeps({
+    fetchFn: (async (url: string | URL) => {
+      void url;
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch,
+  });
+  const exit = await runPair(deps);
+  expect(exit).toBe(2);
+  const explanation = deps.writes.join("\n");
+  expect(explanation).toContain("bridge unreachable at http://127.0.0.1:8080");
+  expect(explanation).toContain("is the daemon running?");
+  expect(explanation).toContain("wa-mcp start");
+});
