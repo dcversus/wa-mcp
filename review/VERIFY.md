@@ -29,3 +29,9 @@ Append-only. Format: `§<n> <short item> — PASS|FAIL|DEFERRED — <evidence>`.
 - T39 web pairing inline token — PASS — CDP smoke (headless Chrome, live daemon :8080, bundle index-QbcUp9S_.js): `#/pairing app innerHTML length: 280`, inline settings-form+token present, hash stays #/pairing (no redirect), #/settings form ok, nav ok → webui-smoke PASS; RED d0967cf (2 failed) → GREEN f90d3a4 (web-ui 27/27)
 - T39 full gate — vp check exit 0 (28 warnings across 110 files, pre-existing), vp test 365/365 (48 files)
 - T40 build-order — PASS — rm -rf packages/bridge/dist/web && pnpm run -r build → exit 0, dist/web/index.html exists; copy runs after web-ui build AND after bridge vp pack (wipe repair); bridge-only build keeps web; missing web-ui/dist fails loudly exit 1; RED (build-order.test.ts, expected false to be true) → GREEN
+
+## 2026-10-02 — release tarball (post-T40 rebuild)
+- wa-mcp-0.9.0.tgz = packages/cli pnpm pack (bundledDependencies: @wa-mcp/bridge, @wa-mcp/mcp-server, @wa-mcp/shared, qrcode + fork baileys WITH companion_reg_refresh fix — verified: 2 refs in bundled socket.js)
+- Fresh sandbox: npm install tgz → 0 vulnerabilities → bin runs with pair in usage
+- sha256: 325a60d738b796cd0a99b51f804ac1dc16058b85e8441338263ec9c6e9941e02
+- Reproducible via scripts/pack-release.sh
