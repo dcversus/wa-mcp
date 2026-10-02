@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
 import { runDoctor } from "./doctor.ts";
 import { installSkills } from "./skills.ts";
+import { runPair } from "./pair.ts";
 import { PLATFORMS } from "./platforms.ts";
 import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
@@ -52,6 +53,30 @@ async function main(argv: string[]): Promise<void> {
       }
     }
     if (failures > 0) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+  if (command === "pair") {
+    const token = flags.token ?? readToken(DEFAULT_DATA_DIR) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      const exit = await runPair({
+        baseUrl: flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`,
+        token,
+        timeoutMs: flags.timeout !== undefined ? Number(flags.timeout) : undefined,
+        codePhone: flags.code,
+        print: console.log,
+      });
+      if (exit !== 0) {
+        process.exitCode = 1;
+      }
+    } catch (err) {
+      console.error(`pair failed: ${err instanceof Error ? err.message : String(err)}`);
       process.exitCode = 1;
     }
     return;
