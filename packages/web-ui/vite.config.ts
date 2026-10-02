@@ -1,13 +1,8 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  pack: {
-    deps: {
-      resolveDepSubpath: true,
-    },
-    dts: {
-      generator: "tsgo",
-    },
-    exports: true,
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
   },
 });

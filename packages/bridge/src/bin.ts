@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import pino from "pino";
 import { openAuthStore } from "./auth.ts";
 import { createHttpServer } from "./http.ts";
@@ -22,6 +22,7 @@ export interface BridgeConfig {
   token: string | null;
   tokenPath: string;
   dailyCap: number | null;
+  uiDir?: string;
 }
 
 export function buildConfig(env: Record<string, string | undefined>): BridgeConfig {
@@ -39,6 +40,7 @@ export function buildConfig(env: Record<string, string | undefined>): BridgeConf
     token: env.WA_TOKEN ?? null,
     tokenPath: join(dataDir, "token"),
     dailyCap: Number.isInteger(rawCap) && rawCap > 0 ? rawCap : null,
+    uiDir: env.WA_UI_DIR,
   };
 }
 
@@ -96,6 +98,7 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
     qrDir: config.dataDir,
     store,
     sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
+    uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
   });
   logger.info(
     { host: config.host, port: server.port, dataDir: config.dataDir },
