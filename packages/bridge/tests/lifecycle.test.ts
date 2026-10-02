@@ -1,7 +1,7 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
 vi.mock("baileys", () => ({
@@ -14,6 +14,9 @@ vi.mock("baileys", () => ({
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
+import { openStore } from "../src/store/schema.ts";
+import { listChats, listMessages } from "../src/store/queries.ts";
+import type { WAMessage } from "baileys";
 import { startBridge, type BridgeLogger, type StartBridgeOptions } from "../src/lifecycle.ts";
 
 // handles started per test; afterEach closes them so no real reconnect
@@ -596,3 +599,68 @@ test(
     await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled(), { timeout: 5_000 });
   },
 );
+
+describe("T55 live ingestion", { timeout: 15_000 }, () => {
+  function makeMsg(id: string, text: string, fromMe = false): WAMessage {
+    return {
+      key: { remoteJid: "15551234567@s.whatsapp.net", fromMe, id },
+      message: { conversation: text },
+      messageTimestamp: 1700000000,
+      pushName: "V",
+    } as unknown as WAMessage;
+  }
+
+  test("messages.upsert (notify) persists the message + chat row", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ing-")));
+    const { latest } = await startArranged({ store });
+    latest().emit("messages.upsert", { messages: [makeMsg("m1", "hello live")], type: "notify" });
+    const rows = listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 });
+    expect(rows.some((row) => row.id === "m1" && row.content === "hello live")).toBe(true);
+    const chats = listChats(store, {});
+    expect(chats.some((chat) => chat.jid === "15551234567@s.whatsapp.net")).toBe(true);
+  });
+
+  test("messages.upsert (append) persists history-style batches", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ing2-")));
+    const { latest } = await startArranged({ store });
+    latest().emit("messages.upsert", {
+      messages: [makeMsg("m2", "one"), makeMsg("m3", "two", true)],
+      type: "append",
+    });
+    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(2);
+  });
+
+  test("messaging-history.set bulk-persists inside one transaction", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ing3-")));
+    const { latest } = await startArranged({ store });
+    latest().emit("messaging-history.set", {
+      chats: [{ id: "15551234567@s.whatsapp.net", name: "History Chat" }],
+      contacts: [],
+      messages: [makeMsg("h1", "old one"), makeMsg("h2", "old two"), makeMsg("h3", "old three")],
+    });
+    expect(listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 }).length).toBe(3);
+    const chats = listChats(store, {});
+    expect(chats.some((chat) => chat.jid === "15551234567@s.whatsapp.net" && chat.name === "History Chat")).toBe(true);
+  });
+
+  test("media messages persist their media_type metadata", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ing4-")));
+    const { latest } = await startArranged({ store });
+    latest().emit("messages.upsert", {
+      messages: [
+        {
+          key: { remoteJid: "15551234567@s.whatsapp.net", fromMe: false, id: "img1" },
+          message: { imageMessage: { caption: "pic", url: "https://mm.example/x", mediaKey: new Uint8Array(1) } },
+          messageTimestamp: 1700000001,
+        } as unknown as WAMessage,
+      ],
+      type: "notify",
+    });
+    const rows = listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 10 });
+    expect(rows.find((row) => row.id === "img1")?.mediaType).toBe("image");
+  });
+});
