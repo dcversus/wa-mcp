@@ -13,7 +13,7 @@ const SKILL_PATH = join(
 );
 
 test("SKILL.md has valid frontmatter with name and description", () => {
-  const skill = readFileSync(SKILL_PATH, "utf8");
+  const skill = readFileSync(SKILL_PATH, "utf8").replace(/\r\n/g, "\n");
   const frontmatter = skill.split("---\n")[1] ?? "";
   expect(frontmatter).toContain("name: wa-mcp");
   expect(frontmatter).toMatch(/description: .+WhatsApp/i);

@@ -19,7 +19,7 @@ test("installSkills copies SKILL.md and references into ~/.claude/skills/wa-mcp"
   expect(existsSync(join(result.skillDir, "SKILL.md"))).toBe(true);
   expect(existsSync(join(result.skillDir, "references", "tools.md"))).toBe(true);
   expect(existsSync(join(result.skillDir, "references", "troubleshooting.md"))).toBe(true);
-  const skill = readFileSync(join(result.skillDir, "SKILL.md"), "utf8");
+  const skill = readFileSync(join(result.skillDir, "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
   expect(skill.startsWith("---\n")).toBe(true);
   expect(skill).toContain("name: wa-mcp");
 });
