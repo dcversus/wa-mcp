@@ -11,6 +11,8 @@ import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { SendGuard } from "../src/send/safety.ts";
 import { upsertContact } from "../src/store/contacts.ts";
+
+const POSIX_PERMS = process.platform !== "win32";
 import { storeMessage } from "../src/store/messages.ts";
 
 const created: BridgeHttp[] = [];
@@ -647,8 +649,10 @@ test("POST /api/send kind=image sends, stores the file and links the row", async
   expect(row.media_type).toBe("image");
   const mediaPath = String(row.media_path ?? "");
   expect(mediaPath.endsWith(`SENTID1.png`)).toBe(true);
-  expect(statSync(mediaPath).mode & 0o777).toBe(0o644);
-  expect(statSync(mediaDir).mode & 0o777).toBe(0o700);
+  if (POSIX_PERMS) {
+    expect(statSync(mediaPath).mode & 0o777).toBe(0o644);
+    expect(statSync(mediaDir).mode & 0o777).toBe(0o700);
+  }
   expect(row.content).toBe("the pic");
 });
 

@@ -5,6 +5,8 @@ import { afterEach, expect, test } from "vite-plus/test";
 import { MediaError, resolveMedia, saveOutboundMedia } from "../../src/media/resolve.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 
+const POSIX_PERMS = process.platform !== "win32";
+
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 const JPEG = Buffer.from("ffd8ffe000104a464946", "hex");
 const MP3 = Buffer.concat([Buffer.from("494433", "hex"), Buffer.alloc(64, 1)]);
@@ -144,20 +146,23 @@ test("url input fetches, sniffs and caps size", async () => {
   ).rejects.toMatchObject({ code: "FETCH_FAILED" });
 });
 
-test("saveOutboundMedia writes 0644 under a 0700 dir and links the row", async () => {
-  const dir = freshMediaDir();
-  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-media-store-")));
-  stores.push(store);
-  storeMessageRow(store);
-  const path = await saveOutboundMedia(store, dir, "MSGID1", PNG, "image/png");
-  expect(path.endsWith("MSGID1.png")).toBe(true);
-  expect(statSync(path).mode & 0o777).toBe(0o644);
-  expect(statSync(dir).mode & 0o777).toBe(0o700);
-  const row = store.db.prepare("SELECT media_path FROM messages WHERE id = 'MSGID1'").get() as {
-    media_path: string;
-  };
-  expect(row.media_path).toBe(path);
-});
+test.skipIf(!POSIX_PERMS)(
+  "saveOutboundMedia writes 0644 under a 0700 dir and links the row",
+  async () => {
+    const dir = freshMediaDir();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-media-store-")));
+    stores.push(store);
+    storeMessageRow(store);
+    const path = await saveOutboundMedia(store, dir, "MSGID1", PNG, "image/png");
+    expect(path.endsWith("MSGID1.png")).toBe(true);
+    expect(statSync(path).mode & 0o777).toBe(0o644);
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
+    const row = store.db.prepare("SELECT media_path FROM messages WHERE id = 'MSGID1'").get() as {
+      media_path: string;
+    };
+    expect(row.media_path).toBe(path);
+  },
+);
 
 function storeMessageRow(store: Store): void {
   store.db

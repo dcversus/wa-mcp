@@ -7,6 +7,8 @@ import { downloadMessageMedia } from "../../src/media/download.ts";
 import { storeMessage } from "../../src/store/messages.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 
+const POSIX_PERMS = process.platform !== "win32";
+
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
 const engineLike = async (message: WAMessage): Promise<Buffer> => {
@@ -86,7 +88,9 @@ test("downloads an image message to the media dir and links the row", async () =
   expect(result.mime).toBe("image/png");
   expect(result.size).toBe(PNG.length);
   expect(result.path.endsWith("DL1.png")).toBe(true);
-  expect(statSync(result.path).mode & 0o777).toBe(0o644);
+  if (POSIX_PERMS) {
+    expect(statSync(result.path).mode & 0o777).toBe(0o644);
+  }
   const row = store.db
     .prepare("SELECT media_path, media_type FROM messages WHERE id = 'DL1'")
     .get() as {

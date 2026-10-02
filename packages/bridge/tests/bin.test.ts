@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { buildConfig, ensureToken, redactPhone } from "../src/bin.ts";
 
+const POSIX_PERMS = process.platform !== "win32";
+
 test("buildConfig applies all defaults from an empty env", () => {
   const config = buildConfig({});
   expect(config.dataDir).toBe(join(homedir(), ".wa-mcp"));
@@ -50,7 +52,7 @@ test("redactPhone keeps only the last four digits", () => {
   expect(redactPhone("358497773518")).toBe("***3518");
 });
 
-test("ensureToken generates and persists a 0600 token file", async () => {
+test.skipIf(!POSIX_PERMS)("ensureToken generates and persists a 0600 token file", async () => {
   const dir = mkdtempSync(join(tmpdir(), "wa-mcp-bin-"));
   const config = buildConfig({ WA_DATA_DIR: dir });
   const token = await ensureToken(config);

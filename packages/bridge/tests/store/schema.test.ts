@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { openStore } from "../../src/store/schema.ts";
 
+const POSIX_PERMS = process.platform !== "win32";
+
 const EXPECTED_TABLES = [
   "aliases",
   "autoreply_rules",
@@ -40,7 +42,7 @@ const EXPECTED_MESSAGE_COLUMNS = [
   "raw",
 ];
 
-test("openStore runs in a 0700 directory with a 0600 database file", () => {
+test.skipIf(!POSIX_PERMS)("openStore runs in a 0700 directory with a 0600 database file", () => {
   const dir = mkdtempSync(join(tmpdir(), "wa-mcp-store-"));
   chmodSync(dir, 0o777);
   const store = openStore(dir);
