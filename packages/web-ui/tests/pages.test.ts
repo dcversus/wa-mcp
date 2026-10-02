@@ -1,15 +1,17 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   chatListHtml,
+  contextViewHtml,
+  groupParticipantsHtml,
   healthHtml,
   messageListHtml,
+  navHtml,
   pairingHtml,
+  profilePageHtml,
   qrHtml,
   settingsHtml,
-  unreadHtml,
-  contextViewHtml,
-  navHtml,
   statusDashboardHtml,
+  unreadHtml,
 } from "../src/pages.ts";
 
 test("pairingHtml embeds the token form above the qr area", () => {
@@ -220,5 +222,34 @@ describe("T51-B chats", () => {
     ]);
     expect(html).toContain('id="context-view"');
     expect(html).toContain("&lt;i&gt;target&lt;/i&gt;");
+  });
+});
+
+describe("T51-C/D profile + groups participants", () => {
+  test("profilePageHtml renders blocklist with unblock affordance and action forms", () => {
+    const html = profilePageHtml({ blocklist: ["358999@s.whatsapp.net"] });
+    expect(html).toContain('id="profile-page"');
+    expect(html).toContain("358999@s.whatsapp.net");
+    expect(html).toContain('data-unblock-jid="358999@s.whatsapp.net"');
+    expect(html).toContain('id="block-form"');
+    expect(html).toContain('id="privacy-form"');
+    expect(html).toContain('id="name-form"');
+  });
+
+  test("profilePageHtml escapes blocklist entries", () => {
+    const html = profilePageHtml({ blocklist: ['"><script>x</script>'] });
+    expect(html).not.toContain("<script>x</script>");
+  });
+
+  test("groupParticipantsHtml lists members with admin flags, escaped", () => {
+    const html = groupParticipantsHtml("1@g.us", [
+      { id: "35846@s.whatsapp.net", isAdmin: true },
+      { id: "<script>m</script>", isAdmin: false },
+    ]);
+    expect(html).toContain('data-participant-jid="35846@s.whatsapp.net"');
+    expect(html).toContain("admin");
+    expect(html).not.toContain("<script>m</script>");
+    expect(html).toContain('data-add-participant="1@g.us"');
+    expect(html).toContain('data-remove-participant="1@g.us"');
   });
 });

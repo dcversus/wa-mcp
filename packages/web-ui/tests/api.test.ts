@@ -204,6 +204,17 @@ describe("task-51 client surface", () => {
     );
   });
 
+  test("block/setPrivacy/setName hit their endpoints", async () => {
+    const { client, calls } = recordingClient();
+    await client.block("999@s.whatsapp.net");
+    await client.setPrivacy("read_receipts", "none");
+    await client.setProfileName("New Name");
+    expect(calls.map((c) => c.path)).toEqual(["/api/block", "/api/privacy", "/api/profile"]);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ chat_jid: "999@s.whatsapp.net", block: true });
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ privacy_key: "read_receipts", value: "none" });
+    expect(JSON.parse(String(calls[2]?.init?.body))).toEqual({ name: "New Name" });
+  });
+
   test("sendPresence notifies typing", async () => {
     const { client, calls } = recordingClient();
     await client.sendPresence("123@s.whatsapp.net", "composing");
