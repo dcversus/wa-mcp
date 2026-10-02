@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { renderFrame } from "../src/app.ts";
+import { renderFrame, type AppDom } from "../src/app.ts";
 
 interface RecordedDom {
   hash: string;
@@ -8,31 +8,27 @@ interface RecordedDom {
   hashChanges: number;
 }
 
-function fakeDom(initialHash: string): RecordedDom & {
-  io: Parameters<typeof renderFrame>[0]["dom"];
-} {
+function fakeDom(initialHash: string): RecordedDom & { io: { dom: AppDom } } {
   const state: RecordedDom = {
     hash: initialHash,
     navHtml: null,
     appHtml: null,
     hashChanges: 0,
   };
-  const io = {
-    dom: {
-      getHash: () => state.hash,
-      setHash: (hash: string) => {
-        state.hashChanges += 1;
-        state.hash = hash;
-      },
-      setNav: (html: string) => {
-        state.navHtml = html;
-      },
-      setApp: (html: string) => {
-        state.appHtml = html;
-      },
+  const dom: AppDom = {
+    getHash: () => state.hash,
+    setHash: (hash: string) => {
+      state.hashChanges += 1;
+      state.hash = hash;
+    },
+    setNav: (html: string) => {
+      state.navHtml = html;
+    },
+    setApp: (html: string) => {
+      state.appHtml = html;
     },
   };
-  return Object.assign(state, { io });
+  return Object.assign(state, { io: { dom } });
 }
 
 const NO_TOKEN = { bridgeUrl: "http://127.0.0.1:8080", token: "" };
@@ -49,7 +45,12 @@ test("no token + #/pairing renders the settings form instead of looping", async 
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
-    loaders: { pairing: boom("pairing"), chats: boom("chats"), unread: boom("unread"), health: boom("health") },
+    loaders: {
+      pairing: boom("pairing"),
+      chats: boom("chats"),
+      unread: boom("unread"),
+      health: boom("health"),
+    },
   });
   expect(state.appHtml).toContain('id="settings-form"');
   expect(state.hash).toBe("#/settings");

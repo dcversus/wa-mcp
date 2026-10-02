@@ -1,0 +1,58 @@
+import { settingsHtml } from "./pages.ts";
+import { needsToken, type WebSettings } from "./state.ts";
+import { resolveRoute, type RoutePattern } from "./router.ts";
+
+export interface AppDom {
+  getHash(): string;
+  setHash(hash: string): void;
+  setNav(html: string): void;
+  setApp(html: string): void;
+}
+
+export type Route = "chats" | "chat" | "unread" | "settings" | "health" | "pairing";
+
+export const ROUTES: Array<RoutePattern<Route>> = [
+  { route: "chats", pattern: "chats" },
+  { route: "chat", pattern: "chat/:jid" },
+  { route: "unread", pattern: "unread" },
+  { route: "settings", pattern: "settings" },
+  { route: "health", pattern: "health" },
+  { route: "pairing", pattern: "pairing" },
+];
+
+export const NAV_HTML = `<a href="#/chats">Chats</a><a href="#/unread">Unread</a><a href="#/health">Health</a><a href="#/pairing">Pairing</a><a href="#/settings">Settings</a>`;
+
+export type RouteLoaders = Partial<
+  Record<Route, (params: Record<string, string>) => Promise<string>>
+>;
+
+export interface RenderFrameIo {
+  dom: AppDom;
+  settings: WebSettings;
+  loaders: RouteLoaders;
+}
+
+export async function renderFrame(io: RenderFrameIo): Promise<void> {
+  const { dom, settings, loaders } = io;
+  dom.setNav(NAV_HTML);
+  const match = resolveRoute(dom.getHash(), ROUTES);
+  if (match === null) {
+    dom.setApp("<p>not found</p>");
+    return;
+  }
+  if (match.route !== "settings" && needsToken(settings)) {
+    dom.setHash("#/settings");
+    dom.setApp(settingsHtml(settings));
+    return;
+  }
+  if (match.route === "settings") {
+    dom.setApp(settingsHtml(settings));
+    return;
+  }
+  const loader = loaders[match.route];
+  if (loader === undefined) {
+    dom.setApp("<p>not implemented</p>");
+    return;
+  }
+  dom.setApp(await loader(match.params));
+}
