@@ -38,6 +38,29 @@ jobs:
           name: dist
           path: packages/*/dist
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: dependency audit (fail on high+)
+        run: pnpm audit --prod --audit-level high
+      - name: gitleaks secret scan
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz -o gitleaks.tgz
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks detect --redact -v
+      - name: no-publish guard
+        run: |
+          ! grep -rEn "npm[ ]publish|pnpm[ ]publish|npmjs[.]org" --include="*.ts" --include="*.mjs" --include="*.yml" packages scripts .github/workflows
+
   test:
     needs: build
     strategy:
