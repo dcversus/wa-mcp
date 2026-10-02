@@ -29,8 +29,21 @@ set -e
 echo "doctor exit was $DOCTOR_EXIT (non-zero expected while bridge down)"
 
 echo "== start daemon =="
-BRIDGE_BIN="/tmp/node_modules/@wa-mcp/bridge/dist/bin.mjs"
-test -f "$BRIDGE_BIN"
+# npm installs bundled workspace deps NESTED under the cli package
+# (/tmp/node_modules/@wa-mcp/cli/node_modules/@wa-mcp/bridge/...), not
+# hoisted — resolve from the installed cli first, then fall back to a find.
+BRIDGE_BIN="$(node -e "console.log(require.resolve('@wa-mcp/bridge/package.json', { paths: ['/tmp/node_modules/@wa-mcp/cli'] }))" 2>/dev/null | sed 's|/package.json$||')/dist/bin.mjs"
+if [[ ! -f "$BRIDGE_BIN" ]]; then
+  BRIDGE_BIN="$(find /tmp/node_modules -path '*@wa-mcp/bridge/dist/bin.mjs' 2>/dev/null | head -1)"
+fi
+if [[ -z "$BRIDGE_BIN" ]] || [[ ! -f "$BRIDGE_BIN" ]]; then
+  echo "FATAL: @wa-mcp/bridge/dist/bin.mjs not found under /tmp/node_modules" >&2
+  echo "installed @wa-mcp layout:" >&2
+  find /tmp/node_modules -maxdepth 5 -type d -name "bridge" -path "*@wa-mcp*" 2>/dev/null | head >&2
+  ls /tmp/node_modules/@wa-mcp 2>/dev/null >&2 || true
+  exit 1
+fi
+echo "bridge bin: $BRIDGE_BIN"
 node "$BRIDGE_BIN" --data-dir /tmp/data --port 8080 > /tmp/bridge.log 2>&1 &
 BRIDGE_PID=$!
 for i in $(seq 1 20); do

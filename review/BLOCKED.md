@@ -122,3 +122,11 @@ then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'
 - Zero code involved — jobs never started. Local gates stay green in the meantime (vp check/test/build).
 - Owner action: GitHub → Settings → Billing & plans → fix payment method or raise spending limit.
 - CI green-state verification deferred until billing is restored (Definition-of-DONE CI-matrix item blocked on this).
+
+## 2026-10-02 11:40 — node:20 docker contract impossible (orchestrator ratification requested)
+
+- TASK 42's docker run exposed: the bridge store is `node:sqlite` (DatabaseSync), which exists only from node 22.5. On the contract's `node:20` image the daemon dies at boot: `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite` (captured from /tmp/bridge.log inside the container).
+- node:20 was never actually exercised — T35's docker test was recorded blocked because docker was unavailable; today it ran for the first time.
+- PROPOSED DEFAULT (implemented, awaiting ratification): docker test image `node:20` → `node:22`, root `engines.node` `>=20` → `>=22.5.0`, doctor floor `minNodeMajor` 20 → 22. The CLI/MCP pieces run fine on 20 — the floor is the daemon's.
+- Alternative if node:20 support is a hard requirement for 0.9: replace node:sqlite with a bundled SQLite (native dep or WASM) — real scope, not a 0.9-patch.
+- Full pass evidence on node:22 (fresh container, tarball sha256 325a60d7…): install → doctor(bridge down rows) → daemon start (nested bin resolved) → /health {"version":"0.9.0"} → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS.
