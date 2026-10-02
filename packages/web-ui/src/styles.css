@@ -323,3 +323,95 @@ li[data-jid]:hover {
 code {
   color: var(--text-dim);
 }
+
+/* ---- T51-A pairing flow ---- */
+.pane {
+  min-height: 300px;
+}
+.hint {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.pairing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.method {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.method h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.countdown {
+  height: 6px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.countdown-fill {
+  height: 100%;
+  background: var(--ok);
+  transition: width 1s linear;
+}
+#qr-image {
+  background: #fff;
+}
+.code-display {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 30px;
+  letter-spacing: 6px;
+  text-align: center;
+  padding: 14px 8px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.code-steps {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding-left: 18px;
+}
+#link-input {
+  font-size: 12px;
+}
+.copy-btn {
+  margin-top: 8px;
+}
+.blocked-box {
+  background: var(--surface-2);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.danger {
+  color: var(--danger);
+}
+.ok {
+  color: var(--ok);
+}
+.resume-row {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 14px;
+}
+.spinner {
+  width: 28px;
+  height: 28px;
+  margin: 30px auto;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

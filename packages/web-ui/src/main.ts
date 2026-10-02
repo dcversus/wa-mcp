@@ -6,15 +6,56 @@ import {
   contactsPageHtml,
   groupsPageHtml,
   messageListHtml,
-  qrHtml,
   settingsHtml,
   statusDashboardHtml,
   unreadHtml,
 } from "./pages.ts";
+import {
+  pairingHtml,
+  pairingState,
+  qrCountdownPct,
+  type PairingHealth,
+  type PairingView,
+} from "./pages-pairing.ts";
 import { loadSettings, saveSettings, type WebSettings } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
 let client: ApiClient = createClient();
+
+// ---- live pairing state (T51-A): poll /health + /api/qr while on #/pairing
+const QR_TTL_MS = 20_000;
+let qrSeenAt = 0;
+let pairingPoll: ReturnType<typeof setInterval> | null = null;
+let pairingView: PairingView = {
+  pane: "connecting",
+  health: {},
+  qr: { qr: null, png: null },
+  countdownPct: 0,
+};
+
+async function refreshPairing(): Promise<void> {
+  const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+  const qr = await client
+    .getQr()
+    .catch(() => ({ qr: null as string | null, png: null as string | null }));
+  if (qr.qr !== null && qrSeenAt === 0) {
+    qrSeenAt = Date.now();
+  }
+  if (qr.qr === null) {
+    qrSeenAt = 0;
+  }
+  pairingView = {
+    ...pairingView,
+    health,
+    qr,
+    pane: pairingState(health, qr, pairingView.code, pairingView.error),
+    countdownPct: qrCountdownPct(qrSeenAt + QR_TTL_MS, Date.now(), QR_TTL_MS),
+  };
+}
+
+function currentPairingView(): PairingView {
+  return pairingView;
+}
 
 function createClient(): ApiClient {
   return createApiClient({
@@ -46,7 +87,7 @@ function dom() {
 async function renderCurrent(): Promise<void> {
   settings = loadSettings(localStorage);
   client = createClient();
-  await renderFrame({ dom: dom(), settings, loaders });
+  await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
   bindRoute();
 }
 
@@ -96,8 +137,8 @@ const loaders: {
   health: async () =>
     statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
-    const qr = await client.getQr();
-    return qrHtml(qr.png === null ? null : `data:image/png;base64,${qr.png}`);
+    await refreshPairing();
+    return pairingHtml(pairingView);
   },
 };
 
@@ -116,9 +157,7 @@ function bindRoute(): void {
     return;
   }
   if (hash === "#/pairing") {
-    // inline token form (rendered when no token is stored) saves + reloads
-    // into the QR view on the same route
-    bindSettingsForm();
+    bindPairingFlow();
     return;
   }
   if (hash === "#/settings") {
@@ -166,6 +205,63 @@ function bindMarkRead(): void {
   });
 }
 
+function bindPairingFlow(): void {
+  bindSettingsForm();
+  const phoneForm = document.getElementById("phone-form") as HTMLFormElement | null;
+  phoneForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const phone = (document.getElementById("phone-input") as HTMLInputElement).value.replace(
+      /\D/g,
+      "",
+    );
+    try {
+      const payload = await client.pairingCode(phone);
+      if (payload.code !== undefined) {
+        pairingView = { ...pairingView, code: payload.code, pane: "methods" };
+      } else {
+        pairingView = {
+          ...pairingView,
+          error: payload.error?.message ?? "pairing code request failed",
+          pane: "error",
+        };
+      }
+    } catch (err) {
+      pairingView = {
+        ...pairingView,
+        error: err instanceof Error ? err.message : String(err),
+        pane: "error",
+      };
+    }
+    await rerenderPairing();
+  });
+  document.getElementById("resume-pairing")?.addEventListener("click", async () => {
+    await client.resumePairing().catch(() => undefined);
+    pairingView = { ...pairingView, error: null, code: null };
+    await rerenderPairing();
+  });
+  document.querySelector("#pairing .copy-btn")?.addEventListener("click", (event) => {
+    const url = (event.currentTarget as HTMLElement).dataset.copyUrl ?? "";
+    void navigator.clipboard?.writeText(url).catch(() => undefined);
+  });
+  pairingPoll = setInterval(() => {
+    void (async () => {
+      await refreshPairing();
+      if (location.hash === "#/pairing") {
+        await rerenderPairing();
+      }
+    })();
+  }, 3_000);
+}
+
+async function rerenderPairing(): Promise<void> {
+  await refreshPairing();
+  const app = document.getElementById("app");
+  if (app !== null && location.hash === "#/pairing") {
+    app.innerHTML = pairingHtml(pairingView);
+    bindPairingFlow();
+  }
+}
+
 function bindSettingsForm(): void {
   const form = document.getElementById("settings-form") as HTMLFormElement | null;
   if (form === null) {
@@ -181,6 +277,11 @@ function bindSettingsForm(): void {
 }
 
 window.addEventListener("hashchange", () => {
+  if (pairingPoll !== null && location.hash !== "#/pairing") {
+    clearInterval(pairingPoll);
+    pairingPoll = null;
+    qrSeenAt = 0;
+  }
   void renderCurrent();
 });
 void renderCurrent();

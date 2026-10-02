@@ -1,7 +1,10 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vite-plus/test";
+import { expect, test, vi } from "vite-plus/test";
+
+// real fs PNG writes: generous under load (T46 lesson)
+vi.setConfig({ testTimeout: 20_000 });
 import { renderQrAscii, saveQrPng } from "../src/qr.ts";
 
 test("renderQrAscii returns pure printable ASCII", () => {

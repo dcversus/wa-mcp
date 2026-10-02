@@ -19,24 +19,28 @@ test("pairingState: qr + no creds → methods pane", () => {
 
 test("pairingState: connected → paired pane wins over everything", () => {
   expect(
-    pairingState(
-      { ...HEALTH_QR, status: "connected", connected: true },
-      { qr: null, png: null },
-    ),
+    pairingState({ ...HEALTH_QR, status: "connected", connected: true }, { qr: null, png: null }),
   ).toBe("paired");
 });
 
 test("pairingState: pairingBlocked → blocked pane wins over qr", () => {
   expect(
     pairingState(
-      { ...HEALTH_QR, status: "pairing-blocked", pairingBlocked: true, pairingAttempts: { used: 3, limit: 3 } },
+      {
+        ...HEALTH_QR,
+        status: "pairing-blocked",
+        pairingBlocked: true,
+        pairingAttempts: { used: 3, limit: 3 },
+      },
       { qr: "wa.me/x", png: "cG5n" },
     ),
   ).toBe("blocked");
 });
 
 test("pairingState: error beats qr", () => {
-  expect(pairingState(HEALTH_QR, { qr: null, png: null }, null, "pairing-code rejected")).toBe("error");
+  expect(pairingState(HEALTH_QR, { qr: null, png: null }, null, "pairing-code rejected")).toBe(
+    "error",
+  );
 });
 
 test("qrCountdownPct is linear and clamps", () => {
@@ -69,13 +73,18 @@ test("pairingHtml escapes the qr payload in attributes", () => {
     qr: { qr: '"><script>x</script>', png: null },
     countdownPct: 10,
   });
-  expect(html).not.toContain('<script>x</script>');
+  expect(html).not.toContain("<script>x</script>");
 });
 
 test("pairingHtml blocked pane shows attempts, explanation and resume action — no QR", () => {
   const html = pairingHtml({
     pane: "blocked",
-    health: { ...HEALTH_QR, status: "pairing-blocked", pairingBlocked: true, pairingAttempts: { used: 3, limit: 3 } },
+    health: {
+      ...HEALTH_QR,
+      status: "pairing-blocked",
+      pairingBlocked: true,
+      pairingAttempts: { used: 3, limit: 3 },
+    },
     qr: { qr: "wa.me/stale", png: null },
     countdownPct: 0,
   });
@@ -87,13 +96,18 @@ test("pairingHtml blocked pane shows attempts, explanation and resume action —
 });
 
 test("pairingHtml connecting + paired + error panes", () => {
-  expect(pairingHtml({ pane: "connecting", health: HEALTH_QR, qr: null, countdownPct: 0 })).toContain(
-    "connecting",
-  );
+  expect(
+    pairingHtml({
+      pane: "connecting",
+      health: HEALTH_QR,
+      qr: { qr: null, png: null },
+      countdownPct: 0,
+    }),
+  ).toContain("connecting");
   const paired = pairingHtml({
     pane: "paired",
     health: { ...HEALTH_QR, connected: true },
-    qr: null,
+    qr: { qr: null, png: null },
     countdownPct: 0,
     me: "Versus",
   });
@@ -102,7 +116,7 @@ test("pairingHtml connecting + paired + error panes", () => {
   const errored = pairingHtml({
     pane: "error",
     health: HEALTH_QR,
-    qr: null,
+    qr: { qr: null, png: null },
     countdownPct: 0,
     error: "<script>boom</script>",
   });
