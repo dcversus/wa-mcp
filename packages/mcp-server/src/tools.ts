@@ -606,6 +606,125 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "create_group",
+    description: "Create a WhatsApp group with a subject and initial participants.",
+    inputSchema: {
+      type: "object",
+      required: ["subject", "participants"],
+      properties: {
+        subject: { type: "string" },
+        participants: {
+          type: "array",
+          items: { type: "string" },
+          description: "Phone numbers or jids",
+        },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = {
+        subject: requireString(args, "subject"),
+        participants: args.participants as string[],
+      };
+      if (!Array.isArray(body.participants)) {
+        throw new ParamError("participants must be an array");
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/group/create", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "update_group_participants",
+    description: "Add, remove, promote or demote group participants.",
+    inputSchema: {
+      type: "object",
+      required: ["group_jid", "jids", "action"],
+      properties: {
+        group_jid: { type: "string" },
+        jids: { type: "array", items: { type: "string" } },
+        action: { type: "string", description: "add | remove | promote | demote" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = {
+        group_jid: requireString(args, "group_jid"),
+        jids: args.jids as string[],
+        action: requireString(args, "action"),
+      };
+      if (!Array.isArray(body.jids)) {
+        throw new ParamError("jids must be an array");
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/group/participants", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "update_group_meta",
+    description: "Update a group's subject and/or description.",
+    inputSchema: {
+      type: "object",
+      required: ["group_jid"],
+      properties: {
+        group_jid: { type: "string" },
+        subject: { type: "string" },
+        description: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body: Record<string, unknown> = { group_jid: requireString(args, "group_jid") };
+      if (args.subject !== undefined) {
+        body.subject = args.subject;
+      }
+      if (args.description !== undefined) {
+        body.description = args.description;
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/group/meta", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "leave_group",
+    description: "Leave a group.",
+    inputSchema: {
+      type: "object",
+      required: ["group_jid"],
+      properties: { group_jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { group_jid: requireString(args, "group_jid") };
+      const payload = (await bridgeFetch(toolCtx, "/api/group/leave", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "get_group_invite",
+    description: "Get a group's invite code.",
+    inputSchema: {
+      type: "object",
+      required: ["group_jid"],
+      properties: { group_jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const groupJid = requireString(args, "group_jid");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/group/invite/${encodeURIComponent(groupJid)}`,
+      )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {
