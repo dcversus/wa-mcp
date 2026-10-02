@@ -77,6 +77,67 @@ test("qr path renders the qr data and waits for connected", async () => {
   );
 });
 
+test("qr path renders an ANSI qr through the injected renderer and keeps the url line", async () => {
+  const rendered: string[] = [];
+  let healthCalls = 0;
+  const deps = makeDeps({
+    renderQr: async (text: string) => {
+      rendered.push(text);
+      return `[ANSI-ART:${text}]`;
+    },
+    fetchFn: (async (url: string | URL) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        healthCalls += 1;
+        if (healthCalls <= 1) {
+          return new Response(JSON.stringify({ status: "qr", connected: false }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({ status: "connected", connected: true, loggedIn: true }),
+          { status: 200 },
+        );
+      }
+      if (urlText.endsWith("/api/qr")) {
+        return new Response(JSON.stringify({ qr: "QRDATA", png: "cG5n" }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+  });
+  const exit = await runPair(deps);
+  expect(exit).toBe(0);
+  expect(rendered).toEqual(["QRDATA"]);
+  expect(deps.writes.some((line) => line.includes("[ANSI-ART:QRDATA]"))).toBe(true);
+  expect(deps.writes.some((line) => line.trim().endsWith("QRDATA"))).toBe(true);
+});
+
+test("default renderer draws a terminal qr for the real wa.me url", async () => {
+  const deps = makeDeps({
+    fetchFn: (async (url: string | URL) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        return new Response(JSON.stringify({ status: "qr", connected: false }), { status: 200 });
+      }
+      if (urlText.endsWith("/api/qr")) {
+        return new Response(
+          JSON.stringify({
+            qr: "https://wa.me/settings/linked_devices#REF,KEY1,KEY2,KEY3,4",
+            png: "cG5n",
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+    timeoutMs: 10,
+    pollIntervalMs: 0,
+  });
+  const exit = await runPair(deps);
+  expect(exit).toBe(1);
+  const qrBlock = deps.writes.find((line) => line.includes("▄") || line.includes("█"));
+  expect(qrBlock).toBeDefined();
+  expect(deps.writes.some((line) => line.includes("wa.me/settings/linked_devices"))).toBe(true);
+});
+
 test("code path prints the formatted pairing code", async () => {
   const deps = makeDeps({
     codePhone: "358497773518",
