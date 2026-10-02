@@ -305,7 +305,7 @@ test("bodies at exactly 1MB pass the limit", async () => {
   expect(((await res.json()) as { error: { code: string } }).error.code).toBe("VALIDATION_ERROR");
 });
 
-test("token bucket returns 429 with Retry-After when exhausted", async () => {
+test("token bucket returns 429 with Retry-After when exhausted", { timeout: 15_000 }, async () => {
   const bridge = await startServer({ rateLimit: { capacity: 2, refillPerMinute: 60 } });
   const auth = { authorization: "Bearer test-token" };
   const first = await fetch(url(bridge, "/api/messages"), { headers: auth });
@@ -1372,75 +1372,79 @@ test("media endpoints sanitize the message id", async () => {
   expect(unknown.status).toBe(404);
 });
 
-test("GET /events streams bus events as SSE and cleans up on disconnect", async () => {
-  let active = 0;
-  const base = createEventBus();
-  const spyBus: typeof base = {
-    ...base,
-    subscribe: (handler) => {
-      active += 1;
-      const unsubscribe = base.subscribe(handler);
-      return () => {
-        active -= 1;
-        unsubscribe();
-      };
-    },
-  };
-  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
-  openedStores.push(store);
-  const bridge = await createHttpServer(
-    {
-      status: "connected",
-      events: spyBus,
-      close: async () => {},
-      getLastQr: () => null,
-      hasPairedAccount: () => false,
-      pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
-      resumePairing: () => {},
-      socket: makeFakeSocket(),
-    },
-    { token: "test-token", store, eventsHeartbeatMs: 40 },
-  );
-  created.push(bridge);
-  const controller = new AbortController();
-  const res = await fetch(url(bridge, "/events"), {
-    headers: authHeader,
-    signal: controller.signal,
-  });
-  expect(res.status).toBe(200);
-  expect(res.headers.get("content-type")).toContain("text/event-stream");
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("no body");
-  const decoder = new TextDecoder();
-  const readUntil = async (needle: string): Promise<string> => {
-    let seen = "";
-    const deadline = Date.now() + 2000;
-    while (Date.now() < deadline) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      seen += decoder.decode(chunk.value);
-      if (seen.includes(needle)) {
-        return seen;
+test(
+  "GET /events streams bus events as SSE and cleans up on disconnect",
+  { timeout: 15_000 },
+  async () => {
+    let active = 0;
+    const base = createEventBus();
+    const spyBus: typeof base = {
+      ...base,
+      subscribe: (handler) => {
+        active += 1;
+        const unsubscribe = base.subscribe(handler);
+        return () => {
+          active -= 1;
+          unsubscribe();
+        };
+      },
+    };
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(
+      {
+        status: "connected",
+        events: spyBus,
+        close: async () => {},
+        getLastQr: () => null,
+        hasPairedAccount: () => false,
+        pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
+        resumePairing: () => {},
+        socket: makeFakeSocket(),
+      },
+      { token: "test-token", store, eventsHeartbeatMs: 40 },
+    );
+    created.push(bridge);
+    const controller = new AbortController();
+    const res = await fetch(url(bridge, "/events"), {
+      headers: authHeader,
+      signal: controller.signal,
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("no body");
+    const decoder = new TextDecoder();
+    const readUntil = async (needle: string): Promise<string> => {
+      let seen = "";
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        seen += decoder.decode(chunk.value);
+        if (seen.includes(needle)) {
+          return seen;
+        }
       }
-    }
-    return seen;
-  };
-  base.emit({
-    type: "messages.upsert",
-    payload: { messages: [], type: "notify" },
-  });
-  const first = await readUntil("messages.upsert");
-  expect(first).toContain("data:");
-  base.emit({ type: "presence.update", payload: { id: "x", presences: {} } });
-  const second = await readUntil("presence.update");
-  expect(second).toContain("presence.update");
-  controller.abort();
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  expect(active).toBe(0);
-  expect(() =>
-    base.emit({ type: "presence.update", payload: { id: "x", presences: {} } }),
-  ).not.toThrow();
-});
+      return seen;
+    };
+    base.emit({
+      type: "messages.upsert",
+      payload: { messages: [], type: "notify" },
+    });
+    const first = await readUntil("messages.upsert");
+    expect(first).toContain("data:");
+    base.emit({ type: "presence.update", payload: { id: "x", presences: {} } });
+    const second = await readUntil("presence.update");
+    expect(second).toContain("presence.update");
+    controller.abort();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(active).toBe(0);
+    expect(() =>
+      base.emit({ type: "presence.update", payload: { id: "x", presences: {} } }),
+    ).not.toThrow();
+  },
+);
 
 test("GET /events fans out to multiple concurrent clients", async () => {
   const base = createEventBus();

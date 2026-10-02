@@ -196,6 +196,14 @@ describe("task-51 client surface", () => {
     expect(calls[2]?.path).toBe("/api/tts");
   });
 
+  test("getContext hits /api/context with chat, message and radius", async () => {
+    const { client, calls } = recordingClient();
+    await client.getContext("123@s.whatsapp.net", "m-1", 5);
+    expect(calls[0]?.path).toBe(
+      "/api/context?chat_jid=123%40s.whatsapp.net&message_id=m-1&radius=5",
+    );
+  });
+
   test("sendPresence notifies typing", async () => {
     const { client, calls } = recordingClient();
     await client.sendPresence("123@s.whatsapp.net", "composing");

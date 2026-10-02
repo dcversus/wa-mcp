@@ -3,6 +3,7 @@ import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
 import {
   chatListHtml,
+  contextViewHtml,
   contactsPageHtml,
   groupsPageHtml,
   messageListHtml,
@@ -56,6 +57,11 @@ async function refreshPairing(): Promise<void> {
 function currentPairingView(): PairingView {
   return pairingView;
 }
+
+// ---- chat experience state (T51-B)
+let chatsShowArchived = false;
+let chatSearchQuery = "";
+let replyToId: string | null = null;
 
 function createClient(): ApiClient {
   return createApiClient({
@@ -120,14 +126,33 @@ const loaders: {
     return groupsPageHtml((payload.chats ?? []).filter((chat) => chat.jid.endsWith("@g.us")));
   },
   chats: async () => {
-    const payload = (await client.getChats()) as { chats: Parameters<typeof chatListHtml>[0] };
-    return chatListHtml(payload.chats);
+    const payload = (await client.getChats()) as {
+      chats: Parameters<typeof chatListHtml>[0];
+    };
+    return chatListHtml(payload.chats, {
+      showArchived: chatsShowArchived,
+      query: chatSearchQuery,
+    });
   },
   chat: async (params) => {
     const payload = (await client.getMessages(params.jid ?? "", 50)) as {
-      messages: Parameters<typeof messageListHtml>[1];
+      messages: Array<
+        Parameters<typeof messageListHtml>[1][number] & {
+          mediaType?: string | null;
+          quotedMessageId?: string | null;
+          reactions?: string | null;
+        }
+      >;
     };
-    return messageListHtml(params.jid ?? "", payload.messages);
+    const messages = payload.messages.map((row) => ({
+      ...row,
+      quoted:
+        row.quotedMessageId !== undefined && row.quotedMessageId !== null
+          ? { text: null, senderName: null }
+          : null,
+      reactions: parseReactions(row.reactions),
+    }));
+    return messageListHtml(params.jid ?? "", messages);
   },
   unread: async () => {
     const payload = (await client.getUnread()) as { unread: Parameters<typeof unreadHtml>[0] };
@@ -154,6 +179,16 @@ function bindRoute(): void {
   }
   if (hash === "#/unread") {
     bindMarkRead();
+    bindMarkAllRead();
+    return;
+  }
+  if (hash === "#/chats") {
+    bindChatsControls();
+    return;
+  }
+  if (hash.startsWith("#/chat")) {
+    bindSendBox();
+    bindChatExtras();
     return;
   }
   if (hash === "#/pairing") {
@@ -182,8 +217,138 @@ function bindSendBox(): void {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = form.querySelector("input[name=text]") as HTMLInputElement;
-    await client.sendMessage(chatJid, input.value);
+    await client.sendMessage(
+      chatJid,
+      replyToId !== null ? `> ${replyToId}\n${input.value}` : input.value,
+    );
     input.value = "";
+    replyToId = null;
+    void client.sendPresence(chatJid, "paused").catch(() => undefined);
+  });
+}
+
+function parseReactions(raw: string | null | undefined): Array<{ emoji: string; count: number }> {
+  if (raw === undefined || raw === null || raw.length === 0) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as Array<{ emoji?: string; count?: number }>;
+    return parsed
+      .filter((entry) => typeof entry.emoji === "string")
+      .map((entry) => ({ emoji: entry.emoji as string, count: entry.count ?? 1 }));
+  } catch {
+    return [];
+  }
+}
+
+function bindChatsControls(): void {
+  document.getElementById("chat-search")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    chatSearchQuery = (document.querySelector("#chat-search input[name=query]") as HTMLInputElement)
+      .value;
+    void renderCurrent();
+  });
+  document.getElementById("archived-toggle")?.addEventListener("change", (event) => {
+    chatsShowArchived = (event.currentTarget as HTMLInputElement).checked;
+    void renderCurrent();
+  });
+}
+
+function bindMarkAllRead(): void {
+  document.getElementById("mark-all-read")?.addEventListener("click", async () => {
+    const payload = (await client.getUnread()) as {
+      unread: Array<{ chatJid: string; unreadCount: number }>;
+    };
+    for (const entry of payload.unread) {
+      const messages = (await client.getMessages(entry.chatJid, 200)) as {
+        messages: Array<{ id: string; isUnread: boolean }>;
+      };
+      const unreadIds = messages.messages.filter((m) => m.isUnread).map((m) => m.id);
+      if (unreadIds.length > 0) {
+        await client.markRead(entry.chatJid, unreadIds).catch(() => undefined);
+      }
+    }
+    await renderCurrent();
+  });
+}
+
+function bindChatExtras(): void {
+  // reply-to: click a message to quote it; send carries reply_to_message_id
+  document.querySelectorAll("#app .message").forEach((item) => {
+    item.addEventListener("click", (event) => {
+      if ((event.target as HTMLElement).closest("button")) {
+        return;
+      }
+      replyToId = (item as HTMLElement).dataset.id ?? null;
+      const input = document.querySelector("#app .send-box input") as HTMLInputElement | null;
+      if (input !== null) {
+        input.placeholder =
+          replyToId !== null ? `replying to ${replyToId.slice(0, 12)}…` : "message";
+      }
+    });
+  });
+  // context: ±5 around a message
+  document.querySelectorAll("#app .context-btn").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const messageId = (button as HTMLElement).dataset.contextId ?? "";
+      const chatJid = location.hash.slice("#/chat/".length);
+      const context = (await client.getContext(decodeURIComponent(chatJid), messageId, 5)) as {
+        messages?: Array<{
+          id: string;
+          chatJid?: string;
+          senderName?: string | null;
+          timestamp?: string;
+          content?: string | null;
+          isFromMe?: boolean;
+        }>;
+      };
+      const existing = document.getElementById("context-view");
+      if (existing !== null) {
+        existing.remove();
+        return;
+      }
+      const container = document.querySelector("#app .messages");
+      if (container === null) {
+        return;
+      }
+      container.insertAdjacentHTML(
+        "afterend",
+        contextViewHtml(
+          messageId,
+          (context.messages ?? []).map((m) => ({
+            id: m.id,
+            chatJid: m.chatJid ?? decodeURIComponent(chatJid),
+            senderName: m.senderName ?? null,
+            timestamp: m.timestamp ?? "",
+            content: m.content ?? null,
+            isFromMe: m.isFromMe ?? false,
+          })),
+        ),
+      );
+    });
+  });
+  // media download + voice-note transcription
+  document.querySelectorAll("#app .media-btn").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const id = (button as HTMLElement).dataset.downloadId ?? "";
+      await client.downloadMedia(id).catch(() => undefined);
+      (button as HTMLButtonElement).textContent = "downloaded ✓";
+    });
+  });
+  document.querySelectorAll("#app .transcribe-btn").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const id = (button as HTMLElement).dataset.transcribeId ?? "";
+      const payload = (await client.transcribe(id).catch(() => null)) as {
+        transcript?: string;
+      } | null;
+      const target = document.querySelector(`[data-transcript-for="${id}"]`);
+      if (target !== null) {
+        target.textContent = payload?.transcript ?? "(transcription unavailable)";
+      }
+    });
   });
 }
 

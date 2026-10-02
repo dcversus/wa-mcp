@@ -75,17 +75,28 @@ export interface ChatSummaryView {
 }
 
 export function chatListHtml(
-  chats: Array<ChatSummaryView & { lastMessage?: { text: string | null } | null }>,
+  chats: Array<
+    ChatSummaryView & {
+      lastMessage?: { text: string | null; timestamp?: string | null } | null;
+      archived?: boolean;
+    }
+  >,
+  opts: { showArchived?: boolean; query?: string } = {},
 ): string {
   const items = chats
     .map((chat) => {
       const badge =
         chat.unreadCount > 0 ? `<span class="unread-badge">${chat.unreadCount}</span>` : "";
       const preview = chat.lastMessage?.text ?? "";
-      return `<li data-jid="${chat.jid}"><span class="chat-name">${chat.name ?? chat.jid}</span>${badge}<span class="chat-preview">${preview}</span></li>`;
+      const time = chat.lastMessage?.timestamp
+        ? `<time class="chat-time">${escapeHtml(chat.lastMessage.timestamp.slice(11, 16))}</time>`
+        : "";
+      const archivedTag = chat.archived ? ' data-archived="1"' : "";
+      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span>${badge}${time}<span class="chat-preview">${escapeHtml(preview)}</span></li>`;
     })
     .join("");
-  return `<ul class="chat-list">${items}</ul>`;
+  // archived chats stay in the DOM (tagged) and hide via CSS unless toggled on
+  return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
 }
 
 export interface MessageView {
@@ -96,16 +107,66 @@ export interface MessageView {
   content: string | null;
   isFromMe: boolean;
   isUnread: boolean;
+  mediaType?: "image" | "video" | "audio" | "document" | "sticker" | null;
+  poll?: { question: string; options: string[] } | null;
+  quoted?: { text: string | null; senderName: string | null } | null;
+  reactions?: Array<{ emoji: string; count: number }> | null;
 }
+
+const MEDIA_LABELS: Record<string, string> = {
+  image: "📷 image",
+  video: "🎬 video",
+  audio: "🎵 voice note",
+  document: "📄 document",
+  sticker: "🌟 sticker",
+};
 
 export function messageListHtml(chatJid: string, messages: Array<MessageView>): string {
   const items = messages
+    .map((message) => {
+      let body: string;
+      if (message.poll) {
+        body = `📊 ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
+          .map((option) => escapeHtml(option))
+          .join(" · ")}</span>`;
+      } else if (message.mediaType !== undefined && message.mediaType !== null) {
+        const actions =
+          message.mediaType === "audio"
+            ? ` <button class="transcribe-btn" data-transcribe-id="${escapeHtml(message.id)}">transcribe</button> <span class="transcript" data-transcript-for="${escapeHtml(message.id)}"></span>`
+            : "";
+        body = `${MEDIA_LABELS[message.mediaType] ?? "📎 media"}${message.content ? ` ${escapeHtml(message.content)}` : ""} <button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button>${actions}`;
+      } else {
+        body = escapeHtml(message.content ?? "");
+      }
+      const quote = message.quoted
+        ? `<blockquote class="quoted"><span class="quoted-sender">${escapeHtml(message.quoted.senderName ?? "")}</span> ${escapeHtml(message.quoted.text ?? "")}</blockquote>`
+        : "";
+      const reactions =
+        message.reactions && message.reactions.length > 0
+          ? `<span class="reactions">${message.reactions
+              .map((r) => `<span class="reaction">${escapeHtml(r.emoji)} ${r.count}</span>`)
+              .join("")}</span>`
+          : "";
+      return `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(message.timestamp)}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button></li>`;
+    })
+    .join("");
+  return `<div class="messages" data-chat-jid="${escapeHtml(chatJid)}"><ul>${items}</ul><form class="send-box" data-chat-jid="${escapeHtml(chatJid)}"><input name="text" /><button type="submit">Send</button></form></div>`;
+}
+
+/** ±N context around one message (bridge /api/context). */
+export function contextViewHtml(
+  targetId: string,
+  messages: Array<
+    Pick<MessageView, "id" | "chatJid" | "senderName" | "timestamp" | "content" | "isFromMe">
+  >,
+): string {
+  const items = messages
     .map(
       (message) =>
-        `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${message.id}"><span class="sender">${message.senderName ?? ""}</span><span class="text">${message.content ?? ""}</span><time>${message.timestamp}</time></li>`,
+        `<li class="message ${message.isFromMe ? "from-me" : "from-them"}${message.id === targetId ? " context-target" : ""}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span><span class="text">${escapeHtml(message.content ?? "")}</span><time>${escapeHtml(message.timestamp)}</time></li>`,
     )
     .join("");
-  return `<div class="messages" data-chat-jid="${chatJid}"><ul>${items}</ul><form class="send-box" data-chat-jid="${chatJid}"><input name="text" /><button type="submit">Send</button></form></div>`;
+  return `<div id="context-view"><h3>context</h3><ul>${items}</ul></div>`;
 }
 
 export interface UnreadEntryView {
@@ -120,7 +181,7 @@ export function unreadHtml(entries: Array<UnreadEntryView>): string {
         `<li><span>${entry.chatJid}</span><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark read</button></li>`,
     )
     .join("");
-  return `<ul class="unread-list">${items}</ul>`;
+  return `<ul class="unread-list">${items}</ul><button id="mark-all-read">mark all read</button>`;
 }
 
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
