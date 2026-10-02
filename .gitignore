@@ -10,3 +10,4 @@ dist/
 .claude/settings.local.json
 *.tgz
 coverage/
+.claude/*.lock
