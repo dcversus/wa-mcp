@@ -94,7 +94,10 @@ test("an unparsable recipient with an at-sign fails as INVALID_JID before the so
 });
 
 describe("T56 LID resolution", () => {
-  function socketWithLidMapping(mapping: Record<string, string>): { socket: WASocket; sentJids: string[] } {
+  function socketWithLidMapping(mapping: Record<string, string>): {
+    socket: WASocket;
+    sentJids: string[];
+  } {
     const sentJids: string[] = [];
     const socket = {
       signalRepository: {

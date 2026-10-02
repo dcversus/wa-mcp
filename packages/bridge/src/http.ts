@@ -87,6 +87,8 @@ export interface HttpServerOptions {
   eventsHeartbeatMs?: number;
   uiDir?: string;
   rateLimitNow?: () => number;
+  /** pino-style logger for server-side diagnostics (send failures etc.) */
+  logger?: { error(obj: unknown, msg?: string): void; warn(obj: unknown, msg?: string): void };
   /** ephemeral per-boot token for the public pairing surface (T53):
    * /health publishes it; it authorizes /api/qr, /api/pairing-code and
    * /api/pair/resume ONLY — never account data. */
@@ -720,6 +722,10 @@ export async function createHttpServer(
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
+        opts.logger?.error(
+          { err: err instanceof Error ? { message: err.message, stack: err.stack } : err },
+          "send failed",
+        );
         sendJson(res, 500, { error: { code: "INTERNAL", message: "send failed" } });
       });
   };

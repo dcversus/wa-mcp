@@ -145,6 +145,7 @@ export async function main(
     sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
     cloud,
+    logger,
   });
   logger.info(
     { host: config.host, port: server.port, dataDir: config.dataDir },

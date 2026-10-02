@@ -1,4 +1,4 @@
-import { proto } from "baileys";
+import { jidDecode, jidEncode, proto } from "baileys";
 import type { AnyMessageContent, WASocket, WAMessage } from "baileys";
 import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { storeMessage } from "../store/messages.ts";
@@ -22,6 +22,35 @@ export interface SendResult {
   chatJid: string;
 }
 
+/** LID-era accounts keep signal sessions under @lid JIDs. The engine sends
+ * to the JID AS-GIVEN (fork messages-send.js: finalJid = jid), so a phone JID
+ * must be rewritten to its mapped LID before the wire — the mapping lives in
+ * signalRepository.lidMapping (backed by the auth dir's lid-mapping-*.json).
+ * LIDs, groups and unmapped PNs pass through unchanged. */
+export async function resolveLidJid(socket: WASocket, jid: string): Promise<string> {
+  const decode = jidDecode(jid);
+  const user = decode?.user;
+  if (decode === undefined || user === undefined || decode.server !== "s.whatsapp.net") {
+    return jid;
+  }
+  const repo = (
+    socket as unknown as {
+      signalRepository?: {
+        lidMapping?: { getLIDForPN?(pn: string): Promise<string | null> };
+      };
+    }
+  ).signalRepository;
+  const getLid = repo?.lidMapping?.getLIDForPN;
+  if (typeof getLid !== "function" || repo === undefined || repo.lidMapping === undefined) {
+    return jid;
+  }
+  const lid = await getLid.call(repo.lidMapping, user);
+  if (typeof lid !== "string" || lid.length === 0) {
+    return jid;
+  }
+  return jidEncode(lid, "lid", decode.device);
+}
+
 export async function sendViaSocket(
   socket: WASocket,
   chatJid: string,
@@ -38,7 +67,8 @@ export async function sendViaSocket(
   if (jid === null) {
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
   }
-  const sent = await socket.sendMessage(jid, content as AnyMessageContent);
+  const wireJid = await resolveLidJid(socket, jid);
+  const sent = await socket.sendMessage(wireJid, content as AnyMessageContent);
   const messageId = sent?.key?.id ?? "";
   if (sent !== undefined && opts.store !== undefined) {
     const outbound = {
