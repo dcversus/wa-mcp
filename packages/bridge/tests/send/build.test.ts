@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { proto } from "@whiskeysockets/baileys";
+import { proto } from "baileys";
 import {
   buildButtonsMessage,
   buildContactMessage,

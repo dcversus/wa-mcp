@@ -134,12 +134,17 @@ if (
 ) {
   const cli: { dataDir?: string; port?: string; uiDir?: string } = {};
   const argv = process.argv.slice(2);
+  const flagToKey: Record<string, "dataDir" | "port" | "uiDir"> = {
+    "--data-dir": "dataDir",
+    "--port": "port",
+    "--ui-dir": "uiDir",
+  };
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--data-dir" || arg === "--port" || arg === "--ui-dir") {
+    const key = flagToKey[argv[index] ?? ""];
+    if (key !== undefined) {
       const value = argv[index + 1];
       if (value !== undefined) {
-        cli[arg.slice(2) as "dataDir" | "port" | "uiDir"] = value;
+        cli[key] = value;
         index += 1;
       }
     }

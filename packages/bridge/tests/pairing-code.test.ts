@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vite-plus/test";
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from "baileys";
 import { formatPairingCode, requestPairingCode } from "../src/pairing-code.ts";
 
 function fakeSocket(code = "ABCD1234") {

@@ -1,4 +1,4 @@
-import type { GroupMetadata, ParticipantAction, WASocket } from "@whiskeysockets/baileys";
+import type { GroupMetadata, ParticipantAction, WASocket } from "baileys";
 
 export class GroupValidationError extends Error {
   readonly code = "VALIDATION_ERROR";

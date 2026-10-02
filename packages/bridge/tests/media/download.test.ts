@@ -2,7 +2,7 @@ import { mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vite-plus/test";
-import type { WAMessage, WASocket } from "@whiskeysockets/baileys";
+import type { WAMessage, WASocket } from "baileys";
 import { downloadMessageMedia } from "../../src/media/download.ts";
 import { storeMessage } from "../../src/store/messages.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
@@ -27,8 +27,8 @@ const engineLike = async (message: WAMessage): Promise<Buffer> => {
 
 const downloadMock = vi.fn(engineLike);
 
-vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
+vi.mock("baileys", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("baileys")>();
   return {
     ...actual,
     downloadMediaMessage: (...args: unknown[]) =>

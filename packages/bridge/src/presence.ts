@@ -1,4 +1,4 @@
-import type { WAPresence, WASocket } from "@whiskeysockets/baileys";
+import type { WAPresence, WASocket } from "baileys";
 
 export const PRESENCE_TYPES = [
   "available",

@@ -1,4 +1,4 @@
-import type { BaileysEventMap } from "@whiskeysockets/baileys";
+import type { BaileysEventMap } from "baileys";
 
 export type WaEventMap = {
   "connection.update": BaileysEventMap["connection.update"];

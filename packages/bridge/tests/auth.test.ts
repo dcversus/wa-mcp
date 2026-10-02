@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, statSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
-import type { AuthenticationCreds } from "@whiskeysockets/baileys";
+import type { AuthenticationCreds } from "baileys";
 import { openAuthStore } from "../src/auth.ts";
 
 const POSIX_PERMS = process.platform !== "win32";

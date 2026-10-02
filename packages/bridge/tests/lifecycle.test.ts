@@ -4,18 +4,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
-vi.mock("@whiskeysockets/baileys", () => ({
+vi.mock("baileys", () => ({
   makeWASocket: vi.fn(),
   useMultiFileAuthState: vi.fn(),
   DisconnectReason: { loggedOut: 401 },
 }));
 
-import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
-import type {
-  AuthenticationState,
-  UserFacingSocketConfig,
-  WASocket,
-} from "@whiskeysockets/baileys";
+import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
+import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
 import { startBridge } from "../src/lifecycle.ts";
 

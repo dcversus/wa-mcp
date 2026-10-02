@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { proto } from "@whiskeysockets/baileys";
-import type { WAMessage } from "@whiskeysockets/baileys";
+import { proto } from "baileys";
+import type { WAMessage } from "baileys";
 import { extractContent } from "../../src/ingest/extract.ts";
 
 function waMessage(content: proto.IMessage | null, overrides: Partial<WAMessage> = {}): WAMessage {

@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vite-plus/test";
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from "baileys";
 import {
   ValidationError,
   blockUnblock,

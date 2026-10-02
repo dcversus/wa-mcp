@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { AnyMessageContent, proto } from "@whiskeysockets/baileys";
+import type { AnyMessageContent, proto } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";

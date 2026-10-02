@@ -1,5 +1,5 @@
-import { downloadMediaMessage } from "@whiskeysockets/baileys";
-import type { WAMessage, WASocket } from "@whiskeysockets/baileys";
+import { downloadMediaMessage } from "baileys";
+import type { WAMessage, WASocket } from "baileys";
 import pino from "pino";
 import { extractContent } from "../ingest/extract.ts";
 import type { Store } from "../store/schema.ts";

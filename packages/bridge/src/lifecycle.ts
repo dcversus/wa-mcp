@@ -1,9 +1,5 @@
-import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
-import type {
-  UserFacingSocketConfig,
-  WABrowserDescription,
-  WASocket,
-} from "@whiskeysockets/baileys";
+import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
+import type { UserFacingSocketConfig, WABrowserDescription, WASocket } from "baileys";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";

@@ -1,5 +1,5 @@
-import { proto } from "@whiskeysockets/baileys";
-import type { WAMessage } from "@whiskeysockets/baileys";
+import { proto } from "baileys";
+import type { WAMessage } from "baileys";
 import { extractContent } from "../ingest/extract.ts";
 import type { Store } from "./schema.ts";
 

@@ -1,10 +1,10 @@
-import { proto } from "@whiskeysockets/baileys";
+import { proto } from "baileys";
 import {
   extractUrlFromText,
   generateForwardMessageContent,
   generateWAMessageContent,
-} from "@whiskeysockets/baileys";
-import type { AnyMessageContent, WAMediaUploadFunction, WAMessage } from "@whiskeysockets/baileys";
+} from "baileys";
+import type { AnyMessageContent, WAMediaUploadFunction, WAMessage } from "baileys";
 import pino from "pino";
 
 export interface TextMessageInput {

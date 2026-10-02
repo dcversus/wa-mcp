@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { AuthenticationCreds } from "@whiskeysockets/baileys";
+import type { AuthenticationCreds } from "baileys";
 
 export interface AuthStore {
   loadCreds(): Promise<AuthenticationCreds | null>;

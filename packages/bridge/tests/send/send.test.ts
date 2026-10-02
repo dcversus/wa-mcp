@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vite-plus/test";
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { SendError, sendViaSocket } from "../../src/send/send.ts";
 

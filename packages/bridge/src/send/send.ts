@@ -1,5 +1,5 @@
-import { proto } from "@whiskeysockets/baileys";
-import type { AnyMessageContent, WASocket, WAMessage } from "@whiskeysockets/baileys";
+import { proto } from "baileys";
+import type { AnyMessageContent, WASocket, WAMessage } from "baileys";
 import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { storeMessage } from "../store/messages.ts";
 import type { Store } from "../store/schema.ts";

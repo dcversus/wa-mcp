@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from "baileys";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp, type HttpServerOptions } from "../src/http.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
@@ -1231,8 +1231,8 @@ test("POST /api/block and GET /api/blocklist work", async () => {
 
 const MEDIA_PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
-vi.mock("@whiskeysockets/baileys", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@whiskeysockets/baileys")>();
+vi.mock("baileys", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("baileys")>();
   const downloadMediaMessage = async (message: {
     message?: Record<string, unknown>;
   }): Promise<Buffer> => {

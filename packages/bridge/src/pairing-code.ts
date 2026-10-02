@@ -1,4 +1,4 @@
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from "baileys";
 
 export class PairingCodeError extends Error {
   readonly code = "VALIDATION_ERROR";
