@@ -15,6 +15,7 @@ import {
 } from "./store/chats.ts";
 import { listContacts, setAlias } from "./store/contacts.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
+import { requestPairingCode } from "./pairing-code.ts";
 import {
   createGroup,
   getGroupInviteCode,
@@ -1536,6 +1537,53 @@ export async function createHttpServer(
         path === "/api/group/leave"
       ) {
         serveGroup(path, req, res, body);
+        return;
+      }
+      if (path === "/api/pairing-code" && req.method === "POST") {
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        if (handle.status !== "qr" && handle.status !== "connecting") {
+          sendJson(res, 409, {
+            error: {
+              code: "PAIRING_STATE",
+              message: `pairing code requires qr/connecting state (current: ${handle.status})`,
+            },
+          });
+          return;
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(body.toString("utf8")) as unknown;
+        } catch {
+          validationError(res, "body must be valid JSON");
+          return;
+        }
+        const phone = (parsed as { phone?: unknown }).phone;
+        if (
+          typeof phone !== "string" ||
+          phone.replace(/\D/g, "").length < 8 ||
+          phone.replace(/\D/g, "").length > 15
+        ) {
+          validationError(res, "phone must be 8-15 digits after stripping +/spaces");
+          return;
+        }
+        void requestPairingCode(socket, phone)
+          .then((code) => {
+            sendJson(res, 200, { code });
+          })
+          .catch((err: unknown) => {
+            sendJson(res, 500, {
+              error: {
+                code: "INTERNAL",
+                message: err instanceof Error ? err.message : "pairing code failed",
+              },
+            });
+          });
         return;
       }
       if (path === "/api/transcribe" && req.method === "POST") {

@@ -8,9 +8,10 @@ function fakeSocket(code = "ABCD1234") {
 }
 
 test("requestPairingCode strips the phone to digits and forwards it", async () => {
-  const { sock, requestPairingCode } = fakeSocket();
+  const { sock, requestPairingCode: codeMock } = fakeSocket();
   await requestPairingCode(sock, "+358 497 773 518");
-  expect(requestPairingCode.mock.calls[0]?.[0]).toBe("358497773518");
+  expect(codeMock).toHaveBeenCalledTimes(1);
+  expect(codeMock.mock.calls[0]?.[0]).toBe("358497773518");
 });
 
 test("requestPairingCode formats the 8-char code as XXXX-XXXX", async () => {
@@ -20,10 +21,14 @@ test("requestPairingCode formats the 8-char code as XXXX-XXXX", async () => {
 
 test("requestPairingCode rejects phones outside 8-15 digits", async () => {
   const { sock } = fakeSocket();
-  await expect(requestPairingCode(sock, "1234567")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  await expect(requestPairingCode(sock, "1234567")).rejects.toMatchObject({
+    code: "VALIDATION_ERROR",
+  });
   await expect(requestPairingCode(sock, "1234567890123456")).rejects.toMatchObject({
     code: "VALIDATION_ERROR",
   });
-  await expect(requestPairingCode(sock, "no-digits")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  await expect(requestPairingCode(sock, "no-digits")).rejects.toMatchObject({
+    code: "VALIDATION_ERROR",
+  });
   expect(sock.requestPairingCode as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
 });

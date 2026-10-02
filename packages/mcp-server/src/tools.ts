@@ -763,6 +763,25 @@ export const TOOLS: ToolDef[] = [
       return textResult(payload);
     },
   },
+  {
+    name: "get_pairing_code",
+    description: "Request a pairing code to link a device (bridge must be in qr/connecting state).",
+    inputSchema: {
+      type: "object",
+      required: ["phone"],
+      properties: {
+        phone: { type: "string", description: "Phone number, 8-15 digits after stripping" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body = { phone: requireString(args, "phone") };
+      const payload = (await bridgeFetch(toolCtx, "/api/pairing-code", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
 ];
 
 export function toolByName(name: string): ToolDef | undefined {

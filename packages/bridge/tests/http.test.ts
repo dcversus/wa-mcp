@@ -1746,8 +1746,9 @@ test("GET / serves the web ui shell unauthed; assets are confined", async () => 
 
 test("POST /api/pairing-code returns the formatted code while pairing", async () => {
   const socket = makeFakeSocket();
-  (socket as unknown as { requestPairingCode: ReturnType<typeof vi.fn>; status: string }).requestPairingCode =
-    vi.fn(async () => "ABCD1234");
+  (
+    socket as unknown as { requestPairingCode: ReturnType<typeof vi.fn>; status: string }
+  ).requestPairingCode = vi.fn(async () => "ABCD1234");
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
   openedStores.push(store);
   const bridge = await createHttpServer(stubHandle("qr", null, socket), {
