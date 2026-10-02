@@ -2,7 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 
-const SKILL_PATH = join(import.meta.dirname ?? ".", "..", "..", "..", "skills", "wa-mcp", "SKILL.md");
+const SKILL_PATH = join(
+  import.meta.dirname ?? ".",
+  "..",
+  "..",
+  "..",
+  "skills",
+  "wa-mcp",
+  "SKILL.md",
+);
 
 test("SKILL.md has valid frontmatter with name and description", () => {
   const skill = readFileSync(SKILL_PATH, "utf8");

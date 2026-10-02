@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
 import { runDoctor } from "./doctor.ts";
+import { installSkills } from "./skills.ts";
 import { PLATFORMS } from "./platforms.ts";
 import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
@@ -15,7 +16,7 @@ function bridgeProcessPath(): string {
 }
 
 async function main(argv: string[]): Promise<void> {
-  const { command, flags } = parseArgs(argv);
+  const { command, flags, positionals } = parseArgs(argv);
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
@@ -50,6 +51,13 @@ async function main(argv: string[]): Promise<void> {
     if (failures > 0) {
       process.exitCode = 1;
     }
+    return;
+  }
+  if (command === "skills" && positionals[0] === "install") {
+    const cliRoot = fileURLToPath(new URL("../../..", import.meta.url));
+    const result = installSkills({ home, sourceDir: join(cliRoot, "skills", "wa-mcp") });
+    console.log(`skills installed: ${result.skillDir}`);
+    console.log(`command: ${result.commandFile}`);
     return;
   }
   if (command === "doctor") {
