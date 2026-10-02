@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { AnyMessageContent, proto } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -87,6 +87,10 @@ export interface HttpServerOptions {
   eventsHeartbeatMs?: number;
   uiDir?: string;
   rateLimitNow?: () => number;
+  /** ephemeral per-boot token for the public pairing surface (T53):
+   * /health publishes it; it authorizes /api/qr, /api/pairing-code and
+   * /api/pair/resume ONLY — never account data. */
+  pairingToken?: string;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -243,6 +247,8 @@ export async function createHttpServer(
   opts: HttpServerOptions,
 ): Promise<BridgeHttp> {
   const startedAt = Date.now();
+  // per-boot pairing token: opts wins (bin), otherwise self-generated
+  const pairingToken = opts.pairingToken ?? randomBytes(24).toString("hex");
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
@@ -1468,6 +1474,7 @@ export async function createHttpServer(
           (handle.status === "reconnecting" && handle.hasPairedAccount()),
         pairingBlocked: budget.blocked,
         pairingAttempts: { used: budget.used, limit: budget.limit },
+        pairingToken,
         channel: opts.cloud ? "cloud" : "baileys",
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
@@ -1545,11 +1552,17 @@ export async function createHttpServer(
     }
     // EventSource cannot set headers: the SSE endpoint may carry the token
     // as a query parameter instead (constant-time compared below like the header)
-    const presented =
-      req.method === "GET" && path === "/events" && presentedBearer(req) === null
-        ? new URL(req.url ?? "/", "http://localhost").searchParams.get("token")
-        : presentedBearer(req);
-    if (presented === null || !tokenMatches(presented, opts.token)) {
+    let presented = presentedBearer(req);
+    if (presented === null && req.method === "GET" && path === "/events") {
+      presented = new URL(req.url ?? "/", "http://localhost").searchParams.get("token");
+    }
+    // the ephemeral pairing token authorizes ONLY the public pairing surface
+    const PAIRING_PATHS = new Set(["/api/qr", "/api/pairing-code", "/api/pair/resume"]);
+    const pairingAuthorized =
+      PAIRING_PATHS.has(path) &&
+      presented !== null &&
+      tokenMatches(presented, pairingToken);
+    if ((!pairingAuthorized && (presented === null || !tokenMatches(presented, opts.token)))) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
       });

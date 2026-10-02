@@ -129,8 +129,12 @@ export async function main(
     };
     logger.info({ phoneNumberId: selection.config.phoneNumberId }, "cloud channel surface enabled");
   }
+  // ephemeral per-boot token for the PUBLIC pairing surface (health already
+  // exposes it); scoped to /api/qr + /api/pairing-code + /api/pair/resume
+  const pairingToken = randomBytes(24).toString("hex");
   const server = await createHttpServer(handle, {
     token,
+    pairingToken,
     host: config.host,
     port: config.port,
     qrPngPath,

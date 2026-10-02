@@ -40,23 +40,29 @@ function boom(name: string): () => Promise<string> {
   };
 }
 
-test("no token + #/pairing renders the token form inline with the qr area, no redirect", async () => {
+test("no token + #/pairing renders the pairing FLOW — never a token wall (T53)", async () => {
   const state = fakeDom("#/pairing");
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
     loaders: {
-      pairing: boom("pairing"),
+      pairing: async () => '<section id="pairing" class="pane pane-methods">QR</section>',
       chats: boom("chats"),
       unread: boom("unread"),
       health: boom("health"),
     },
+    pairingView: () => ({
+      pane: "methods",
+      health: {},
+      qr: { qr: null, png: null },
+      countdownPct: 0,
+    }),
   });
   expect(state.hashChanges).toBe(0);
   expect(state.hash).toBe("#/pairing");
-  expect(state.appHtml).toContain('id="pairing"');
-  expect(state.appHtml).toContain('id="settings-form"');
-  expect(state.appHtml).toContain('id="token"');
+  expect(state.appHtml).toContain("pane-methods");
+  expect(state.appHtml).not.toContain('id="settings-form"');
+  expect(state.appHtml).not.toContain('id="token"');
   expect(state.navHtml).toContain("#/chats");
 });
 
