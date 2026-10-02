@@ -23,6 +23,7 @@ const EXPECTED_TABLES = [
   "read_state",
   "scheduled",
   "templates",
+  "transcripts",
 ].sort();
 
 const EXPECTED_MESSAGE_COLUMNS = [
@@ -124,7 +125,7 @@ test("migrations records schema versions 1 through 3", () => {
     const rows = store.db
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
-    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4, 5]);
+    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
     store.close();
@@ -138,7 +139,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(5);
+    expect(versions).toHaveLength(6);
   } finally {
     second.close();
   }

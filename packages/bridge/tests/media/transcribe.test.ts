@@ -2,7 +2,11 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
-import { createTranscriptionEngine, saveTranscript, getTranscript } from "../../src/media/transcribe.ts";
+import {
+  createTranscriptionEngine,
+  saveTranscript,
+  getTranscript,
+} from "../../src/media/transcribe.ts";
 import { MockTtsEngine } from "../../src/media/tts.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 

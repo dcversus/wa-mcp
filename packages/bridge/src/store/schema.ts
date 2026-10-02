@@ -158,12 +158,25 @@ CREATE TABLE IF NOT EXISTS notification_rules (
 );
 `;
 
+const MIGRATION_V6 = `
+CREATE TABLE IF NOT EXISTS transcripts (
+  chat_jid TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  engine TEXT NOT NULL,
+  text TEXT NOT NULL,
+  language TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (chat_jid, message_id, engine)
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
   { version: 3, sql: MIGRATION_V3 },
   { version: 4, sql: MIGRATION_V4 },
   { version: 5, sql: MIGRATION_V5 },
+  { version: 6, sql: MIGRATION_V6 },
 ];
 
 export function openStore(dir: string): Store {
