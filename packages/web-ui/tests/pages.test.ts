@@ -357,3 +357,30 @@ describe("T68 daemon-down banner", () => {
     expect(html).not.toContain("<script>x</script>");
   });
 });
+
+describe("T70 media query-token", () => {
+  test("media elements append ?token=<mediaToken> to every /api/media URL", () => {
+    const html = messageListHtml(
+      "c",
+      [
+        { id: "IMG1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "image" },
+        { id: "AUD1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "audio" },
+        { id: "DOC1", chatJid: "c", senderName: "V", timestamp: "t", content: "f.pdf", isFromMe: false, isUnread: false, mediaType: "document" },
+      ],
+      { mediaToken: "sekrit" },
+    );
+    expect(html).toContain('src="/api/media/IMG1?token=sekrit"');
+    expect(html).toContain('src="/api/media/AUD1?token=sekrit"');
+    expect(html).toContain('href="/api/media/DOC1?token=sekrit"');
+  });
+
+  test("an empty mediaToken appends no query string", () => {
+    const html = messageListHtml(
+      "c",
+      [{ id: "IMG2", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "image" }],
+      { mediaToken: "" },
+    );
+    expect(html).toContain('src="/api/media/IMG2"');
+    expect(html).not.toContain("token=");
+  });
+});
