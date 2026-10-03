@@ -363,9 +363,36 @@ describe("T70 media query-token", () => {
     const html = messageListHtml(
       "c",
       [
-        { id: "IMG1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "image" },
-        { id: "AUD1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "audio" },
-        { id: "DOC1", chatJid: "c", senderName: "V", timestamp: "t", content: "f.pdf", isFromMe: false, isUnread: false, mediaType: "document" },
+        {
+          id: "IMG1",
+          chatJid: "c",
+          senderName: "V",
+          timestamp: "t",
+          content: null,
+          isFromMe: false,
+          isUnread: false,
+          mediaType: "image",
+        },
+        {
+          id: "AUD1",
+          chatJid: "c",
+          senderName: "V",
+          timestamp: "t",
+          content: null,
+          isFromMe: false,
+          isUnread: false,
+          mediaType: "audio",
+        },
+        {
+          id: "DOC1",
+          chatJid: "c",
+          senderName: "V",
+          timestamp: "t",
+          content: "f.pdf",
+          isFromMe: false,
+          isUnread: false,
+          mediaType: "document",
+        },
       ],
       { mediaToken: "sekrit" },
     );
@@ -377,7 +404,18 @@ describe("T70 media query-token", () => {
   test("an empty mediaToken appends no query string", () => {
     const html = messageListHtml(
       "c",
-      [{ id: "IMG2", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "image" }],
+      [
+        {
+          id: "IMG2",
+          chatJid: "c",
+          senderName: "V",
+          timestamp: "t",
+          content: null,
+          isFromMe: false,
+          isUnread: false,
+          mediaType: "image",
+        },
+      ],
       { mediaToken: "" },
     );
     expect(html).toContain('src="/api/media/IMG2"');

@@ -141,7 +141,16 @@ export function dayKey(isoTimestamp: string): string {
   return isoTimestamp.slice(0, 10);
 }
 
-export function messageListHtml(chatJid: string, messages: Array<MessageView>): string {
+export function messageListHtml(
+  chatJid: string,
+  messages: Array<MessageView>,
+  opts: { mediaToken?: string } = {},
+): string {
+  const mediaToken = opts.mediaToken ?? "";
+  const mediaUrl = (id: string) =>
+    mediaToken.length > 0
+      ? `/api/media/${encodeURIComponent(id)}?token=${encodeURIComponent(mediaToken)}`
+      : `/api/media/${encodeURIComponent(id)}`;
   const items: string[] = [];
   let lastDay = "";
   const sorted = [...messages].sort((a, b) =>
@@ -159,7 +168,7 @@ export function messageListHtml(chatJid: string, messages: Array<MessageView>): 
         .map((option) => escapeHtml(option))
         .join(" · ")}</span>`;
     } else if (message.mediaType !== undefined && message.mediaType !== null) {
-      const mediaSrc = `/api/media/${encodeURIComponent(message.id)}`;
+      const mediaSrc = mediaUrl(message.id);
       if (message.mediaType === "image") {
         body = `<img class="media-thumb" src="${mediaSrc}" alt="image" loading="lazy" />${message.content ? `<span class="media-caption">${escapeHtml(message.content)}</span>` : ""}`;
       } else if (message.mediaType === "video") {

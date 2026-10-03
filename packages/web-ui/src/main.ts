@@ -325,7 +325,9 @@ const loaders: {
           : null,
       reactions: parseReactions(row.reactions),
     }));
-    return messageListHtml(params.jid ?? "", messages);
+    return messageListHtml(params.jid ?? "", messages, {
+      mediaToken: effectiveToken(settings, pairingToken),
+    });
   },
   unread: async () => {
     const payload = (await client.getUnread()) as { unread: Parameters<typeof unreadHtml>[0] };
