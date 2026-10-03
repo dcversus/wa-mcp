@@ -43,6 +43,6 @@ if (totalCell !== EXPECTED_ROWS) {
 }
 
 console.log(`accounting-check OK: ${dataRows.length} rows`);
-for (const [disposition, count] of [...counts.entries()].sort()) {
+for (const [disposition, count] of [...counts.entries()].sort(([a], [b]) => a.localeCompare(b))) {
   console.log(`  ${disposition}: ${count}`);
 }

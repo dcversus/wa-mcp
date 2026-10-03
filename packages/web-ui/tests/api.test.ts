@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createApiClient } from "../src/api.ts";
 
+/** request bodies are strings by construction (createApiClient JSON.stringify's them) */
+function bodyOf(call: { init?: { body?: unknown } } | undefined): string {
+  const body = call?.init?.body;
+  if (typeof body !== "string") throw new Error("request body not a string");
+  return body;
+}
+
 function mockFetch(
   payload: unknown,
   status = 200,
@@ -52,7 +59,7 @@ test("sendMessage posts chat_jid and text", async () => {
   });
   await client.sendMessage("g@g.us", "hi");
   expect(calls[0]?.init.method).toBe("POST");
-  expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ chat_jid: "g@g.us", text: "hi" });
+  expect(JSON.parse(bodyOf(calls[0]))).toEqual({ chat_jid: "g@g.us", text: "hi" });
 });
 
 test("a 401 triggers the unauthorized callback", async () => {
@@ -98,7 +105,7 @@ test("markRead posts chat_jid and message ids", async () => {
   });
   await client.markRead("g@g.us", ["M1"]);
   expect(calls[0]?.init.method).toBe("POST");
-  expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+  expect(JSON.parse(bodyOf(calls[0]))).toEqual({
     chat_jid: "g@g.us",
     message_ids: ["M1"],
   });
@@ -124,7 +131,7 @@ describe("task-51 client surface", () => {
     await client.pairingCode("358497773518");
     expect(calls[0]?.path).toBe("/api/pairing-code");
     expect(calls[0]?.init?.method).toBe("POST");
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ phone: "358497773518" });
+    expect(JSON.parse(bodyOf(calls[0]))).toEqual({ phone: "358497773518" });
   });
 
   test("resumePairing posts /api/pair/resume", async () => {
@@ -150,7 +157,7 @@ describe("task-51 client surface", () => {
     const { client, calls } = recordingClient();
     await client.setAlias("123@s.whatsapp.net", "Andreas");
     expect(calls[0]?.path).toBe("/api/alias");
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+    expect(JSON.parse(bodyOf(calls[0]))).toEqual({
       chat_jid: "123@s.whatsapp.net",
       alias: "Andreas",
     });
@@ -210,15 +217,21 @@ describe("task-51 client surface", () => {
     await client.setPrivacy("read_receipts", "none");
     await client.setProfileName("New Name");
     expect(calls.map((c) => c.path)).toEqual(["/api/block", "/api/privacy", "/api/profile"]);
-    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+    // bodies are strings by construction (createApiClient JSON.stringify's them)
+    const bodyOf = (i: number): string => {
+      const body = calls[i]?.init?.body;
+      if (typeof body !== "string") throw new Error(`call ${i} body not a string`);
+      return body;
+    };
+    expect(JSON.parse(bodyOf(0))).toEqual({
       chat_jid: "999@s.whatsapp.net",
       block: true,
     });
-    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({
+    expect(JSON.parse(bodyOf(1))).toEqual({
       privacy_key: "read_receipts",
       value: "none",
     });
-    expect(JSON.parse(String(calls[2]?.init?.body))).toEqual({ name: "New Name" });
+    expect(JSON.parse(bodyOf(2))).toEqual({ name: "New Name" });
   });
 
   test("sendPresence notifies typing", async () => {

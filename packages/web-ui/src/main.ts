@@ -7,6 +7,7 @@ import {
   chatListHtml,
   contextViewHtml,
   eventsPageHtml,
+  groupMetaFormHtml,
   groupParticipantsHtml,
   privacyMatrixHtml,
   profilePageHtml,
@@ -565,7 +566,7 @@ function bindGroupsControls(): void {
       item.insertAdjacentHTML(
         "afterend",
         groupParticipantsHtml(jid, list) +
-          `<form id="group-meta-edit" data-meta-jid="${jid}"><input name="subject" placeholder="new subject" value="${meta?.subject ?? ""}" /><input name="description" placeholder="new description" value="${meta?.description ?? ""}" /><button type="submit">save</button></form>`,
+          groupMetaFormHtml(jid, meta?.subject ?? "", meta?.description ?? ""),
       );
       bindParticipantsControls();
       bindGroupMetaControls(jid);

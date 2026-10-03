@@ -6,6 +6,7 @@ export interface PairingHealth {
   pairingToken?: string;
   status?: string;
   connected?: boolean;
+  loggedIn?: boolean;
   pairingBlocked?: boolean;
   pairingAttempts?: { used: number; limit: number };
 }

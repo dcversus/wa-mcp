@@ -141,7 +141,7 @@ test("poll uses the engine builder so the vote secret is generated", async () =>
 });
 
 test("buttons and lists build proto shells for business-account delivery", async () => {
-  const buttons = await buildButtonsMessage("Choose", ["Yes", "No"], "footer");
+  const buttons = buildButtonsMessage("Choose", ["Yes", "No"], "footer");
   const buttonsMessage = buttons.buttonsMessage;
   if (!buttonsMessage) throw new Error("expected buttonsMessage");
   expect(buttonsMessage.contentText).toBe("Choose");

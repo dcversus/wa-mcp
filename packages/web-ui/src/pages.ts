@@ -279,6 +279,12 @@ export function groupParticipantsHtml(
   return `<div id="group-participants"><h3>participants</h3><ul>${items}</ul><form id="participant-add"><input name="participant" placeholder="358…@s.whatsapp.net" /><button type="submit" data-add-participant="${escapeHtml(groupJid)}">add</button></form></div>`;
 }
 
+/** T73 C2: the group subject/description come straight from WhatsApp and are
+ * rendered into an HTML attribute — every value escapes before interpolation. */
+export function groupMetaFormHtml(groupJid: string, subject: string, description: string): string {
+  return `<form id="group-meta-edit" data-meta-jid="${escapeHtml(groupJid)}"><input name="subject" placeholder="new subject" value="${escapeHtml(subject)}" /><input name="description" placeholder="new description" value="${escapeHtml(description)}" /><button type="submit">save</button></form>`;
+}
+
 /** T54: a 401 on a just-navigated route renders the token form INLINE on the
  * same route (no redirect loop) with the exact recovery hint. */
 

@@ -205,13 +205,22 @@ function createRateLimiter(capacity: number, refillPerMinute: number) {
   };
 }
 
+/** T73 C2: every response (UI shell, assets, JSON errors) carries a CSP that
+ * defaults to self. `img-src data:` keeps the pairing QR working; the inline
+ * style allowance covers the style attributes the vanilla UI renders with. */
+const CSP_HEADER = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'";
+
 function sendJson(
   res: ServerResponse,
   status: number,
   payload: unknown,
   headers: Record<string, string> = {},
 ): void {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", ...headers });
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "content-security-policy": CSP_HEADER,
+    ...headers,
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -1538,7 +1547,7 @@ export async function createHttpServer(
             : candidate.endsWith(".css")
               ? "text/css"
               : "application/octet-stream";
-        res.writeHead(200, { "content-type": mime });
+        res.writeHead(200, { "content-type": mime, "content-security-policy": CSP_HEADER });
         res.end(bytes);
       })
       .catch(() => {

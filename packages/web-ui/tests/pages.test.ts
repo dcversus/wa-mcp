@@ -429,9 +429,11 @@ describe("T73 C2 — group meta form escapes injected subject/description", () =
 
   test("subject/description payloads are escaped, no raw attribute breakout", () => {
     const html = groupMetaFormHtml("120363428874442773@g.us", EVIL, EVIL);
-    expect(html).not.toContain('onerror=');
-    expect(html).not.toContain('<img src=x');
-    expect(html).toContain("&lt;img");
+    // the payload may exist ONLY in entity-escaped form — no raw tag, no
+    // quote that could terminate the value="" attribute
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    expect(html).not.toContain('value="">');
   });
 
   test("the jid attribute is escaped too", () => {
