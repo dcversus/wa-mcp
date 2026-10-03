@@ -432,3 +432,89 @@ code {
   margin-bottom: 16px;
   max-width: 380px;
 }
+
+/* ---- T67 layout pass: chat rows, avatars, empty states ---- */
+.chat-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.avatar {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+.chat-main {
+  flex: 1;
+  min-width: 0;
+}
+.chat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.chat-preview {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.empty-state {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.messages {
+  display: block;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.message {
+  margin: 8px 0;
+}
+.message .text {
+  white-space: pre-wrap;
+}
+.send-box {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+}
+.privacy-row {
+  margin-bottom: 12px;
+}
+.privacy-row select {
+  display: block;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+.events-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+#events-feed li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+#group-meta-edit {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}

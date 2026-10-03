@@ -6,6 +6,7 @@ import {
   contextViewHtml,
   eventsPageHtml,
   groupParticipantsHtml,
+  privacyMatrixHtml,
   profilePageHtml,
   contactsPageHtml,
   groupsPageHtml,
@@ -263,10 +264,17 @@ const loaders: {
     return contactsPageHtml(payload.contacts ?? []);
   },
   profile: async () => {
-    const payload = (await client.blocklist().catch(() => ({ blocklist: [] }))) as {
-      blocklist?: string[];
-    };
-    return profilePageHtml({ blocklist: payload.blocklist ?? [] });
+    const [blockPayload, privacy] = await Promise.all([
+      client.blocklist().catch(() => ({ blocklist: [] })),
+      client.privacy().catch(() => ({})),
+    ]);
+    const page = profilePageHtml({
+      blocklist: (blockPayload as { blocklist?: string[] }).blocklist ?? [],
+    });
+    const matrix = privacyMatrixHtml(
+      (privacy as { privacy?: Record<string, string> }).privacy ?? {},
+    );
+    return page.replace("</section>", `${matrix}</section>`);
   },
   groups: async () => {
     const payload = (await client.getChats()) as {
@@ -274,6 +282,8 @@ const loaders: {
     };
     return groupsPageHtml((payload.chats ?? []).filter((chat) => chat.jid.endsWith("@g.us")));
   },
+  // group subject/description edit + participants view are bound in
+  // bindGroupsControls via /api/group/info + /api/group/meta
   chats: async () => {
     const payload = (await client.getChats()) as {
       chats: Parameters<typeof chatListHtml>[0];
@@ -458,19 +468,25 @@ function bindGroupsControls(): void {
         return;
       }
       const jid = (item as HTMLElement).dataset.groupJid ?? "";
-      const meta = (await client.groupParticipants(jid).catch(() => null)) as {
-        participants?: Array<{ id?: string; isAdmin?: boolean }> | Array<string>;
+      const meta = (await client.groupInfo(jid).catch(() => null)) as {
+        participants?: Array<{ id?: string; admin?: string | null }> | Array<string>;
+        subject?: string;
+        description?: string;
       } | null;
       const list = (meta?.participants ?? []).map((p) =>
-        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: p.isAdmin },
+        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: p.admin ?? null },
       );
       const panel = document.getElementById("group-participants");
       if (panel !== null) {
         panel.remove();
         return;
       }
-      item.insertAdjacentHTML("afterend", groupParticipantsHtml(jid, list));
-      bindParticipantsControls();
+      item.insertAdjacentHTML(
+        "afterend",
+        groupParticipantsHtml(jid, list) +
+          `<form id="group-meta-edit" data-meta-jid="${jid}"><input name="subject" placeholder="new subject" value="${meta?.subject ?? ""}" /><input name="description" placeholder="new description" value="${meta?.description ?? ""}" /><button type="submit">save</button></form>`,
+      );
+      bindGroupMetaControls(jid);
     });
   });
 }
@@ -659,6 +675,18 @@ function bindChatExtras(): void {
         target.textContent = payload?.transcript ?? "(transcription unavailable)";
       }
     });
+  });
+}
+
+function bindGroupMetaControls(groupJid: string): void {
+  document.getElementById("group-meta-edit")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const subject = (form.querySelector("input[name=subject]") as HTMLInputElement).value;
+    const description = (form.querySelector("input[name=description]") as HTMLInputElement).value;
+    await client;
+    await client.groupMeta(groupJid, { subject, description }).catch(() => undefined);
+    await renderCurrent();
   });
 }
 

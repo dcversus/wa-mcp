@@ -21,6 +21,8 @@ export interface ApiClient {
   groupParticipants(groupJid: string): Promise<unknown>;
   groupCreate(subject: string, participants: string[]): Promise<unknown>;
   groupLeave(groupJid: string): Promise<unknown>;
+  groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
+  groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
   deleteNotification(id: string): Promise<unknown>;
   profile(): Promise<unknown>;
@@ -98,6 +100,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     },
     setAlias: (chatJid, alias) => post("/api/alias", { chat_jid: chatJid, alias }),
     groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),
+    groupMeta: (groupJid, patch) => post("/api/group/meta", { group_jid: groupJid, ...patch }),
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
@@ -113,6 +116,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     block: (chatJid) => post("/api/block", { chat_jid: chatJid, block: true }),
     setPrivacy: (privacy_key, value) => post("/api/privacy", { privacy_key, value }),
     setProfileName: (name) => post("/api/profile", { name }),
+    groupInfo: (groupJid) => jsonCall(`/api/group/info?jid=${encodeURIComponent(groupJid)}`),
     getContext: (chatJid, messageId, radius) => {
       const params = new URLSearchParams({ chat_jid: chatJid, message_id: messageId });
       if (radius !== undefined) {
