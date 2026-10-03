@@ -876,3 +876,20 @@ describe("T76 H7 — contact + roster events are consumed, not discarded", () =>
     store.close();
   });
 });
+
+test("T76 H1 — resumePairing ends the live socket before minting a new one", async () => {
+  const first = fakeSocket();
+  const second = fakeSocket();
+  mockMakeWASocket.mockReturnValueOnce(first as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", {});
+  expect(mockMakeWASocket.mock.calls).toHaveLength(1);
+  mockMakeWASocket.mockReturnValueOnce(second as unknown as WASocket);
+  const handle = LIVE_HANDLES[LIVE_HANDLES.length - 1];
+  if (handle === undefined) throw new Error("no live handle");
+  handle.resumePairing();
+  // the OLD socket must be ended — resume must not stack a second socket
+  // (RED today: the old socket keeps running alongside the new one)
+  expect(first.end).toHaveBeenCalledTimes(1);
+  expect(mockMakeWASocket.mock.calls).toHaveLength(2);
+  await handle.close();
+});
