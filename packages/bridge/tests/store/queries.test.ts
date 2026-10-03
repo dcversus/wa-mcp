@@ -1,10 +1,12 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vite-plus/test";
+import { DatabaseSync } from "node:sqlite";
+import { describe, expect, test } from "vite-plus/test";
 import { proto } from "baileys";
 import type { WAMessage } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
+import { applyMigrations } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
 import {
   fetchMessageFromStore,
@@ -304,4 +306,32 @@ test("fetchMessageFromStore reconstructs a sendable message or returns null", ()
   } finally {
     store.close();
   }
+});
+
+describe("T76 H3 — migrations run in a transaction", () => {
+  test("a failed migration leaves no partial state; the re-run is idempotent", () => {
+    const db = new DatabaseSync(":memory:");
+    const broken: ReadonlyArray<{ version: number; sql: string }> = [
+      { version: 1, sql: "CREATE TABLE sentinel (x TEXT)" },
+      // autocommit would leave the INSERT applied when the CREATE fails
+      {
+        version: 2,
+        sql: "INSERT INTO sentinel VALUES ('once'); CREATE TABLE definitely_broken (",
+      },
+    ];
+    expect(() => applyMigrations(db, broken)).toThrow();
+    expect(db.prepare("SELECT COUNT(*) AS n FROM migrations WHERE version = 2").get()).toEqual({
+      n: 0,
+    });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM sentinel").get()).toEqual({ n: 0 });
+    const fixed: ReadonlyArray<{ version: number; sql: string }> = [
+      { version: 1, sql: "CREATE TABLE sentinel (x TEXT)" },
+      { version: 2, sql: "INSERT INTO sentinel VALUES ('once')" },
+    ];
+    expect(() => applyMigrations(db, fixed)).not.toThrow();
+    // FTS-rebuild idempotency: the retry inserts the row EXACTLY once
+    expect(db.prepare("SELECT COUNT(*) AS n FROM sentinel").get()).toEqual({ n: 1 });
+    expect(db.prepare("SELECT COUNT(*) AS n FROM migrations").get()).toEqual({ n: 2 });
+    db.close();
+  });
 });
