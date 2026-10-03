@@ -59,6 +59,8 @@ export interface BridgeHandle {
   pairingBudget(): PairingBudget;
   /** explicit user action: reset the budget and re-enter the pairing cycle. */
   resumePairing(): void;
+  /** T79 line49: connection-quality counters for /health. */
+  connectionQuality(): { reconnects: number; lastDisconnectAt: number | null };
   close(): Promise<void>;
 }
 
@@ -96,6 +98,11 @@ export async function startBridge(
    * come as stream-error close + ws close) must not stack multiple sockets */
   let reconnectPending = false;
   let closed = false;
+  // T79 line49/50: connection-quality counters + consecutive-failure streak
+  let reconnects = 0;
+  let lastDisconnectAt: number | null = null;
+  let failureStreak = 0;
+  let alertFired = false;
   let socket: WASocket;
   const pairingLimit = opts.pairingAttemptLimit ?? 3;
   let pairingUsed = 0;
@@ -220,6 +227,24 @@ export async function startBridge(
         if (name === "connection.update") {
           const update = payload as ConnectionUpdate;
           status = deriveStatus(status, update);
+          // T79 line49/50: quality counters + consecutive-failure streak
+          if (update.connection === "close" && !closed) {
+            reconnects += 1;
+            lastDisconnectAt = Date.now();
+            failureStreak += 1;
+            const threshold = Number(process.env.WA_RECONNECT_ALERT_N ?? 5);
+            if (failureStreak >= threshold && !alertFired) {
+              alertFired = true;
+              opts.logger?.warn(
+                { streak: failureStreak, threshold },
+                `RECONNECT-ALERT: ${failureStreak} consecutive disconnects without a successful open`,
+              );
+            }
+          }
+          if (update.connection === "open") {
+            failureStreak = 0;
+            alertFired = false;
+          }
           if (status === "connected") {
             reconnectAttempt = 0;
           }
@@ -461,6 +486,10 @@ export async function startBridge(
       }
       connect();
     },
+    connectionQuality: () => ({
+      reconnects,
+      lastDisconnectAt,
+    }),
     close: async () => {
       closed = true;
       reconnectPending = false;

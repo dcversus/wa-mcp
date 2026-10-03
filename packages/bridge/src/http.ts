@@ -1667,6 +1667,9 @@ export async function createHttpServer(
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
+        // T79 line49: connection-quality counters
+        reconnects: handle.connectionQuality().reconnects,
+        lastDisconnectAt: handle.connectionQuality().lastDisconnectAt,
       });
       return;
     }

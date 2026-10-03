@@ -98,6 +98,7 @@ function stubHandle(
     socket,
     hasPairedAccount: () => hasPairedAccount,
     pairingBudget: () => current,
+    connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
     resumePairing: () => {
       current = { blocked: false, used: 0, limit: current.limit };
     },

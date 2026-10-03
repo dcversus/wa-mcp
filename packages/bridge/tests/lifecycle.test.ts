@@ -902,13 +902,15 @@ test("T76 H1 — resumePairing ends the live socket before minting a new one", a
   await handle.close();
 });
 
-
 describe("T79 — connection robustness", () => {
   test("line49 — reconnects/lastDisconnectAt tracked after a forced reconnect", async () => {
     const sock = fakeSocket();
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
     const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
-    sock.emit("connection.update", { connection: "close", lastDisconnect: { error: { output: { statusCode: 428 } } } });
+    sock.emit("connection.update", {
+      connection: "close",
+      lastDisconnect: { error: { output: { statusCode: 428 } } },
+    });
     sock.emit("connection.update", { connection: "connecting" });
     sock.emit("connection.update", { connection: "open" });
     const quality = handle.connectionQuality();
@@ -923,10 +925,16 @@ describe("T79 — connection robustness", () => {
     const sock = fakeSocket();
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
     const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
-      logger: { error: () => undefined, warn: (msg: unknown) => warns.push(String(msg)) },
+      logger: {
+        error: () => undefined,
+        warn: (obj: unknown, msg?: unknown) => warns.push(String(msg ?? obj)),
+      },
     });
     for (let i = 0; i < 3; i += 1) {
-      sock.emit("connection.update", { connection: "close", lastDisconnect: { error: { output: { statusCode: 515 } } } });
+      sock.emit("connection.update", {
+        connection: "close",
+        lastDisconnect: { error: { output: { statusCode: 515 } } },
+      });
       sock.emit("connection.update", { connection: "connecting" });
     }
     const alerts = warns.filter((w) => w.includes("RECONNECT-ALERT"));
