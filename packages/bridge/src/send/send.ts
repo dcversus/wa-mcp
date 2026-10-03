@@ -1,6 +1,7 @@
 import { jidDecode, jidEncode, proto } from "baileys";
 import type { AnyMessageContent, WASocket, WAMessage } from "baileys";
 import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
+import { getAlias } from "../store/contacts.ts";
 import { storeMessage } from "../store/messages.ts";
 import type { Store } from "../store/schema.ts";
 
@@ -90,6 +91,41 @@ export async function resolveLidJid(socket: WASocket, jid: string): Promise<stri
     return jid;
   }
   return lidJid;
+}
+
+export type RecipientResolution =
+  | { ok: true; jid: string }
+  | { ok: false; code: "INVALID_JID"; message: string };
+
+/** GOAL: 'all recipient-taking tools resolve aliases; exact-only sends,
+ * fuzzy → suggest-not-send'. A valid JID passes through; an exact alias
+ * resolves to its mapped jid; anything else fails with INVALID_JID plus the
+ * closest real alias as a suggestion (nothing is sent). */
+export function resolveRecipient(store: Store, chatJid: string): RecipientResolution {
+  if (isValidRecipientJid(chatJid)) {
+    return { ok: true, jid: chatJid };
+  }
+  const alias = getAlias(store, chatJid);
+  if (alias !== null) {
+    return { ok: true, jid: alias.jid };
+  }
+  let closest = "";
+  try {
+    const rows = store.db.prepare("SELECT alias FROM aliases").all() as Array<{
+      alias: string;
+    }>;
+    const needle = chatJid.toLowerCase();
+    closest =
+      rows.map((row) => row.alias).find((alias) => alias.toLowerCase().startsWith(needle)) ?? "";
+  } catch {
+    closest = "";
+  }
+  const hint = closest.length > 0 ? ` — did you mean '${closest}'?` : "";
+  return {
+    ok: false,
+    code: "INVALID_JID",
+    message: `cannot resolve recipient: ${chatJid}${hint}`,
+  };
 }
 
 export async function sendViaSocket(

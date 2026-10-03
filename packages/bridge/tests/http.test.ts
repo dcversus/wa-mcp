@@ -15,7 +15,7 @@ import { saveQrPng } from "../src/qr.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { listMessages } from "../src/store/queries.ts";
 import { SendGuard } from "../src/send/safety.ts";
-import { upsertContact } from "../src/store/contacts.ts";
+import { setAlias, upsertContact } from "../src/store/contacts.ts";
 
 const POSIX_PERMS = process.platform !== "win32";
 import { storeMessage } from "../src/store/messages.ts";
@@ -2464,5 +2464,75 @@ describe("T62/I GET /api/group/info (on-demand metadata fetch + persist)", () =>
       headers: { authorization: "Bearer test-token" },
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("T65 alias resolution on sends", () => {
+  test("POST /api/send with an alias chat_jid resolves and sends to the mapped jid", async () => {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-alias-send-")));
+    openedStores.push(store);
+    setAlias(store, "351930017568@s.whatsapp.net", "vasilisa");
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "vasilisa", text: "via alias" }),
+    });
+    expect(res.status).toBe(200);
+    const jid = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(jid).toBe("351930017568@s.whatsapp.net");
+    const row = store.db.prepare("SELECT chat_jid FROM messages WHERE id = ?").get("SENTID1") as {
+      chat_jid: string;
+    };
+    expect(row.chat_jid).toBe("351930017568@s.whatsapp.net");
+  });
+
+  test("POST /api/send with an unknown name → INVALID_JID suggesting the closest alias, nothing sent", async () => {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-alias-sug-")));
+    openedStores.push(store);
+    setAlias(store, "351930017568@s.whatsapp.net", "vasilisa");
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "vasil", text: "should not send" }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("INVALID_JID");
+    expect(body.error.message).toContain("vasilisa");
+    expect((socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  test("POST /api/read resolves an alias chat_jid", async () => {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-alias-read-")));
+    openedStores.push(store);
+    seedRow(store, "R1", "351930017568@s.whatsapp.net", 1, "x");
+    setAlias(store, "351930017568@s.whatsapp.net", "vasilisa");
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/read"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "vasilisa", message_ids: ["R1"] }),
+    });
+    expect(res.status).toBe(200);
   });
 });

@@ -62,7 +62,7 @@ import { createTranscriptionEngine, saveTranscript, getTranscript } from "./medi
 import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import { buildVcard } from "./send/build.ts";
-import { SendError, sendViaSocket } from "./send/send.ts";
+import { resolveRecipient, SendError, sendViaSocket } from "./send/send.ts";
 import type { SendGuard } from "./send/safety.ts";
 
 export interface HttpServerOptions {
@@ -347,6 +347,19 @@ export async function createHttpServer(
       return;
     }
     if (route === "/api/context") {
+      const contextJidRaw = params.get("chat_jid");
+      if (
+        opts.store !== undefined &&
+        contextJidRaw !== null &&
+        !isValidRecipientJid(contextJidRaw)
+      ) {
+        const resolution = resolveRecipient(opts.store, contextJidRaw);
+        if (!resolution.ok) {
+          sendJson(res, 400, { error: { code: resolution.code, message: resolution.message } });
+          return;
+        }
+        params.set("chat_jid", resolution.jid);
+      }
       const messageId = params.get("message_id");
       if (messageId === null || messageId.length === 0) {
         validationError(res, "message_id is required");
@@ -432,7 +445,7 @@ export async function createHttpServer(
       validationError(res, "media requires an image, video, audio, document or sticker kind");
       return;
     }
-    const chatJid = input.chat_jid;
+    let chatJid: string = input.chat_jid;
     const kind = typeof input.kind === "string" ? input.kind : "text";
     let mediaToSave: ResolvedMedia | null = null;
     let quotedForWire: WAMessage | undefined;
@@ -669,7 +682,14 @@ export async function createHttpServer(
         validationError(res, `unknown send kind: ${kind}`);
         return;
     }
-    if (!isValidRecipientJid(chatJid)) {
+    if (opts.store !== undefined) {
+      const resolution = resolveRecipient(opts.store, chatJid);
+      if (!resolution.ok) {
+        sendJson(res, 400, { error: { code: resolution.code, message: resolution.message } });
+        return;
+      }
+      chatJid = resolution.jid;
+    } else if (!isValidRecipientJid(chatJid)) {
       sendJson(res, 400, {
         error: { code: "INVALID_JID", message: `cannot resolve recipient: ${chatJid}` },
       });
@@ -824,7 +844,16 @@ export async function createHttpServer(
       validationError(res, "chat_jid is required");
       return;
     }
-    const chatJid = input.chat_jid as string;
+    let chatJid = input.chat_jid as string;
+    const hasChatJid = typeof chatJid === "string" && chatJid.length > 0;
+    if (opts.store !== undefined && hasChatJid && !isValidRecipientJid(chatJid)) {
+      const resolution = resolveRecipient(opts.store, chatJid);
+      if (!resolution.ok) {
+        sendJson(res, 400, { error: { code: resolution.code, message: resolution.message } });
+        return;
+      }
+      chatJid = resolution.jid;
+    }
     if (route === "/api/read") {
       if (
         !Array.isArray(input.message_ids) ||
