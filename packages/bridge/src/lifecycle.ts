@@ -108,6 +108,8 @@ export async function startBridge(
   // logger ('conflict in processing state'). Watch it; on the first conflict
   // per cooldown drop the stored app-state-sync-version so the next patch
   // runs a FULL resync, and swallow the duplicate spam.
+  let stalenessTimer: NodeJS.Timeout | null = null;
+  let staleMisses = 0;
   let appStateRecoveryAt = 0;
   const baseLogger = opts.logger;
   const conflictAwareLogger: BridgeLogger | undefined =
@@ -140,7 +142,7 @@ export async function startBridge(
               }
               return;
             }
-            baseLogger.warn(obj, msg);
+            baseLogger.warn(obj, msg as string | undefined);
           },
         };
   let socket: WASocket;
@@ -262,6 +264,44 @@ export async function startBridge(
         }
       },
     });
+    // T79 line47: staleness watchdog — a query that never resolves means
+    // the transport is a silent corpse; after the miss threshold, tear the
+    // socket down and reconnect immediately (515-style single-flight).
+    if (stalenessTimer !== null) {
+      clearInterval(stalenessTimer);
+    }
+    staleMisses = 0;
+    const stalenessMs = Number(process.env.WA_STALENESS_MS ?? 30_000);
+    if (stalenessMs > 0) {
+      stalenessTimer = setInterval(() => {
+        const current = socket;
+        if (closed || current === null || current === undefined) {
+          return;
+        }
+        if (typeof current.query !== "function") {
+          return;
+        }
+        if (staleMisses >= 3) {
+          staleMisses = 0;
+          opts.logger?.warn({}, "STALENESS: keepalive queries unanswered — forcing reconnect");
+          for (const name of EVENT_NAMES) {
+            current.ev.removeAllListeners(name);
+          }
+          void current.end(new Error("staleness: queries unanswered"));
+          connect();
+          return;
+        }
+        staleMisses += 1;
+        void (current.query as (q: unknown) => Promise<unknown>)({
+          json: { tag: "iq", attrs: { type: "get", xmlns: "w:p", to: "@s.whatsapp.net" } },
+        })
+          .then(() => {
+            staleMisses = 0;
+          })
+          .catch(() => undefined);
+      }, stalenessMs);
+      stalenessTimer.unref();
+    }
     for (const name of EVENT_NAMES) {
       socket.ev.on(name, async (payload) => {
         if (name === "connection.update") {
@@ -536,6 +576,10 @@ export async function startBridge(
       if (reconnectTimer !== null) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
+      }
+      if (stalenessTimer !== null) {
+        clearInterval(stalenessTimer);
+        stalenessTimer = null;
       }
       await socket.end(undefined);
     },
