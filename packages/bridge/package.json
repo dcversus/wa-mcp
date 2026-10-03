@@ -12,7 +12,8 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./bin": "./dist/bin.mjs",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./src/*": "./src/*"
   },
   "scripts": {
     "build": "vp pack && node ../web-ui/scripts/copy-dist.mjs",

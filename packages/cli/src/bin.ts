@@ -8,6 +8,7 @@ import { buildStatusSummary, parseArgs } from "./commands.ts";
 import { runDoctor } from "./doctor.ts";
 import { installSkills } from "./skills.ts";
 import { runPair } from "./pair.ts";
+import { runImport } from "./import-store.ts";
 import { PLATFORMS } from "./platforms.ts";
 import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
@@ -55,6 +56,27 @@ export async function main(argv: string[]): Promise<void> {
     if (failures > 0) {
       process.exitCode = 1;
     }
+    return;
+  }
+  if (command === "import") {
+    const from = flags.from as import("../src/import-store.ts").SourceLayout | undefined;
+    const path = flags.path as string | undefined;
+    if (from !== "lharries" && from !== "gofork") {
+      console.error("import: --from must be lharries or gofork");
+      process.exitCode = 1;
+      return;
+    }
+    if (path === undefined) {
+      console.error("import: --path is required");
+      process.exitCode = 1;
+      return;
+    }
+    runImport({
+      from,
+      path,
+      dataDir: (flags["data-dir"] as string | undefined) ?? join(homedir(), ".wa-mcp"),
+      dryRun: flags["dry-run"] === "true" || flags["dry-run"] === "",
+    });
     return;
   }
   if (command === "pair") {

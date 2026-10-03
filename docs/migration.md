@@ -28,3 +28,31 @@ Per LID chat, in one transaction: messages move into the canonical PN chat
 merge, chat metadata newer-wins, the LID chat row is deleted. Chats without a
 reverse mapping (`lid-mapping-<lid>_reverse.json` in the auth dir) are left
 untouched. Run a second time after more mappings appear.
+
+## Import command (T83)
+
+`wa-mcp import --from lharries|gofork --path <dir> [--data-dir ~/.wa-mcp] [--dry-run]`
+
+### lharries layout
+
+Per-chat JSON files: `chats/<jid>.json` → `{ jid, name, messages: [{ id,
+timestamp (ISO), sender ("me" = from-me), text }] }`.
+
+### Go-fork layout
+
+Single SQLite: `store.db` with `chats (jid, name)` and `messages (id,
+chat_jid, timestamp (epoch seconds), from_me, sender, content)`.
+
+### Field mapping
+
+| source field | ours |
+| --- | --- |
+| jid / chat_id | chats.jid |
+| name | chats.name |
+| messages[].id | messages.id |
+| timestamp ISO / epoch-s | messages.timestamp (ISO-8601) |
+| sender ("me"→NULL) / sender + from_me | messages.sender_jid + is_from_me |
+| text / content | messages.content |
+| full source row | messages.raw |
+
+Idempotent (`INSERT OR IGNORE`); media is referenced, not copied.

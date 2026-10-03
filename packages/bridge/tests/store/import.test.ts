@@ -16,8 +16,8 @@ test("T83 — lharries fixture imports chats + messages", () => {
     expect(report.chats).toBe(2);
     expect(report.messages).toBe(5);
     const row = store.db
-      .prepare("SELECT name, content FROM messages WHERE id = 'LH-1'")
-      .get() as { name: string | null; content: string };
+      .prepare("SELECT sender_jid, content FROM messages WHERE id = 'LH-1'")
+      .get() as { sender_jid: string | null; content: string };
     expect(row.content).toBe("hello from lharries");
     const chat = store.db
       .prepare("SELECT name FROM chats WHERE jid = '120363428874442773@g.us'")
