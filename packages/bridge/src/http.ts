@@ -3,7 +3,8 @@ import type { AnyMessageContent, WAMessage } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
+import { realpath } from "node:fs/promises";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
@@ -312,7 +313,7 @@ export async function createHttpServer(
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
-  const serveQr = (req: IncomingMessage, res: ServerResponse): void => {
+  const serveQr = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (handle.pairingBudget().blocked) {
       sendJson(res, 429, {
         error: {
@@ -331,14 +332,9 @@ export async function createHttpServer(
     const fileParam = new URL(req.url ?? "/", "http://localhost").searchParams.get("file");
     let target: string | null;
     if (fileParam !== null) {
-      if (
-        fileParam.length === 0 ||
-        fileParam.includes("..") ||
-        fileParam.includes("/") ||
-        fileParam.includes("\\")
-      ) {
+      if (fileParam !== "qr.png") {
         sendJson(res, 400, {
-          error: { code: "INVALID_PATH", message: "file must be a bare filename" },
+          error: { code: "INVALID_PATH", message: "file must be qr.png" },
         });
         return;
       }
@@ -346,7 +342,16 @@ export async function createHttpServer(
         sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no qr directory configured" } });
         return;
       }
-      target = join(opts.qrDir, fileParam);
+      const allowlisted = join(opts.qrDir, fileParam);
+      const realDir = await realpath(opts.qrDir).catch(() => null);
+      const realFile = await realpath(allowlisted).catch(() => null);
+      if (realDir === null || realFile === null || !realFile.startsWith(realDir + sep)) {
+        sendJson(res, 403, {
+          error: { code: "PATH_FORBIDDEN", message: "qr file escapes the qr directory" },
+        });
+        return;
+      }
+      target = allowlisted;
     } else {
       target = opts.qrPngPath ?? null;
     }
@@ -2053,7 +2058,10 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/qr") {
-          serveQr(req, res);
+          void serveQr(req, res).catch((err) => {
+            opts.logger?.warn({ err }, "qr route failed");
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "qr failed" } });
+          });
           return;
         }
         if (path === "/api/ui-token" && req.method === "GET") {
