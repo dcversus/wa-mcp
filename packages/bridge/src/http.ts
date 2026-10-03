@@ -1558,11 +1558,15 @@ export async function createHttpServer(
             });
             return;
           }
-          const result = await sendViaSocket(socket, chatJid, {
-            audio: ogg,
-            ptt: true,
-            mimetype: "audio/ogg",
-          } as AnyMessageContent);
+          const result = await sendViaSocket(
+            socket,
+            chatJid as string,
+            {
+              audio: ogg,
+              ptt: true,
+              mimetype: "audio/ogg",
+            } as AnyMessageContent,
+          );
           sendJson(res, 200, { message_id: result.messageId });
         })
         .catch((err: unknown) => {

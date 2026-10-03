@@ -2,6 +2,7 @@ import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { EventEmitter } from "node:events";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
