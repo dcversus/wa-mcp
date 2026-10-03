@@ -686,3 +686,61 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
     expect(rows.find((row) => row.id === "img1")?.mediaType).toBe("image");
   });
 });
+
+describe("T58 ingest normalization", { timeout: 15_000 }, () => {
+  function makeLidSocket(pnForLid: Record<string, string>): void {
+    mockMakeWASocket.mockImplementation(() => {
+      const sock = fakeSocket() as unknown as WASocket & {
+        signalRepository: unknown;
+      };
+      sock.signalRepository = {
+        lidMapping: {
+          getPNForLID: async (lid: string) => pnForLid[lid] ?? null,
+          getLIDForPN: async (pn: string) => pnForLid[pn] === undefined ? null : pn,
+        },
+      };
+      const arranged = multiSocketArrangement();
+      return arranged.latest();
+    });
+  }
+
+  test("messageTimestamp in MILLISECONDS stores the correct instant (T58a)", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58a-")));
+    makeLidSocket({});
+    const { latest } = await startArranged({ store });
+    latest().emit("messages.upsert", {
+      messages: [
+        {
+          key: { remoteJid: "15551234567@s.whatsapp.net", fromMe: false, id: "ms1" },
+          message: { conversation: "ms units" },
+          messageTimestamp: 1_760_000_000_000,
+        } as unknown as WAMessage,
+      ],
+      type: "notify",
+    });
+    const rows = listMessages(store, { chatJid: "15551234567@s.whatsapp.net", limit: 5 });
+    expect(rows[0]?.timestamp.startsWith("2025")).toBe(true);
+  });
+
+  test("LID-keyed incoming messages store under the canonical PN chat (T58b)", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58b-")));
+    makeLidSocket({ "55600000009854": "358497773518" });
+    const { latest } = await startArranged({ store });
+    latest().emit("messages.upsert", {
+      messages: [
+        {
+          key: { remoteJid: "55600000009854@lid", fromMe: false, id: "lid1" },
+          message: { conversation: "from the lid" },
+          messageTimestamp: 1_760_000_000,
+        } as unknown as WAMessage,
+      ],
+      type: "notify",
+    });
+    const rows = listMessages(store, { chatJid: "358497773518@s.whatsapp.net", limit: 5 });
+    expect(rows.some((row) => row.id === "lid1" && row.content === "from the lid")).toBe(true);
+    const lidRows = listMessages(store, { chatJid: "55600000009854@lid", limit: 5 });
+    expect(lidRows.length).toBe(0);
+  });
+});
