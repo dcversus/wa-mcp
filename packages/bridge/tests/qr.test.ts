@@ -45,3 +45,9 @@ test("saveQrPng creates missing parent directories", async () => {
   const bytes = await readFile(file);
   expect(bytes.length).toBeGreaterThan(100);
 });
+
+test("T80 line60 — asciiSafe replaces non-ASCII (cp1252-hostile) output", () => {
+  const sanitized = asciiSafe("staleness — ok ✓ é 🎉\nnext");
+  expect(sanitized).toMatch(/^[\x20-\x7E\n]*$/);
+  expect(sanitized).toContain("?"); // replaced, not dropped
+});

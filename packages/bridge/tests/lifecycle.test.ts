@@ -982,3 +982,24 @@ test("T79 line47 — a stale socket (queries never answered) is torn down and re
   vi.useRealTimers();
   await handle.close();
 });
+
+test("T80 line44 — syncFullHistory applies only on FRESH creds (pairing-time)", async () => {
+  currentCreds.account = { id: "123", lid: "456" };
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { syncFullHistory: true });
+  const paired = mockMakeWASocket.mock.calls[0]?.[0] as UserFacingSocketConfig;
+  // RED today: a full-history sync re-fires on EVERY reconnect of an
+  // already-paired session — the engine should resync only at pairing
+  expect(paired.syncFullHistory).toBe(false);
+  await LIVE_HANDLES[LIVE_HANDLES.length - 1]?.close();
+
+  // fresh creds (account undefined) keep the flag
+  currentCreds = {};
+  const freshSock = fakeSocket();
+  mockMakeWASocket.mockReturnValueOnce(freshSock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { syncFullHistory: true });
+  const fresh = mockMakeWASocket.mock.calls[1]?.[0] as UserFacingSocketConfig;
+  expect(fresh.syncFullHistory).toBe(true);
+  await LIVE_HANDLES[LIVE_HANDLES.length - 1]?.close();
+});
