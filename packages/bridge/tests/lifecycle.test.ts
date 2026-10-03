@@ -777,3 +777,32 @@ describe("T59 canonical full-jid mapping", { timeout: 15_000 }, () => {
     expect(leaked.length).toBe(0);
   });
 });
+
+describe("T62/I groups.upsert persistence", { timeout: 15_000 }, () => {
+  test("groups.upsert writes the subject into chats.name and participants rows", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-gups-")));
+    const { latest } = await startArranged({ store });
+    latest().emit("groups.upsert", [
+      {
+        id: "120363428874442773@g.us",
+        subject: "The Test Group",
+        owner: "358497773518@s.whatsapp.net",
+        participants: [
+          { id: "358497773518@s.whatsapp.net", admin: "superadmin" },
+          { id: "351930017568@s.whatsapp.net" },
+        ],
+      },
+    ] as never);
+    await vi.advanceTimersByTimeAsync(0);
+    const chats = listChats(store, {});
+    expect(chats.some((chat) => chat.jid === "120363428874442773@g.us" && chat.name === "The Test Group")).toBe(true);
+    const participants = store.db
+      .prepare("SELECT jid, admin FROM group_participants WHERE group_jid = ? ORDER BY jid")
+      .all("120363428874442773@g.us") as Array<{ jid: string; admin: string | null }>;
+    expect(participants).toEqual([
+      { jid: "351930017568@s.whatsapp.net", admin: null },
+      { jid: "358497773518@s.whatsapp.net", admin: "superadmin" },
+    ]);
+  });
+});

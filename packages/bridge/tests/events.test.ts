@@ -79,3 +79,8 @@ test("discriminated union narrows by event type", () => {
   bus.emit({ type: "messages.upsert", payload: { messages: [], type: "append" } });
   expect(upsertTypes).toEqual(["append"]);
 });
+
+test("T62/I: the event map covers groups.upsert (13 events)", () => {
+  expect(EVENT_NAMES).toContain("groups.upsert");
+  expect(EVENT_NAMES).toHaveLength(13);
+});

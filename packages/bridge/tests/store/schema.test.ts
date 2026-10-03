@@ -187,3 +187,38 @@ describe("T62 deleted tombstone migration (v7)", () => {
     }
   });
 });
+
+describe("T62/I group participants table (v8)", () => {
+  test("a fresh store creates group_participants with migration v8 applied", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-v8-fresh-")));
+    try {
+      const table = store.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='group_participants'")
+        .get();
+      expect(table).toBeDefined();
+      const applied = store.db.prepare("SELECT 1 FROM migrations WHERE version = 8").get();
+      expect(applied).toBeDefined();
+    } finally {
+      store.close();
+    }
+  });
+
+  test("a pre-v8 store gains the table on open", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wa-mcp-v8-upgrade-"));
+    const raw = new DatabaseSync(join(dir, "store.db"));
+    raw.exec("CREATE TABLE migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+    for (const version of [1, 2, 3, 4, 5, 6, 7]) {
+      raw.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)").run(version, "2026-01-01");
+    }
+    raw.close();
+    const store = openStore(dir);
+    try {
+      const table = store.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='group_participants'")
+        .get();
+      expect(table).toBeDefined();
+    } finally {
+      store.close();
+    }
+  });
+});
