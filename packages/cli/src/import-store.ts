@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { importLayout, openStore, type SourceLayout } from "@wa-mcp/bridge";
+export type { SourceLayout };
 
 export interface ImportOptions {
   from: SourceLayout;
