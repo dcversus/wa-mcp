@@ -867,8 +867,10 @@ export async function createHttpServer(
       tools: TOOLS,
       bridgeUrl: selfUrl,
       token: opts.token,
+      // no lookupFn here: MCP tools relay over HTTP and the BRIDGE resolves
+      // media urls (send route) with its own SSRF guard — the RPC layer
+      // never resolves DNS itself
       fetchFn: opts.fetchFn,
-      lookupFn: opts.lookupFn,
     };
     void handleRpcMessage(parsed, ctx).then(
       (response) => {
