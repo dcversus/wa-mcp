@@ -1,4 +1,5 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
+import pino from "pino";
 import { proto } from "baileys";
 import type { WAMessage } from "baileys";
 import { extractContent } from "../../src/ingest/extract.ts";
@@ -286,4 +287,57 @@ test("a null message extracts to empty defaults", () => {
   expect(extracted.isEphemeral).toBe(false);
   expect(extracted.isViewOnce).toBe(false);
   expect(extracted.isStatusMention).toBe(false);
+});
+
+describe("T58 engine-generated send shapes", () => {
+  // The engine generates these protos from AnyMessageContent — the exact
+  // shapes socket.sendMessage returns in sent.message after a live send.
+  async function engineGenerate(input: Record<string, unknown>) {
+    const { generateWAMessageContent } = await import("baileys");
+    return (await generateWAMessageContent(input, {
+      logger: pino({ level: "silent" }),
+    })) as proto.IMessage;
+  }
+
+  test("engine-generated single-select poll (V3 key) extracts name + options", async () => {
+    const content = await engineGenerate({
+      poll: { name: "Lunch?", values: ["a", "b"], selectableCount: 1 },
+    });
+    expect(content.pollCreationMessageV3).toBeDefined();
+    const extracted = extractContent({
+      key: { remoteJid: "1@g.us", fromMe: true, id: "POLLOTHER" },
+      message: content,
+      messageTimestamp: 1_760_000_000,
+    } as WAMessage);
+    expect(extracted.poll).not.toBeNull();
+    expect(extracted.poll?.question).toBe("Lunch?");
+    expect(extracted.poll?.options).toEqual(["a", "b"]);
+  });
+
+  test("engine-generated multi-select poll (base key) extracts too", async () => {
+    const content = await engineGenerate({
+      poll: { name: "Colors", values: ["red", "blue"], selectableCount: 0 },
+    });
+    expect(content.pollCreationMessage).toBeDefined();
+    const extracted = extractContent({
+      key: { remoteJid: "1@g.us", fromMe: true, id: "POLLOTHER2" },
+      message: content,
+      messageTimestamp: 1_760_000_000,
+    } as WAMessage);
+    expect(extracted.poll?.question).toBe("Colors");
+  });
+
+  test("engine-generated edit wraps text as extendedTextMessage", async () => {
+    const content = await engineGenerate({
+      edit: { remoteJid: "1@s.whatsapp.net", id: "TARGET7", fromMe: true },
+      text: "corrected text",
+    });
+    const extracted = extractContent({
+      key: { remoteJid: "1@s.whatsapp.net", fromMe: true, id: "EDITNEW" },
+      message: content,
+      messageTimestamp: 1_760_000_000,
+    } as WAMessage);
+    expect(extracted.editedMessageId).toBe("TARGET7");
+    expect(extracted.editedText).toBe("corrected text");
+  });
 });
