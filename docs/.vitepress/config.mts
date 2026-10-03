@@ -11,6 +11,9 @@ export default defineConfig({
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },
+      { text: "Migration", link: "/migration" },
+      { text: "Troubleshooting", link: "/troubleshooting" },
+      { text: "FAQ", link: "/faq" },
     ],
     sidebar: [
       { text: "Getting started", link: "/getting-started/" },
@@ -18,6 +21,9 @@ export default defineConfig({
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },
+      { text: "Migration", link: "/migration" },
+      { text: "Troubleshooting", link: "/troubleshooting" },
+      { text: "FAQ", link: "/faq" },
       {
         text: "ADRs",
         items: [
