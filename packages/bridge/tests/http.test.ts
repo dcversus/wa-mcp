@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
@@ -1916,7 +1917,7 @@ test("POST /api/pair/resume resets the budget (authed, T46)", async () => {
     used: 3,
     limit: 3,
   });
-  const baseResume = handle.resumePairing;
+  const baseResume = handle.resumePairing.bind(handle);
   handle.resumePairing = () => {
     resumed += 1;
     baseResume();
@@ -2636,13 +2637,31 @@ describe("T73 C1 — scoped pairing token + Host/Origin validation", () => {
     expect(chats.status).not.toBe(401);
   });
 
+  // fetch (undici) silently DROPS the forbidden `host` header — a forged Host
+  // must go over a raw socket to actually reach the guard
+  function rawGet(
+    bridge: BridgeHttp,
+    path: string,
+    headers: Record<string, string>,
+  ): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const req = httpRequest({ host: "127.0.0.1", port: bridge.port, path, headers }, (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode ?? 0));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
   test("GET /api/ui-token refuses a Host that is not loopback (DNS rebinding)", async () => {
     const bridge = await startServer();
     const token = await pairingTokenOf(bridge);
-    const res = await fetch(url(bridge, "/api/ui-token"), {
-      headers: { authorization: `Bearer ${token}`, host: "evil.example:8080" },
+    const status = await rawGet(bridge, "/api/ui-token", {
+      authorization: `Bearer ${token}`,
+      host: "evil.example:8080",
     });
-    expect(res.status).toBe(403);
+    expect(status).toBe(403);
   });
 
   test("GET /api/ui-token refuses a cross-site Origin", async () => {
@@ -2656,10 +2675,11 @@ describe("T73 C1 — scoped pairing token + Host/Origin validation", () => {
 
   test("non-loopback Host is rejected on /api routes even with the real token", async () => {
     const bridge = await startServer();
-    const res = await fetch(url(bridge, "/api/chats"), {
-      headers: { authorization: "Bearer test-token", host: "evil.example:8080" },
+    const status = await rawGet(bridge, "/api/chats", {
+      authorization: "Bearer test-token",
+      host: "evil.example:8080",
     });
-    expect(res.status).toBe(403);
+    expect(status).toBe(403);
   });
 
   test("absent Origin (non-browser) with a loopback Host is allowed", async () => {

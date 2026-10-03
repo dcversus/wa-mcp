@@ -1,0 +1,64 @@
+# ADR 0012: Scoped pairing token + loopback Host/Origin guard
+
+Date: 2026-10-03
+Status: Accepted
+Task: T73 C1 (independent reviews: Anthropic C1, Grok C1 — release gate)
+
+## Context
+
+`/health` publishes an ephemeral `pairingToken` so the local web UI can
+authenticate without the user pasting anything (T54 — "the WebUI should never
+expect the user to do something with the CLI"). The T54-revised scope let that
+token read account data and send messages. Both independent reviews flagged the
+chain: `/health` is unauthenticated → any local page (or a DNS-rebinding page)
+reads the token → the token authorizes chats, messages and sends.
+
+DNS rebinding: `evil.example` re-resolves to `127.0.0.1`; a victim visiting the
+attacker page fetches `http://evil.example:8080/health` — same-origin to the
+attacker, loopback to the daemon. Browsers refuse to set `Host` and `Origin`
+manually, but they set them _themselves_ — `Host: evil.example:8080`,
+`Origin: http://evil.example:8080` — which is exactly the fingerprint.
+
+## Decision
+
+1. **The pairing token is scoped to the pairing surface only**:
+   `/api/qr`, `/api/pairing-code`, `/api/pair/resume`, `/api/ui-token`.
+   `/health` still publishes it (zero-friction pairing), but it can never read
+   account data, send, mutate config, or touch `/events` / `/api/media/*`.
+2. **Host/Origin guard on every API surface** (`/api/*`, `/events`, `/mcp`):
+   - `Host` must be loopback (`127.0.0.1`, `localhost`, `[::1]`, port ignored).
+   - If `Origin` is present it must be `http:` and same-host as the request's
+     `Host`. Absent `Origin` (curl, MCP clients, non-browser) is allowed;
+     `Origin: null` is refused.
+   - Returns 403 `FORBIDDEN_HOST` before auth is evaluated.
+3. **`GET /api/ui-token`** — the web UI's path to account access: requires the
+   scoped pairing token AND passes the Host/Origin guard; returns the daemon
+   token once. The UI runs this when `/health` reports `loggedIn` and no
+   session token is stored, persists it via `saveSettings`, and uses it for
+   everything (chats, sends, media query-tokens, SSE).
+
+## Why this design
+
+- The alternative — no published token at all, "copy the token from the daemon
+  console" — was rejected by the owner (T54): the web UI must never require
+  CLI action.
+- The guard kills the rebinding vector for _all_ routes, not just the token
+  exchange: with `Host` checked first, a rebound page cannot reach any API
+  route even with a stolen token, and the cross-site `Origin` check is the
+  second, independent wall for plain cross-origin requests (no rebinding
+  needed). This also satisfies the MCP spec's transport-security requirement
+  that `/mcp` validate `Origin`.
+- The exchange is safe to expose because every gate is browser-unforgeable:
+  the attacker page cannot set `Host` or `Origin`, and cannot obtain the
+  pairing token's _use_ — reading `/health` gives the token string, but the
+  guard refuses the attacker's requests before auth sees it.
+
+## Consequences
+
+- Media/SSE query-tokens (`?token=`) must now carry the _session_ token;
+  while unpaired there is no media or stream data to protect.
+- A UI page opened from a non-loopback origin (e.g. someone port-forwarding
+  the daemon) degrades to the pairing flow with 403s — remote access is
+  explicitly out of scope for the loopback web UI.
+- The T54-revised "ui token reads account data" contracts were rewritten;
+  the destructive-mutation 401s they already asserted remain true.

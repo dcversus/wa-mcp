@@ -52,10 +52,36 @@ let pairingView: PairingView = {
 };
 
 /** Fetch the public /health and adopt its ephemeral token — runs on EVERY
- * route so all loaders authenticate without any user action (T54). */
+ * route so all loaders authenticate without any user action (T54). Since
+ * T73 C1 (ADR 0012) that token opens ONLY the pairing surface, so once the
+ * daemon reports a paired account we exchange it once for the real token. */
 async function syncPairingToken(): Promise<void> {
   const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
   adoptPairingToken(health);
+  if (health.loggedIn === true) {
+    await exchangeAccountToken();
+  }
+}
+
+// ADR 0012: one exchange attempt per page load — a 401/403 (unpaired daemon,
+// or the UI reached from a non-loopback origin) leaves the UI on the pairing
+// flow instead of retrying in a loop.
+let accountTokenExchanged = false;
+async function exchangeAccountToken(): Promise<void> {
+  if (accountTokenExchanged || settings.token.length > 0) {
+    return;
+  }
+  accountTokenExchanged = true;
+  try {
+    const res = await client.uiToken();
+    if (typeof res.token === "string" && res.token.length > 0) {
+      settings = { ...settings, token: res.token };
+      saveSettings(localStorage, settings);
+      client = createClient();
+    }
+  } catch {
+    // pairing not finished yet, or non-loopback view — pairing flow handles it
+  }
 }
 
 function adoptPairingToken(health: PairingHealth): void {
@@ -740,7 +766,6 @@ function bindGroupMetaControls(groupJid: string): void {
     const form = event.currentTarget as HTMLFormElement;
     const subject = (form.querySelector("input[name=subject]") as HTMLInputElement).value;
     const description = (form.querySelector("input[name=description]") as HTMLInputElement).value;
-    await client;
     await client.groupMeta(groupJid, { subject, description }).catch(() => undefined);
     await renderCurrent();
   });

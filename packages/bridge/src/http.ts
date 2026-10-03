@@ -145,6 +145,44 @@ function tokenMatches(presented: string, expected: string): boolean {
   return timingSafeEqual(digest(presented), digest(expected));
 }
 
+/** T73 C1 (ADR 0012): the daemon serves loopback only. A Host header that is
+ * not loopback means the request arrived via a DNS-rebinding name (an external
+ * page resolving its own hostname to 127.0.0.1); a cross-site Origin means a
+ * foreign web page is driving the user's browser. Hosts browsers cannot forge:
+ * fetch/XHR set Host and Origin themselves, so both checks are trustworthy. */
+function isLoopbackHost(header: string): boolean {
+  const value = header.trim().toLowerCase();
+  if (value.startsWith("[")) {
+    const end = value.indexOf("]");
+    return end !== -1 && value.slice(0, end + 1) === "[::1]";
+  }
+  const host = value.includes(":") ? value.slice(0, value.indexOf(":")) : value;
+  return host === "127.0.0.1" || host === "localhost";
+}
+
+function hostOriginGuard(req: IncomingMessage): string | null {
+  const host = (req.headers.host ?? "").trim();
+  if (host === "" || !isLoopbackHost(host)) {
+    return "host header must be loopback (127.0.0.1 / localhost / [::1])";
+  }
+  const origin = req.headers.origin;
+  if (origin !== undefined) {
+    if (origin.trim().toLowerCase() === "null") {
+      return "cross-site origin refused";
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(origin);
+    } catch {
+      return "malformed origin refused";
+    }
+    if (parsed.protocol !== "http:" || parsed.host.toLowerCase() !== host.toLowerCase()) {
+      return "cross-site origin refused";
+    }
+  }
+  return null;
+}
+
 function createRateLimiter(capacity: number, refillPerMinute: number) {
   const buckets = new Map<string, TokenBucket>();
   return (ip: string, now: number): { ok: boolean; retryAfterSeconds: number } => {
@@ -1523,6 +1561,15 @@ export async function createHttpServer(
       return;
     }
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    // T73 C1 (ADR 0012): refuse DNS-rebinding Hosts and cross-site Origins on
+    // the whole API surface before auth is even evaluated.
+    if (path.startsWith("/api/") || path === "/events" || path === "/mcp") {
+      const guard = hostOriginGuard(req);
+      if (guard !== null) {
+        sendJson(res, 403, { error: { code: "FORBIDDEN_HOST", message: guard } });
+        return;
+      }
+    }
     if (req.method === "GET" && path === "/health") {
       const budget = handle.pairingBudget();
       sendJson(res, 200, {
@@ -1621,29 +1668,19 @@ export async function createHttpServer(
       // headers — these read-only GETs may carry the token as a query param
       presented = new URL(req.url ?? "/", "http://localhost").searchParams.get("token");
     }
-    // ephemeral UI token scope (T54 revised): reads + messaging for the local
-    // web UI; destructive/config mutations keep the daemon token
-    const UI_TOKEN_POST = new Set([
-      "/api/send",
-      "/api/read",
-      "/api/presence",
-      "/api/tts",
-      "/api/transcribe",
+    // T73 C1 (ADR 0012): the ephemeral pairing token is scoped to the pairing
+    // surface ONLY — /health publishes it, so it must never authorize account
+    // data or messaging. The local web UI exchanges it once for the daemon
+    // token via GET /api/ui-token (loopback Host + same-origin enforced above).
+    const PAIRING_SURFACE: ReadonlySet<string> = new Set([
+      "/api/qr",
       "/api/pairing-code",
       "/api/pair/resume",
-      "/api/group/participants",
+      "/api/ui-token",
     ]);
-    const uiTokenAuthorized =
-      presented !== null &&
-      tokenMatches(presented, pairingToken) &&
-      (path === "/events" ||
-        path === "/api/qr" ||
-        path === "/api/pair/resume" ||
-        path === "/api/pairing-code" ||
-        path.startsWith("/api/media/") ||
-        (req.method === "GET" && path.startsWith("/api/")) ||
-        (req.method === "POST" && UI_TOKEN_POST.has(path)));
-    if (!uiTokenAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
+    const pairingTokenAuthorized =
+      presented !== null && tokenMatches(presented, pairingToken) && PAIRING_SURFACE.has(path);
+    if (!pairingTokenAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
       });
@@ -1975,6 +2012,13 @@ export async function createHttpServer(
       }
       if (path === "/api/qr") {
         serveQr(req, res);
+        return;
+      }
+      if (path === "/api/ui-token" && req.method === "GET") {
+        // ADR 0012: one-time exchange so the loopback web UI can hold the real
+        // token. Double-gated: the loopback Host + same-origin guard above,
+        // and the scoped pairing token itself.
+        sendJson(res, 200, { token: opts.token });
         return;
       }
       if (
