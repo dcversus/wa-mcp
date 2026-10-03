@@ -183,6 +183,17 @@ CREATE TABLE IF NOT EXISTS transcripts (
 );
 `;
 
+const MIGRATION_V9 = `
+CREATE TABLE IF NOT EXISTS reactions (
+  chat_jid TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  sender_jid TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (chat_jid, message_id, emoji, sender_jid)
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -192,6 +203,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 6, sql: MIGRATION_V6 },
   { version: 7, sql: MIGRATION_V7 },
   { version: 8, sql: MIGRATION_V8 },
+  { version: 9, sql: MIGRATION_V9 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

@@ -32,7 +32,7 @@ export interface MessageRow {
   mentions: string[];
   isFromMe: boolean;
   isUnread: boolean;
-  reactions: Array<{ emote: string }> | null;
+  reactions: Array<ReactionAggregate> | null;
 }
 
 export interface Pagination {
@@ -78,26 +78,55 @@ function parseJsonArray(value: unknown): string[] {
   }
 }
 
-function parseReactions(value: unknown): Array<{ emote: string }> | null {
-  if (typeof value !== "string") {
-    return null;
+export interface ReactionAggregate {
+  emote: string;
+  count: number;
+  senders: string[];
+}
+
+/** T78 M2: reactions read back as an aggregate — per emoji, with count and
+ * the senders behind it — built from the sender-keyed reactions table. */
+function attachReactions(store: Store, rows: MessageRow[]): void {
+  if (rows.length === 0) {
+    return;
   }
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (!Array.isArray(parsed)) {
-      return null;
+  const ids = Array.from(new Set(rows.map((row) => row.id)));
+  const placeholders = ids.map(() => "?").join(",");
+  const found = store.db
+    .prepare(
+      `SELECT chat_jid, message_id, emoji, sender_jid FROM reactions WHERE message_id IN (${placeholders}) ORDER BY created_at, sender_jid`,
+    )
+    .all(...ids) as Array<{
+    chat_jid: string;
+    message_id: string;
+    emoji: string;
+    sender_jid: string;
+  }>;
+  const grouped = new Map<string, Map<string, ReactionAggregate>>();
+  for (const entry of found) {
+    const key = `${entry.chat_jid}\u0000${entry.message_id}`;
+    const byEmoji = grouped.get(key) ?? new Map<string, ReactionAggregate>();
+    const agg = byEmoji.get(entry.emoji) ?? { emote: entry.emoji, count: 0, senders: [] };
+    agg.count += 1;
+    agg.senders.push(entry.sender_jid);
+    byEmoji.set(entry.emoji, agg);
+    grouped.set(key, byEmoji);
+  }
+  for (const row of rows) {
+    const byEmoji = grouped.get(`${row.chatJid}\u0000${row.id}`);
+    if (byEmoji === undefined) {
+      row.reactions = null;
+      continue;
     }
-    return parsed
-      .map((item) =>
-        item !== null && typeof item === "object" ? (item as { emote?: unknown }).emote : null,
-      )
-      .filter((emote): emote is string => typeof emote === "string")
-      .map((emote) => ({ emote }));
-  } catch {
-    return null;
+    const list = Array.from(byEmoji.values()).sort((a, b) => b.count - a.count);
+    row.reactions = list.length > 0 ? list : null;
   }
 }
 
+function attachOne(store: Store, row: MessageRow): MessageRow {
+  attachReactions(store, [row]);
+  return row;
+}
 function rowToMessage(row: RawRow): MessageRow {
   return {
     id: asString(row.id) ?? "",
@@ -112,7 +141,7 @@ function rowToMessage(row: RawRow): MessageRow {
     mentions: parseJsonArray(row.mentions),
     isFromMe: row.is_from_me === 1,
     isUnread: row.is_unread === 1,
-    reactions: parseReactions(row.reactions),
+    reactions: null, // populated by attachReactions (T78 M2 aggregate)
   };
 }
 
@@ -186,7 +215,9 @@ export function listMessages(store: Store, opts: ListMessagesFilter): MessageRow
   const rows = store.db
     .prepare(`SELECT * FROM messages ${where} ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?`)
     .all(...params, limit, offset) as RawRow[];
-  return rows.map(rowToMessage);
+  const messages = rows.map(rowToMessage);
+  attachReactions(store, messages);
+  return messages;
 }
 
 export interface MessageContext {
@@ -232,9 +263,9 @@ export function getMessageContext(
     )
     .all(chat, ts, ts, targetRowId, safeRadius) as RawRow[];
   return {
-    target: rowToMessage(targetRow),
-    before: beforeRows.reverse().map(rowToMessage),
-    after: afterRows.map(rowToMessage),
+    target: attachOne(store, rowToMessage(targetRow)),
+    before: beforeRows.reverse().map((row) => attachOne(store, rowToMessage(row))),
+    after: afterRows.map((row) => attachOne(store, rowToMessage(row))),
   };
 }
 
@@ -284,7 +315,9 @@ export function searchMessages(
            ORDER BY m.timestamp DESC, m.rowid DESC LIMIT ? OFFSET ?`,
         )
         .all(sanitized, ...chatParams, limit, offset) as RawRow[];
-      return rows.map(rowToMessage);
+      const messages = rows.map(rowToMessage);
+      attachReactions(store, messages);
+      return messages;
     } catch {
       return likeFallback(store, query, opts, limit, offset);
     }
@@ -310,7 +343,9 @@ function likeFallback(
          ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?`,
       )
       .all(pattern, opts.chatJid, limit, offset) as RawRow[];
-    return rows.map(rowToMessage);
+    const messages = rows.map(rowToMessage);
+    attachReactions(store, messages);
+    return messages;
   }
   const rows = store.db
     .prepare(
@@ -318,7 +353,9 @@ function likeFallback(
        ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?`,
     )
     .all(pattern, limit, offset) as RawRow[];
-  return rows.map(rowToMessage);
+  const messages = rows.map(rowToMessage);
+  attachReactions(store, messages);
+  return messages;
 }
 
 export function fetchMessageFromStore(

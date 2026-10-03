@@ -262,7 +262,7 @@ test("fts stays in sync through the full message lifecycle", () => {
   try {
     const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
     expect(versions.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8,
+      1, 2, 3, 4, 5, 6, 7, 8, 9,
     ]);
     storeMessage(store, message("S1", GROUP_A, 1000, "original words"));
     expect(searchMessages(store, "original", {})).toHaveLength(1);
@@ -338,14 +338,21 @@ describe("T76 H3 — migrations run in a transaction", () => {
 
 describe("T78 M1 — protocol-message tombstones verify the sender", () => {
   function revokeFrom(id: string, participant: string, fromMe: boolean, target: string) {
-    return message("R-" + id, GROUP_A, 3000, "", {
-      key: { remoteJid: GROUP_A, fromMe, id: "R-" + id, participant },
-    }, {
-      protocolMessage: {
-        type: proto.Message.ProtocolMessage.Type.REVOKE,
-        key: { id: target, remoteJid: GROUP_A },
+    return message(
+      "R-" + id,
+      GROUP_A,
+      3000,
+      "",
+      {
+        key: { remoteJid: GROUP_A, fromMe, id: "R-" + id, participant },
       },
-    });
+      {
+        protocolMessage: {
+          type: proto.Message.ProtocolMessage.Type.REVOKE,
+          key: { id: target, remoteJid: GROUP_A },
+        },
+      },
+    );
   }
 
   test("a revoke from a DIFFERENT sender does not tombstone someone else's message", () => {
@@ -368,26 +375,33 @@ describe("T78 M1 — protocol-message tombstones verify the sender", () => {
     try {
       storeMessage(store, message("T2", GROUP_A, 1000, "mine"));
       storeMessage(store, revokeFrom("OK", SENDER, false, "T2"));
-      const row = store.db
-        .prepare("SELECT deleted FROM messages WHERE id = 'T2'")
-        .get() as { deleted: number };
+      const row = store.db.prepare("SELECT deleted FROM messages WHERE id = 'T2'").get() as {
+        deleted: number;
+      };
       expect(row.deleted).toBe(1);
       // the account revoking its OWN message (fromMe revoke) still applies
       storeMessage(store, message("T3", GROUP_A, 1500, "account msg"));
       storeMessage(
         store,
-        message("R-T3", GROUP_A, 3000, "", {
-          key: { remoteJid: GROUP_A, fromMe: true, id: "R-T3", participant: SENDER },
-        }, {
-          protocolMessage: {
-            type: proto.Message.ProtocolMessage.Type.REVOKE,
-            key: { id: "T3", remoteJid: GROUP_A },
+        message(
+          "R-T3",
+          GROUP_A,
+          3000,
+          "",
+          {
+            key: { remoteJid: GROUP_A, fromMe: true, id: "R-T3", participant: SENDER },
           },
-        }),
+          {
+            protocolMessage: {
+              type: proto.Message.ProtocolMessage.Type.REVOKE,
+              key: { id: "T3", remoteJid: GROUP_A },
+            },
+          },
+        ),
       );
-      const own = store.db
-        .prepare("SELECT deleted FROM messages WHERE id = 'T3'")
-        .get() as { deleted: number };
+      const own = store.db.prepare("SELECT deleted FROM messages WHERE id = 'T3'").get() as {
+        deleted: number;
+      };
       expect(own.deleted).toBe(1);
     } finally {
       store.close();
@@ -398,18 +412,33 @@ describe("T78 M1 — protocol-message tombstones verify the sender", () => {
     const store = makeStore();
     try {
       storeMessage(store, message("E1", GROUP_A, 1000, "original words"));
-      storeMessage(store, message("R-E1", GROUP_A, 3000, "", {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "R-E1", participant: "3584999999999@s.whatsapp.net" },
-      }, {
-        protocolMessage: {
-          type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
-          key: { id: "E1", remoteJid: GROUP_A },
-          editedMessage: { conversation: "spoofed edit" },
-        },
-      }));
-      const row = store.db
-        .prepare("SELECT content FROM messages WHERE id = 'E1'")
-        .get() as { content: string };
+      storeMessage(
+        store,
+        message(
+          "R-E1",
+          GROUP_A,
+          3000,
+          "",
+          {
+            key: {
+              remoteJid: GROUP_A,
+              fromMe: false,
+              id: "R-E1",
+              participant: "3584999999999@s.whatsapp.net",
+            },
+          },
+          {
+            protocolMessage: {
+              type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
+              key: { id: "E1", remoteJid: GROUP_A },
+              editedMessage: { conversation: "spoofed edit" },
+            },
+          },
+        ),
+      );
+      const row = store.db.prepare("SELECT content FROM messages WHERE id = 'E1'").get() as {
+        content: string;
+      };
       expect(row.content).toBe("original words");
     } finally {
       store.close();
@@ -419,20 +448,36 @@ describe("T78 M1 — protocol-message tombstones verify the sender", () => {
 
 describe("T78 M2 — reactions are an aggregated per-sender model", () => {
   function reactionFrom(id: string, participant: string, emote: string, target: string) {
-    return message("RX-" + id, GROUP_A, 4000, "", {
-      key: { remoteJid: GROUP_A, fromMe: false, id: "RX-" + id, participant },
-    }, {
-      reactionMessage: { key: { id: target, remoteJid: GROUP_A }, text: emote },
-    });
+    return message(
+      "RX-" + id,
+      GROUP_A,
+      4000,
+      "",
+      {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "RX-" + id, participant },
+      },
+      {
+        reactionMessage: { key: { id: target, remoteJid: GROUP_A }, text: emote },
+      },
+    );
   }
 
   test("two senders on one emoji + a third on another -> counts and senders", () => {
     const store = makeStore();
     try {
-      storeMessage(store, message("M1", GROUP_A, 1000, "react to me"));
-      storeMessage(reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M1"));
-      storeMessage(reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M1"));
-      storeMessage(reactionFrom("C", "3584000000003@s.whatsapp.net", "🎉", "M1"));
+      const targetMsg = message("M1", GROUP_A, 1000, "react to me");
+      const rxA = reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M1");
+      const rxB = reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M1");
+      const rxC = reactionFrom("C", "3584000000003@s.whatsapp.net", "🎉", "M1");
+      if (rxA === undefined || rxB === undefined || rxC === undefined) {
+        throw new Error(
+          `fixture undefined: ${String(rxA === undefined)} ${String(rxB === undefined)} ${String(rxC === undefined)}`,
+        );
+      }
+      storeMessage(store, targetMsg);
+      storeMessage(store, rxA);
+      storeMessage(store, rxB);
+      storeMessage(store, rxC);
       const list = listMessages(store, { chatJid: GROUP_A });
       const target = list.find((row) => row.id === "M1");
       expect(target?.reactions).toEqual([
@@ -452,9 +497,12 @@ describe("T78 M2 — reactions are an aggregated per-sender model", () => {
     const store = makeStore();
     try {
       storeMessage(store, message("M2", GROUP_A, 1000, "react to me"));
-      storeMessage(reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M2"));
-      storeMessage(reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M2"));
-      storeMessage(reactionFrom("A2", "3584000000001@s.whatsapp.net", "", "M2"));
+      const rxA = reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M2");
+      const rxB = reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M2");
+      const rxA2 = reactionFrom("A2", "3584000000001@s.whatsapp.net", "", "M2");
+      storeMessage(store, rxA);
+      storeMessage(store, rxB);
+      storeMessage(store, rxA2);
       const list = listMessages(store, { chatJid: GROUP_A });
       const target = list.find((row) => row.id === "M2");
       expect(target?.reactions).toEqual([

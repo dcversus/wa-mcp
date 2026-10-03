@@ -68,30 +68,32 @@ function updateTargetContent(
     .run(content, chatJid, targetId);
 }
 
-function appendReaction(store: Store, chatJid: string, targetId: string, emote: string): void {
+function applyReaction(
+  store: Store,
+  chatJid: string,
+  targetId: string,
+  emote: string,
+  author: string,
+): void {
   const targetRow = store.db
-    .prepare("SELECT reactions FROM messages WHERE chat_jid = ? AND id = ?")
-    .get(chatJid, targetId) as { reactions: string | null } | undefined;
+    .prepare("SELECT id FROM messages WHERE chat_jid = ? AND id = ?")
+    .get(chatJid, targetId);
   if (targetRow === undefined) {
     return;
   }
-  let reactions: Array<{ emote: string }> = [];
-  if (targetRow.reactions !== null) {
-    try {
-      reactions = JSON.parse(targetRow.reactions) as Array<{ emote: string }>;
-    } catch {
-      reactions = [];
-    }
-  }
-  // one active reaction per user per message; until sender-keyed reactions
-  // land, a repeated identical emote (send-echo + reaction event) is a no-op
-  if (reactions[reactions.length - 1]?.emote === emote) {
+  // T78 M2: one row per (message, emoji, sender); an empty emote removes
+  // exactly that sender's reaction for the message
+  if (emote.length === 0) {
+    store.db
+      .prepare("DELETE FROM reactions WHERE chat_jid = ? AND message_id = ? AND sender_jid = ?")
+      .run(chatJid, targetId, author);
     return;
   }
-  reactions.push({ emote });
   store.db
-    .prepare("UPDATE messages SET reactions = ? WHERE chat_jid = ? AND id = ?")
-    .run(JSON.stringify(reactions), chatJid, targetId);
+    .prepare(
+      "INSERT OR REPLACE INTO reactions (chat_jid, message_id, emoji, sender_jid, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(chatJid, targetId, emote, author, new Date().toISOString());
 }
 
 /** T78 M1: protocol messages act ON another row — allow only when the actor
@@ -141,7 +143,9 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     return false;
   }
   if (extracted.reaction !== null && extracted.reactionTargetId !== null) {
-    appendReaction(store, chatJid, extracted.reactionTargetId, extracted.reaction);
+    const reactionAuthor =
+      message.key.participant ?? (message.key.fromMe === true ? "me" : chatJid);
+    applyReaction(store, chatJid, extracted.reactionTargetId, extracted.reaction, reactionAuthor);
     return false;
   }
   if (extracted.pollVote !== null) {
