@@ -4,6 +4,7 @@ import {
   chatErrorHtml,
   chatListHtml,
   contextViewHtml,
+  groupMetaFormHtml,
   groupParticipantsHtml,
   healthHtml,
   messageListHtml,
@@ -420,5 +421,21 @@ describe("T70 media query-token", () => {
     );
     expect(html).toContain('src="/api/media/IMG2"');
     expect(html).not.toContain("token=");
+  });
+});
+
+describe("T73 C2 — group meta form escapes injected subject/description", () => {
+  const EVIL = '"><img src=x onerror=alert(1)>';
+
+  test("subject/description payloads are escaped, no raw attribute breakout", () => {
+    const html = groupMetaFormHtml("120363428874442773@g.us", EVIL, EVIL);
+    expect(html).not.toContain('onerror=');
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain("&lt;img");
+  });
+
+  test("the jid attribute is escaped too", () => {
+    const html = groupMetaFormHtml('1@g.us" onmouseover="alert(1)', "s", "d");
+    expect(html).not.toContain('" onmouseover="');
   });
 });

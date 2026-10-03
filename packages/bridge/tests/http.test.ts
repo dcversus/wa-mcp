@@ -2690,3 +2690,25 @@ describe("T73 C1 — scoped pairing token + Host/Origin validation", () => {
     expect(res.status).not.toBe(403);
   });
 });
+
+describe("T73 C2 — content-security-policy on web UI responses", () => {
+  function uiServer(): ReturnType<typeof startServer> {
+    const uiDir = mkdtempSync(join(tmpdir(), "wa-mcp-ui-"));
+    writeFileSync(join(uiDir, "index.html"), "<html><body>wa-mcp shell</body></html>");
+    return startServer({ uiDir });
+  }
+
+  test("GET / ships a CSP that defaults to self", async () => {
+    const bridge = await uiServer();
+    const res = await fetch(url(bridge, "/"));
+    expect(res.status).toBe(200);
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("default-src 'self'");
+  });
+
+  test("API responses carry the CSP too (defense in depth)", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/health"));
+    expect(res.headers.get("content-security-policy") ?? "").toContain("default-src 'self'");
+  });
+});
