@@ -70,17 +70,17 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] `send_text`: phone/JID/group, "+" strip, mentions[], reply_to, link-preview toggle — VERIFY: live 2026-10-03 text → Vasilisa (PN+LID resolution) + Test group, 200 + stored + read-back (VERIFY.md live-smoke); variant matrix (mentions/reply/preview) unit-verified T15/T16, dogfood for live variants
 - [ ] `send_media` (aliases `send_image`/`send_video`/`send_audio`/`send_document`): image/video/audio/document/sticker; MIME by ext+magic bytes; fileName; caption (lharries #350, VGP #193); base64 input (Felix #76); URL input — verify: live PDF arrives named not `.bin` (#327/#342), image+caption, sticker webp, audio playable, document preview — PENDING: live (pairing); T18 unit
 - [ ] `send_voice`: ffmpeg → ogg/opus PTT, temp cleanup (VGP #227) — verify: mp3 → playable voice note; no temp leftover — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `send_location` (kahflane/biliboss) — verify: live send → pin on phone — PENDING: live (pairing); T17 unit
+- [x] `send_location` (kahflane/biliboss) — verify: live send → pin on phone — VERIFY: live 2026-10-03 Lisbon pin sent to Vasilisa, 200 + stored with label+coords (VERIFY.md live-smoke); phone visual = owner dogfood
 - [ ] `send_link_preview` (delltrak) — verify: live send → link card renders on phone — PENDING: live (pairing); link-preview builder (T15)
 - [ ] `send_view_once` (delltrak) — verify: live send → view-once badge on phone — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `check_number_exists` (delltrak) — verify: own number → true; random → false — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `send_text_status`/`send_image_status`/`send_video_status` (delltrak; kahflane post_status) — verify: live text status → visible on phone — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `send_contact` vCard (kahflane/biliboss) — verify: live send → tappable card — PENDING: live (pairing); T17 unit
+- [x] `send_contact` vCard (kahflane/biliboss) — verify: live send → tappable card — VERIFY: live 2026-10-03 vCard sent to Vasilisa, 200 + stored (VERIFY.md live-smoke); phone visual = owner dogfood
 - [ ] `send_poll` + options stored for vote decode (lharries #345; Felix #84) — verify: live send; phone vote → poll_votes row with option name — PENDING: live (pairing); T17 unit + poll_options stored
 - [ ] `send_buttons`/`send_list` (kahflane; lharries #15/#197) — verify: live send renders (document Business-account caveat) — NA-ENGINE: Business-account-only, documented (VERIFY Phase D)
 - [ ] `edit_message`, `delete_message` for-everyone + `delete_message_for_me` (local-only) (kahflane wa_delete_message_for_me; VGP #192; lharries #90) — verify: live edit + both delete modes reflected on phone/store — PENDING: live (pairing); edit unit-verified (T17); delete_for_me OUT-OF-SCOPE
 - [ ] `forward_message` (kahflane/biliboss) — verify: live forward Test-group → own chat — PENDING: live (pairing); T17 unit
-- [ ] `react`/`send_reaction` (kahflane/biliboss/delltrak wa_send_reaction) — verify: live reaction visible on phone — PENDING: live (pairing); T17 unit
+- [x] `react`/`send_reaction` (kahflane/biliboss/delltrak wa_send_reaction) — verify: live reaction visible on phone — VERIFY: live 2026-10-03 👍 on Vasilisa's reply, 200 + reactions stored (dedupe fix T60) (VERIFY.md live-smoke); phone visual = owner dogfood
 - [ ] `send_presence` typing/recording + `subscribe_presence` (kahflane) — verify: phone shows "typing…" during send — PENDING: live (pairing); T22 unit
 - [ ] `send_broadcast` + `broadcast_info` (kahflane) — verify: 2-recipient broadcast → 200 — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Outbound persistence + media upload metadata (lharries #229; VGP #221) — verify: `list_messages` shows own sends is_from_me=1 — VERIFY: T16b outbound persistence tests
