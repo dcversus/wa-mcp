@@ -68,7 +68,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 ## 4. Send path
 
 - [x] `send_text`: phone/JID/group, "+" strip, mentions[], reply_to, link-preview toggle — VERIFY: live 2026-10-03 text → Vasilisa (PN+LID resolution) + Test group, 200 + stored + read-back (VERIFY.md live-smoke); variant matrix (mentions/reply/preview) unit-verified T15/T16, dogfood for live variants
-- [ ] `send_media` (aliases `send_image`/`send_video`/`send_audio`/`send_document`): image/video/audio/document/sticker; MIME by ext+magic bytes; fileName; caption (lharries #350, VGP #193); base64 input (Felix #76); URL input — verify: live PDF arrives named not `.bin` (#327/#342), image+caption, sticker webp, audio playable, document preview — PENDING: live (pairing); T18 unit
+- [x] `send_media` (aliases `send_image`/`send_video`/`send_audio`/`send_document`): image/video/audio/document/sticker; MIME by ext+magic bytes; fileName; caption (lharries #350, VGP #193); base64 input (Felix #76); URL input — VERIFY: live 2026-10-03 image+caption base64 → Vasilisa, 200 + stored + file in ~/.wa-mcp/media (T61 fixed default media dir; VERIFY.md); PDF/sticker/audio legs = owner dogfood; T18 unit matrix
 - [ ] `send_voice`: ffmpeg → ogg/opus PTT, temp cleanup (VGP #227) — verify: mp3 → playable voice note; no temp leftover — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `send_location` (kahflane/biliboss) — verify: live send → pin on phone — VERIFY: live 2026-10-03 Lisbon pin sent to Vasilisa, 200 + stored with label+coords (VERIFY.md live-smoke); phone visual = owner dogfood
 - [ ] `send_link_preview` (delltrak) — verify: live send → link card renders on phone — PENDING: live (pairing); link-preview builder (T15)
