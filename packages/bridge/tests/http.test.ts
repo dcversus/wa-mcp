@@ -28,15 +28,35 @@ const GROUP_A = "120363428874442773@g.us";
 const GROUP_B = "120363999999999999@g.us";
 
 function makeFakeSocket(): WASocket {
-  const sendMessage = vi.fn(async (jid: string, content: unknown) => ({
-    key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
-    // emulate the engine: generateWAMessageContent turns {text} into an
-    // extendedTextMessage proto — the returned WAMessage carries THAT
-    message:
+  const sendMessage = vi.fn(async (jid: string, content: unknown) => {
+    // emulate the engine: generateWAMessageContent turns inputs into protos —
+    // {text} → extendedTextMessage; {image|video|...} → <kind>Message
+    const mediaProto: Record<string, string> = {
+      image: "imageMessage",
+      video: "videoMessage",
+      audio: "audioMessage",
+      document: "documentMessage",
+      sticker: "stickerMessage",
+    };
+    const mediaKey = Object.keys(mediaProto).find(
+      (key) => key in (content as Record<string, unknown>),
+    );
+    const message =
       (content as { text?: string }).text !== undefined
         ? { extendedTextMessage: { text: (content as { text: string }).text } }
-        : content,
-  }));
+        : mediaKey !== undefined
+          ? {
+              [mediaProto[mediaKey]]: {
+                caption: (content as { caption?: string }).caption,
+                mimetype: (content as { mimetype?: string }).mimetype,
+              },
+            }
+          : content;
+    return {
+      key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
+      message,
+    };
+  });
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
   const requestPairingCode = vi.fn(async () => "ABCD1234");

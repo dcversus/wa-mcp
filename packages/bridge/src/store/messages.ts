@@ -118,6 +118,22 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     appendReaction(store, chatJid, extracted.reactionTargetId, extracted.reaction);
     return false;
   }
+  if (extracted.pollVote !== null) {
+    // decoded poll votes persist via the poll_votes path (T60 lifecycle
+    // messages.update consumer); the raw upsert carries no storable content
+    return false;
+  }
+  if (
+    extracted.text === null &&
+    extracted.mediaType === null &&
+    extracted.poll === null &&
+    extracted.editedMessageId === null &&
+    extracted.revokedMessageId === null
+  ) {
+    // protocol echo with no user content — storing it would create an
+    // empty chat row (live evidence: two empty rows from LID echoes)
+    return false;
+  }
   const timestamp = toIsoTimestamp(message.messageTimestamp);
   const isFromMe = message.key.fromMe === true;
   const senderJid: string | null = isFromMe
