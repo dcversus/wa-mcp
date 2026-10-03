@@ -11,6 +11,7 @@ export type WaEventMap = {
   "contacts.upsert": BaileysEventMap["contacts.upsert"];
   "groups.update": BaileysEventMap["groups.update"];
   "group-participants.update": BaileysEventMap["group-participants.update"];
+  "groups.upsert": BaileysEventMap["groups.upsert"];
   call: BaileysEventMap["call"];
   "creds.update": BaileysEventMap["creds.update"];
 };
@@ -36,6 +37,7 @@ export const EVENT_NAMES = [
   "contacts.upsert",
   "groups.update",
   "group-participants.update",
+  "groups.upsert",
   "call",
   "creds.update",
 ] as const satisfies readonly WaEventName[];

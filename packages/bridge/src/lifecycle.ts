@@ -6,6 +6,7 @@ import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
 import { canonicalChatJid } from "./send/send.ts";
+import { upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
@@ -300,6 +301,25 @@ export async function startBridge(
               return stored;
             });
             opts.logger?.info({ messages: count }, "history sync persisted");
+          }
+        }
+        if (name === "groups.upsert") {
+          // group metadata push: subject lands in chats.name, roster in
+          // group_participants (T62/I)
+          const groups = payload as Array<{
+            id: string;
+            subject?: string;
+            participants?: Array<{ id: string; admin?: string | null }>;
+          }>;
+          if (opts.store !== undefined) {
+            for (const group of groups) {
+              upsertChatMeta(opts.store, { id: group.id, name: group.subject });
+              upsertGroupParticipants(
+                opts.store,
+                group.id,
+                (group.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
+              );
+            }
           }
         }
         if (name === "creds.update") {

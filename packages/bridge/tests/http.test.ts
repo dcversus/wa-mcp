@@ -2407,3 +2407,62 @@ describe("T62 delete_message", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("T62/I GET /api/group/info (on-demand metadata fetch + persist)", () => {
+  async function infoServer(): Promise<{
+    bridge: Awaited<ReturnType<typeof startServer>>;
+    socket: WASocket;
+    store: Store;
+  }> {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ginfo-")));
+    openedStores.push(store);
+    Object.assign(socket, {
+      groupMetadata: async (jid: string) => ({
+        id: jid,
+        subject: "Fresh Subject",
+        participants: [
+          { id: "358497773518@s.whatsapp.net", admin: "admin" },
+          { id: "351930017568@s.whatsapp.net" },
+        ],
+      }),
+    });
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store),
+    });
+    created.push(bridge);
+    return { bridge, socket, store };
+  }
+
+  test("fetches fresh metadata, persists chats.name + participants, returns 200", async () => {
+    const { bridge, socket, store } = await infoServer();
+    const res = await fetch(url(bridge, "/api/group/info?jid=120363428874442773%40g.us"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { subject?: string; participants?: unknown[] };
+    expect(body.subject).toBe("Fresh Subject");
+    expect(body.participants?.length).toBe(2);
+    expect((socket.groupMetadata as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toBe(
+      "120363428874442773@g.us",
+    );
+    const chat = store.db
+      .prepare("SELECT name FROM chats WHERE jid = ?")
+      .get("120363428874442773@g.us") as { name: string };
+    expect(chat.name).toBe("Fresh Subject");
+    const participants = store.db
+      .prepare("SELECT COUNT(*) AS n FROM group_participants WHERE group_jid = ?")
+      .get("120363428874442773@g.us") as { n: number };
+    expect(participants.n).toBe(2);
+  });
+
+  test("GET /api/group/info without a jid is a validation error", async () => {
+    const { bridge } = await infoServer();
+    const res = await fetch(url(bridge, "/api/group/info"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.status).toBe(400);
+  });
+});

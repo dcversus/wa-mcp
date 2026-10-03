@@ -783,6 +783,7 @@ describe("T62/I groups.upsert persistence", { timeout: 15_000 }, () => {
     vi.useFakeTimers();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-gups-")));
     const { latest } = await startArranged({ store });
+    console.log("T62I groups.upsert registered:", latest().listeners.has("groups.upsert"));
     latest().emit("groups.upsert", [
       {
         id: "120363428874442773@g.us",
@@ -795,6 +796,10 @@ describe("T62/I groups.upsert persistence", { timeout: 15_000 }, () => {
       },
     ] as never);
     await vi.advanceTimersByTimeAsync(0);
+    const allChats = store.db.prepare("SELECT jid, name FROM chats").all();
+    console.log("T62I ALL chats:", JSON.stringify(allChats));
+    const parts = store.db.prepare("SELECT * FROM group_participants").all();
+    console.log("T62I participants:", JSON.stringify(parts));
     const chats = listChats(store, {});
     expect(chats.some((chat) => chat.jid === "120363428874442773@g.us" && chat.name === "The Test Group")).toBe(true);
     const participants = store.db

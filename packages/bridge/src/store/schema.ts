@@ -158,6 +158,15 @@ CREATE TABLE IF NOT EXISTS notification_rules (
 );
 `;
 
+const MIGRATION_V8 = `
+CREATE TABLE IF NOT EXISTS group_participants (
+  group_jid TEXT NOT NULL,
+  jid TEXT NOT NULL,
+  admin TEXT,
+  PRIMARY KEY (group_jid, jid)
+);
+`;
+
 const MIGRATION_V7 = `
 ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
 `;
@@ -182,6 +191,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 5, sql: MIGRATION_V5 },
   { version: 6, sql: MIGRATION_V6 },
   { version: 7, sql: MIGRATION_V7 },
+  { version: 8, sql: MIGRATION_V8 },
 ];
 
 export function openStore(dir: string): Store {

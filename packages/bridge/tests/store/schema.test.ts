@@ -13,6 +13,7 @@ const EXPECTED_TABLES = [
   "chats",
   "contacts",
   "events",
+  "group_participants",
   "media_files",
   "messages",
   "messages_fts",
@@ -141,7 +142,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(7);
+    expect(versions).toHaveLength(8);
   } finally {
     second.close();
   }

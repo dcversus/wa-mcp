@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vite-plus/test";
 import { EVENT_NAMES, createEventBus, type WaEvent } from "../src/events.ts";
 
-test("event map covers the twelve bridge events", () => {
+test("event map covers the thirteen bridge events", () => {
   expect([...EVENT_NAMES].sort()).toEqual(
     [
       "call",
@@ -12,6 +12,7 @@ test("event map covers the twelve bridge events", () => {
       "creds.update",
       "group-participants.update",
       "groups.update",
+      "groups.upsert",
       "message-receipt.update",
       "messages.upsert",
       "messaging-history.set",
