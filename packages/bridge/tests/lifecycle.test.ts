@@ -815,3 +815,13 @@ describe("T62/I groups.upsert persistence", { timeout: 15_000 }, () => {
     ]);
   });
 });
+
+test("T76 H4: the socket config wires getMessage so the fork can decode poll votes", async () => {
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", {});
+  const call = mockMakeWASocket.mock.calls[0];
+  if (!call) throw new Error("makeWASocket was not called");
+  const config = call[0] as UserFacingSocketConfig;
+  expect(typeof config.getMessage).toBe("function");
+});
