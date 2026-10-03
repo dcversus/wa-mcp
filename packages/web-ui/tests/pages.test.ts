@@ -259,3 +259,17 @@ test("settingsHtml marks the token field optional (T54 revised)", () => {
   expect(html).toContain("optional");
   expect(html).not.toContain("cat ~");
 });
+
+describe("T67 send-outcome UX", () => {
+  test("chatErrorHtml renders an inline escaped banner with the engine message", () => {
+    const html = chatErrorHtml("send failed: <script>x</script>");
+    expect(html).toContain('class="send-error"');
+    expect(html).toContain("&lt;script&gt;x&lt;/script&gt;");
+    expect(html).not.toContain("<script>x</script>");
+  });
+
+  test("chatErrorHtml offers a dismiss affordance", () => {
+    const html = chatErrorHtml("boom");
+    expect(html).toContain('data-dismiss-error');
+  });
+});
