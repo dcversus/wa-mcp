@@ -1819,6 +1819,8 @@ test("POST /api/tts synthesizes and optionally sends as voice", async () => {
   const synthBody = (await synth.json()) as { audio_base64: string; mime: string };
   expect(synthBody.mime).toBe("audio/ogg");
   expect(Buffer.from(synthBody.audio_base64, "base64").length).toBeGreaterThan(16);
+  // the send leg opts into the mock deliberately (T76 H10)
+  process.env.WA_TTS_ALLOW_MOCK = "1";
   const sent = await fetch(url(bridge, "/api/tts"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },
@@ -2917,4 +2919,28 @@ describe("T75 — the pairing surface does not drain the API bucket", () => {
     }
     expect(last).toBe(429);
   });
+});
+
+test("T76 H10 — the mock tts engine refuses voice sends to real chats", async () => {
+  delete process.env.WA_TTS_ALLOW_MOCK;
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const sent = await fetch(url(bridge, "/api/tts"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ text: "send this", chat_jid: "358497773518@s.whatsapp.net" }),
+  });
+  // RED today: 200 SENTID1 (mock audio went to a real chat)
+  expect(sent.status).toBe(400);
+  const body = (await sent.json()) as { error: { code: string; message: string } };
+  expect(body.error.code).toBe("MOCK_TTS");
+  expect(body.error.message).toContain("tts engine is a mock");
+  expect(socket.sendMessage).not.toHaveBeenCalled();
 });

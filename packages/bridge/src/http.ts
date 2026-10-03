@@ -1544,6 +1544,19 @@ export async function createHttpServer(
           sendJson(res, 200, { audio_base64: audio.buffer.toString("base64"), mime: audio.mime });
           return;
         }
+        // T76 H10: the bundled engine is a mock — silent mock audio in real
+        // chats is worse than an error. Synth-only stays a dry run; sending
+        // requires an explicit opt-in.
+        if (process.env.WA_TTS_ALLOW_MOCK !== "1") {
+          sendJson(res, 400, {
+            error: {
+              code: "MOCK_TTS",
+              message:
+                "tts engine is a mock — configure WA_TTS_* for live voice or set WA_TTS_ALLOW_MOCK=1 to send mock audio deliberately",
+            },
+          });
+          return;
+        }
         const socket = handle.socket;
         if (socket === undefined || socket === null) {
           sendJson(res, 501, {
