@@ -9,11 +9,13 @@ const ENTRYPOINT = join(__dirname, "..", "..", "..", "docker", "entrypoint.sh");
 /** PATH stubs record chown/su-exec invocations; the entrypoint execs its
  * args through su-exec when it drops privileges — the stub captures them. */
 function stubBinDir(logPath: string): string {
-  const dir = mkdirSync(join(tmpdir(), `wa-mcp-path-${Date.now()}-${Math.random()}`), { recursive: true });
+  const dir = mkdirSync(join(tmpdir(), `wa-mcp-path-${Date.now()}-${Math.random()}`), {
+    recursive: true,
+  }) as string;
   writeFileSync(join(dir, "id"), "#!/bin/sh\necho 0\n");
   chmodSync(join(dir, "id"), 0o755);
-  writeFileSync(join(dir, "chown"), `#!/bin/sh\necho "chown $*" >> ${logPath}\nexit 0\n`);
-  writeFileSync(join(dir, "su-exec"), `#!/bin/sh\necho "su-exec $*" >> ${logPath}\n`);
+  writeFileSync(join(dir, "chown"), `#!/bin/sh\necho "chown $*" >> ${logPath ?? ""}\nexit 0\n`);
+  writeFileSync(join(dir, "su-exec"), `#!/bin/sh\necho "su-exec $*" >> ${logPath ?? ""}\n`);
   chmodSync(join(dir, "chown"), 0o755);
   chmodSync(join(dir, "su-exec"), 0o755);
   return dir;
