@@ -44,11 +44,11 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] Full-history-at-pair flag `WA_SYNC_FULL_HISTORY` (VGP P#37; kahflane env) — verify: pair with flag → history-sync includes older chats (log check) — PENDING: live (pairing); env wired + passthrough test (T10)
 - [ ] Disappearing-message settings tracked per chat (VGP P#82) — verify: chat with 7-day disappearing → store records setting — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Windows console Unicode hardening: QR render + logs never crash on cp1252/chcp consoles; ASCII fallback (chigwell I#150/P#250) — verify: Windows CI run under chcp 437, no UnicodeEncodeError — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Socket staleness detection: periodic ping, force-reconnect on stale TCP instead of silent hang (chigwell P#98) — verify: synthetic dead-socket → reconnect ≤30s — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] App-state conflict auto-recovery: on LTHash 409 "SendAppState failed", retry FetchAppState(fullSync=true) + runbook entry (VGP I#111) — verify: synthetic 409 → recovery attempt logged, bridge stays up — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Connection-quality tracking: KeepAliveRestored events counted, exposed in /health + /metrics (Felix I#7) — verify: metrics series wa_keepalive_total present — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Alert on N consecutive reconnect failures → webhook/notification + log (Felix I#12) — verify: 3 synthetic failures → alert fired once — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] stdio MCP server exits on stdin EOF / parent death — no orphan processes (VGP P#177; chigwell P#177) — verify: kill parent → child exits ≤2s — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Socket staleness detection: periodic ping, force-reconnect on stale TCP instead of silent hang (chigwell P#98) — verify: synthetic dead-socket → reconnect ≤30s — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] App-state conflict auto-recovery: on LTHash 409 "SendAppState failed", retry FetchAppState(fullSync=true) + runbook entry (VGP I#111) — verify: synthetic 409 → recovery attempt logged, bridge stays up — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Connection-quality tracking: KeepAliveRestored events counted, exposed in /health + /metrics (Felix I#7) — verify: metrics series wa_keepalive_total present — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Alert on N consecutive reconnect failures → webhook/notification + log (Felix I#12) — verify: 3 synthetic failures → alert fired once — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] stdio MCP server exits on stdin EOF / parent death — no orphan processes (VGP P#177; chigwell P#177) — verify: kill parent → child exits ≤2s — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Business-account pairing path verified or documented limitation (VGP I#205) — verify: live pair on Business account OR ACCOUNTING row with reproduction notes — VERIFY: ACCOUNTING rows (VGP I#205 documented limitation)
 - [x] Concurrent MCP clients: 2 harnesses (e.g. Claude Code + Cursor) simultaneously against ONE daemon, both streams served (chigwell I#214/P#215) — verify: parallel tools/call from 2 clients, both 200 — PENDING: live (pairing); HTTP /mcp + SSE multi-client shipped (T20/T25); 2-harness probe pending — VERIFY: live 2026-10-03 two overlapping /mcp JSON-RPC streams (Promise.all) → both 200, 32 tools each (VERIFY.md)
 ## 3. Store (`packages/bridge/src/store`)
