@@ -1006,3 +1006,37 @@ test("T80 line44 — syncFullHistory applies only on FRESH creds (pairing-time)"
   expect(fresh.syncFullHistory).toBe(true);
   await LIVE_HANDLES[LIVE_HANDLES.length - 1]?.close();
 });
+
+test("T80-FIX — the conflict-aware logger preserves the pino prototype surface", async () => {
+  const calls: Array<[unknown, unknown?]> = [];
+  class PinoLike {
+    level = "warn";
+    child() {
+      return new PinoLike();
+    }
+    trace() {}
+    debug() {}
+    info() {}
+    warn(obj: unknown, msg?: unknown) {
+      calls.push([obj, msg]);
+    }
+    error() {}
+  }
+  // pino instances carry methods on the PROTOTYPE — a spread copy loses them
+  const base = new PinoLike();
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+    logger: base as unknown as BridgeLogger,
+  });
+  const injected = (
+    mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }
+  ).logger;
+  expect(typeof injected?.child).toBe("function");
+  expect(() => injected?.child().warn({}, "via child")).not.toThrow();
+  // interception still fires on conflict
+  injected?.warn({ collection: "regular" }, "conflict in processing state");
+  const recoveries = calls.filter(([, msg]) => String(msg).includes("APP-STATE-RECOVERY"));
+  expect(recoveries).toHaveLength(1);
+  await handle.close();
+});
