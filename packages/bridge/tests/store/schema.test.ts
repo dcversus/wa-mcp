@@ -128,7 +128,9 @@ test("migrations records schema versions 1 through 3", () => {
     const rows = store.db
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
-    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(rows.map((row) => (row as { version: number }).version)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
     store.close();
@@ -209,7 +211,9 @@ describe("T62/I group participants table (v8)", () => {
     const raw = new DatabaseSync(join(dir, "store.db"));
     raw.exec("CREATE TABLE migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
     for (const version of [1, 2, 3, 4, 5, 6, 7]) {
-      raw.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)").run(version, "2026-01-01");
+      raw
+        .prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)")
+        .run(version, "2026-01-01");
     }
     raw.close();
     const store = openStore(dir);

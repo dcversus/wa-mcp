@@ -7,7 +7,8 @@ import { join, resolve } from "node:path";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
-import { storeMessage } from "./store/messages.ts";
+import { storeMessage, upsertChatMeta } from "./store/messages.ts";
+import { upsertGroupParticipants } from "./store/groups.ts";
 import { isValidRecipientJid } from "@wa-mcp/shared";
 import {
   getUnreadCounts,
@@ -1692,6 +1693,35 @@ export async function createHttpServer(
         path === "/api/group/leave"
       ) {
         serveGroup(path, req, res, body);
+        return;
+      }
+      if (path === "/api/group/info" && req.method === "GET") {
+        const jid = new URL(req.url ?? "/", "http://localhost").searchParams.get("jid");
+        if (jid === null || jid.length === 0) {
+          validationError(res, "jid is required");
+          return;
+        }
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        const metadata = (await socket.groupMetadata(jid)) as {
+          id: string;
+          subject?: string;
+          participants?: Array<{ id: string; admin?: string | null }>;
+        };
+        if (opts.store !== undefined) {
+          upsertChatMeta(opts.store, { id: metadata.id, name: metadata.subject });
+          upsertGroupParticipants(
+            opts.store,
+            metadata.id,
+            (metadata.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
+          );
+        }
+        sendJson(res, 200, metadata);
         return;
       }
       if (path === "/api/delete" && req.method === "POST") {

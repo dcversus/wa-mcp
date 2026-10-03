@@ -801,7 +801,11 @@ describe("T62/I groups.upsert persistence", { timeout: 15_000 }, () => {
     const parts = store.db.prepare("SELECT * FROM group_participants").all();
     console.log("T62I participants:", JSON.stringify(parts));
     const chats = listChats(store, {});
-    expect(chats.some((chat) => chat.jid === "120363428874442773@g.us" && chat.name === "The Test Group")).toBe(true);
+    expect(
+      chats.some(
+        (chat) => chat.jid === "120363428874442773@g.us" && chat.name === "The Test Group",
+      ),
+    ).toBe(true);
     const participants = store.db
       .prepare("SELECT jid, admin FROM group_participants WHERE group_jid = ? ORDER BY jid")
       .all("120363428874442773@g.us") as Array<{ jid: string; admin: string | null }>;

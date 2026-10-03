@@ -2418,14 +2418,14 @@ describe("T62/I GET /api/group/info (on-demand metadata fetch + persist)", () =>
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-ginfo-")));
     openedStores.push(store);
     Object.assign(socket, {
-      groupMetadata: async (jid: string) => ({
+      groupMetadata: vi.fn(async (jid: string) => ({
         id: jid,
         subject: "Fresh Subject",
         participants: [
           { id: "358497773518@s.whatsapp.net", admin: "admin" },
           { id: "351930017568@s.whatsapp.net" },
         ],
-      }),
+      })),
     });
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",

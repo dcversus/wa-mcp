@@ -24,13 +24,8 @@ export function upsertGroupParticipants(
   });
 }
 
-export function listGroupParticipants(
-  store: Store,
-  groupJid: string,
-): Array<GroupParticipantRow> {
+export function listGroupParticipants(store: Store, groupJid: string): Array<GroupParticipantRow> {
   return store.db
-    .prepare(
-      "SELECT jid, admin FROM group_participants WHERE group_jid = ? ORDER BY jid",
-    )
-    .all(groupJid) as Array<GroupParticipantRow>;
+    .prepare("SELECT jid, admin FROM group_participants WHERE group_jid = ? ORDER BY jid")
+    .all(groupJid) as unknown as Array<GroupParticipantRow>;
 }
