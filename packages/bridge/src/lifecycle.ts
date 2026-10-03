@@ -1,4 +1,5 @@
 import { DisconnectReason, initAuthCreds, makeWASocket, useMultiFileAuthState } from "baileys";
+import { proto } from "baileys";
 import type { UserFacingSocketConfig, WABrowserDescription, WASocket } from "baileys";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import { renderQrAscii, saveQrPng } from "./qr.ts";
 import { canonicalChatJid } from "./send/send.ts";
 import { upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
+import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
 import type { WAMessage } from "baileys";
@@ -190,6 +192,27 @@ export async function startBridge(
       syncFullHistory: opts.syncFullHistory ?? false,
       browser: opts.browser ?? [deviceName, "chrome", "0.9.0"],
       logger: opts.logger,
+      // T76 H4: the fork's process-message fetches the ORIGINAL poll message
+      // through this callback to get its messageContextInfo.messageSecret —
+      // the pollEncKey it needs to decrypt incoming votes. The raw column
+      // (full proto JSON, written at ingest) is the source of truth.
+      getMessage: async (key) => {
+        const store = opts.store;
+        if (store === undefined || typeof key.id !== "string") {
+          return undefined;
+        }
+        const row = store.db.prepare("SELECT raw FROM messages WHERE id = ?").get(key.id) as
+          | { raw?: string | null }
+          | undefined;
+        if (row?.raw === undefined || row.raw === null) {
+          return undefined;
+        }
+        try {
+          return JSON.parse(row.raw) as proto.IMessage;
+        } catch {
+          return undefined;
+        }
+      },
     });
     for (const name of EVENT_NAMES) {
       socket.ev.on(name, async (payload) => {
@@ -253,6 +276,24 @@ export async function startBridge(
                 message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
               }
               storeMessage(opts.store, message);
+            }
+          }
+        }
+        if (name === "messages.update") {
+          // T76 H4: the fork emits DECRYPTED poll votes here (it fetched the
+          // poll's encKey through getMessage) — persist them against
+          // poll_options; voter comes from the vote's own message key
+          const updates = payload as Array<{
+            key?: { remoteJid?: string | null; id?: string | null };
+            update?: { pollUpdates?: PollVoteUpdate[] };
+          }>;
+          if (opts.store !== undefined) {
+            for (const update of updates) {
+              const chatJid = update.key?.remoteJid;
+              const pollId = update.key?.id;
+              if (typeof chatJid === "string" && typeof pollId === "string") {
+                storePollVotes(opts.store, chatJid, pollId, update.update?.pollUpdates ?? []);
+              }
             }
           }
         }

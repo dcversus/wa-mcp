@@ -15,7 +15,7 @@ function pollMessage(id: string) {
     message: {
       pollCreationMessage: {
         name: "lunch",
-        options: ["Pizza", "Burger"],
+        options: [{ optionName: "Pizza" }, { optionName: "Burger" }],
         selectableOptionsCount: 1,
       },
       messageContextInfo: { messageSecret: "c2VjcmV0" },
