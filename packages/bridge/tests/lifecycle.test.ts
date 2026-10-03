@@ -943,3 +943,24 @@ describe("T79 — connection robustness", () => {
     delete process.env.WA_RECONNECT_ALERT_N;
   });
 });
+
+test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
+  const warns: string[] = [];
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+    logger: {
+      error: () => undefined,
+      warn: (obj: unknown, msg?: unknown) => warns.push(String(msg ?? obj)),
+    } as unknown as BridgeLogger,
+  });
+  // the fork logs LTHash 409 conflicts through the INJECTED logger
+  const injected = (
+    mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }
+  ).logger;
+  injected?.warn({ collection: "regular" }, "conflict in processing state");
+  injected?.warn({ collection: "regular" }, "conflict in processing state");
+  const recoveries = warns.filter((entry) => entry.includes("APP-STATE-RECOVERY"));
+  expect(recoveries).toHaveLength(1);
+  await handle.close();
+});
