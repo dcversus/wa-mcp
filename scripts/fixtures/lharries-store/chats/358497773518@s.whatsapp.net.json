@@ -1,0 +1,9 @@
+{
+  "jid": "358497773518@s.whatsapp.net",
+  "name": "Vasilisa",
+  "messages": [
+    { "id": "LH-1", "timestamp": "2026-01-01T10:00:00Z", "sender": "358497773518@s.whatsapp.net", "text": "hello from lharries" },
+    { "id": "LH-2", "timestamp": "2026-01-01T10:05:00Z", "sender": "358497773518@s.whatsapp.net", "text": "second line" },
+    { "id": "LH-3", "timestamp": "2026-01-02T09:00:00Z", "sender": "me", "text": "my reply" }
+  ]
+}

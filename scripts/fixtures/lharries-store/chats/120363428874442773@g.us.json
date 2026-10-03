@@ -1,0 +1,8 @@
+{
+  "jid": "120363428874442773@g.us",
+  "name": "Test Group",
+  "messages": [
+    { "id": "LH-G1", "timestamp": "2026-02-01T12:00:00Z", "sender": "358400000001@s.whatsapp.net", "text": "group one" },
+    { "id": "LH-G2", "timestamp": "2026-02-01T12:30:00Z", "sender": "358400000002@s.whatsapp.net", "text": "group two" }
+  ]
+}
