@@ -1029,11 +1029,9 @@ test("T80-FIX — the conflict-aware logger preserves the pino prototype surface
   const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
     logger: base as unknown as BridgeLogger,
   });
-  const injected = (
-    mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }
-  ).logger;
+  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }).logger;
   expect(typeof injected?.child).toBe("function");
-  expect(() => injected?.child().warn({}, "via child")).not.toThrow();
+  expect(() => injected?.child({}).warn({}, "via child")).not.toThrow();
   // interception still fires on conflict
   injected?.warn({ collection: "regular" }, "conflict in processing state");
   const recoveries = calls.filter(([, msg]) => String(msg).includes("APP-STATE-RECOVERY"));

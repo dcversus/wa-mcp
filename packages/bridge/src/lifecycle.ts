@@ -116,8 +116,7 @@ export async function startBridge(
   const conflictAwareLogger: BridgeLogger | undefined =
     baseLogger === undefined
       ? undefined
-      : {
-          ...baseLogger,
+      : Object.assign(Object.create(baseLogger), {
           warn: (obj: unknown, msg?: unknown) => {
             const text = String(msg ?? obj);
             if (/conflict/i.test(text) && /app.?state|sendappstate|processing state/i.test(text)) {
@@ -145,7 +144,7 @@ export async function startBridge(
             }
             baseLogger.warn(obj, msg as string | undefined);
           },
-        };
+        });
   let socket: WASocket;
   const pairingLimit = opts.pairingAttemptLimit ?? 3;
   let pairingUsed = 0;
