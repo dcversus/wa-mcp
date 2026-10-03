@@ -825,3 +825,45 @@ test("T76 H4: the socket config wires getMessage so the fork can decode poll vot
   const config = call[0] as UserFacingSocketConfig;
   expect(typeof config.getMessage).toBe("function");
 });
+
+describe("T76 H7 — contact + roster events are consumed, not discarded", () => {
+  test("contacts.upsert persists contact rows", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-h7-contacts-")));
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    sock.emit("contacts.upsert", [
+      { id: "358497773518@s.whatsapp.net", name: "Vasilisa", notify: "V" },
+      { id: "120363428874442773@g.us" },
+    ]);
+    const rows = store.db.prepare("SELECT * FROM contacts ORDER BY jid").all();
+    expect(rows).toHaveLength(2);
+    const first = rows[0] as Record<string, unknown>;
+    expect(first.jid).toBe("358497773518@s.whatsapp.net");
+    expect(first.name).toBe("Vasilisa");
+    store.close();
+  });
+
+  test("group-participants.update applies add and remove to the roster", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-h7-roster-")));
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    const group = "120363428874442773@g.us";
+    sock.emit("group-participants.update", {
+      id: group,
+      participants: [{ id: "358497773518@s.whatsapp.net", admin: null }],
+      action: "add",
+    });
+    let jids = (store.db.prepare("SELECT jid FROM group_participants WHERE group_jid = ?").all(group) as Array<{ jid: string }>).map((r) => r.jid);
+    expect(jids).toEqual(["358497773518@s.whatsapp.net"]);
+    sock.emit("group-participants.update", {
+      id: group,
+      participants: [{ id: "358497773518@s.whatsapp.net" }],
+      action: "remove",
+    });
+    jids = (store.db.prepare("SELECT jid FROM group_participants WHERE group_jid = ?").all(group) as Array<{ jid: string }>).map((r) => r.jid);
+    expect(jids).toEqual([]);
+    store.close();
+  });
+});
