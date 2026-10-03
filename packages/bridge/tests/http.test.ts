@@ -2960,3 +2960,45 @@ test("T79 line49 — /health exposes reconnects + lastDisconnectAt", async () =>
   expect(body.reconnects).toBe(2);
   expect(body.lastDisconnectAt).toBe(1_700_000_000_000);
 });
+
+test("T81 line72 — POST /api/tts with audio_path converts and sends PTT", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  const spawnCalls: Array<{ file: string; args: string[] }> = [];
+  const spawnFn = ((file: string, args: string[]) => {
+    spawnCalls.push({ file, args });
+    const proc = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
+    proc.stdout = new EventEmitter();
+    proc.stderr = new EventEmitter();
+    queueMicrotask(() => {
+      proc.stdout.emit("data", Buffer.from("OggSptt"));
+      proc.emit("close", 0);
+    });
+    return proc;
+  }) as unknown as typeof spawn;
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+    spawnFn,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/tts"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ audio_path: "/tmp/clip.mp3", chat_jid: "358497773518@s.whatsapp.net" }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { message_id: string };
+  expect(body.message_id).toBe("SENTID1");
+  expect(spawnCalls[0]?.file).toBe("ffmpeg");
+  expect(spawnCalls[0]?.args).toContain("libopus");
+  const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+    audio?: Buffer;
+    ptt?: boolean;
+    mimetype?: string;
+  };
+  expect(call.ptt).toBe(true);
+  expect(call.mimetype).toBe("audio/ogg");
+});
