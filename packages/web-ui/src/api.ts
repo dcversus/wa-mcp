@@ -3,6 +3,8 @@ export interface ApiClientOptions {
   token: string;
   fetchFn?: typeof fetch;
   onUnauthorized: () => void;
+  /** network-level failure (daemon down) — T68 banner */
+  onUnreachable?: () => void;
 }
 
 export interface ApiClient {
@@ -49,12 +51,18 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     if (rest.headers !== undefined) {
       Object.assign(headers, rest.headers);
     }
-    const response = await fetchFn(`${opts.baseUrl}${path}`, {
-      ...rest,
-      method: json !== undefined ? "POST" : (rest.method ?? "GET"),
-      headers,
-      ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
-    });
+    let response: Response;
+    try {
+      response = await fetchFn(`${opts.baseUrl}${path}`, {
+        ...rest,
+        method: json !== undefined ? "POST" : (rest.method ?? "GET"),
+        headers,
+        ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
+      });
+    } catch (err) {
+      opts.onUnreachable?.();
+      throw err;
+    }
     if (response.status === 401) {
       opts.onUnauthorized();
     }

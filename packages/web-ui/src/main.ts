@@ -2,6 +2,7 @@ import "./styles.css";
 import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
 import {
+  bridgeDownBanner,
   chatErrorHtml,
   chatListHtml,
   contextViewHtml,
@@ -189,11 +190,16 @@ let chatSearchQuery = "";
 let contactsQuery = "";
 let replyToId: string | null = null;
 let lastUnauthorizedRender = 0;
+let bridgeDown = false;
 
 function createClient(): ApiClient {
   return createApiClient({
     baseUrl: settings.bridgeUrl,
     token: effectiveToken(settings, pairingToken),
+    onUnreachable: () => {
+      bridgeDown = true;
+      showBridgeDownBanner(settings.bridgeUrl);
+    },
     // T54: never yank the owner to settings — the inline token form renders
     // on the current route instead (needsToken path in renderFrame). A stored
     // but INVALID token must not loop: debounce re-renders per 401 burst.
@@ -232,6 +238,13 @@ async function renderCurrent(): Promise<void> {
     client = createClient();
     await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
     bindRoute();
+    if (bridgeDown) {
+      const health = await client.getHealth().catch(() => null);
+      if (health !== null) {
+        bridgeDown = false;
+        document.getElementById("bridge-down")?.remove();
+      }
+    }
   } catch (err) {
     console.error("render failed:", err);
     const app = document.getElementById("app");
@@ -349,6 +362,10 @@ function bindRoute(): void {
   if (hash.startsWith("#/chat")) {
     bindSendBox();
     bindChatExtras();
+    const scroller = document.querySelector("#app .messages");
+    if (scroller !== null) {
+      scroller.scrollTop = scroller.scrollHeight;
+    }
     return;
   }
   if (hash === "#/contacts") {
@@ -388,6 +405,12 @@ function bindChatClicks(): void {
       location.hash = `#/chat/${encodeURIComponent((item as HTMLElement).dataset.jid ?? "")}`;
     });
   });
+}
+
+function showBridgeDownBanner(bridgeUrl: string): void {
+  if (document.getElementById("bridge-down") === null) {
+    document.body.insertAdjacentHTML("afterbegin", bridgeDownBanner(bridgeUrl));
+  }
 }
 
 function bindSendBox(): void {

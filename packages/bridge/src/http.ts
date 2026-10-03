@@ -1612,7 +1612,13 @@ export async function createHttpServer(
     // EventSource cannot set headers: the SSE endpoint may carry the token
     // as a query parameter instead (constant-time compared below like the header)
     let presented = presentedBearer(req);
-    if (presented === null && req.method === "GET" && path === "/events") {
+    if (
+      presented === null &&
+      req.method === "GET" &&
+      (path === "/events" || path.startsWith("/api/media/"))
+    ) {
+      // EventSource and <img>/<audio> elements cannot set Authorization
+      // headers — these read-only GETs may carry the token as a query param
       presented = new URL(req.url ?? "/", "http://localhost").searchParams.get("token");
     }
     // ephemeral UI token scope (T54 revised): reads + messaging for the local

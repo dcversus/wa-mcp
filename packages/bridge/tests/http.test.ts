@@ -2556,3 +2556,28 @@ describe("T65 alias resolution on sends", () => {
     expect(res.status).toBe(200);
   });
 });
+
+test("T68: GET /api/media/:id accepts a query token (browser <img>/<audio> cannot set headers)", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-mediaqt-")));
+  openedStores.push(store);
+  seedRow(store, "MEDIAQ1", "1@s.whatsapp.net", 1, "x");
+  store.db
+    .prepare("UPDATE messages SET media_path = ?, media_type = 'image' WHERE id = ?")
+    .run(join(mkdtempSync(join(tmpdir(), "wa-mcp-mq-")), "f.png"), "MEDIAQ1");
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-mediadir-"));
+  writeFileSync(join(mediaDir, "f.png"), Buffer.from([137, 80, 78, 71]));
+  store.db
+    .prepare("UPDATE messages SET media_path = ?, media_type = 'image' WHERE id = ?")
+    .run(join(mediaDir, "f.png"), "MEDIAQ1");
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    mediaDir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/media/MEDIAQ1?token=test-token"));
+  expect(res.status).toBe(200);
+  const noToken = await fetch(url(bridge, "/api/media/MEDIAQ1"));
+  expect(noToken.status).toBe(401);
+});

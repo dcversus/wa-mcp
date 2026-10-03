@@ -189,7 +189,7 @@ describe("T51-B chats", () => {
         reactions: [{ emoji: "👍", count: 2 }],
       },
     ]);
-    expect(html).toContain("📷 image");
+    expect(html).toContain('src="/api/media/m1"'); // T68: real thumbnail
     expect(html).toContain("📊 Lunch?");
     expect(html).toContain("A · B");
     expect(html).toContain("original");
@@ -279,7 +279,16 @@ describe("T67 send-outcome UX", () => {
 describe("T68 media bubbles + day separators + banner", () => {
   test("image bubbles render an <img> thumbnail from /api/media/:id", () => {
     const html = messageListHtml("c", [
-      { id: "IMG1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "image" },
+      {
+        id: "IMG1",
+        chatJid: "c",
+        senderName: "V",
+        timestamp: "t",
+        content: null,
+        isFromMe: false,
+        isUnread: false,
+        mediaType: "image",
+      },
     ]);
     expect(html).toContain('src="/api/media/IMG1"');
     expect(html).toContain("<img");
@@ -287,8 +296,26 @@ describe("T68 media bubbles + day separators + banner", () => {
 
   test("audio bubbles render an audio player; document bubbles keep the download link", () => {
     const html = messageListHtml("c", [
-      { id: "AUD1", chatJid: "c", senderName: "V", timestamp: "t", content: null, isFromMe: false, isUnread: false, mediaType: "audio" },
-      { id: "DOC1", chatJid: "c", senderName: "V", timestamp: "t", content: "spec.pdf", isFromMe: false, isUnread: false, mediaType: "document" },
+      {
+        id: "AUD1",
+        chatJid: "c",
+        senderName: "V",
+        timestamp: "t",
+        content: null,
+        isFromMe: false,
+        isUnread: false,
+        mediaType: "audio",
+      },
+      {
+        id: "DOC1",
+        chatJid: "c",
+        senderName: "V",
+        timestamp: "t",
+        content: "spec.pdf",
+        isFromMe: false,
+        isUnread: false,
+        mediaType: "document",
+      },
     ]);
     expect(html).toContain("<audio");
     expect(html).toContain('src="/api/media/AUD1"');
@@ -297,8 +324,24 @@ describe("T68 media bubbles + day separators + banner", () => {
 
   test("day separators group messages by calendar day", () => {
     const html = messageListHtml("c", [
-      { id: "d1", chatJid: "c", senderName: "V", timestamp: "2026-10-02T10:00:00.000Z", content: "yesterday", isFromMe: false, isUnread: false },
-      { id: "d2", chatJid: "c", senderName: "V", timestamp: "2026-10-03T10:00:00.000Z", content: "today", isFromMe: false, isUnread: false },
+      {
+        id: "d1",
+        chatJid: "c",
+        senderName: "V",
+        timestamp: "2026-10-02T10:00:00.000Z",
+        content: "yesterday",
+        isFromMe: false,
+        isUnread: false,
+      },
+      {
+        id: "d2",
+        chatJid: "c",
+        senderName: "V",
+        timestamp: "2026-10-03T10:00:00.000Z",
+        content: "today",
+        isFromMe: false,
+        isUnread: false,
+      },
     ]);
     expect(html).toContain('class="day-separator"');
     expect(html).toContain("2026-10-02");

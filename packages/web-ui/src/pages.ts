@@ -137,47 +137,61 @@ export interface MessageView {
   reactions?: Array<{ emoji: string; count: number }> | null;
 }
 
-const MEDIA_LABELS: Record<string, string> = {
-  image: "📷 image",
-  video: "🎬 video",
-  audio: "🎵 voice note",
-  document: "📄 document",
-  sticker: "🌟 sticker",
-};
-
-export function messageListHtml(chatJid: string, messages: Array<MessageView>): string {
-  const items = messages
-    .map((message) => {
-      let body: string;
-      if (message.poll) {
-        body = `📊 ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
-          .map((option) => escapeHtml(option))
-          .join(" · ")}</span>`;
-      } else if (message.mediaType !== undefined && message.mediaType !== null) {
-        const actions =
-          message.mediaType === "audio"
-            ? ` <button class="transcribe-btn" data-transcribe-id="${escapeHtml(message.id)}">transcribe</button> <span class="transcript" data-transcript-for="${escapeHtml(message.id)}"></span>`
-            : "";
-        body = `${MEDIA_LABELS[message.mediaType] ?? "📎 media"}${message.content ? ` ${escapeHtml(message.content)}` : ""} <button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button>${actions}`;
-      } else {
-        body = escapeHtml(message.content ?? "");
-      }
-      const quote = message.quoted
-        ? `<blockquote class="quoted"><span class="quoted-sender">${escapeHtml(message.quoted.senderName ?? "")}</span> ${escapeHtml(message.quoted.text ?? "")}</blockquote>`
-        : "";
-      const reactions =
-        message.reactions && message.reactions.length > 0
-          ? `<span class="reactions">${message.reactions
-              .map((r) => `<span class="reaction">${escapeHtml(r.emoji)} ${r.count}</span>`)
-              .join("")}</span>`
-          : "";
-      return `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(message.timestamp)}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button></li>`;
-    })
-    .join("");
-  return `<div class="messages" data-chat-jid="${escapeHtml(chatJid)}"><ul>${items}</ul><form class="send-box" data-chat-jid="${escapeHtml(chatJid)}"><input name="text" /><button type="submit">Send</button></form></div>`;
+export function dayKey(isoTimestamp: string): string {
+  return isoTimestamp.slice(0, 10);
 }
 
-/** ±N context around one message (bridge /api/context). */
+export function messageListHtml(chatJid: string, messages: Array<MessageView>): string {
+  const items: string[] = [];
+  let lastDay = "";
+  const sorted = [...messages].sort((a, b) =>
+    a.timestamp > b.timestamp ? 1 : a.timestamp < b.timestamp ? -1 : 0,
+  );
+  for (const message of sorted) {
+    const day = dayKey(message.timestamp);
+    if (day !== lastDay) {
+      items.push(`<li class="day-separator"><time>${escapeHtml(day)}</time></li>`);
+      lastDay = day;
+    }
+    let body: string;
+    if (message.poll) {
+      body = `📊 ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
+        .map((option) => escapeHtml(option))
+        .join(" · ")}</span>`;
+    } else if (message.mediaType !== undefined && message.mediaType !== null) {
+      const mediaSrc = `/api/media/${encodeURIComponent(message.id)}`;
+      if (message.mediaType === "image") {
+        body = `<img class="media-thumb" src="${mediaSrc}" alt="image" loading="lazy" />${message.content ? `<span class="media-caption">${escapeHtml(message.content)}</span>` : ""}`;
+      } else if (message.mediaType === "video") {
+        body = `<video class="media-thumb" src="${mediaSrc}" controls preload="metadata"></video>${message.content ? `<span class="media-caption">${escapeHtml(message.content)}</span>` : ""}`;
+      } else if (message.mediaType === "audio") {
+        body = `🎵 voice note <audio controls src="${mediaSrc}"></audio><span class="transcript" data-transcript-for="${escapeHtml(message.id)}"></span>`;
+      } else if (message.mediaType === "sticker") {
+        body = `🌟 sticker <img class="media-thumb small" src="${mediaSrc}" alt="sticker" loading="lazy" />`;
+      } else {
+        body = `📄 document <a class="media-link" href="${mediaSrc}" download>${escapeHtml(message.content ?? "download")}</a>`;
+      }
+      body += ` <button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button>`;
+    } else {
+      body = escapeHtml(message.content ?? "");
+    }
+    const quote = message.quoted
+      ? `<blockquote class="quoted"><span class="quoted-sender">${escapeHtml(message.quoted.senderName ?? "")}</span> ${escapeHtml(message.quoted.text ?? "")}</blockquote>`
+      : "";
+    const reactions =
+      message.reactions && message.reactions.length > 0
+        ? `<span class="reactions">${message.reactions
+            .map((r) => `<span class="reaction">${escapeHtml(r.emoji)} ${r.count}</span>`)
+            .join("")}</span>`
+        : "";
+    items.push(
+      `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(message.timestamp)}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button><button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button></li>`,
+    );
+  }
+  const list = items.join("");
+  return `<div class="messages" data-chat-jid="${escapeHtml(chatJid)}"><ul>${list}</ul><form class="send-box" data-chat-jid="${escapeHtml(chatJid)}"><input name="text" /><button type="submit">Send</button></form></div>`;
+}
+
 export function contextViewHtml(
   targetId: string,
   messages: Array<
@@ -305,4 +319,10 @@ export function privacyMatrixHtml(current: Record<string, string>): string {
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */
 export function chatErrorHtml(message: string): string {
   return `<div class="send-error" role="alert"><span>${escapeHtml(message)}</span> <button data-dismiss-error type="button">dismiss</button></div>`;
+}
+
+/** Persistent daemon-down banner (T68): shown when any API call fails at the
+ * network level; auto-dismissed by the next successful health poll. */
+export function bridgeDownBanner(bridgeUrl: string): string {
+  return `<div id="bridge-down" role="alert">bridge unreachable at ${escapeHtml(bridgeUrl)} — is the daemon running?</div>`;
 }
