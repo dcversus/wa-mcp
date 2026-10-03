@@ -1,6 +1,5 @@
 import { join } from "node:path";
-import { importLayout, type SourceLayout } from "@wa-mcp/bridge/src/store/import.ts";
-import { openStore } from "@wa-mcp/bridge/src/store/schema.ts";
+import { importLayout, openStore, type SourceLayout } from "@wa-mcp/bridge";
 
 export interface ImportOptions {
   from: SourceLayout;

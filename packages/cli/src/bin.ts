@@ -74,7 +74,7 @@ export async function main(argv: string[]): Promise<void> {
     runImport({
       from,
       path,
-      dataDir: (flags["data-dir"] as string | undefined) ?? join(homedir(), ".wa-mcp"),
+      dataDir: (flags["data-dir"] as string | undefined) ?? DEFAULT_DATA_DIR,
       dryRun: flags["dry-run"] === "true" || flags["dry-run"] === "",
     });
     return;
