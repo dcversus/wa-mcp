@@ -363,3 +363,54 @@ test("T62: an incoming revoke tombstones the row (deleted=1)", () => {
     store.close();
   }
 });
+
+test("T60b: a protocol message with no extractable content stores NO row", () => {
+  const store = makeStore();
+  try {
+    // protocol echo with an unknown/ineffectual type — carries no user content
+    const stored = storeMessage(
+      store,
+      waMessage(
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "ECHOID",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
+        { protocolMessage: { type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING } },
+      ),
+    );
+    expect(stored).toBe(false);
+    const rows = store.db.prepare("SELECT COUNT(*) AS n FROM messages").get() as { n: number };
+    expect(rows.n).toBe(0);
+  } finally {
+    store.close();
+  }
+});
+
+test("T60b: a message with no content and no media stores NO row", () => {
+  const store = makeStore();
+  try {
+    const stored = storeMessage(
+      store,
+      waMessage(
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "EMPTYID",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
+        {},
+      ),
+    );
+    expect(stored).toBe(false);
+    const rows = store.db.prepare("SELECT COUNT(*) AS n FROM messages").get() as { n: number };
+    expect(rows.n).toBe(0);
+  } finally {
+    store.close();
+  }
+});
