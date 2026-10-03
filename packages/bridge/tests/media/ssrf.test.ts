@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { resolveMedia, MediaError } from "../../src/media/resolve.ts";
+import { resolveMedia } from "../../src/media/resolve.ts";
 
 /** Injectable DNS: the guard resolves every address before any fetch. */
 function lookupOf(addresses: Array<{ address: string; family: number }>) {
@@ -57,10 +57,7 @@ describe("T73 H3 — assertPublicHttpUrl blocks private/loopback/link-local targ
 
   test("public addresses pass", async () => {
     await expect(
-      assertUrl(
-        "http://example.com/x",
-        lookupOf([{ address: "93.184.216.34", family: 4 }]),
-      ),
+      assertUrl("http://example.com/x", lookupOf([{ address: "93.184.216.34", family: 4 }])),
     ).resolves.toBeUndefined();
   });
 
@@ -89,13 +86,16 @@ describe("T73 H3 — assertPublicHttpUrl blocks private/loopback/link-local targ
       new Response(null, { status: 302, headers: { location: "http://169.254.169.254/x" } }),
     ];
     await expect(
-      resolveMedia({ url: "http://public.example/file" }, {
-        mediaDir: "/tmp",
-        fetchFn: (async (input: string) => {
-          fetchCalls.push(input);
-          return responses.shift() ?? new Response("ok");
-        }) as typeof fetch,
-      }),
+      resolveMedia(
+        { url: "http://public.example/file" },
+        {
+          mediaDir: "/tmp",
+          fetchFn: (async (input: string) => {
+            fetchCalls.push(input);
+            return responses.shift() ?? new Response("ok");
+          }) as typeof fetch,
+        },
+      ),
     ).rejects.toHaveProperty("code", "SSRF_BLOCKED");
   });
 });

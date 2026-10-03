@@ -1,3 +1,5 @@
+import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { chmod, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { extname, isAbsolute, join, resolve } from "node:path";
 import type { Store } from "../store/schema.ts";
@@ -7,7 +9,11 @@ export type MediaErrorCode =
   | "NOT_FOUND"
   | "TOO_LARGE"
   | "FETCH_FAILED"
-  | "EMPTY";
+  | "EMPTY"
+  | "SSRF_BLOCKED";
+
+export type LookupAddresses = Array<{ address: string; family: number }>;
+export type LookupFn = (hostname: string, options: { all: true }) => Promise<LookupAddresses>;
 
 export class MediaError extends Error {
   readonly code: MediaErrorCode;
@@ -32,7 +38,111 @@ export interface ResolvedMedia {
 export interface ResolveOptions {
   mediaDir: string;
   fetchFn?: typeof fetch;
+  lookupFn?: LookupFn;
   maxBytes?: number;
+}
+
+/** T73 H3: every resolved address must be public — a send fetching media by
+ * url must never become a probe of the daemon's own network (loopback,
+ * RFC1918 private, link-local incl. the cloud-metadata service, unique-local
+ * v6). DNS is resolved BEFORE any fetch; the guard runs again per redirect. */
+function isBlockedAddress(address: string): boolean {
+  const value = address.toLowerCase();
+  if (value.includes(".")) {
+    const parts = value.split(".").map((part) => Number(part));
+    if (
+      parts.length !== 4 ||
+      parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+    ) {
+      return false;
+    }
+    const [a, b] = parts as [number, number, number, number];
+    if (a === 127 || a === 10 || a === 0) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    return false;
+  }
+  // v6 (or unparseable — fail closed)
+  let big: bigint;
+  try {
+    big = ipv6ToBigInt(value);
+  } catch {
+    return true;
+  }
+  if (big === 1n) return true; // ::1
+  if (big === 0n) return true; // ::
+  if (big >> 120n === 0xfcn) return true; // fc00::/7
+  if (big >> 118n === 0x3fan) return true; // fe80::/10
+  return false;
+}
+
+function ipv6ToBigInt(value: string): bigint {
+  const parsed = value.replace(/^\[|\]$/g, "");
+  const zoneless = parsed.split("%")[0] ?? parsed;
+  const sections = zoneless.split("::");
+  if (sections.length > 2) throw new Error("bad v6");
+  const head = sections[0] === "" ? [] : (sections[0]?.split(":") ?? []);
+  const tail =
+    sections.length === 2 ? (sections[1] === "" ? [] : (sections[1]?.split(":") ?? [])) : [];
+  const fill = 8 - head.length - tail.length;
+  if (sections.length === 1 && head.length !== 8) throw new Error("bad v6");
+  if (fill < 0) throw new Error("bad v6");
+  const groups = [...head, ...Array<string>(fill).fill("0"), ...tail];
+  let result = 0n;
+  for (const group of groups) {
+    const n = Number.parseInt(group, 16);
+    if (!Number.isInteger(n) || n < 0 || n > 0xffff) throw new Error("bad v6");
+    result = (result << 16n) | BigInt(n);
+  }
+  return result;
+}
+
+export async function assertPublicHttpUrl(rawUrl: string, lookupFn?: LookupFn): Promise<void> {
+  const reject = () =>
+    new MediaError(
+      "SSRF_BLOCKED",
+      `media url must be a public http(s) resource: ${rawUrl.slice(0, 120)}`,
+    );
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw reject();
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw reject();
+  }
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "::1") {
+    throw reject();
+  }
+  const ipVersion = isIP(hostname);
+  if (ipVersion !== 0) {
+    // IP literals are checked without DNS
+    if (isBlockedAddress(hostname)) {
+      throw reject();
+    }
+    return;
+  }
+  if (hostname.includes(":")) {
+    // malformed v6-ish literal — fail closed
+    throw reject();
+  }
+  const lookup = lookupFn ?? (dnsLookup as unknown as LookupFn);
+  let addresses: LookupAddresses;
+  try {
+    addresses = await lookup(parsed.hostname, { all: true });
+  } catch {
+    throw reject();
+  }
+  if (addresses.length === 0) {
+    throw reject();
+  }
+  if (addresses.some((entry) => isBlockedAddress(entry.address))) {
+    throw reject();
+  }
 }
 
 const DEFAULT_MAX_BYTES = 20_000_000;
@@ -163,11 +273,43 @@ export async function resolveMedia(
     }
   } else {
     const fetchFn = opts.fetchFn ?? fetch;
-    let response: Response;
-    try {
-      response = await fetchFn(input.url);
-    } catch {
-      throw new MediaError("FETCH_FAILED", `media fetch failed: ${input.url}`);
+    // T73 H3: validate the target BEFORE fetching and re-validate every
+    // redirect hop (fetch runs with redirect:"manual" so nothing is followed
+    // blindly). 3 hops max.
+    let target = input.url;
+    let response: Response | null = null;
+    for (let hop = 0; hop < 4; hop += 1) {
+      await assertPublicHttpUrl(target, opts.lookupFn);
+      let fetched: Response;
+      try {
+        fetched = await fetchFn(target, { redirect: "manual" });
+      } catch {
+        throw new MediaError("FETCH_FAILED", `media fetch failed: ${input.url}`);
+      }
+      if (
+        (fetched.status === 301 ||
+          fetched.status === 302 ||
+          fetched.status === 303 ||
+          fetched.status === 307 ||
+          fetched.status === 308) &&
+        hop < 3
+      ) {
+        const location = fetched.headers.get("location");
+        if (location === null) {
+          throw new MediaError("FETCH_FAILED", "media fetch redirect without location");
+        }
+        try {
+          target = new URL(location, target).toString();
+        } catch {
+          throw new MediaError("FETCH_FAILED", `media fetch redirect is not a URL: ${location}`);
+        }
+        continue;
+      }
+      response = fetched;
+      break;
+    }
+    if (response === null) {
+      throw new MediaError("FETCH_FAILED", "media fetch exceeded 3 redirects");
     }
     if (!response.ok) {
       throw new MediaError("FETCH_FAILED", `media fetch returned ${response.status}`);
