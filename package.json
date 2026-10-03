@@ -12,7 +12,8 @@
     "accounting:check": "node --experimental-strip-types review/accounting-check.ts",
     "docs:build": "vitepress build docs",
     "docs:gen": "node --experimental-strip-types scripts/gen-docs.ts",
-    "docs:coverage": "node --experimental-strip-types scripts/doc-coverage.ts"
+    "docs:coverage": "node --experimental-strip-types scripts/doc-coverage.ts",
+    "merge-lid-chats": "node --experimental-strip-types scripts/merge-lid-chats.ts"
   },
   "devDependencies": {
     "@types/node": "^24",

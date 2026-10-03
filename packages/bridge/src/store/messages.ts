@@ -24,8 +24,11 @@ function toIsoTimestamp(raw: number | { toNumber(): number } | null | undefined)
   if (raw === null || raw === undefined) {
     return new Date(0).toISOString();
   }
-  const seconds = typeof raw === "number" ? raw : raw.toNumber();
-  return new Date(seconds * 1000).toISOString();
+  const value = typeof raw === "number" ? raw : raw.toNumber();
+  // engine carries SECONDS; some producers pass MILLISECONDS — normalize at
+  // this ONE boundary so both units land on the same instant (T58a)
+  const ms = value >= 1e12 ? value : value * 1000;
+  return new Date(ms).toISOString();
 }
 
 function senderJidOf(key: proto.IMessageKey): string {

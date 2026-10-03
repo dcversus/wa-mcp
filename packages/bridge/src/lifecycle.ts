@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
+import { canonicalChatJid } from "./send/send.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
@@ -190,7 +191,7 @@ export async function startBridge(
       logger: opts.logger,
     });
     for (const name of EVENT_NAMES) {
-      socket.ev.on(name, (payload) => {
+      socket.ev.on(name, async (payload) => {
         if (name === "connection.update") {
           const update = payload as ConnectionUpdate;
           status = deriveStatus(status, update);
@@ -246,6 +247,10 @@ export async function startBridge(
           const upsert = payload as { messages?: WAMessage[] };
           if (opts.store !== undefined) {
             for (const message of upsert.messages ?? []) {
+              const remoteJid: string | null | undefined = message.key.remoteJid;
+              if (remoteJid !== undefined && remoteJid !== null && remoteJid.endsWith("@lid")) {
+                message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
+              }
               storeMessage(opts.store, message);
             }
           }
@@ -259,14 +264,35 @@ export async function startBridge(
           };
           if (opts.store !== undefined) {
             const store = opts.store;
+            // pre-resolve LID→PN remotes (async) BEFORE the sync transaction
+            const lidToPn = new Map<string, string>();
+            for (const message of history.messages ?? []) {
+              const remoteJid = message.key.remoteJid;
+              if (
+                remoteJid !== null &&
+                remoteJid !== undefined &&
+                remoteJid.endsWith("@lid") &&
+                !lidToPn.has(remoteJid)
+              ) {
+                lidToPn.set(remoteJid, await canonicalChatJid(socket, remoteJid));
+              }
+            }
             const count = withTransaction(store, () => {
               for (const chat of history.chats ?? []) {
-                if (typeof chat.id === "string" && chat.id.length > 0) {
-                  upsertChatMeta(store, chat);
+                if (typeof chat.id !== "string" || chat.id.length === 0) {
+                  continue;
                 }
+                const canonical = chat.id.endsWith("@lid")
+                  ? (lidToPn.get(chat.id) ?? chat.id)
+                  : chat.id;
+                upsertChatMeta(store, { id: canonical, name: chat.name });
               }
               let stored = 0;
               for (const message of history.messages ?? []) {
+                const remoteJid = message.key.remoteJid;
+                if (remoteJid !== undefined && remoteJid !== null && lidToPn.has(remoteJid)) {
+                  message.key.remoteJid = lidToPn.get(remoteJid);
+                }
                 if (storeMessage(store, message)) {
                   stored += 1;
                 }

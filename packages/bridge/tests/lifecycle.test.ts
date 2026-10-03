@@ -9,6 +9,13 @@ vi.mock("baileys", () => ({
   makeWASocket: vi.fn(),
   useMultiFileAuthState: vi.fn(),
   initAuthCreds: vi.fn(() => ({ advSecretKey: "fresh", registrationId: 1 })),
+  jidDecode: (jid: string) => {
+    const [userPart = "", server = ""] = jid.split("@");
+    const [pureUser, device] = userPart.split(":");
+    return { user: pureUser, server, device };
+  },
+  jidEncode: (user: string, server: string, device?: string) =>
+    device !== undefined ? `${user}:${device}@${server}` : `${user}@${server}`,
   proto: {
     Message: {
       ProtocolMessage: {
@@ -688,26 +695,20 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
 });
 
 describe("T58 ingest normalization", { timeout: 15_000 }, () => {
-  function makeLidSocket(pnForLid: Record<string, string>): void {
-    mockMakeWASocket.mockImplementation(() => {
-      const sock = fakeSocket() as unknown as WASocket & {
-        signalRepository: unknown;
-      };
-      sock.signalRepository = {
+  function withLidMapping(socket: object, pnForLid: Record<string, string>): void {
+    Object.assign(socket, {
+      signalRepository: {
         lidMapping: {
           getPNForLID: async (lid: string) => pnForLid[lid] ?? null,
-          getLIDForPN: async (pn: string) => pnForLid[pn] === undefined ? null : pn,
+          getLIDForPN: async (pn: string) => pnForLid[pn] ?? null,
         },
-      };
-      const arranged = multiSocketArrangement();
-      return arranged.latest();
+      },
     });
   }
 
   test("messageTimestamp in MILLISECONDS stores the correct instant (T58a)", async () => {
     vi.useFakeTimers();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58a-")));
-    makeLidSocket({});
     const { latest } = await startArranged({ store });
     latest().emit("messages.upsert", {
       messages: [
@@ -726,8 +727,8 @@ describe("T58 ingest normalization", { timeout: 15_000 }, () => {
   test("LID-keyed incoming messages store under the canonical PN chat (T58b)", async () => {
     vi.useFakeTimers();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58b-")));
-    makeLidSocket({ "55600000009854": "358497773518" });
     const { latest } = await startArranged({ store });
+    withLidMapping(latest(), { "55600000009854": "358497773518" });
     latest().emit("messages.upsert", {
       messages: [
         {
@@ -738,6 +739,7 @@ describe("T58 ingest normalization", { timeout: 15_000 }, () => {
       ],
       type: "notify",
     });
+    await vi.advanceTimersByTimeAsync(0); // drain the async canonicalization chain
     const rows = listMessages(store, { chatJid: "358497773518@s.whatsapp.net", limit: 5 });
     expect(rows.some((row) => row.id === "lid1" && row.content === "from the lid")).toBe(true);
     const lidRows = listMessages(store, { chatJid: "55600000009854@lid", limit: 5 });

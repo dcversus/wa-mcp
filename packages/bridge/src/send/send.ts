@@ -24,6 +24,33 @@ export interface SendResult {
   chatJid: string;
 }
 
+/** Canonical STORE chat jid for an incoming/outgoing jid: when the jid is a
+ * LID and the engine's mapping resolves a phone number, use the PN jid so one
+ * person = one chat row (T58b). Everything else passes through. */
+export async function canonicalChatJid(socket: WASocket, jid: string): Promise<string> {
+  const decode = jidDecode(jid);
+  const user = decode?.user;
+  if (decode === undefined || user === undefined || decode.server !== "lid") {
+    return jid;
+  }
+  const repo = (
+    socket as unknown as {
+      signalRepository?: {
+        lidMapping?: { getPNForLID?(lid: string): Promise<string | null> };
+      };
+    }
+  ).signalRepository;
+  const getPn = repo?.lidMapping?.getPNForLID;
+  if (typeof getPn !== "function" || repo === undefined || repo.lidMapping === undefined) {
+    return jid;
+  }
+  const pn = await getPn.call(repo.lidMapping, user);
+  if (typeof pn !== "string" || pn.length === 0) {
+    return jid;
+  }
+  return jidEncode(pn, "s.whatsapp.net", decode.device);
+}
+
 /** LID-era accounts keep signal sessions under @lid JIDs. The engine sends
  * to the JID AS-GIVEN (fork messages-send.js: finalJid = jid), so a phone JID
  * must be rewritten to its mapped LID before the wire — the mapping lives in
