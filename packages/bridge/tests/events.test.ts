@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vite-plus/test";
 import { EVENT_NAMES, createEventBus, type WaEvent } from "../src/events.ts";
 
-test("event map covers the thirteen bridge events", () => {
+test("event map covers the fourteen bridge events (incl. messages.update for poll votes)", () => {
   expect([...EVENT_NAMES].sort()).toEqual(
     [
       "call",
@@ -15,6 +15,7 @@ test("event map covers the thirteen bridge events", () => {
       "groups.upsert",
       "message-receipt.update",
       "messages.upsert",
+      "messages.update",
       "messaging-history.set",
       "presence.update",
     ].sort(),
@@ -81,7 +82,7 @@ test("discriminated union narrows by event type", () => {
   expect(upsertTypes).toEqual(["append"]);
 });
 
-test("T62/I: the event map covers groups.upsert (13 events)", () => {
+test("T62/I: the event map covers groups.upsert (14 events)", () => {
   expect(EVENT_NAMES).toContain("groups.upsert");
-  expect(EVENT_NAMES).toHaveLength(13);
+  expect(EVENT_NAMES).toHaveLength(14);
 });
