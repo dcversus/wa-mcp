@@ -17,7 +17,8 @@
   "scripts": {
     "build": "vp pack && node ../web-ui/scripts/copy-dist.mjs",
     "test": "vp test",
-    "check": "vp check"
+    "check": "vp check",
+    "backup-store": "node --experimental-strip-types scripts/backup-store.mjs"
   },
   "dependencies": {
     "@wa-mcp/mcp-server": "workspace:*",

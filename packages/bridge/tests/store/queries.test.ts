@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -8,6 +8,7 @@ import type { WAMessage } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { applyMigrations } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
+import { runBackup } from "../../src/store/backup.ts";
 import { markHistorySynced } from "../../src/store/meta.ts";
 import {
   fetchMessageFromStore,
@@ -592,5 +593,21 @@ describe("T80 — line45 disappearing settings + line66 sync watermark", () => {
     } finally {
       store.close();
     }
+  });
+});
+
+describe("T80 line62 — backup + retention", () => {
+  test("retention=1 keeps exactly one backup across runs", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-backup-data-"));
+    writeFileSync(join(dataDir, "store.db"), "db-bytes");
+    mkdirSync(join(dataDir, "media"), { recursive: true });
+    writeFileSync(join(dataDir, "media", "x.txt"), "m");
+    const backups = mkdtempSync(join(tmpdir(), "wa-mcp-backups-"));
+    runBackup(dataDir, backups, 1, new Date("2026-10-04T01:00:00Z"));
+    runBackup(dataDir, backups, 1, new Date("2026-10-04T02:00:00Z"));
+    const runs = readdirSync(backups);
+    expect(runs).toHaveLength(1);
+    expect(existsSync(join(backups, runs[0] ?? "", "store.db"))).toBe(true);
+    expect(existsSync(join(backups, runs[0] ?? "", "media", "x.txt"))).toBe(true);
   });
 });
