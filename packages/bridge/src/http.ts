@@ -224,6 +224,24 @@ function sendJson(
   res.end(JSON.stringify(payload));
 }
 
+/** T73 C3: a void'd body-read chain must never reject unhandled — log the
+ * failure and finish the response (500 while headers are not out, else end). */
+function respondOrLog(
+  res: ServerResponse,
+  logger:
+    | { error(obj: unknown, msg?: string): void; warn(obj: unknown, msg?: string): void }
+    | undefined,
+): (err: unknown) => void {
+  return (err: unknown) => {
+    logger?.error({ err }, "request handler failed");
+    if (!res.headersSent) {
+      sendJson(res, 500, { error: { code: "INTERNAL", message: "request handler failed" } });
+      return;
+    }
+    res.end();
+  };
+}
+
 function readBodyWithCap(
   req: IncomingMessage,
   cap: number,
@@ -1615,49 +1633,51 @@ export async function createHttpServer(
         return;
       }
       if (req.method === "POST") {
-        void readBodyWithCap(req, MAX_BODY_BYTES).then(({ fits, body }) => {
-          if (!fits) {
-            sendJson(res, 413, {
-              error: { code: "PAYLOAD_TOO_LARGE", message: "webhook body exceeds 1MB" },
-            });
-            return;
-          }
-          const signature = req.headers["x-hub-signature-256"] as string | undefined;
-          let events;
-          try {
-            events = parseWebhookEvent(
-              body.toString(),
-              signature,
-              opts.cloud!.config as CloudChannelConfig,
-            );
-          } catch {
-            sendJson(res, 403, {
-              error: { code: "FORBIDDEN", message: "webhook signature validation failed" },
-            });
-            return;
-          }
-          for (const event of events) {
-            if (event.type !== "message") {
-              continue;
+        void readBodyWithCap(req, MAX_BODY_BYTES)
+          .then(({ fits, body }) => {
+            if (!fits) {
+              sendJson(res, 413, {
+                error: { code: "PAYLOAD_TOO_LARGE", message: "webhook body exceeds 1MB" },
+              });
+              return;
             }
-            opts.cloud!.adapter.ingestWebhookMessage({
-              id: event.message.id,
-              from: event.message.from,
-              text: event.message.text ?? "",
-              timestamp: event.message.timestamp,
-            });
-            if (opts.store !== undefined) {
-              storeMessage(opts.store, {
-                key: { remoteJid: event.message.chatJid, fromMe: false, id: event.message.id },
-                message:
-                  event.message.text === null ? undefined : { conversation: event.message.text },
-                messageTimestamp: event.message.timestamp,
-                pushName: undefined,
-              } as never);
+            const signature = req.headers["x-hub-signature-256"] as string | undefined;
+            let events;
+            try {
+              events = parseWebhookEvent(
+                body.toString(),
+                signature,
+                opts.cloud!.config as CloudChannelConfig,
+              );
+            } catch {
+              sendJson(res, 403, {
+                error: { code: "FORBIDDEN", message: "webhook signature validation failed" },
+              });
+              return;
             }
-          }
-          sendJson(res, 200, { received: events.length });
-        });
+            for (const event of events) {
+              if (event.type !== "message") {
+                continue;
+              }
+              opts.cloud!.adapter.ingestWebhookMessage({
+                id: event.message.id,
+                from: event.message.from,
+                text: event.message.text ?? "",
+                timestamp: event.message.timestamp,
+              });
+              if (opts.store !== undefined) {
+                storeMessage(opts.store, {
+                  key: { remoteJid: event.message.chatJid, fromMe: false, id: event.message.id },
+                  message:
+                    event.message.text === null ? undefined : { conversation: event.message.text },
+                  messageTimestamp: event.message.timestamp,
+                  pushName: undefined,
+                } as never);
+              }
+            }
+            sendJson(res, 200, { received: events.length });
+          })
+          .catch(respondOrLog(res, opts.logger));
         return;
       }
     }
@@ -1703,359 +1723,375 @@ export async function createHttpServer(
       });
       return;
     }
-    void readBodyWithCap(req, MAX_BODY_BYTES).then(async ({ fits, body }) => {
-      if (!fits) {
-        sendJson(res, 413, {
-          error: { code: "PAYLOAD_TOO_LARGE", message: `body exceeds ${MAX_BODY_BYTES} bytes` },
-        });
-        return;
-      }
-      if (path === "/api/send") {
-        serveSend(req, res, body);
-        return;
-      }
-      if (path === "/mcp") {
-        serveMcp(req, res, body);
-        return;
-      }
-      if (path === "/events" && req.method === "GET") {
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+    void readBodyWithCap(req, MAX_BODY_BYTES)
+      .then(async ({ fits, body }) => {
+        if (!fits) {
+          sendJson(res, 413, {
+            error: { code: "PAYLOAD_TOO_LARGE", message: `body exceeds ${MAX_BODY_BYTES} bytes` },
           });
           return;
         }
-        res.writeHead(200, {
-          "content-type": "text/event-stream",
-          "cache-control": "no-cache",
-          connection: "keep-alive",
-        });
-        res.write(": connected\n\n");
-        const unsubscribe = handle.events.subscribe((event) => {
-          res.write(`data: ${JSON.stringify({ type: event.type, payload: event.payload })}\n\n`);
-        });
-        const heartbeat = setInterval(() => {
-          res.write(": heartbeat\n\n");
-        }, opts.eventsHeartbeatMs ?? 25_000);
-        res.on("close", () => {
-          unsubscribe();
-          clearInterval(heartbeat);
-        });
-        return;
-      }
-      if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
-        mediaRoute(req.method ?? "GET", path.slice("/api/media/".length), res);
-        return;
-      }
-      if (path.startsWith("/api/group/invite/")) {
-        const groupJid = decodeURIComponent(path.slice("/api/group/invite/".length));
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+        if (path === "/api/send") {
+          serveSend(req, res, body);
+          return;
+        }
+        if (path === "/mcp") {
+          serveMcp(req, res, body);
+          return;
+        }
+        if (path === "/events" && req.method === "GET") {
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          res.writeHead(200, {
+            "content-type": "text/event-stream",
+            "cache-control": "no-cache",
+            connection: "keep-alive",
+          });
+          res.write(": connected\n\n");
+          const unsubscribe = handle.events.subscribe((event) => {
+            res.write(`data: ${JSON.stringify({ type: event.type, payload: event.payload })}\n\n`);
+          });
+          const heartbeat = setInterval(() => {
+            res.write(": heartbeat\n\n");
+          }, opts.eventsHeartbeatMs ?? 25_000);
+          res.on("close", () => {
+            unsubscribe();
+            clearInterval(heartbeat);
           });
           return;
         }
-        void getGroupInviteCode(socket, groupJid)
-          .then((invite_code) => {
-            sendJson(res, 200, { invite_code: invite_code ?? null });
-          })
-          .catch(() => {
-            sendJson(res, 500, { error: { code: "INTERNAL", message: "invite code failed" } });
-          });
-        return;
-      }
-      if (
-        path === "/api/group/create" ||
-        path === "/api/group/participants" ||
-        path === "/api/group/meta" ||
-        path === "/api/group/settings" ||
-        path === "/api/group/leave"
-      ) {
-        serveGroup(path, req, res, body);
-        return;
-      }
-      if (path === "/api/group/info" && req.method === "GET") {
-        const jid = new URL(req.url ?? "/", "http://localhost").searchParams.get("jid");
-        if (jid === null || jid.length === 0) {
-          validationError(res, "jid is required");
+        if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
+          mediaRoute(req.method ?? "GET", path.slice("/api/media/".length), res);
           return;
         }
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
-          });
+        if (path.startsWith("/api/group/invite/")) {
+          const groupJid = decodeURIComponent(path.slice("/api/group/invite/".length));
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          void getGroupInviteCode(socket, groupJid)
+            .then((invite_code) => {
+              sendJson(res, 200, { invite_code: invite_code ?? null });
+            })
+            .catch(() => {
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "invite code failed" } });
+            });
           return;
         }
-        const metadata = (await socket.groupMetadata(jid)) as {
-          id: string;
-          subject?: string;
-          participants?: Array<{ id: string; admin?: string | null }>;
-        };
-        if (opts.store !== undefined) {
-          upsertChatMeta(opts.store, { id: metadata.id, name: metadata.subject });
-          upsertGroupParticipants(
-            opts.store,
-            metadata.id,
-            (metadata.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
-          );
-        }
-        sendJson(res, 200, metadata);
-        return;
-      }
-      if (path === "/api/delete" && req.method === "POST") {
-        const input = JSON.parse(body.toString("utf8")) as {
-          chat_jid?: unknown;
-          message_id?: unknown;
-        };
-        if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
-          validationError(res, "chat_jid is required");
+        if (
+          path === "/api/group/create" ||
+          path === "/api/group/participants" ||
+          path === "/api/group/meta" ||
+          path === "/api/group/settings" ||
+          path === "/api/group/leave"
+        ) {
+          serveGroup(path, req, res, body);
           return;
         }
-        if (typeof input.message_id !== "string" || input.message_id.length === 0) {
-          validationError(res, "message_id is required");
+        if (path === "/api/group/info" && req.method === "GET") {
+          const jid = new URL(req.url ?? "/", "http://localhost").searchParams.get("jid");
+          if (jid === null || jid.length === 0) {
+            validationError(res, "jid is required");
+            return;
+          }
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          const metadata = (await socket.groupMetadata(jid)) as {
+            id: string;
+            subject?: string;
+            participants?: Array<{ id: string; admin?: string | null }>;
+          };
+          if (opts.store !== undefined) {
+            upsertChatMeta(opts.store, { id: metadata.id, name: metadata.subject });
+            upsertGroupParticipants(
+              opts.store,
+              metadata.id,
+              (metadata.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
+            );
+          }
+          sendJson(res, 200, metadata);
           return;
         }
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
-          });
-          return;
-        }
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
-          return;
-        }
-        const target = opts.store.db
-          .prepare("SELECT is_from_me, deleted FROM messages WHERE chat_jid = ? AND id = ?")
-          .get(input.chat_jid, input.message_id) as
-          | { is_from_me: number; deleted: number }
-          | undefined;
-        if (target === undefined) {
-          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
-          return;
-        }
-        if (target.deleted === 1) {
-          sendJson(res, 200, { deleted: true, already: true });
-          return;
-        }
-        await socket.sendMessage(input.chat_jid, {
-          delete: {
-            remoteJid: input.chat_jid,
-            id: input.message_id,
-            fromMe: target.is_from_me === 1,
-          },
-        });
-        opts.store.db
-          .prepare(
-            "UPDATE messages SET deleted = 1, content = '[revoked]', media_type = NULL, media_path = NULL WHERE chat_jid = ? AND id = ?",
-          )
-          .run(input.chat_jid, input.message_id);
-        sendJson(res, 200, { deleted: true });
-        return;
-      }
-      if (path === "/api/pair/resume" && req.method === "POST") {
-        handle.resumePairing();
-        const budget = handle.pairingBudget();
-        sendJson(res, 200, {
-          resumed: true,
-          pairingAttempts: { used: budget.used, limit: budget.limit },
-        });
-        return;
-      }
-      if (path === "/api/pairing-code" && req.method === "POST") {
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
-          });
-          return;
-        }
-        if (handle.status !== "qr" && handle.status !== "connecting") {
-          sendJson(res, 409, {
-            error: {
-              code: "PAIRING_STATE",
-              message: `pairing code requires qr/connecting state (current: ${handle.status})`,
+        if (path === "/api/delete" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as {
+            chat_jid?: unknown;
+            message_id?: unknown;
+          };
+          if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+            validationError(res, "chat_jid is required");
+            return;
+          }
+          if (typeof input.message_id !== "string" || input.message_id.length === 0) {
+            validationError(res, "message_id is required");
+            return;
+          }
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const target = opts.store.db
+            .prepare("SELECT is_from_me, deleted FROM messages WHERE chat_jid = ? AND id = ?")
+            .get(input.chat_jid, input.message_id) as
+            | { is_from_me: number; deleted: number }
+            | undefined;
+          if (target === undefined) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+            return;
+          }
+          if (target.deleted === 1) {
+            sendJson(res, 200, { deleted: true, already: true });
+            return;
+          }
+          await socket.sendMessage(input.chat_jid, {
+            delete: {
+              remoteJid: input.chat_jid,
+              id: input.message_id,
+              fromMe: target.is_from_me === 1,
             },
           });
+          opts.store.db
+            .prepare(
+              "UPDATE messages SET deleted = 1, content = '[revoked]', media_type = NULL, media_path = NULL WHERE chat_jid = ? AND id = ?",
+            )
+            .run(input.chat_jid, input.message_id);
+          sendJson(res, 200, { deleted: true });
           return;
         }
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(body.toString("utf8")) as unknown;
-        } catch {
-          validationError(res, "body must be valid JSON");
+        if (path === "/api/pair/resume" && req.method === "POST") {
+          handle.resumePairing();
+          const budget = handle.pairingBudget();
+          sendJson(res, 200, {
+            resumed: true,
+            pairingAttempts: { used: budget.used, limit: budget.limit },
+          });
           return;
         }
-        const phone = (parsed as { phone?: unknown }).phone;
-        if (
-          typeof phone !== "string" ||
-          phone.replace(/\D/g, "").length < 8 ||
-          phone.replace(/\D/g, "").length > 15
-        ) {
-          validationError(res, "phone must be 8-15 digits after stripping +/spaces");
-          return;
-        }
-        void requestPairingCode(socket, phone)
-          .then((code) => {
-            sendJson(res, 200, { code });
-          })
-          .catch((err: unknown) => {
-            sendJson(res, 500, {
+        if (path === "/api/pairing-code" && req.method === "POST") {
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          if (handle.status !== "qr" && handle.status !== "connecting") {
+            sendJson(res, 409, {
               error: {
-                code: "INTERNAL",
-                message: err instanceof Error ? err.message : "pairing code failed",
+                code: "PAIRING_STATE",
+                message: `pairing code requires qr/connecting state (current: ${handle.status})`,
               },
             });
+            return;
+          }
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(body.toString("utf8")) as unknown;
+          } catch {
+            validationError(res, "body must be valid JSON");
+            return;
+          }
+          const phone = (parsed as { phone?: unknown }).phone;
+          if (
+            typeof phone !== "string" ||
+            phone.replace(/\D/g, "").length < 8 ||
+            phone.replace(/\D/g, "").length > 15
+          ) {
+            validationError(res, "phone must be 8-15 digits after stripping +/spaces");
+            return;
+          }
+          void requestPairingCode(socket, phone)
+            .then((code) => {
+              sendJson(res, 200, { code });
+            })
+            .catch((err: unknown) => {
+              sendJson(res, 500, {
+                error: {
+                  code: "INTERNAL",
+                  message: err instanceof Error ? err.message : "pairing code failed",
+                },
+              });
+            });
+          return;
+        }
+        if (path === "/api/transcribe" && req.method === "POST") {
+          serveTranscribe(req, res, body);
+          return;
+        }
+        if (path === "/api/tts" && req.method === "POST") {
+          serveTts(req, res, body);
+          return;
+        }
+        if (
+          path === "/api/read" ||
+          path === "/api/presence" ||
+          path === "/api/chat/state" ||
+          path === "/api/alias"
+        ) {
+          serveReadPost(path, req, res, body);
+          return;
+        }
+        if (
+          path === "/api/profile" ||
+          path === "/api/profile/picture" ||
+          path === "/api/privacy" ||
+          path === "/api/block"
+        ) {
+          serveProfile(path, req, res, body);
+          return;
+        }
+        if (path === "/api/blocklist") {
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          void getBlocklist(socket)
+            .then((blocklist) => {
+              sendJson(res, 200, { blocklist });
+            })
+            .catch(() => {
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "blocklist failed" } });
+            });
+          return;
+        }
+        if (path === "/api/notifications" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { rules: listRules(opts.store) });
+          return;
+        }
+        if (path === "/api/notifications" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        if (path.startsWith("/api/notifications/") && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const rawId = path.slice("/api/notifications/".length);
+          const id = Number(rawId);
+          if (!Number.isInteger(id) || id <= 0) {
+            validationError(res, "notification rule id must be a positive integer");
+            return;
+          }
+          const existing = listRules(opts.store).some((rule) => rule.id === id);
+          if (!existing) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "rule not found" } });
+            return;
+          }
+          deleteRule(opts.store, id);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path === "/api/contacts") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+          const limit = intParam(params, "limit");
+          if (!limit.ok) {
+            validationError(res, "limit must be a number");
+            return;
+          }
+          sendJson(res, 200, {
+            contacts: listContacts(opts.store, {
+              query: params.get("query") ?? undefined,
+              limit: limit.value,
+            }),
           });
-        return;
-      }
-      if (path === "/api/transcribe" && req.method === "POST") {
-        serveTranscribe(req, res, body);
-        return;
-      }
-      if (path === "/api/tts" && req.method === "POST") {
-        serveTts(req, res, body);
-        return;
-      }
-      if (
-        path === "/api/read" ||
-        path === "/api/presence" ||
-        path === "/api/chat/state" ||
-        path === "/api/alias"
-      ) {
-        serveReadPost(path, req, res, body);
-        return;
-      }
-      if (
-        path === "/api/profile" ||
-        path === "/api/profile/picture" ||
-        path === "/api/privacy" ||
-        path === "/api/block"
-      ) {
-        serveProfile(path, req, res, body);
-        return;
-      }
-      if (path === "/api/blocklist") {
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          sendJson(res, 501, {
-            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
-          });
           return;
         }
-        void getBlocklist(socket)
-          .then((blocklist) => {
-            sendJson(res, 200, { blocklist });
-          })
-          .catch(() => {
-            sendJson(res, 500, { error: { code: "INTERNAL", message: "blocklist failed" } });
-          });
-        return;
-      }
-      if (path === "/api/notifications" && req.method === "GET") {
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        if (path === "/api/unread") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { unread: getUnreadCounts(opts.store) });
           return;
         }
-        sendJson(res, 200, { rules: listRules(opts.store) });
-        return;
-      }
-      if (path === "/api/notifications" && req.method === "POST") {
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        if (path === "/api/qr") {
+          serveQr(req, res);
           return;
         }
-        serveReadPost("/api/notifications", req, res, body);
-        return;
-      }
-      if (path.startsWith("/api/notifications/") && req.method === "DELETE") {
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+        if (path === "/api/ui-token" && req.method === "GET") {
+          // ADR 0012: one-time exchange so the loopback web UI can hold the real
+          // token. Double-gated: the loopback Host + same-origin guard above,
+          // and the scoped pairing token itself.
+          sendJson(res, 200, { token: opts.token });
           return;
         }
-        const rawId = path.slice("/api/notifications/".length);
-        const id = Number(rawId);
-        if (!Number.isInteger(id) || id <= 0) {
-          validationError(res, "notification rule id must be a positive integer");
+        if (
+          path === "/api/chats" ||
+          path === "/api/messages" ||
+          path === "/api/context" ||
+          path === "/api/search"
+        ) {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "route not wired yet" },
+            });
+            return;
+          }
+          serveReadRoute(
+            path,
+            opts.store,
+            new URL(req.url ?? "/", "http://localhost").searchParams,
+            res,
+          );
           return;
         }
-        const existing = listRules(opts.store).some((rule) => rule.id === id);
-        if (!existing) {
-          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "rule not found" } });
-          return;
-        }
-        deleteRule(opts.store, id);
-        sendJson(res, 200, { ok: true });
-        return;
-      }
-      if (path === "/api/contacts") {
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
-          return;
-        }
-        const params = new URL(req.url ?? "/", "http://localhost").searchParams;
-        const limit = intParam(params, "limit");
-        if (!limit.ok) {
-          validationError(res, "limit must be a number");
-          return;
-        }
-        sendJson(res, 200, {
-          contacts: listContacts(opts.store, {
-            query: params.get("query") ?? undefined,
-            limit: limit.value,
-          }),
-        });
-        return;
-      }
-      if (path === "/api/unread") {
-        if (opts.store === undefined) {
-          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
-          return;
-        }
-        sendJson(res, 200, { unread: getUnreadCounts(opts.store) });
-        return;
-      }
-      if (path === "/api/qr") {
-        serveQr(req, res);
-        return;
-      }
-      if (path === "/api/ui-token" && req.method === "GET") {
-        // ADR 0012: one-time exchange so the loopback web UI can hold the real
-        // token. Double-gated: the loopback Host + same-origin guard above,
-        // and the scoped pairing token itself.
-        sendJson(res, 200, { token: opts.token });
-        return;
-      }
-      if (
-        path === "/api/chats" ||
-        path === "/api/messages" ||
-        path === "/api/context" ||
-        path === "/api/search"
-      ) {
-        if (opts.store === undefined) {
+        if (API_PATHS.has(path)) {
           sendJson(res, 501, {
             error: { code: "NOT_IMPLEMENTED", message: "route not wired yet" },
           });
           return;
         }
-        serveReadRoute(
-          path,
-          opts.store,
-          new URL(req.url ?? "/", "http://localhost").searchParams,
-          res,
-        );
-        return;
-      }
-      if (API_PATHS.has(path)) {
-        sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "route not wired yet" } });
-        return;
-      }
-      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown route" } });
-    });
+        sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown route" } });
+      })
+      .catch(respondOrLog(res, opts.logger));
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
