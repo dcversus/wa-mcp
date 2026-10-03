@@ -289,16 +289,19 @@ test("a null message extracts to empty defaults", () => {
   expect(extracted.isStatusMention).toBe(false);
 });
 
-describe("T58 engine-generated send shapes", () => {
-  // The engine generates these protos from AnyMessageContent — the exact
-  // shapes socket.sendMessage returns in sent.message after a live send.
-  async function engineGenerate(input: Record<string, unknown>) {
-    const { generateWAMessageContent } = await import("baileys");
-    return (await generateWAMessageContent(input, {
+// The engine generates these protos from AnyMessageContent — the exact
+// shapes socket.sendMessage returns in sent.message after a live send.
+async function engineGenerate(input: Record<string, unknown> & object) {
+  const { generateWAMessageContent } = await import("baileys");
+  return (await generateWAMessageContent(
+    input as never,
+    {
       logger: pino({ level: "silent" }),
-    })) as proto.IMessage;
-  }
+    } as never,
+  )) as proto.IMessage;
+}
 
+describe("T58 engine-generated send shapes", () => {
   test("engine-generated single-select poll (V3 key) extracts name + options", async () => {
     const content = await engineGenerate({
       poll: { name: "Lunch?", values: ["a", "b"], selectableCount: 1 },
@@ -310,7 +313,7 @@ describe("T58 engine-generated send shapes", () => {
       messageTimestamp: 1_760_000_000,
     } as WAMessage);
     expect(extracted.poll).not.toBeNull();
-    expect(extracted.poll?.question).toBe("Lunch?");
+    expect(extracted.poll?.name).toBe("Lunch?");
     expect(extracted.poll?.options).toEqual(["a", "b"]);
   });
 
@@ -324,7 +327,7 @@ describe("T58 engine-generated send shapes", () => {
       message: content,
       messageTimestamp: 1_760_000_000,
     } as WAMessage);
-    expect(extracted.poll?.question).toBe("Colors");
+    expect(extracted.poll?.name).toBe("Colors");
   });
 
   test("engine-generated edit wraps text as extendedTextMessage", async () => {
@@ -344,8 +347,8 @@ describe("T58 engine-generated send shapes", () => {
 
 describe("T58 poll storage", () => {
   test("storeMessage writes content + poll_options rows for an engine poll", async () => {
-    const { openStore } = await import("../src/store/schema.ts");
-    const { storeMessage } = await import("../src/store/messages.ts");
+    const { openStore } = await import("../../src/store/schema.ts");
+    const { storeMessage } = await import("../../src/store/messages.ts");
     const store = openStore((await import("node:fs")).mkdtempSync("/tmp/wa-mcp-pollopt-"));
     const content = await engineGenerate({
       poll: { name: "Lunch?", values: ["Ramen", "Pizza"], selectableCount: 1 },
@@ -362,7 +365,9 @@ describe("T58 poll storage", () => {
       .get("1@g.us", "POLLOPTIONS1") as { content: string };
     expect(row.content).toBe("Lunch?");
     const options = store.db
-      .prepare("SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx")
+      .prepare(
+        "SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx",
+      )
       .all("1@g.us", "POLLOPTIONS1") as Array<{ idx: number; label: string }>;
     expect(options.map((option) => option.label)).toEqual(["Ramen", "Pizza"]);
   });

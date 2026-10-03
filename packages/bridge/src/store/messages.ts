@@ -144,6 +144,14 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
   store.db
     .prepare(UPSERT_CHAT)
     .run(chatJid, senderNameOf(message, senderJid), extracted.text, timestamp);
+  if (extracted.poll !== null) {
+    const insertOption = store.db.prepare(
+      "INSERT OR IGNORE INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, ?, ?, ?)",
+    );
+    extracted.poll.options.forEach((label, index) => {
+      insertOption.run(chatJid, messageId, index, label);
+    });
+  }
   return true;
 }
 

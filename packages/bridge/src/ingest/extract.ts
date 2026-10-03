@@ -221,9 +221,7 @@ function textOf(content: Content): {
   // the engine dispatches {poll} by selectableCount: 1 → V3, announcement
   // group → V2, else the base key (fork messages.js poll branch)
   const pollCreation =
-    content.pollCreationMessage ??
-    content.pollCreationMessageV2 ??
-    content.pollCreationMessageV3;
+    content.pollCreationMessage ?? content.pollCreationMessageV2 ?? content.pollCreationMessageV3;
   if (pollCreation) {
     const poll = {
       name: pollCreation.name ?? "",
