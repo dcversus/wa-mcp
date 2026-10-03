@@ -17,6 +17,7 @@ export default defineConfig({
     ],
     sidebar: [
       { text: "Getting started", link: "/getting-started/" },
+      { text: "Per-platform install", link: "/getting-started/platforms" },
       { text: "Tool reference", link: "/reference/tools" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
