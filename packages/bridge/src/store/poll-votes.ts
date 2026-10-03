@@ -22,7 +22,9 @@ export function storePollVotes(
   updates: PollVoteUpdate[],
 ): number {
   const labels = store.db
-    .prepare("SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx")
+    .prepare(
+      "SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx",
+    )
     .all(chatJid, pollMessageId) as Array<{ idx: number; label: string }>;
   const digests = labels.map(({ idx, label }) => ({
     idx,
