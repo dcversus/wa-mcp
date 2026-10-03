@@ -2712,3 +2712,32 @@ describe("T73 C2 — content-security-policy on web UI responses", () => {
     expect(res.headers.get("content-security-policy") ?? "").toContain("default-src 'self'");
   });
 });
+
+describe("T73 C3 — no unhandled rejections from the body-read callback", () => {
+  test("a throwing route handler becomes a 500 + log, not a hang", async () => {
+    const errors: unknown[] = [];
+    const handle = stubHandle("connected", null, makeFakeSocket(), false, {
+      blocked: false,
+      used: 0,
+      limit: 3,
+    });
+    handle.resumePairing = () => {
+      throw new Error("boom");
+    };
+    const bridge = await createHttpServer(handle, {
+      token: "test-token",
+      logger: {
+        error: (obj) => errors.push(obj),
+        warn: () => undefined,
+      },
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/pair/resume"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token" },
+      signal: AbortSignal.timeout(8000),
+    });
+    expect(res.status).toBe(500);
+    expect(errors.length).toBeGreaterThan(0);
+  });
+});
