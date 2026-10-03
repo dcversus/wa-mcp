@@ -112,6 +112,12 @@ export interface BridgeHttp {
 const MAX_BODY_BYTES = 1_000_000;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_RATE = { capacity: 60, refillPerMinute: 60 };
+
+/** T74: /health is polled by every open web UI tab (5s cadence) but is cheap
+ * and public. A dedicated, more generous bucket keeps it anti-abuse-safe
+ * (a poll every 500ms from one IP survives 10 tabs) without letting it eat
+ * the API bucket. */
+const HEALTH_RATE = { capacity: 120, refillPerMinute: 120 };
 const API_PATHS = new Set([
   "/api/messages",
   "/api/chats",
@@ -317,6 +323,7 @@ export async function createHttpServer(
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
+  const checkHealthRate = createRateLimiter(HEALTH_RATE.capacity, HEALTH_RATE.refillPerMinute);
   const serveQr = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (handle.pairingBudget().blocked) {
       sendJson(res, 429, {
@@ -1588,8 +1595,19 @@ export async function createHttpServer(
 
   const server: Server = createServer(async (req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
-    const gate = checkRate(ip, now());
-    if (!gate.ok) {
+    const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    // T74: neither /health (cheap, polled by every UI tab) nor /events (one
+    // long-lived SSE connection) may consume the shared API bucket — a single
+    // open web UI would otherwise starve API probes and agent clients. /events
+    // gets no bucket at all: a 429 makes EventSource reconnect on a tight
+    // loop, re-burning the very bucket it was refused from.
+    const gate =
+      path === "/health"
+        ? checkHealthRate(ip, now())
+        : path === "/events"
+          ? null
+          : checkRate(ip, now());
+    if (gate !== null && !gate.ok) {
       sendJson(
         res,
         429,
@@ -1600,7 +1618,6 @@ export async function createHttpServer(
       );
       return;
     }
-    const path = new URL(req.url ?? "/", "http://localhost").pathname;
     // T73 C1 (ADR 0012): refuse DNS-rebinding Hosts and cross-site Origins on
     // the whole API surface before auth is even evaluated.
     if (path.startsWith("/api/") || path === "/events" || path === "/mcp") {
