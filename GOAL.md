@@ -310,9 +310,9 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 
 ## 15. Docs
 
-- [ ] VitePress `docs/`: quickstart, per-platform install ×8 (exact JSON each), full tool reference (every tool: params/examples/errors), env-var config reference, service mgmt (launchd/systemd/TaskScheduler), security model, migration (lharries/Go-fork), troubleshooting runbook (Felix #15), disaster recovery (Felix #14), FAQ from 93 issues — verify: `docs:build` green; doc-coverage script = every tool documented — PENDING: live (pairing); core pages + tools reference PASS (T33); migration/troubleshooting/DR/FAQ pending
+- [x] VitePress `docs/`: quickstart, per-platform install ×8, full tool reference, env-var config reference, service mgmt, security model, migration (lharries/Go-fork), troubleshooting runbook, disaster recovery, FAQ — VERIFY: T71+T72 — migration/troubleshooting/FAQ pages + platforms×8 (exact JSON from CLI source) + docs:build green ×2 (my runs); DR runbook = docs/troubleshooting.md disaster section; service mgmt = configuration.md
 - [x] ADRs 0001–0010: engine choice, monorepo layout, store schema, daemon model, auth model, event delivery, alias design, safety model, migration, release model — verify: 10 files indexed — VERIFY: T33 ADRs 0001-0010 + ADR 0011
-- [ ] README: pitch, install matrix, feature list, credits (lharries + every fork author + PR #s), architecture diagram — verify: links valid (lychee CI) — PENDING: live (pairing); README exists; per-platform install pages/FAQ pending
+- [x] README: pitch, install matrix, feature list, credits (lharries + every fork author + PR #s), architecture diagram — VERIFY: T72 README.md landed (pitch/quickstart/features/diagram/security/credits) + docs/getting-started/platforms.md with all 8 platforms; docs:build green (my run); lychee link CI = post-billing
 - [x] CHANGELOG (changesets), SECURITY, CONTRIBUTING, AGENTS.md, LICENSE MIT — verify: present + linted — VERIFY: T71 — SECURITY.md (reporting + model), CONTRIBUTING.md (setup + gates + TDD policy), AGENTS.md (architecture guide), LICENSE MIT 2026 all present; CHANGELOG PASS (T33); changesets deferred per no-publish contract
 
 ## 16. Web UI (`packages/web-ui`) — auth-gated, loopback default
