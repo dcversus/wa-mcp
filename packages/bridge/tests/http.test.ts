@@ -46,7 +46,7 @@ function makeFakeSocket(): WASocket {
         ? { extendedTextMessage: { text: (content as { text: string }).text } }
         : mediaKey !== undefined
           ? {
-              [mediaProto[mediaKey]]: {
+              [mediaProto[mediaKey] as string]: {
                 caption: (content as { caption?: string }).caption,
                 mimetype: (content as { mimetype?: string }).mimetype,
               },
