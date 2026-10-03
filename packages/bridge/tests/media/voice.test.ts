@@ -69,7 +69,8 @@ test("T81 line72 — url input is SSRF-guarded, fetched to a temp file, cleaned 
   const realWrite = writeFileSync;
   const opts = {
     spawnFn: spawn,
-    fetchFn: (async () => new Response(Buffer.from("remote-audio"), { status: 200 })) as typeof fetch,
+    fetchFn: (async () =>
+      new Response(Buffer.from("remote-audio"), { status: 200 })) as typeof fetch,
     lookupFn: async () => [{ address: "93.184.216.34", family: 4 }],
     tmpDir: dir,
     onTempWrite: (path: string) => written.push(path),
@@ -77,7 +78,7 @@ test("T81 line72 — url input is SSRF-guarded, fetched to a temp file, cleaned 
   const out = await toVoiceOgg({ url: "https://cdn.example/voice.mp3" }, opts);
   expect(out).toEqual(OGG);
   expect(calls[0]?.args[0]).toBe("-i");
-  expect(calls[0]?.args[1] ?? "").endsWith(".mp3");
+  expect(String(calls[0]?.args[1])).toMatch(/\.mp3$/);
   // temp cleanup: the fetched file is gone after conversion
   for (const path of written) {
     expect(existsSync(path)).toBe(false);

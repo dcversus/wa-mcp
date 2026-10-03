@@ -7,6 +7,8 @@ import { join, resolve, sep } from "node:path";
 import { realpath } from "node:fs/promises";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { isSafePublicEvent } from "./events.ts";
+import { spawn } from "node:child_process";
+import { toVoiceOgg } from "./media/voice.ts";
 import type { LookupFn } from "./media/resolve.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
@@ -82,6 +84,8 @@ export interface HttpServerOptions {
   fetchFn?: typeof fetch;
   /** T73 H3: DNS resolver for the media-url SSRF guard (tests inject a stub) */
   lookupFn?: LookupFn;
+  /** T81 line72: process spawner for the voice-note ffmpeg conversion */
+  spawnFn?: typeof spawn;
   eventsHeartbeatMs?: number;
   uiDir?: string;
   rateLimitNow?: () => number;
@@ -1528,6 +1532,55 @@ export async function createHttpServer(
     }
     const text = (parsed as { text?: unknown }).text;
     const chatJid = (parsed as { chat_jid?: unknown }).chat_jid;
+    // T81 line72: real-audio voice notes — a file path or URL converts via
+    // ffmpeg to ogg/opus PTT; the text path (and its mock-engine refusal)
+    // is untouched
+    const audioPath = (parsed as { audio_path?: unknown }).audio_path;
+    const audioUrl = (parsed as { audio_url?: unknown }).audio_url;
+    if (audioPath !== undefined || audioUrl !== undefined) {
+      if (typeof audioPath !== "string" && typeof audioUrl !== "string") {
+        validationError(res, "audio_path or audio_url must be a string");
+        return;
+      }
+      if (chatJid === undefined) {
+        validationError(res, "chat_jid is required when sending a voice file");
+        return;
+      }
+      void toVoiceOgg(
+        typeof audioPath === "string" ? { path: audioPath } : { url: audioUrl as string },
+        { spawnFn: opts.spawnFn, fetchFn: opts.fetchFn, lookupFn: opts.lookupFn },
+      )
+        .then(async (ogg) => {
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          const result = await sendViaSocket(socket, chatJid, {
+            audio: ogg,
+            ptt: true,
+            mimetype: "audio/ogg",
+          } as AnyMessageContent);
+          sendJson(res, 200, { message_id: result.messageId });
+        })
+        .catch((err: unknown) => {
+          if (err instanceof MediaError) {
+            const status = err.code === "FFMPEG_UNAVAILABLE" ? 422 : 400;
+            sendJson(res, status, { error: { code: err.code, message: err.message } });
+            return;
+          }
+          if (err instanceof SendError) {
+            sendJson(res, err.code === "SENDS_DISABLED" ? 403 : 400, {
+              error: { code: err.code, message: err.message },
+            });
+            return;
+          }
+          sendJson(res, 500, { error: { code: "INTERNAL", message: "voice send failed" } });
+        });
+      return;
+    }
     if (typeof text !== "string" || text.length === 0) {
       validationError(res, "text is required");
       return;

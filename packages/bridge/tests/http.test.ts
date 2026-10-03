@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { EventEmitter } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
@@ -2968,7 +2969,10 @@ test("T81 line72 — POST /api/tts with audio_path converts and sends PTT", asyn
   const spawnCalls: Array<{ file: string; args: string[] }> = [];
   const spawnFn = ((file: string, args: string[]) => {
     spawnCalls.push({ file, args });
-    const proc = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
+    const proc = new EventEmitter() as EventEmitter & {
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+    };
     proc.stdout = new EventEmitter();
     proc.stderr = new EventEmitter();
     queueMicrotask(() => {
