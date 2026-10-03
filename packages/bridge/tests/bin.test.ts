@@ -1,8 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vite-plus/test";
-import { buildConfig, ensureToken, redactPhone } from "../src/bin.ts";
+import { describe, expect, test } from "vite-plus/test";
+import { buildConfig, ensureMediaDir, ensureToken, redactPhone } from "../src/bin.ts";
 
 const POSIX_PERMS = process.platform !== "win32";
 
@@ -81,4 +81,21 @@ test("buildConfig reads WA_DAILY_CAP as an integer or falls back to null", () =>
   expect(buildConfig({ WA_DAILY_CAP: "500" }).dailyCap).toBe(500);
   expect(buildConfig({ WA_DAILY_CAP: "many" }).dailyCap).toBeNull();
   expect(buildConfig({ WA_DAILY_CAP: "0" }).dailyCap).toBeNull();
+});
+
+describe("T61 media dir default", () => {
+  test("buildConfig defaults mediaDir to <dataDir>/media; WA_MEDIA_DIR overrides", () => {
+    const defaults = buildConfig({ WA_DATA_DIR: "/tmp/wa-t61-data" });
+    expect(defaults.mediaDir).toBe("/tmp/wa-t61-data/media");
+    const overridden = buildConfig({ WA_DATA_DIR: "/tmp/wa-t61-data", WA_MEDIA_DIR: "/mnt/media" });
+    expect(overridden.mediaDir).toBe("/mnt/media");
+  });
+
+  test("ensureMediaDir creates the dir 0700 and is idempotent", () => {
+    const dir = join(mkdtempSync("/tmp/wa-t61-"), "media");
+    ensureMediaDir(dir);
+    expect(existsSync(dir)).toBe(true);
+    ensureMediaDir(dir);
+    expect(existsSync(dir)).toBe(true);
+  });
 });
