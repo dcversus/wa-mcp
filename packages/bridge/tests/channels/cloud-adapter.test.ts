@@ -35,13 +35,14 @@ function makeCloud(): ChannelFixture {
     fetchFn: (async (url: string | URL, init?: RequestInit) => {
       const urlText = String(url);
       if (init?.body !== undefined) {
-        lastBody = JSON.parse(String(init.body));
+        lastBody = JSON.parse(typeof init.body === "string" ? init.body : "{}");
       }
       if (urlText.endsWith("/messages") && init?.method === "POST") {
         return new Response(JSON.stringify({ messages: [{ id: "wamid.out1" }] }), { status: 200 });
       }
       if (urlText.includes("/contacts")) {
-        const body = JSON.parse(String(init?.body ?? "{}")) as { contacts: string[] };
+        const rawBody = typeof init?.body === "string" ? init.body : "{}";
+        const body = JSON.parse(rawBody) as { contacts: string[] };
         return new Response(
           JSON.stringify({
             contacts: body.contacts.map((input) => ({

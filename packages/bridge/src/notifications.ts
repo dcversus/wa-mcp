@@ -40,8 +40,8 @@ function rowToRule(row: RawRow): NotificationRule {
     chatJid: asString(row.chat_jid),
     fromJid: asString(row.from_jid),
     unreadOnly: row.unread_only === 1,
-    title: String(row.title ?? ""),
-    body: String(row.body ?? ""),
+    title: asString(row.title) ?? "",
+    body: asString(row.body) ?? "",
   };
 }
 

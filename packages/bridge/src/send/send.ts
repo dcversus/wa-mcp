@@ -41,12 +41,12 @@ export async function canonicalChatJid(socket: WASocket, jid: string): Promise<s
       };
     }
   ).signalRepository;
-  const getPn = repo?.lidMapping?.getPNForLID;
+  const getPn = repo?.lidMapping?.getPNForLID?.bind(repo.lidMapping);
   if (typeof getPn !== "function" || repo === undefined || repo.lidMapping === undefined) {
     return jid;
   }
   // the engine's lidMapping skips any lid failing isLidUser — pass the FULL jid
-  const pnJid = await getPn.call(repo.lidMapping, jid);
+  const pnJid = await getPn(jid);
   if (typeof pnJid !== "string" || pnJid.length === 0) {
     return jid;
   }
@@ -75,12 +75,12 @@ export async function resolveLidJid(socket: WASocket, jid: string): Promise<stri
       };
     }
   ).signalRepository;
-  const getLid = repo?.lidMapping?.getLIDForPN;
+  const getLid = repo?.lidMapping?.getLIDForPN?.bind(repo.lidMapping);
   if (typeof getLid !== "function" || repo === undefined || repo.lidMapping === undefined) {
     return jid;
   }
   // isPnUser requires the FULL jid — a bare user is silently dropped
-  const lidJid = await getLid.call(repo.lidMapping, jid);
+  const lidJid = await getLid(jid);
   if (typeof lidJid !== "string" || lidJid.length === 0) {
     return jid;
   }

@@ -63,7 +63,7 @@ test("media kinds map to their proto fields with metadata", async () => {
     ["sticker", "stickerMessage", { mimeType: "image/webp" }],
   ];
   for (const [kind, field, meta] of cases) {
-    const content = await buildMediaMessage({
+    const content = buildMediaMessage({
       kind,
       caption: meta.caption,
       fileName: meta.fileName,
@@ -87,7 +87,7 @@ test("reaction carries target key and emote", async () => {
 });
 
 test("edit wraps the new text in a MESSAGE_EDIT protocol message", async () => {
-  const content = await buildEditMessage("120363428874442773@g.us", "TARGET1", "corrected text");
+  const content = buildEditMessage("120363428874442773@g.us", "TARGET1", "corrected text");
   const protocol = content.protocolMessage;
   if (!protocol) throw new Error("expected protocolMessage");
   expect(protocol.type).toBe(proto.Message.ProtocolMessage.Type.MESSAGE_EDIT);
@@ -118,7 +118,7 @@ test("location carries coordinates and label", async () => {
 });
 
 test("contact builds a vcard with name and numbers", async () => {
-  const content = await buildContactMessage("John Doe", ["+15551234567", "+15559876543"]);
+  const content = buildContactMessage("John Doe", ["+15551234567", "+15559876543"]);
   const contact = content.contactMessage;
   if (!contact) throw new Error("expected contactMessage");
   expect(contact.displayName).toBe("John Doe");

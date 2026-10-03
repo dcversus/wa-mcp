@@ -24,7 +24,7 @@ function asString(value: unknown): string | null {
 
 function rowToContact(row: RawRow): ContactRow {
   return {
-    jid: String(row.jid ?? ""),
+    jid: asString(row.jid) ?? "",
     name: asString(row.name),
     pushname: asString(row.pushname),
     businessName: asString(row.business_name),

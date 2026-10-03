@@ -100,11 +100,11 @@ function parseReactions(value: unknown): Array<{ emote: string }> | null {
 
 function rowToMessage(row: RawRow): MessageRow {
   return {
-    id: String(row.id ?? ""),
-    chatJid: String(row.chat_jid ?? ""),
+    id: asString(row.id) ?? "",
+    chatJid: asString(row.chat_jid) ?? "",
     senderJid: asString(row.sender_jid),
     senderName: asString(row.sender_name),
-    timestamp: String(row.timestamp ?? ""),
+    timestamp: asString(row.timestamp) ?? "",
     content: asString(row.content),
     mediaType: asString(row.media_type),
     mediaPath: asString(row.media_path),
@@ -139,17 +139,17 @@ export function listChats(
     )
     .all(archived, limit, offset) as RawRow[];
   return rows.map((row) => ({
-    jid: String(row.jid ?? ""),
-    name: displayName(String(row.jid ?? ""), asString(row.name)),
+    jid: asString(row.jid) ?? "",
+    name: displayName(asString(row.jid) ?? "", asString(row.name)),
     archived: row.archived === 1,
     unreadCount: typeof row.unread_count === "number" ? row.unread_count : 0,
     lastMessage:
       opts.includeLastMessage === false || row.last_id === null || row.last_id === undefined
         ? null
         : {
-            id: String(row.last_id),
+            id: asString(row.last_id) ?? "",
             text: asString(row.last_content),
-            timestamp: String(row.last_ts ?? ""),
+            timestamp: asString(row.last_ts) ?? "",
             senderName: asString(row.last_sender),
           },
   }));
@@ -216,8 +216,8 @@ export function getMessageContext(
   if (targetRow === undefined) {
     return null;
   }
-  const chat = String(targetRow.chat_jid ?? "");
-  const ts = String(targetRow.timestamp ?? "");
+  const chat = asString(targetRow.chat_jid) ?? "";
+  const ts = asString(targetRow.timestamp) ?? "";
   const targetRowId = targetRow.rowid;
   const beforeRows = store.db
     .prepare(
@@ -350,13 +350,15 @@ export function fetchMessageFromStore(
   }
   return {
     key: {
-      remoteJid: String(row.chat_jid ?? ""),
-      id: String(row.id ?? ""),
+      remoteJid: asString(row.chat_jid) ?? "",
+      id: asString(row.id) ?? "",
       fromMe: row.is_from_me === 1,
       participant: asString(row.sender_jid) ?? undefined,
     },
     message: restored ?? (content !== null ? { conversation: content } : undefined),
-    messageTimestamp: Math.floor(new Date(String(row.timestamp ?? 0)).getTime() / 1000),
+    messageTimestamp: Math.floor(
+      new Date(String((row.timestamp as string | number | null) ?? 0)).getTime() / 1000,
+    ),
     pushName: asString(row.sender_name) ?? undefined,
   } as WAMessage;
 }
