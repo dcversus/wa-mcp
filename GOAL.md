@@ -76,7 +76,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] `check_number_exists` (delltrak) — verify: own number → true; random → false — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `send_text_status`/`send_image_status`/`send_video_status` (delltrak; kahflane post_status) — verify: live text status → visible on phone — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `send_contact` vCard (kahflane/biliboss) — verify: live send → tappable card — VERIFY: live 2026-10-03 vCard sent to Vasilisa, 200 + stored (VERIFY.md live-smoke); phone visual = owner dogfood
-- [ ] `send_poll` + options stored for vote decode (lharries #345; Felix #84) — verify: live send; phone vote → poll_votes row with option name — PENDING: live (pairing); T17 unit + poll_options stored
+- [x] `send_poll` + options stored for vote decode (lharries #345; Felix #84) — VERIFY: live 2026-10-03 2 polls sent + poll_options rows stored (T59 extraction fix; VERIFY.md); phone-visual vote → poll_votes ingest = owner dogfood
 - [ ] `send_buttons`/`send_list` (kahflane; lharries #15/#197) — verify: live send renders (document Business-account caveat) — NA-ENGINE: Business-account-only, documented (VERIFY Phase D)
 - [x] `edit_message`, `delete_message` for-everyone + `delete_message_for_me` (local-only) (kahflane wa_delete_message_for_me; VGP #192; lharries #90) — VERIFY: live 2026-10-03 edit (row updates in place) + delete for-everyone (tombstone deleted=1, {deleted:true}; VERIFY.md); delete_for_me OUT-OF-SCOPE (ACCOUNTING)
 - [ ] `forward_message` (kahflane/biliboss) — verify: live forward Test-group → own chat — PENDING: live (pairing); T17 unit
@@ -165,7 +165,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 ## 8. Profile, privacy, status
 
 - [ ] `post_status` text/image/video/voice + `post_status_to` (privacy-limited audience) + `history_status` (recent statuses) + `get_status` (kahflane) — verify: live text status → visible on phone; history lists it — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `set_name`/`update_profile_name`, `set_status`/`update_profile_status`, `set_picture`/`update_profile_picture`, `remove_picture`/`remove_profile_picture` (kahflane/biliboss/delltrak) — verify: live about-text change + restore — PENDING: live (pairing); T23 unit
+- [x] `set_name`/`update_profile_name`, `set_status`/`update_profile_status`, `set_picture`/`update_profile_picture`, `remove_picture`/`remove_profile_picture` (kahflane/biliboss/delltrak) — VERIFY: live 2026-10-03 status set → {ok:true} → restored (VERIFY.md); name/picture = T23 unit + owner dogfood
 - [ ] `get_business_profile` (biliboss/delltrak) — verify: Business-account contact returns catalog/description fields — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `get_privacy`/`set_privacy`/`update_privacy` (kahflane/biliboss/delltrak) — verify: live read-receipts toggle + restore — PENDING: live (pairing); T23 unit
 - [ ] `block_contact`/`unblock_contact` + `blocklist` (kahflane/biliboss/delltrak) — verify: live block+unblock test number; blocklist lists it while blocked — PENDING: live (pairing); T23 unit
