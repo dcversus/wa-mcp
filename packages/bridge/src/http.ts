@@ -16,20 +16,8 @@ import {
   listSendRules,
   removeSendRule,
 } from "./store/send-rules.ts";
-import {
-  deleteTemplate,
-  getTemplate,
-  listTemplates,
-  renderTemplate,
-  upsertTemplate,
-} from "./store/templates.ts";
-import {
-  cancelScheduled,
-  dueScheduled,
-  listScheduled,
-  markScheduled,
-  scheduleMessage,
-} from "./store/scheduled.ts";
+import { deleteTemplate, listTemplates, upsertTemplate } from "./store/templates.ts";
+import { cancelScheduled, listScheduled, scheduleMessage } from "./store/scheduled.ts";
 
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";

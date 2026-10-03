@@ -269,7 +269,7 @@ describe("T82-B — daemon utility tools", () => {
 
   test("restrict_sending add posts to /api/send-rules", async () => {
     const log: Array<{ url: string; init: RequestInit }> = [];
-    const response = await handleRpcLine(
+    await handleRpcLine(
       makeRequest(21, "tools/call", {
         name: "restrict_sending",
         arguments: { action: "add", target: "*@g.us", mode: "block" },
