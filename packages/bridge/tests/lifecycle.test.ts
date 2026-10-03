@@ -994,8 +994,11 @@ test("T80 line44 — syncFullHistory applies only on FRESH creds (pairing-time)"
   expect(paired.syncFullHistory).toBe(false);
   await LIVE_HANDLES[LIVE_HANDLES.length - 1]?.close();
 
-  // fresh creds (account undefined) keep the flag
-  currentCreds = {};
+  // a NEW auth state without account = the pairing moment — flag kept
+  mockAuthState.mockResolvedValue({
+    state: { creds: {} } as unknown as AuthenticationState,
+    saveCreds: mockSaveCreds,
+  });
   const freshSock = fakeSocket();
   mockMakeWASocket.mockReturnValueOnce(freshSock as unknown as WASocket);
   await trackedStart("/tmp/wa-mcp-test-auth", { syncFullHistory: true });

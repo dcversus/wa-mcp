@@ -2,6 +2,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, vi } from "vite-plus/test";
+import { asciiSafe } from "../src/qr.ts";
 
 // real fs PNG writes: generous under load (T46 lesson)
 vi.setConfig({ testTimeout: 20_000 });
