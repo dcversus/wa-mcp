@@ -694,18 +694,20 @@ describe("T55 live ingestion", { timeout: 15_000 }, () => {
   });
 });
 
-describe("T58 ingest normalization", { timeout: 15_000 }, () => {
-  function withLidMapping(socket: object, pnForLid: Record<string, string>): void {
-    Object.assign(socket, {
-      signalRepository: {
-        lidMapping: {
-          getPNForLID: async (lid: string) => pnForLid[lid] ?? null,
-          getLIDForPN: async (pn: string) => pnForLid[pn] ?? null,
-        },
+function withLidMapping(socket: object, pnForLid: Record<string, string>): void {
+  // engine-style: getPNForLID keyed by the FULL @lid jid; getLIDForPN by the
+  // FULL @s.whatsapp.net jid (fork lid-mapping isPnUser/isLidUser checks)
+  Object.assign(socket, {
+    signalRepository: {
+      lidMapping: {
+        getPNForLID: async (lid: string) => pnForLid[lid] ?? null,
+        getLIDForPN: async (pn: string) => pnForLid[pn] ?? null,
       },
-    });
-  }
+    },
+  });
+}
 
+describe("T58 ingest normalization", { timeout: 15_000 }, () => {
   test("messageTimestamp in MILLISECONDS stores the correct instant (T58a)", async () => {
     vi.useFakeTimers();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58a-")));
@@ -728,7 +730,9 @@ describe("T58 ingest normalization", { timeout: 15_000 }, () => {
     vi.useFakeTimers();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t58b-")));
     const { latest } = await startArranged({ store });
-    withLidMapping(latest(), { "55600000009854": "358497773518" });
+    withLidMapping(latest(), {
+      "55600000009854@lid": "351930017568:0@s.whatsapp.net",
+    });
     latest().emit("messages.upsert", {
       messages: [
         {
@@ -740,9 +744,36 @@ describe("T58 ingest normalization", { timeout: 15_000 }, () => {
       type: "notify",
     });
     await vi.advanceTimersByTimeAsync(0); // drain the async canonicalization chain
-    const rows = listMessages(store, { chatJid: "358497773518@s.whatsapp.net", limit: 5 });
+    const rows = listMessages(store, { chatJid: "351930017568@s.whatsapp.net", limit: 5 });
     expect(rows.some((row) => row.id === "lid1" && row.content === "from the lid")).toBe(true);
     const lidRows = listMessages(store, { chatJid: "55600000009854@lid", limit: 5 });
     expect(lidRows.length).toBe(0);
+  });
+});
+
+describe("T59 canonical full-jid mapping", { timeout: 15_000 }, () => {
+  test("canonicalChatJid resolves a device-suffixed PN and strips the device", async () => {
+    vi.useFakeTimers();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t59-")));
+    const { latest } = await startArranged({ store });
+    withLidMapping(latest(), {
+      // engine style: keyed by the FULL @lid jid, returns a device-suffixed PN
+      "55600000009854@lid": "351930017568:0@s.whatsapp.net",
+    });
+    latest().emit("messages.upsert", {
+      messages: [
+        {
+          key: { remoteJid: "55600000009854@lid", fromMe: false, id: "t59a" },
+          message: { conversation: "device test" },
+          messageTimestamp: 1_760_000_000,
+        } as unknown as WAMessage,
+      ],
+      type: "notify",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const rows = listMessages(store, { chatJid: "351930017568@s.whatsapp.net", limit: 5 });
+    expect(rows.some((row) => row.id === "t59a")).toBe(true);
+    const leaked = listMessages(store, { chatJid: "351930017568:0@s.whatsapp.net", limit: 5 });
+    expect(leaked.length).toBe(0);
   });
 });

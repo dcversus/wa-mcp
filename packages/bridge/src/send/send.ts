@@ -44,11 +44,16 @@ export async function canonicalChatJid(socket: WASocket, jid: string): Promise<s
   if (typeof getPn !== "function" || repo === undefined || repo.lidMapping === undefined) {
     return jid;
   }
-  const pn = await getPn.call(repo.lidMapping, user);
-  if (typeof pn !== "string" || pn.length === 0) {
+  // the engine's lidMapping skips any lid failing isLidUser — pass the FULL jid
+  const pnJid = await getPn.call(repo.lidMapping, jid);
+  if (typeof pnJid !== "string" || pnJid.length === 0) {
     return jid;
   }
-  return jidEncode(pn, "s.whatsapp.net", decode.device);
+  // the engine may return a device-suffixed PN jid ('351930017568:0@s.whatsapp.net')
+  // — keep the phone number, drop the leaked device suffix (chat rows stay clean)
+  const pnDecode = jidDecode(pnJid);
+  const pnUser = pnDecode?.user ?? user;
+  return jidEncode(pnUser, "s.whatsapp.net");
 }
 
 /** LID-era accounts keep signal sessions under @lid JIDs. The engine sends
@@ -73,11 +78,18 @@ export async function resolveLidJid(socket: WASocket, jid: string): Promise<stri
   if (typeof getLid !== "function" || repo === undefined || repo.lidMapping === undefined) {
     return jid;
   }
-  const lid = await getLid.call(repo.lidMapping, user);
-  if (typeof lid !== "string" || lid.length === 0) {
+  // isPnUser requires the FULL jid — a bare user is silently dropped
+  const lidJid = await getLid.call(repo.lidMapping, jid);
+  if (typeof lidJid !== "string" || lidJid.length === 0) {
     return jid;
   }
-  return jidEncode(lid, "lid", decode.device);
+  // the engine returns a FULL LID jid ('221900000001937@lid') — it is
+  // authoritative, use it verbatim
+  const lidDecode = jidDecode(lidJid);
+  if (lidDecode === undefined || lidDecode.server !== "lid") {
+    return jid;
+  }
+  return lidJid;
 }
 
 export async function sendViaSocket(
