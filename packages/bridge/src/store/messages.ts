@@ -94,6 +94,24 @@ function appendReaction(store: Store, chatJid: string, targetId: string, emote: 
     .run(JSON.stringify(reactions), chatJid, targetId);
 }
 
+/** T78 M1: protocol messages act ON another row — allow only when the actor
+ * is the account itself (fromMe) or the original row's own sender. */
+function protocolActorAllowed(
+  store: Store,
+  chatJid: string,
+  targetId: string,
+  message: WAMessage,
+): boolean {
+  if (message.key.fromMe === true) {
+    return true;
+  }
+  const actor = message.key.participant ?? chatJid;
+  const original = store.db
+    .prepare("SELECT sender_jid FROM messages WHERE chat_jid = ? AND id = ?")
+    .get(chatJid, targetId) as { sender_jid?: string | null } | undefined;
+  return original !== undefined && original.sender_jid === actor;
+}
+
 export function storeMessage(store: Store, message: WAMessage): boolean {
   const chatJid = message.key.remoteJid ?? "";
   const messageId = message.key.id ?? "";
@@ -102,6 +120,11 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
   }
   const extracted = extractContent(message);
   if (extracted.revokedMessageId !== null) {
+    // T78 M1: only the original sender (or the account itself) may revoke —
+    // a spoofed protocol message must not tombstone someone else's row
+    if (!protocolActorAllowed(store, chatJid, extracted.revokedMessageId, message)) {
+      return false;
+    }
     updateTargetContent(store, chatJid, extracted.revokedMessageId, "[revoked]");
     store.db
       .prepare(
@@ -111,6 +134,9 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     return false;
   }
   if (extracted.editedMessageId !== null) {
+    if (!protocolActorAllowed(store, chatJid, extracted.editedMessageId, message)) {
+      return false;
+    }
     updateTargetContent(store, chatJid, extracted.editedMessageId, extracted.editedText);
     return false;
   }
