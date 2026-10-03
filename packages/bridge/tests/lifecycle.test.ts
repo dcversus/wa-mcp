@@ -36,7 +36,7 @@ import { startBridge, type BridgeLogger, type StartBridgeOptions } from "../src/
 
 // handles started per test; afterEach closes them so no real reconnect
 // timer outlives its test and fires inside a later one
-const LIVE_HANDLES: Array<{ close(): Promise<void> }> = [];
+const LIVE_HANDLES: Array<{ close(): Promise<void>; resumePairing(): void }> = [];
 async function trackedStart(...args: Parameters<typeof startBridge>) {
   const handle = await startBridge(...args);
   LIVE_HANDLES.push(handle);
@@ -61,6 +61,14 @@ function fakeSocket() {
     emit: (name: string, payload: unknown) => {
       for (const listener of listeners.get(name) ?? []) {
         listener(payload);
+      }
+    },
+    // the real Baileys ev is an EventEmitter — resume teardown detaches
+    removeAllListeners: (name?: string) => {
+      if (name === undefined) {
+        listeners.clear();
+      } else {
+        listeners.delete(name);
       }
     },
   };

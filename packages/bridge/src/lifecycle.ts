@@ -450,6 +450,15 @@ export async function startBridge(
       if (status === "pairing-blocked") {
         status = "connecting";
       }
+      // T76 H1: same single-flight discipline as the reconnect path — end
+      // the live socket and detach its listeners BEFORE minting a fresh
+      // registration, never stack two sockets on the same creds.
+      if (socket !== null && socket !== undefined) {
+        for (const name of EVENT_NAMES) {
+          socket.ev.removeAllListeners(name);
+        }
+        void socket.end(new Error("resume: restarting pairing"));
+      }
       connect();
     },
     close: async () => {
