@@ -20,6 +20,7 @@ import {
 } from "./pages.ts";
 import {
   pairingHtml,
+  pairingPossible,
   pairingState,
   qrCountdownPct,
   type PairingHealth,
@@ -104,9 +105,11 @@ async function refreshPairing(): Promise<void> {
     savePairingToken(localStorage, pairingToken);
     client = createClient();
   }
-  const qr = await client
-    .getQr()
-    .catch(() => ({ qr: null as string | null, png: null as string | null }));
+  // T75: a logged-in daemon has no QR — skip the poll entirely so the
+  // pairing page cannot drain the API bucket after pairing finished
+  const qr = pairingPossible(health)
+    ? await client.getQr().catch(() => ({ qr: null as string | null, png: null as string | null }))
+    : { qr: null as string | null, png: null as string | null };
   if (qr.qr !== null && qrSeenAt === 0) {
     qrSeenAt = Date.now();
   }

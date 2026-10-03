@@ -28,6 +28,15 @@ export interface PairingView {
 
 /** Pane precedence: a completed pairing wins, then an explicit engine error,
  * then the anti-abuse block, then the interactive methods. */
+/** T75: whether a QR can exist at all — once the account is logged in the
+ * pairing flow is finished and polling /api/qr would only drain buckets. */
+export function pairingPossible(health: PairingHealth): boolean {
+  if (health.loggedIn === true || health.connected === true || health.status === "connected") {
+    return false;
+  }
+  return true;
+}
+
 export function pairingState(
   health: PairingHealth,
   qr: PairingQr,

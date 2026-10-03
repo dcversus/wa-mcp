@@ -118,6 +118,18 @@ const DEFAULT_RATE = { capacity: 60, refillPerMinute: 60 };
  * (a poll every 500ms from one IP survives 10 tabs) without letting it eat
  * the API bucket. */
 const HEALTH_RATE = { capacity: 120, refillPerMinute: 120 };
+
+/** ADR 0012: the pairing surface serves one flow — the pairing page polls
+ * /health and /api/qr alternately at ~3s. T75: it rides the same generous
+ * bucket as /health; engine-side abuse is already capped by the T56 pairing
+ * budget, so transport generosity adds no engine risk, and the 60/min API
+ * bucket stays entirely for authenticated API work. */
+const PAIRING_SURFACE: ReadonlySet<string> = new Set([
+  "/api/qr",
+  "/api/pairing-code",
+  "/api/pair/resume",
+  "/api/ui-token",
+]);
 const API_PATHS = new Set([
   "/api/messages",
   "/api/chats",
@@ -1602,7 +1614,7 @@ export async function createHttpServer(
     // gets no bucket at all: a 429 makes EventSource reconnect on a tight
     // loop, re-burning the very bucket it was refused from.
     const gate =
-      path === "/health"
+      path === "/health" || PAIRING_SURFACE.has(path)
         ? checkHealthRate(ip, now())
         : path === "/events"
           ? null
@@ -1731,12 +1743,6 @@ export async function createHttpServer(
     // surface ONLY — /health publishes it, so it must never authorize account
     // data or messaging. The local web UI exchanges it once for the daemon
     // token via GET /api/ui-token (loopback Host + same-origin enforced above).
-    const PAIRING_SURFACE: ReadonlySet<string> = new Set([
-      "/api/qr",
-      "/api/pairing-code",
-      "/api/pair/resume",
-      "/api/ui-token",
-    ]);
     const pairingTokenAuthorized =
       presented !== null && tokenMatches(presented, pairingToken) && PAIRING_SURFACE.has(path);
     if (!pairingTokenAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
