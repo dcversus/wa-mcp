@@ -335,3 +335,84 @@ describe("T76 H3 — migrations run in a transaction", () => {
     db.close();
   });
 });
+
+describe("T78 M1 — protocol-message tombstones verify the sender", () => {
+  function revokeFrom(id: string, participant: string, fromMe: boolean, target: string) {
+    return message("R-" + id, GROUP_A, 3000, "", {
+      key: { remoteJid: GROUP_A, fromMe, id: "R-" + id, participant },
+    }, {
+      protocolMessage: {
+        type: proto.Message.ProtocolMessage.Type.REVOKE,
+        key: { id: target, remoteJid: GROUP_A },
+      },
+    });
+  }
+
+  test("a revoke from a DIFFERENT sender does not tombstone someone else's message", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("T1", GROUP_A, 1000, "keep me"));
+      storeMessage(store, revokeFrom("SPOOF", "3584999999999@s.whatsapp.net", false, "T1"));
+      const row = store.db
+        .prepare("SELECT deleted, content FROM messages WHERE id = 'T1'")
+        .get() as { deleted: number; content: string };
+      expect(row.deleted).toBe(0);
+      expect(row.content).toBe("keep me");
+    } finally {
+      store.close();
+    }
+  });
+
+  test("the ORIGINAL sender and the account itself may revoke", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("T2", GROUP_A, 1000, "mine"));
+      storeMessage(store, revokeFrom("OK", SENDER, false, "T2"));
+      const row = store.db
+        .prepare("SELECT deleted FROM messages WHERE id = 'T2'")
+        .get() as { deleted: number };
+      expect(row.deleted).toBe(1);
+      // the account revoking its OWN message (fromMe revoke) still applies
+      storeMessage(store, message("T3", GROUP_A, 1500, "account msg"));
+      storeMessage(
+        store,
+        message("R-T3", GROUP_A, 3000, "", {
+          key: { remoteJid: GROUP_A, fromMe: true, id: "R-T3", participant: SENDER },
+        }, {
+          protocolMessage: {
+            type: proto.Message.ProtocolMessage.Type.REVOKE,
+            key: { id: "T3", remoteJid: GROUP_A },
+          },
+        }),
+      );
+      const own = store.db
+        .prepare("SELECT deleted FROM messages WHERE id = 'T3'")
+        .get() as { deleted: number };
+      expect(own.deleted).toBe(1);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("a foreign MESSAGE_EDIT does not rewrite someone else's text", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("E1", GROUP_A, 1000, "original words"));
+      storeMessage(store, message("R-E1", GROUP_A, 3000, "", {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "R-E1", participant: "3584999999999@s.whatsapp.net" },
+      }, {
+        protocolMessage: {
+          type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
+          key: { id: "E1", remoteJid: GROUP_A },
+          editedMessage: { conversation: "spoofed edit" },
+        },
+      }));
+      const row = store.db
+        .prepare("SELECT content FROM messages WHERE id = 'E1'")
+        .get() as { content: string };
+      expect(row.content).toBe("original words");
+    } finally {
+      store.close();
+    }
+  });
+});
