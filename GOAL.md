@@ -64,12 +64,12 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 
 - [x] media_path stored as ABSOLUTE path, never relative (Felix I#85) — verify: unit — stored rows resolve from any cwd — VERIFY: T18/T24 media-path tests
 - [x] Sync-status metadata: last history-sync watermark + per-chat backfill state (lharries PR#341) — verify: sync_status tool reflects fixture backfill — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Docker volume permissions: PUID/PGID env or documented chmod for mounted store (Felix I#4) — verify: container run with UID 1000 writes to mounted volume — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Docker volume permissions: PUID/PGID env or documented chmod for mounted store (Felix I#4) — verify: container run with UID 1000 writes to mounted volume — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 4. Send path
 
 - [x] `send_text`: phone/JID/group, "+" strip, mentions[], reply_to, link-preview toggle — VERIFY: live 2026-10-03 text → Vasilisa (PN+LID resolution) + Test group, 200 + stored + read-back (VERIFY.md live-smoke); variant matrix (mentions/reply/preview) unit-verified T15/T16, dogfood for live variants
 - [x] `send_media` (aliases `send_image`/`send_video`/`send_audio`/`send_document`): image/video/audio/document/sticker; MIME by ext+magic bytes; fileName; caption (lharries #350, VGP #193); base64 input (Felix #76); URL input — VERIFY: live 2026-10-03 image+caption base64 → Vasilisa, 200 + stored + file in ~/.wa-mcp/media (T61 fixed default media dir; VERIFY.md); PDF/sticker/audio legs = owner dogfood; T18 unit matrix
-- [ ] `send_voice`: ffmpeg → ogg/opus PTT, temp cleanup (VGP #227) — verify: mp3 → playable voice note; no temp leftover — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `send_voice`: ffmpeg → ogg/opus PTT, temp cleanup (VGP #227) — verify: mp3 → playable voice note; no temp leftover — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `send_location` (kahflane/biliboss) — verify: live send → pin on phone — VERIFY: live 2026-10-03 Lisbon pin sent to Vasilisa, 200 + stored with label+coords (VERIFY.md live-smoke); phone visual = owner dogfood
 - [ ] `send_link_preview` (delltrak) — verify: live send → link card renders on phone — PENDING: live (pairing); link-preview builder (T15)
 - [ ] `send_view_once` (delltrak) — verify: live send → view-once badge on phone — OUT-OF-SCOPE 0.9: ACCOUNTING
