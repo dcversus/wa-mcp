@@ -31,6 +31,7 @@ export interface BridgeConfig {
   tokenPath: string;
   dailyCap: number | null;
   uiDir?: string;
+  mediaDir: string;
 }
 
 export function buildConfig(env: Record<string, string | undefined>): BridgeConfig {
@@ -49,11 +50,19 @@ export function buildConfig(env: Record<string, string | undefined>): BridgeConf
     tokenPath: join(dataDir, "token"),
     dailyCap: Number.isInteger(rawCap) && rawCap > 0 ? rawCap : null,
     uiDir: env.WA_UI_DIR,
+    mediaDir: env.WA_MEDIA_DIR ?? join(dataDir, "media"),
   };
 }
 
 export function redactPhone(phone: string): string {
   return `***${phone.slice(-4)}`;
+}
+
+/** T61: the default daemon must be able to SEND media — the media dir is
+ * part of the data layout and is created (0700) at boot if absent. */
+export function ensureMediaDir(dir: string): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
 }
 
 export async function ensureToken(config: BridgeConfig): Promise<string> {
@@ -100,6 +109,7 @@ export async function main(
     process.exitCode = 1;
     return;
   }
+  ensureMediaDir(config.mediaDir);
   const token = await ensureToken(config);
   const authDir = join(config.dataDir, "auth");
   void openAuthStore(authDir);
@@ -144,6 +154,7 @@ export async function main(
     version: "0.9.0",
     sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
+    mediaDir: config.mediaDir,
     cloud,
     logger,
   });
