@@ -2,6 +2,7 @@ import { chmodSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
+import { DatabaseSync } from "node:sqlite";
 import { openStore } from "../../src/store/schema.ts";
 
 const POSIX_PERMS = process.platform !== "win32";
@@ -143,4 +144,48 @@ test("reopening the store is idempotent", () => {
   } finally {
     second.close();
   }
+});
+
+describe("T62 deleted tombstone migration (v7)", () => {
+  test("a fresh store has the deleted column and migration v7 applied", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-v7-fresh-")));
+    try {
+      const columns = store.db
+        .prepare("PRAGMA table_info(messages)")
+        .all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === "deleted")).toBe(true);
+      const applied = store.db
+        .prepare("SELECT 1 FROM migrations WHERE version = 7")
+        .get();
+      expect(applied).toBeDefined();
+    } finally {
+      store.close();
+    }
+  });
+
+  test("a pre-v7 store is upgraded on open", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wa-mcp-v7-upgrade-"));
+    const dbPath = join(dir, "store.db");
+    const raw = new DatabaseSync(dbPath);
+    raw.exec("CREATE TABLE migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
+    for (const version of [1, 2, 3, 4, 5, 6]) {
+      raw.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)").run(
+        version,
+        "2026-01-01",
+      );
+    }
+    raw.exec(
+      "CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, sender_jid TEXT, sender_name TEXT, timestamp TEXT NOT NULL, content TEXT, media_type TEXT, media_path TEXT, quoted_message_id TEXT, mentions TEXT, is_from_me INTEGER NOT NULL DEFAULT 0, is_unread INTEGER NOT NULL DEFAULT 1, reactions TEXT, raw TEXT, PRIMARY KEY (chat_jid, id))",
+    );
+    raw.close();
+    const store = openStore(dir);
+    try {
+      const columns = store.db
+        .prepare("PRAGMA table_info(messages)")
+        .all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === "deleted")).toBe(true);
+    } finally {
+      store.close();
+    }
+  });
 });

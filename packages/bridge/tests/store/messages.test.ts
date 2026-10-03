@@ -331,3 +331,35 @@ test("a revoke blanks the target content and media", () => {
     store.close();
   }
 });
+
+test("T62: an incoming revoke tombstones the row (deleted=1)", () => {
+  const store = makeStore();
+  try {
+    storeMessage(store, waMessage({ pushName: "Vasilisa" }, { conversation: "will be revoked" }));
+    storeMessage(
+      store,
+      waMessage(
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "REVOKE-T62",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
+        {
+          protocolMessage: {
+            key: { id: "MSG1", remoteJid: "120363428874442773@g.us", fromMe: false },
+            type: proto.Message.ProtocolMessage.Type.REVOKE,
+          },
+        },
+      ),
+    );
+    const fetched = row(store, "MSG1");
+    if (!fetched) throw new Error("target row missing");
+    expect(fetched.deleted).toBe(1);
+    expect(fetched.content).toBe("[revoked]");
+  } finally {
+    store.close();
+  }
+});

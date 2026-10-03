@@ -382,3 +382,20 @@ test("get_pairing_code posts the phone to the bridge", async () => {
   expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ phone: "+358 497 773 518" });
   expect(result.content[0]?.text).toContain("ABCD-1234");
 });
+
+test("T62: delete_message tool POSTs /api/delete with the bearer token", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/delete": { deleted: true } });
+  const tool = toolByName("delete_message");
+  if (!tool) throw new Error("delete_message missing");
+  const result = await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "351930017568@s.whatsapp.net", message_id: "TARGET1" },
+  );
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/delete");
+  expect(calls[0]?.method).toBe("POST");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "351930017568@s.whatsapp.net",
+    message_id: "TARGET1",
+  });
+  expect(result.content[0]?.text).toContain("deleted");
+});

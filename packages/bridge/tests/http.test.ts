@@ -2338,3 +2338,67 @@ describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
     expect(content.pollCreationMessageV3).toBeUndefined();
   });
 });
+
+describe("T62 delete_message", () => {
+  async function deleteServer(): Promise<{ bridge: Awaited<ReturnType<typeof startServer>>; socket: WASocket }> {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-del-")));
+    openedStores.push(store);
+    seedRow(store, "TARGET5", "351930017568@s.whatsapp.net", 1, "delete me");
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store),
+    });
+    created.push(bridge);
+    return { bridge, socket };
+  }
+
+  test("POST /api/delete sends a revoke and tombstones the local row", async () => {
+    const { bridge, socket } = await deleteServer();
+    const res = await fetch(url(bridge, "/api/delete"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "351930017568@s.whatsapp.net", message_id: "TARGET5" }),
+    });
+    expect(res.status).toBe(200);
+    const content = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      delete?: { remoteJid?: string; id?: string; fromMe?: boolean };
+    };
+    expect(content.delete?.remoteJid).toBe("351930017568@s.whatsapp.net");
+    expect(content.delete?.id).toBe("TARGET5");
+    expect(content.delete?.fromMe).toBe(false);
+    const row = store.db
+      .prepare("SELECT deleted, content FROM messages WHERE id = ?")
+      .get("TARGET5") as { deleted: number; content: string };
+    expect(row.deleted).toBe(1);
+    expect(row.content).toBe("[revoked]");
+  });
+
+  test("POST /api/delete 404s an unknown message", async () => {
+    const { bridge } = await deleteServer();
+    const res = await fetch(url(bridge, "/api/delete"), {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", message_id: "NOPE" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  test("POST /api/delete requires the session token (destructive)", async () => {
+    const { bridge } = await deleteServer();
+    const store2 = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-del2-")));
+    openedStores.push(store2);
+    const res = await fetch(url(bridge, "/api/delete"), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${(
+          await (await fetch(url(bridge, "/health"))).json()
+        ).pairingToken as string}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", message_id: "X" }),
+    });
+    expect(res.status).toBe(401);
+  });
+});
