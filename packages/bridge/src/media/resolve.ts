@@ -10,7 +10,8 @@ export type MediaErrorCode =
   | "TOO_LARGE"
   | "FETCH_FAILED"
   | "EMPTY"
-  | "SSRF_BLOCKED";
+  | "SSRF_BLOCKED"
+  | "FFMPEG_UNAVAILABLE";
 
 export type LookupAddresses = Array<{ address: string; family: number }>;
 export type LookupFn = (hostname: string, options: { all: true }) => Promise<LookupAddresses>;
