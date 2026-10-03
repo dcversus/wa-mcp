@@ -2089,13 +2089,13 @@ describe("T53 pairing token", () => {
     expect(resume.status).toBe(200);
   });
 
-  test("pairingToken reads chats but never opens destructive/config mutations (T54 revised)", async () => {
+  test("pairingToken is scoped: no account reads, no destructive/config mutations (T73 C1)", async () => {
     const bridge = await startServer();
     const health = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
     const chats = await fetch(url(bridge, "/api/chats"), {
       headers: { authorization: `Bearer ${health.pairingToken as string}` },
     });
-    expect(chats.status).not.toBe(401);
+    expect(chats.status).toBe(401);
     const privacy = await fetch(url(bridge, "/api/privacy"), {
       method: "POST",
       headers: {
@@ -2116,7 +2116,7 @@ describe("T53 pairing token", () => {
   });
 });
 
-describe("T54 revised: ephemeral UI token scope", () => {
+describe("T73 C1: ephemeral UI token scope — pairing surface only", () => {
   function uiToken(bridge: Awaited<ReturnType<typeof startServer>>): Promise<string> {
     return (async () => {
       const health = (await (await fetch(url(bridge, "/health"))).json()) as {
@@ -2126,16 +2126,16 @@ describe("T54 revised: ephemeral UI token scope", () => {
     })();
   }
 
-  test("ui token reads account data (chats)", async () => {
+  test("ui token reads NO account data (chats 401)", async () => {
     const bridge = await startServer();
     const token = await uiToken(bridge);
     const res = await fetch(url(bridge, "/api/chats"), {
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(res.status).not.toBe(401);
+    expect(res.status).toBe(401);
   });
 
-  test("ui token may send and mark read (messaging scope)", async () => {
+  test("ui token may NOT send or mark read (messaging needs the session token)", async () => {
     const bridge = await startServer();
     const token = await uiToken(bridge);
     const send = await fetch(url(bridge, "/api/send"), {
@@ -2143,13 +2143,13 @@ describe("T54 revised: ephemeral UI token scope", () => {
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", text: "x" }),
     });
-    expect(send.status).not.toBe(401);
+    expect(send.status).toBe(401);
     const read = await fetch(url(bridge, "/api/read"), {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", message_ids: ["m1"] }),
     });
-    expect(read.status).not.toBe(401);
+    expect(read.status).toBe(401);
   });
 
   test("ui token is REFUSED for destructive/config mutations", async () => {
@@ -2580,4 +2580,93 @@ test("T68: GET /api/media/:id accepts a query token (browser <img>/<audio> canno
   expect(res.status).toBe(200);
   const noToken = await fetch(url(bridge, "/api/media/MEDIAQ1"));
   expect(noToken.status).toBe(401);
+});
+
+describe("T73 C1 — scoped pairing token + Host/Origin validation", () => {
+  function pairingTokenOf(bridge: Awaited<ReturnType<typeof startServer>>): Promise<string> {
+    return (async () => {
+      const health = (await (await fetch(url(bridge, "/health"))).json()) as {
+        pairingToken: string;
+      };
+      return health.pairingToken;
+    })();
+  }
+
+  test("the ephemeral token does NOT read account data (scope reverted)", async () => {
+    const bridge = await startServer();
+    const token = await pairingTokenOf(bridge);
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(chats.status).toBe(401);
+    const send = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", text: "x" }),
+    });
+    expect(send.status).toBe(401);
+  });
+
+  test("the ephemeral token still opens the pairing surface", async () => {
+    const bridge = await startServer();
+    const token = await pairingTokenOf(bridge);
+    const qr = await fetch(url(bridge, "/api/qr"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(qr.status).not.toBe(401);
+    const resume = await fetch(url(bridge, "/api/pair/resume"), {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(resume.status).toBe(200);
+  });
+
+  test("GET /api/ui-token exchanges the scoped token for the real one on localhost", async () => {
+    const bridge = await startServer();
+    const token = await pairingTokenOf(bridge);
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+    expect(body.token).not.toBe(token);
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${body.token}` },
+    });
+    expect(chats.status).not.toBe(401);
+  });
+
+  test("GET /api/ui-token refuses a Host that is not loopback (DNS rebinding)", async () => {
+    const bridge = await startServer();
+    const token = await pairingTokenOf(bridge);
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${token}`, host: "evil.example:8080" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("GET /api/ui-token refuses a cross-site Origin", async () => {
+    const bridge = await startServer();
+    const token = await pairingTokenOf(bridge);
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${token}`, origin: "https://evil.example" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("non-loopback Host is rejected on /api routes even with the real token", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Bearer test-token", host: "evil.example:8080" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("absent Origin (non-browser) with a loopback Host is allowed", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.status).not.toBe(403);
+  });
 });
