@@ -21,13 +21,11 @@ export function scheduleMessage(
 }
 
 export function listScheduled(store: Store, status?: string): ScheduledRow[] {
-  const rows = (
-    status === undefined
-      ? store.db.prepare("SELECT * FROM scheduled_messages ORDER BY send_at").all()
-      : store.db
-          .prepare("SELECT * FROM scheduled_messages WHERE status = ? ORDER BY send_at")
-          .all(status)
-  ) as ScheduledRow[];
+  const rows = (status === undefined
+    ? store.db.prepare("SELECT * FROM scheduled_messages ORDER BY send_at").all()
+    : store.db
+        .prepare("SELECT * FROM scheduled_messages WHERE status = ? ORDER BY send_at")
+        .all(status)) as unknown as ScheduledRow[];
   return rows;
 }
 
@@ -36,7 +34,7 @@ export function dueScheduled(store: Store, now: Date): ScheduledRow[] {
     .prepare(
       "SELECT * FROM scheduled_messages WHERE status = 'pending' AND send_at <= ? ORDER BY send_at",
     )
-    .all(now.toISOString()) as ScheduledRow[];
+    .all(now.toISOString()) as unknown as ScheduledRow[];
 }
 
 export function markScheduled(
