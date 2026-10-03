@@ -194,6 +194,34 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 8, sql: MIGRATION_V8 },
 ];
 
+/** T76 H3: each migration runs inside one transaction — a statement that
+ * fails mid-script rolls back the WHOLE script (no partial schema, no
+ * duplicated FTS rows on retry) and the version is never marked. */
+export function applyMigrations(
+  db: DatabaseSync,
+  migrations: ReadonlyArray<{ version: number; sql: string }>,
+): void {
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
+  );
+  const markApplied = db.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)");
+  for (const migration of migrations) {
+    const applied = db.prepare("SELECT 1 FROM migrations WHERE version = ?").get(migration.version);
+    if (applied !== undefined) {
+      continue;
+    }
+    db.exec("BEGIN");
+    try {
+      db.exec(migration.sql);
+      markApplied.run(migration.version, new Date().toISOString());
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+}
+
 export function openStore(dir: string): Store {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);
@@ -204,15 +232,7 @@ export function openStore(dir: string): Store {
   db.exec(
     "CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
   );
-  const markApplied = db.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)");
-  for (const migration of MIGRATIONS) {
-    const applied = db.prepare("SELECT 1 FROM migrations WHERE version = ?").get(migration.version);
-    if (applied !== undefined) {
-      continue;
-    }
-    db.exec(migration.sql);
-    markApplied.run(migration.version, new Date().toISOString());
-  }
+  applyMigrations(db, MIGRATIONS);
   chmodSync(dbPath, 0o600);
   return {
     db,
