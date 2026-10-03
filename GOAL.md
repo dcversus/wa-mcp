@@ -41,9 +41,9 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] `WA_DEVICE_NAME` (VGP #157) — verify: paired device shows that name on phone — PENDING: live (pairing); unit-verified (T10 lifecycle); on-phone display needs pairing
 
 - [ ] Windows live pairing page: auto-refreshing QR in browser (VGP P#163) — verify: `pair --web` serves page on 127.0.0.1, QR auto-refreshes on rotation — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Full-history-at-pair flag `WA_SYNC_FULL_HISTORY` (VGP P#37; kahflane env) — verify: pair with flag → history-sync includes older chats (log check) — PENDING: live (pairing); env wired + passthrough test (T10)
-- [ ] Disappearing-message settings tracked per chat (VGP P#82) — verify: chat with 7-day disappearing → store records setting — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Windows console Unicode hardening: QR render + logs never crash on cp1252/chcp consoles; ASCII fallback (chigwell I#150/P#250) — verify: Windows CI run under chcp 437, no UnicodeEncodeError — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Full-history-at-pair flag `WA_SYNC_FULL_HISTORY` (VGP P#37; kahflane env) — verify: pair with flag → history-sync includes older chats (log check) — PENDING: live (pairing); env wired + passthrough test (T10)
+- [x] Disappearing-message settings tracked per chat (VGP P#82) — verify: chat with 7-day disappearing → store records setting — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Windows console Unicode hardening: QR render + logs never crash on cp1252/chcp consoles; ASCII fallback (chigwell I#150/P#250) — verify: Windows CI run under chcp 437, no UnicodeEncodeError — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Socket staleness detection: periodic ping, force-reconnect on stale TCP instead of silent hang (chigwell P#98) — verify: synthetic dead-socket → reconnect ≤30s — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] App-state conflict auto-recovery: on LTHash 409 "SendAppState failed", retry FetchAppState(fullSync=true) + runbook entry (VGP I#111) — verify: synthetic 409 → recovery attempt logged, bridge stays up — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Connection-quality tracking: KeepAliveRestored events counted, exposed in /health + /metrics (Felix I#7) — verify: metrics series wa_keepalive_total present — OUT-OF-SCOPE 0.9: ACCOUNTING
@@ -59,11 +59,11 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] FTS5 `messages_fts` + sync triggers (MuhammadMustafa18), accent-insensitive — verify: insert "Schröder" → search "schroder" hits — VERIFY: T13 FTS5 tests
 - [ ] Migrations from lharries-layout AND Go-fork layout (`~/Documents/GitHub/whatsapp-mcp/store` real fixture) — verify: row counts equal, 0 NULL sender_name where resolvable — PENDING: live (pairing); foreign-layout import unverified
 - [x] Perms 0700/0600 (VGP #241) — verify: `stat` shows 700 — VERIFY: T9 perms tests
-- [ ] Nightly backup + retention (Felix #8/#13) — verify: retention=1, two runs → 1 backup left — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Nightly backup + retention (Felix #8/#13) — verify: retention=1, two runs → 1 backup left — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Read-state persisted + history backfill (VGP #155/#201/#203; lharries #59) — verify: synthetic receipt → read_state updated; unread counts correct — VERIFY: T21/T22 read-state tests
 
 - [x] media_path stored as ABSOLUTE path, never relative (Felix I#85) — verify: unit — stored rows resolve from any cwd — VERIFY: T18/T24 media-path tests
-- [ ] Sync-status metadata: last history-sync watermark + per-chat backfill state (lharries PR#341) — verify: sync_status tool reflects fixture backfill — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Sync-status metadata: last history-sync watermark + per-chat backfill state (lharries PR#341) — verify: sync_status tool reflects fixture backfill — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Docker volume permissions: PUID/PGID env or documented chmod for mounted store (Felix I#4) — verify: container run with UID 1000 writes to mounted volume — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 4. Send path
 
