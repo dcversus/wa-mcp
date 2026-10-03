@@ -519,7 +519,7 @@ describe("T78 M2 — reactions are an aggregated per-sender model", () => {
     try {
       const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
       expect(versions.map((row) => (row as { version: number }).version)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8, 9,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
       ]);
     } finally {
       store.close();
@@ -580,7 +580,7 @@ describe("T80 — line45 disappearing settings + line66 sync watermark", () => {
   test("line66 — a history sync advances the watermark and marks chats", () => {
     const store = makeStore();
     try {
-      markHistorySynced(store, GROUP_A);
+      markHistorySynced(store, [GROUP_A]);
       const watermark = store.db
         .prepare("SELECT value FROM meta WHERE key = 'history_sync_watermark'")
         .get() as { value: string } | undefined;

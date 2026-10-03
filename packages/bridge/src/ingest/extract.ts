@@ -25,6 +25,7 @@ export interface ExtractedContent {
   pollVote: ExtractedPollVote | null;
   isEphemeral: boolean;
   isViewOnce: boolean;
+  ephemeralDuration?: number | null;
   isStatusMention: boolean;
 }
 
@@ -47,6 +48,7 @@ function unwrapLayers(content: Content | null | undefined): {
   content: Content | null;
   viewOnce: boolean;
   ephemeral: boolean;
+  ephemeralDuration?: number | null;
 } {
   let current: Content | null = content ?? null;
   let viewOnce = false;
@@ -266,7 +268,13 @@ function textOf(content: Content): {
       };
     }
     if (protocol.type === EPHEMERAL_SETTING) {
-      return { text: null, mediaType: null, ...base, isEphemeral: true };
+      return {
+        text: null,
+        mediaType: null,
+        ...base,
+        isEphemeral: true,
+        ephemeralDuration: protocol.ephemeralDuration ?? null,
+      };
     }
     if (protocol.type === STATUS_MENTION) {
       return { text: null, mediaType: null, ...base, isStatusMention: true };
@@ -360,6 +368,7 @@ export function extractContent(
       isEphemeral: ephemeral,
       isViewOnce: viewOnce,
       isStatusMention: false,
+      ephemeralDuration: null,
     };
   }
   const extracted = textOf(content);
@@ -382,6 +391,7 @@ export function extractContent(
     isEphemeral: ephemeral || extracted.isEphemeral,
     isViewOnce: viewOnce,
     isStatusMention: extracted.isStatusMention,
+    ephemeralDuration: extracted.ephemeralDuration ?? null,
   };
 }
 

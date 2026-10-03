@@ -11,6 +11,7 @@ import { upsertContact } from "./store/contacts.ts";
 import { removeGroupParticipants, upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
+import { markHistorySynced } from "./store/meta.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
 import type { WAMessage } from "baileys";
@@ -437,6 +438,10 @@ export async function startBridge(
                   : chat.id;
                 upsertChatMeta(store, { id: canonical, name: chat.name });
               }
+              markHistorySynced(
+                store,
+                (history.chats ?? []).map((chat) => chat.id).filter((id): id is string => typeof id === "string"),
+              );
               let stored = 0;
               for (const message of history.messages ?? []) {
                 const remoteJid = message.key.remoteJid;

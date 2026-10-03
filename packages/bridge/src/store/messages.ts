@@ -153,6 +153,18 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     // messages.update consumer); the raw upsert carries no storable content
     return false;
   }
+  // T80 line45: disappearing-message settings are per-chat state
+  if (extracted.isEphemeral && extracted.ephemeralDuration !== undefined) {
+    const duration = extracted.ephemeralDuration;
+    if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
+      store.db
+        .prepare(
+          "INSERT INTO chats (jid, name, ephemeral_duration, ephemeral_setting_ts) VALUES (?, NULL, ?, ?)\n            ON CONFLICT(jid) DO UPDATE SET ephemeral_duration = excluded.ephemeral_duration,\n              ephemeral_setting_ts = excluded.ephemeral_setting_ts",
+        )
+        .run(chatJid, duration, new Date().toISOString());
+    }
+  }
+
   if (
     extracted.text === null &&
     extracted.mediaType === null &&
