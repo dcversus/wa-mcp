@@ -2889,3 +2889,32 @@ describe("T74 — health-poll and SSE never starve the API rate bucket", () => {
     expect(body.error.code).toBe("RATE_LIMITED");
   });
 });
+
+describe("T75 — the pairing surface does not drain the API bucket", () => {
+  test("/api/qr polls do not consume the API bucket (pairing page polls at 3s)", async () => {
+    const bridge = await createHttpServer(stubHandle("qr", "QRDATA-T75"), {
+      token: "test-token",
+      rateLimit: { capacity: 2, refillPerMinute: 0 },
+    });
+    created.push(bridge);
+    for (let i = 0; i < 2; i += 1) {
+      const qr = await fetch(url(bridge, "/api/qr"), { headers: authHeader });
+      // 404 (no png on the fixture) proves the route ran — RED today: 429
+      expect(qr.status).toBe(404);
+    }
+    const chats = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
+    expect(chats.status).toBe(501);
+  });
+
+  test("invariant: the pairing surface stays bucketed — 121st rapid /api/qr is 429", async () => {
+    const bridge = await createHttpServer(stubHandle("qr", "QRDATA-T75"), {
+      token: "test-token",
+    });
+    created.push(bridge);
+    let last = 0;
+    for (let i = 0; i < 121; i += 1) {
+      last = (await fetch(url(bridge, "/api/qr"), { headers: authHeader })).status;
+    }
+    expect(last).toBe(429);
+  });
+});

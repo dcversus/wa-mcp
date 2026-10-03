@@ -1,6 +1,7 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import {
   pairingHtml,
+  pairingPossible,
   pairingState,
   qrCountdownPct,
   type PairingHealth,
@@ -122,4 +123,19 @@ test("pairingHtml connecting + paired + error panes", () => {
   });
   expect(errored).toContain("&lt;script&gt;boom");
   expect(errored).not.toContain("<script>boom");
+});
+
+describe("T75 — pairingPossible gates the qr poll", () => {
+  test("no qr can exist once the account is logged in", () => {
+    expect(pairingPossible({ loggedIn: true })).toBe(false);
+    expect(pairingPossible({ connected: true })).toBe(false);
+    expect(pairingPossible({ status: "connected" })).toBe(false);
+  });
+
+  test("pairing is still possible in every pre-pairing state", () => {
+    expect(pairingPossible({ status: "qr" })).toBe(true);
+    expect(pairingPossible({ status: "pairing" })).toBe(true);
+    expect(pairingPossible({ status: "reconnecting" })).toBe(true);
+    expect(pairingPossible({})).toBe(true);
+  });
 });
