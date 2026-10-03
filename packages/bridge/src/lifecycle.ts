@@ -103,6 +103,46 @@ export async function startBridge(
   let lastDisconnectAt: number | null = null;
   let failureStreak = 0;
   let alertFired = false;
+
+  // T79 line48: the fork surfaces LTHash 409s ONLY through the injected
+  // logger ('conflict in processing state'). Watch it; on the first conflict
+  // per cooldown drop the stored app-state-sync-version so the next patch
+  // runs a FULL resync, and swallow the duplicate spam.
+  let appStateRecoveryAt = 0;
+  const baseLogger = opts.logger;
+  const conflictAwareLogger: BridgeLogger | undefined =
+    baseLogger === undefined
+      ? undefined
+      : {
+          ...baseLogger,
+          warn: (obj: unknown, msg?: unknown) => {
+            const text = String(msg ?? obj);
+            if (/conflict/i.test(text) && /app.?state|sendappstate|processing state/i.test(text)) {
+              const now = Date.now();
+              if (now - appStateRecoveryAt > 30_000) {
+                appStateRecoveryAt = now;
+                baseLogger.warn(
+                  {},
+                  "APP-STATE-RECOVERY: LTHash conflict — clearing app-state-sync-version for a full resync on the next patch",
+                );
+                const keys = (
+                  state as {
+                    keys?: { set?: (type: string, ids: string[]) => void };
+                  }
+                ).keys;
+                keys?.set?.("app-state-sync-version", [
+                  "regular",
+                  "critical_block",
+                  "critical_unblock_low",
+                  "sent",
+                  "secret",
+                ]);
+              }
+              return;
+            }
+            baseLogger.warn(obj, msg);
+          },
+        };
   let socket: WASocket;
   const pairingLimit = opts.pairingAttemptLimit ?? 3;
   let pairingUsed = 0;
@@ -199,7 +239,7 @@ export async function startBridge(
       printQRInTerminal: false,
       syncFullHistory: opts.syncFullHistory ?? false,
       browser: opts.browser ?? [deviceName, "chrome", "0.9.0"],
-      logger: opts.logger,
+      logger: conflictAwareLogger,
       // T76 H4: the fork's process-message fetches the ORIGINAL poll message
       // through this callback to get its messageContextInfo.messageSecret —
       // the pollEncKey it needs to decrypt incoming votes. The raw column

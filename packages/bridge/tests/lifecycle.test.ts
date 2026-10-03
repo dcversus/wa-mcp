@@ -262,7 +262,9 @@ test("startBridge builds auth state from the store dir and sockets with fixed op
   expect(config.browser).toEqual(["wa-mcp", "chrome", "0.9.0"]);
   const authResult = await mockAuthState.mock.results[0]?.value;
   expect(config.auth).toEqual(authResult?.state);
-  expect(config.logger).toBe(logger);
+  // T79 line48: the socket gets a conflict-aware WRAPPER that delegates to it
+  expect(config.logger).toBeDefined();
+  expect(config.logger).not.toBe(logger);
 });
 
 test("syncFullHistory passes through from opts", async () => {
@@ -955,9 +957,7 @@ test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
     } as unknown as BridgeLogger,
   });
   // the fork logs LTHash 409 conflicts through the INJECTED logger
-  const injected = (
-    mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }
-  ).logger;
+  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as { logger?: BridgeLogger }).logger;
   injected?.warn({ collection: "regular" }, "conflict in processing state");
   injected?.warn({ collection: "regular" }, "conflict in processing state");
   const recoveries = warns.filter((entry) => entry.includes("APP-STATE-RECOVERY"));
