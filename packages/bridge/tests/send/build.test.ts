@@ -150,7 +150,7 @@ test("buttons and lists build proto shells for business-account delivery", async
     "Yes",
     "No",
   ]);
-  const list = await buildListMessage("Menu", "Pick one", [
+  const list = buildListMessage("Menu", "Pick one", [
     { title: "Food", rows: [{ title: "Pizza", rowId: "r1" }] },
   ]);
   const listMessage = list.listMessage;
