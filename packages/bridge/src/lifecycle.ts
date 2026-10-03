@@ -440,7 +440,9 @@ export async function startBridge(
               }
               markHistorySynced(
                 store,
-                (history.chats ?? []).map((chat) => chat.id).filter((id): id is string => typeof id === "string"),
+                (history.chats ?? [])
+                  .map((chat) => chat.id)
+                  .filter((id): id is string => typeof id === "string"),
               );
               let stored = 0;
               for (const message of history.messages ?? []) {

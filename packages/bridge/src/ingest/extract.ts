@@ -12,6 +12,7 @@ export interface ExtractedPollVote {
 }
 
 export interface ExtractedContent {
+  ephemeralDuration?: number | null;
   text: string | null;
   mediaType: string | null;
   mentions: string[];
@@ -25,7 +26,6 @@ export interface ExtractedContent {
   pollVote: ExtractedPollVote | null;
   isEphemeral: boolean;
   isViewOnce: boolean;
-  ephemeralDuration?: number | null;
   isStatusMention: boolean;
 }
 
@@ -48,7 +48,6 @@ function unwrapLayers(content: Content | null | undefined): {
   content: Content | null;
   viewOnce: boolean;
   ephemeral: boolean;
-  ephemeralDuration?: number | null;
 } {
   let current: Content | null = content ?? null;
   let viewOnce = false;
@@ -165,6 +164,7 @@ function textOf(content: Content): {
   pollVote: ExtractedPollVote | null;
   isEphemeral: boolean;
   isStatusMention: boolean;
+  ephemeralDuration?: number | null;
 } {
   const context = contextOf(content);
   const mentions = [...(context?.mentionedJid ?? [])];
@@ -273,7 +273,7 @@ function textOf(content: Content): {
         mediaType: null,
         ...base,
         isEphemeral: true,
-        ephemeralDuration: protocol.ephemeralDuration ?? null,
+        ephemeralDuration: protocol.ephemeralExpiration ?? null,
       };
     }
     if (protocol.type === STATUS_MENTION) {

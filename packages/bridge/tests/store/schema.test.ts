@@ -106,6 +106,9 @@ test("chats and meta tables have pinned columns", () => {
       "ephemeral_expiry",
       "last_message_text",
       "last_message_ts",
+      "history_synced_at",
+      "ephemeral_duration",
+      "ephemeral_setting_ts",
     ]);
     expect(names("meta")).toEqual(["key", "value"]);
   } finally {
@@ -130,7 +133,7 @@ test("migrations records schema versions 1 through 3", () => {
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
     expect(rows.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
@@ -145,7 +148,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(9);
+    expect(versions).toHaveLength(10);
   } finally {
     second.close();
   }
@@ -179,6 +182,8 @@ describe("T62 deleted tombstone migration (v7)", () => {
     raw.exec(
       "CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, sender_jid TEXT, sender_name TEXT, timestamp TEXT NOT NULL, content TEXT, media_type TEXT, media_path TEXT, quoted_message_id TEXT, mentions TEXT, is_from_me INTEGER NOT NULL DEFAULT 0, is_unread INTEGER NOT NULL DEFAULT 1, reactions TEXT, raw TEXT, PRIMARY KEY (chat_jid, id))",
     );
+    // v1 always creates chats — v10's ALTER TABLE needs it present
+    raw.exec("CREATE TABLE chats (jid TEXT PRIMARY KEY, name TEXT)");
     raw.close();
     const store = openStore(dir);
     try {
@@ -216,6 +221,8 @@ describe("T62/I group participants table (v8)", () => {
         .prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)")
         .run(version, "2026-01-01");
     }
+    // v1 chats table (v10 ALTERs it)
+    raw.exec("CREATE TABLE chats (jid TEXT PRIMARY KEY, name TEXT)");
     raw.close();
     const store = openStore(dir);
     try {

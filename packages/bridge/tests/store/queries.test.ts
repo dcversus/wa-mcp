@@ -562,12 +562,15 @@ describe("T80 — line45 disappearing settings + line66 sync watermark", () => {
   test("line45 — an EPHEMERAL_SETTING ingest stores per-chat disappearing", () => {
     const store = makeStore();
     try {
-      storeMessage(store, message("EPH1", GROUP_A, 1000, "x", {}, {
-        protocolMessage: {
-          type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING,
-          ephemeralDuration: 604_800,
-        },
-      } as never));
+      storeMessage(
+        store,
+        message("EPH1", GROUP_A, 1000, "x", {}, {
+          protocolMessage: {
+            type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING,
+            ephemeralExpiration: 604_800,
+          },
+        } as never),
+      );
       const row = store.db
         .prepare("SELECT ephemeral_duration, ephemeral_setting_ts FROM chats WHERE jid = ?")
         .get(GROUP_A) as { ephemeral_duration: number | null; ephemeral_setting_ts: string | null };
