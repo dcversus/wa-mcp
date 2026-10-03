@@ -85,10 +85,10 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] `send_broadcast` + `broadcast_info` (kahflane) — verify: 2-recipient broadcast → 200 — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Outbound persistence + media upload metadata (lharries #229; VGP #221) — verify: `list_messages` shows own sends is_from_me=1 — VERIFY: T16b outbound persistence tests
 - [x] Send-safety: min-interval pacing, daily cap `WA_DAILY_CAP`, kill-switch `WA_SENDS_DISABLED=1` (kahflane), rate-limit error surfaced (ste-bah) — verify: unit — 6 rapid sends → 5 pass 1 limited; kill-switch → all refused — VERIFY: T16 SendGuard tests
-- [ ] `schedule_message`/`list_scheduled`/`cancel_scheduled` daemon scheduler (kahflane) — verify: schedule +2s → fires, listed, then removed — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Templates: `create_template`/`list_templates`/`render_template` ({{var}}) + `send_template` (kahflane) — verify: render with vars → expected string — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `schedule_message`/`list_scheduled`/`cancel_scheduled` daemon scheduler (kahflane) — verify: schedule +2s → fires, listed, then removed — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Templates: `create_template`/`list_templates`/`render_template` ({{var}}) + `send_template` (kahflane) — verify: render with vars → expected string — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `send_event` calendar event card (kahflane) — verify: live send → event card renders — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `restrict_sending` per-target send blocklist rules (kahflane wa_restrict_sending) — verify: rule blocks send to Test group → structured refusal — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `restrict_sending` per-target send blocklist rules (kahflane wa_restrict_sending) — verify: rule blocks send to Test group → structured refusal — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `logout` tool: unpair current device session (kahflane wa_logout) — verify: logout → /health loggedIn=false; re-pair cycle works — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Autoreply rules `autoreply_set`/`autoreply_add_rule`/`autoreply_list_rules`/`autoreply_remove_rule` (kahflane; lharries #67 as opt-in only, default OFF) — verify: rule ping→pong; phone sends "ping" → "pong" received; default state = off — OUT-OF-SCOPE 0.9: ACCOUNTING
 
