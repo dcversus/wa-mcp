@@ -964,3 +964,21 @@ test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
   expect(recoveries).toHaveLength(1);
   await handle.close();
 });
+
+test("T79 line47 — a stale socket (queries never answered) is torn down and replaced", async () => {
+  vi.useFakeTimers();
+  process.env.WA_STALENESS_MS = "100";
+  const stale = fakeSocket();
+  (stale as { query?: unknown }).query = vi.fn(() => new Promise<never>(() => {}));
+  mockMakeWASocket.mockReturnValueOnce(stale as unknown as WASocket);
+  const second = fakeSocket();
+  mockMakeWASocket.mockReturnValueOnce(second as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  await vi.advanceTimersByTimeAsync(400);
+  // RED today: no staleness hook — the dead socket keeps running silently
+  expect(stale.end).toHaveBeenCalledTimes(1);
+  expect(mockMakeWASocket.mock.calls).toHaveLength(2);
+  delete process.env.WA_STALENESS_MS;
+  vi.useRealTimers();
+  await handle.close();
+});
