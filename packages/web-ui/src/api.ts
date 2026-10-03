@@ -110,7 +110,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       const suffix = params.toString();
       return jsonCall(`/api/contacts${suffix ? `?${suffix}` : ""}`);
     },
-    setAlias: (chatJid, alias) => post("/api/alias", { chat_jid: chatJid, alias }),
+    // T77: the route validates input.jid (NOT chat_jid) — drift fixed
+    setAlias: (chatJid, alias) => post("/api/alias", { jid: chatJid, alias }),
     groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),
     groupMeta: (groupJid, patch) => post("/api/group/meta", { group_jid: groupJid, ...patch }),
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
@@ -124,7 +125,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     downloadMedia: (messageId) => post(`/api/media/${encodeURIComponent(messageId)}`, {}),
     transcribe: (messageId) => post("/api/transcribe", { message_id: messageId }),
     sendTts: (chatJid, text) => post("/api/tts", { chat_jid: chatJid, text }),
-    sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, state }),
+    // T77: the route validates input.presence (NOT state) — drift fixed
+    sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, presence: state }),
     block: (chatJid) => post("/api/block", { chat_jid: chatJid, block: true }),
     setPrivacy: (privacy_key, value) => post("/api/privacy", { privacy_key, value }),
     setProfileName: (name) => post("/api/profile", { name }),

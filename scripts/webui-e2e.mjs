@@ -48,6 +48,10 @@ let nextId = 1;
 const browserPending = new Map();
 const sessionPending = new Map();
 const consoleErrors = [];
+// T77: the send flow fires POST /api/presence (paused) — assert the live
+// daemon accepts the body (the client used to send `state` where the route
+// validates `presence`, and every such call 400'd silently)
+const presenceResponses = [];
 
 ws.on("message", (raw) => {
   const msg = JSON.parse(raw.toString());
@@ -60,6 +64,13 @@ ws.on("message", (raw) => {
     sessionPending.get(msg.id)(msg);
     sessionPending.delete(msg.id);
     return;
+  }
+  if (
+    msg.sessionId !== undefined &&
+    msg.method === "Network.responseReceived" &&
+    String(msg.params?.response?.url ?? "").includes("/api/presence")
+  ) {
+    presenceResponses.push(msg.params.response.status);
   }
   if (msg.sessionId !== undefined && msg.method === "Runtime.consoleAPICalled") {
     if (msg.params.type === "error") {
@@ -130,6 +141,7 @@ const sessionCdp = (method, params = {}) =>
 
 await cdp("Runtime.enable");
 await cdp("Page.enable");
+await cdp("Network.enable");
 await cdp("Page.navigate", { url: `${bridgeUrl}/#/chats` });
 await sleep(2500);
 
@@ -184,6 +196,15 @@ if (chatLink === null) {
     );
     if (composerValue !== "") {
       failures.push(`composer not cleared: '${composerValue}'`);
+    }
+
+    // T77 contract-drift gate: the presence call fired with the send must be
+    // ACCEPTED by the live daemon (200) — a 400 here means the client body
+    // no longer matches the bridge validation contract
+    if (connected && !presenceResponses.some((status) => status === 200)) {
+      failures.push(
+        `presence contract broken: /api/presence responses ${JSON.stringify(presenceResponses)} (want a 200)`,
+      );
     }
   } else {
     console.log("send leg skipped: daemon not connected (pair first) — structural checks only");

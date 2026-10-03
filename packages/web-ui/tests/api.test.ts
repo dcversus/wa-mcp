@@ -153,12 +153,12 @@ describe("task-51 client surface", () => {
     expect(calls[0]?.path).toBe("/api/contacts?query=ali");
   });
 
-  test("setAlias posts chat_jid + alias", async () => {
+  test("setAlias posts jid + alias (T77: the route validates input.jid)", async () => {
     const { client, calls } = recordingClient();
     await client.setAlias("123@s.whatsapp.net", "Andreas");
     expect(calls[0]?.path).toBe("/api/alias");
     expect(JSON.parse(bodyOf(calls[0]))).toEqual({
-      chat_jid: "123@s.whatsapp.net",
+      jid: "123@s.whatsapp.net",
       alias: "Andreas",
     });
   });
@@ -271,6 +271,9 @@ describe("T77 — client requests match the bridge validation contracts", () => 
     await client.setAlias("358497773518@s.whatsapp.net", "V");
     expect(pathOf(calls[0])).toBe("/api/alias");
     // RED: the client sent `chat_jid`, the bridge 400s "jid is required"
-    expect(JSON.parse(bodyOf(calls[0]))).toEqual({ jid: "358497773518@s.whatsapp.net", alias: "V" });
+    expect(JSON.parse(bodyOf(calls[0]))).toEqual({
+      jid: "358497773518@s.whatsapp.net",
+      alias: "V",
+    });
   });
 });
