@@ -83,6 +83,11 @@ function appendReaction(store: Store, chatJid: string, targetId: string, emote: 
       reactions = [];
     }
   }
+  // one active reaction per user per message; until sender-keyed reactions
+  // land, a repeated identical emote (send-echo + reaction event) is a no-op
+  if (reactions[reactions.length - 1]?.emote === emote) {
+    return;
+  }
   reactions.push({ emote });
   store.db
     .prepare("UPDATE messages SET reactions = ? WHERE chat_jid = ? AND id = ?")

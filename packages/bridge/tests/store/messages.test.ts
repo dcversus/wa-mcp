@@ -236,6 +236,31 @@ test("a reaction updates the target row instead of creating a row", () => {
     if (!fetched) throw new Error("target row missing");
     const reactions = JSON.parse(String(fetched.reactions)) as Array<{ emote: string }>;
     expect(reactions).toEqual([{ emote: "👍" }]);
+    // T60: the send-echo + the reaction event both land here — a repeated
+    // identical emote must NOT duplicate the entry (live: [{👍},{👍}])
+    storeMessage(
+      store,
+      waMessage(
+        {
+          key: {
+            remoteJid: "120363428874442773@g.us",
+            fromMe: false,
+            id: "REACT2",
+            participant: "358497773518@s.whatsapp.net",
+          },
+        },
+        {
+          reactionMessage: {
+            key: { id: "MSG1", remoteJid: "120363428874442773@g.us" },
+            text: "👍",
+          },
+        },
+      ),
+    );
+    const refetched = row(store, "MSG1");
+    if (!refetched) throw new Error("target row missing after dedupe");
+    const deduped = JSON.parse(String(refetched.reactions)) as Array<{ emote: string }>;
+    expect(deduped).toEqual([{ emote: "👍" }]);
   } finally {
     store.close();
   }
