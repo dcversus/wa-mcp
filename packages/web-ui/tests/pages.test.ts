@@ -441,3 +441,42 @@ describe("T73 C2 — group meta form escapes injected subject/description", () =
     expect(html).not.toContain('" onmouseover="');
   });
 });
+
+describe("T78 M3 — poll bubbles render question, options and vote counts", () => {
+  const row = {
+    id: "P1",
+    chatJid: "1@g.us",
+    senderName: "Vasilisa",
+    timestamp: "2026-10-03T12:00:00Z",
+    content: "",
+    mentions: [],
+    isFromMe: false,
+    isUnread: false,
+    reactions: null,
+    poll: {
+      question: "lunch?",
+      options: [
+        { label: "Pizza", votes: 2 },
+        { label: "Burger", votes: 0 },
+      ],
+    },
+  };
+
+  test("question + option labels + counts render", () => {
+    const html = messageListHtml([row as never]);
+    expect(html).toContain("lunch?");
+    expect(html).toContain("Pizza");
+    expect(html).toContain("Burger");
+    expect(html).toMatch(/Pizza[^B]*2/);
+    expect(html).toMatch(/Burger[^<]*0/);
+  });
+
+  test("reaction badges read the aggregate shape (emote, not emoji)", () => {
+    const html = messageListHtml([
+      { ...row, poll: null, reactions: [{ emote: "👍", count: 2, senders: ["a", "b"] }] } as never,
+    ]);
+    expect(html).toContain("👍");
+    expect(html).toContain("2");
+    expect(html).not.toContain("undefined");
+  });
+});

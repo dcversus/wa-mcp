@@ -525,3 +525,29 @@ describe("T78 M2 — reactions are an aggregated per-sender model", () => {
     }
   });
 });
+
+describe("T78 M3 — poll data rides the read API", () => {
+  test("listMessages returns question + per-option vote counts", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("P1", GROUP_A, 1000, "lunch?"));
+      store.db
+        .prepare("INSERT INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, 'P1', 0, 'Pizza'), (?, 'P1', 1, 'Burger')")
+        .run(GROUP_A, GROUP_A);
+      store.db
+        .prepare("INSERT INTO poll_votes (chat_jid, message_id, voter_jid, option_idx, voted_at) VALUES (?, 'P1', 'a@s.whatsapp.net', 0, '2026-01-01'), (?, 'P1', 'b@s.whatsapp.net', 0, '2026-01-02')")
+        .run(GROUP_A, GROUP_A);
+      const list = listMessages(store, { chatJid: GROUP_A });
+      const row = list.find((entry) => entry.id === "P1");
+      expect(row?.poll).toEqual({
+        question: "lunch?",
+        options: [
+          { label: "Pizza", votes: 2 },
+          { label: "Burger", votes: 0 },
+        ],
+      });
+    } finally {
+      store.close();
+    }
+  });
+});
