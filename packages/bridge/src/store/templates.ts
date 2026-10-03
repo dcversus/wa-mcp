@@ -15,13 +15,15 @@ export function upsertTemplate(store: Store, template: TemplateRow): void {
 }
 
 export function listTemplates(store: Store): TemplateRow[] {
-  return store.db.prepare("SELECT name, body FROM templates ORDER BY name").all() as TemplateRow[];
+  return store.db
+    .prepare("SELECT name, body FROM templates ORDER BY name")
+    .all() as unknown as TemplateRow[];
 }
 
 export function getTemplate(store: Store, name: string): TemplateRow | undefined {
   return store.db.prepare("SELECT name, body FROM templates WHERE name = ?").get(name) as
-    | TemplateRow
-    | undefined;
+    | undefined
+    | TemplateRow;
 }
 
 /** T82 line89: substitute {{var}} placeholders. Unknown variables are
