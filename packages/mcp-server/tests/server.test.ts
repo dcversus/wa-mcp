@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import {
   handleRpcLine,
   handleRpcMessage,
@@ -225,4 +225,133 @@ test("resources/read fetches each resource over the bridge api", async () => {
   );
   if (unknown?.error === undefined) throw new Error("expected an error response");
   expect(unknown.error.code).toBe(-32602);
+});
+
+describe("T82-B — daemon utility tools", () => {
+  function recordingCtx(log: Array<{ url: string; init: RequestInit }>, status = 200, payload: unknown = {}) {
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify(payload), {
+        status,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    return { ...ctx, fetchFn };
+  }
+
+  test("tools/list includes the seven new utility tools", async () => {
+    const response = await handleRpcLine(makeRequest(20, "tools/list", {}), ctx);
+    const result = resultOf(response);
+    const names = (result.tools as Array<{ name: string }>).map((tool) => tool.name);
+    for (const expected of [
+      "restrict_sending",
+      "create_template",
+      "list_templates",
+      "send_template",
+      "schedule_message",
+      "list_scheduled",
+      "cancel_scheduled",
+    ]) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  test("restrict_sending add posts to /api/send-rules", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const response = await handleRpcLine(
+      makeRequest(21, "tools/call", {
+        name: "restrict_sending",
+        arguments: { action: "add", target: "*@g.us", mode: "block" },
+      }),
+      recordingCtx(log),
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/send-rules");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+      target: "*@g.us",
+      mode: "block",
+    });
+  });
+
+  test("send_template fetches the body, renders locally, sends", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    let call = 0;
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      const entry = { url: String(url), init: init ?? {} };
+      log.push(entry);
+      call += 1;
+      const payload = call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}!" }] } : { message_id: "M9" };
+      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(22, "tools/call", {
+        name: "send_template",
+        arguments: {
+          chat_jid: "358497773518@s.whatsapp.net",
+          name: "greeting",
+          vars: { name: "Vasilisa" },
+        },
+      }),
+      { ...ctx, fetchFn },
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/templates");
+    expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/send");
+    const sent = JSON.parse(String(log[1]?.init.body));
+    expect(sent.text).toBe("hi Vasilisa!");
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("M9");
+  });
+
+  test("send_template with missing vars returns VALIDATION_ERROR and sends nothing", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    let call = 0;
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      call += 1;
+      const payload = call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}, {{event}}!" }] } : {};
+      void url;
+      void init;
+      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(25, "tools/call", {
+        name: "send_template",
+        arguments: {
+          chat_jid: "358497773518@s.whatsapp.net",
+          name: "greeting",
+          vars: { name: "Vasilisa" },
+        },
+      }),
+      { ...ctx, fetchFn },
+    );
+    expect(log).toHaveLength(1); // only the template fetch — nothing was sent
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("VALIDATION_ERROR");
+    expect(content[0]?.text).toContain("event");
+  });
+
+  test("schedule_message posts to /api/scheduled; cancel_scheduled deletes", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    await handleRpcLine(
+      makeRequest(23, "tools/call", {
+        name: "schedule_message",
+        arguments: {
+          chat_jid: "358497773518@s.whatsapp.net",
+          text: "standup",
+          send_at: "2026-10-04T09:00:00Z",
+        },
+      }),
+      recordingCtx(log),
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/scheduled");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "standup",
+      send_at: "2026-10-04T09:00:00Z",
+    });
+    await handleRpcLine(
+      makeRequest(24, "tools/call", { name: "cancel_scheduled", arguments: { id: 7 } }),
+      recordingCtx(log),
+    );
+    expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/scheduled/7");
+    expect(log[1]?.init.method).toBe("DELETE");
+  });
 });
