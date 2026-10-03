@@ -26,9 +26,7 @@ export function upsertGroupParticipants(
 
 /** T76 H7: roster shrink side of group-participants.update (action=remove). */
 export function removeGroupParticipants(store: Store, groupJid: string, jids: Array<string>): void {
-  const remove = store.db.prepare(
-    "DELETE FROM group_participants WHERE group_jid = ? AND jid = ?",
-  );
+  const remove = store.db.prepare("DELETE FROM group_participants WHERE group_jid = ? AND jid = ?");
   for (const jid of jids) {
     remove.run(groupJid, jid);
   }

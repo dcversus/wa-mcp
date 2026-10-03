@@ -856,14 +856,22 @@ describe("T76 H7 — contact + roster events are consumed, not discarded", () =>
       participants: [{ id: "358497773518@s.whatsapp.net", admin: null }],
       action: "add",
     });
-    let jids = (store.db.prepare("SELECT jid FROM group_participants WHERE group_jid = ?").all(group) as Array<{ jid: string }>).map((r) => r.jid);
+    let jids = (
+      store.db
+        .prepare("SELECT jid FROM group_participants WHERE group_jid = ?")
+        .all(group) as Array<{ jid: string }>
+    ).map((r) => r.jid);
     expect(jids).toEqual(["358497773518@s.whatsapp.net"]);
     sock.emit("group-participants.update", {
       id: group,
       participants: [{ id: "358497773518@s.whatsapp.net" }],
       action: "remove",
     });
-    jids = (store.db.prepare("SELECT jid FROM group_participants WHERE group_jid = ?").all(group) as Array<{ jid: string }>).map((r) => r.jid);
+    jids = (
+      store.db
+        .prepare("SELECT jid FROM group_participants WHERE group_jid = ?")
+        .all(group) as Array<{ jid: string }>
+    ).map((r) => r.jid);
     expect(jids).toEqual([]);
     store.close();
   });
