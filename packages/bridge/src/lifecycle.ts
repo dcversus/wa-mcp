@@ -7,7 +7,8 @@ import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
 import { canonicalChatJid } from "./send/send.ts";
-import { upsertGroupParticipants } from "./store/groups.ts";
+import { upsertContact } from "./store/contacts.ts";
+import { removeGroupParticipants, upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
 import { withTransaction } from "./store/schema.ts";
@@ -359,6 +360,62 @@ export async function startBridge(
                 opts.store,
                 group.id,
                 (group.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
+              );
+            }
+          }
+        }
+        if (name === "contacts.upsert") {
+          // T76 H7: the roster push lands in the contacts table (merge keeps
+          // stored aliases — upsertContact only fills blanks)
+          const contacts = payload as Array<{
+            id?: string;
+            name?: string;
+            notify?: string;
+            verifiedName?: string;
+          }>;
+          if (opts.store !== undefined) {
+            for (const contact of contacts) {
+              if (typeof contact.id !== "string" || contact.id.length === 0) {
+                continue;
+              }
+              upsertContact(opts.store, {
+                jid: contact.id,
+                name: contact.name ?? contact.verifiedName,
+                pushname: contact.notify,
+              });
+            }
+          }
+        }
+        if (name === "group-participants.update") {
+          // T76 H7: roster deltas apply to the T64 participants table
+          const update = payload as {
+            id?: string;
+            participants?: Array<{ id?: string; admin?: string | null }>;
+            action?: string;
+          };
+          if (opts.store !== undefined && typeof update.id === "string") {
+            const ids = (update.participants ?? [])
+              .map((participant) => participant.id)
+              .filter((id): id is string => typeof id === "string" && id.length > 0);
+            if (update.action === "remove") {
+              removeGroupParticipants(opts.store, update.id, ids);
+            } else if (update.action === "promote") {
+              upsertGroupParticipants(
+                opts.store,
+                update.id,
+                ids.map((id) => ({ id, admin: "admin" })),
+              );
+            } else if (update.action === "demote") {
+              upsertGroupParticipants(
+                opts.store,
+                update.id,
+                ids.map((id) => ({ id, admin: null })),
+              );
+            } else {
+              upsertGroupParticipants(
+                opts.store,
+                update.id,
+                ids.map((id) => ({ id, admin: null })),
               );
             }
           }

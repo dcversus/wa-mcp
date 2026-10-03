@@ -836,10 +836,11 @@ describe("T76 H7 — contact + roster events are consumed, not discarded", () =>
       { id: "358497773518@s.whatsapp.net", name: "Vasilisa", notify: "V" },
       { id: "120363428874442773@g.us" },
     ]);
-    const rows = store.db.prepare("SELECT * FROM contacts ORDER BY jid").all();
+    const rows = store.db.prepare("SELECT * FROM contacts").all();
     expect(rows).toHaveLength(2);
-    const first = rows[0] as Record<string, unknown>;
-    expect(first.jid).toBe("358497773518@s.whatsapp.net");
+    const first = store.db
+      .prepare("SELECT * FROM contacts WHERE jid = ?")
+      .get("358497773518@s.whatsapp.net") as Record<string, unknown>;
     expect(first.name).toBe("Vasilisa");
     store.close();
   });
