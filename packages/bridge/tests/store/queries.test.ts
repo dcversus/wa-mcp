@@ -416,3 +416,64 @@ describe("T78 M1 — protocol-message tombstones verify the sender", () => {
     }
   });
 });
+
+describe("T78 M2 — reactions are an aggregated per-sender model", () => {
+  function reactionFrom(id: string, participant: string, emote: string, target: string) {
+    return message("RX-" + id, GROUP_A, 4000, "", {
+      key: { remoteJid: GROUP_A, fromMe: false, id: "RX-" + id, participant },
+    }, {
+      reactionMessage: { key: { id: target, remoteJid: GROUP_A }, text: emote },
+    });
+  }
+
+  test("two senders on one emoji + a third on another -> counts and senders", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("M1", GROUP_A, 1000, "react to me"));
+      storeMessage(reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M1"));
+      storeMessage(reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M1"));
+      storeMessage(reactionFrom("C", "3584000000003@s.whatsapp.net", "🎉", "M1"));
+      const list = listMessages(store, { chatJid: GROUP_A });
+      const target = list.find((row) => row.id === "M1");
+      expect(target?.reactions).toEqual([
+        {
+          emote: "👍",
+          count: 2,
+          senders: ["3584000000001@s.whatsapp.net", "3584000000002@s.whatsapp.net"],
+        },
+        { emote: "🎉", count: 1, senders: ["3584000000003@s.whatsapp.net"] },
+      ]);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("an empty emote removes that sender's reaction only", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("M2", GROUP_A, 1000, "react to me"));
+      storeMessage(reactionFrom("A", "3584000000001@s.whatsapp.net", "👍", "M2"));
+      storeMessage(reactionFrom("B", "3584000000002@s.whatsapp.net", "👍", "M2"));
+      storeMessage(reactionFrom("A2", "3584000000001@s.whatsapp.net", "", "M2"));
+      const list = listMessages(store, { chatJid: GROUP_A });
+      const target = list.find((row) => row.id === "M2");
+      expect(target?.reactions).toEqual([
+        { emote: "👍", count: 1, senders: ["3584000000002@s.whatsapp.net"] },
+      ]);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("migration v9 creates the sender-keyed reactions table", () => {
+    const store = makeStore();
+    try {
+      const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
+      expect(versions.map((row) => (row as { version: number }).version)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9,
+      ]);
+    } finally {
+      store.close();
+    }
+  });
+});
