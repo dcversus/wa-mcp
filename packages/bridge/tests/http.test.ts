@@ -2835,3 +2835,57 @@ describe("T73 H2 — SSE never streams credential-bearing events", () => {
     expect(text).not.toContain("SECRET-ACCOUNT");
   });
 });
+
+describe("T74 — health-poll and SSE never starve the API rate bucket", () => {
+  function tightServer(): ReturnType<typeof createHttpServer> {
+    return createHttpServer(stubHandle("connected"), {
+      token: "test-token",
+      // refill 0: deterministic — no token ever comes back mid-test
+      rateLimit: { capacity: 2, refillPerMinute: 0 },
+    });
+  }
+
+  test("capacity=2: two /health polls then /api/chats still reaches the route", async () => {
+    const bridge = await tightServer();
+    created.push(bridge);
+    for (let i = 0; i < 2; i += 1) {
+      const health = await fetch(url(bridge, "/health"));
+      expect(health.status).toBe(200);
+    }
+    const chats = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
+    // RED today: health spent both tokens -> 429; GREEN: reaches the route (501 on the fixture)
+    expect(chats.status).toBe(501);
+  });
+
+  test("capacity=2: an open SSE /events connection does not consume the bucket", async () => {
+    const bridge = await tightServer();
+    created.push(bridge);
+    const controllers = [new AbortController(), new AbortController()];
+    try {
+      // both buckets spent on streams before any API call
+      for (const controller of controllers) {
+        const events = await fetch(url(bridge, "/events?token=test-token"), {
+          signal: controller.signal,
+        });
+        expect(events.status).toBe(200);
+      }
+      const chats = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
+      expect(chats.status).toBe(501);
+    } finally {
+      for (const controller of controllers) {
+        controller.abort();
+      }
+    }
+  });
+
+  test("the API bucket still enforces: 3rd API call at capacity=2 is 429", async () => {
+    const bridge = await tightServer();
+    created.push(bridge);
+    expect((await fetch(url(bridge, "/api/chats"), { headers: authHeader })).status).toBe(501);
+    expect((await fetch(url(bridge, "/api/chats"), { headers: authHeader })).status).toBe(501);
+    const third = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
+    expect(third.status).toBe(429);
+    const body = (await third.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("RATE_LIMITED");
+  });
+});
