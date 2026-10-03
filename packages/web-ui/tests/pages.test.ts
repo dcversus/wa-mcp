@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
+  chatErrorHtml,
   chatListHtml,
   contextViewHtml,
   groupParticipantsHtml,
@@ -270,6 +271,6 @@ describe("T67 send-outcome UX", () => {
 
   test("chatErrorHtml offers a dismiss affordance", () => {
     const html = chatErrorHtml("boom");
-    expect(html).toContain('data-dismiss-error');
+    expect(html).toContain("data-dismiss-error");
   });
 });

@@ -518,3 +518,24 @@ code {
   flex-wrap: wrap;
   margin-top: 10px;
 }
+
+/* ---- T67 send-outcome ---- */
+.send-error {
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.send-error button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 0 4px;
+  text-decoration: underline;
+}
+.messages {
+  scroll-behavior: smooth;
+}

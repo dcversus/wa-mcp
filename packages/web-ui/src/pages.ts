@@ -301,3 +301,8 @@ export function privacyMatrixHtml(current: Record<string, string>): string {
   }).join("");
   return `<section id="privacy-matrix"><h3>Privacy</h3>${rows}<button id="privacy-apply" type="button">apply privacy</button></section>`;
 }
+
+/** Inline send-failure banner (T67): escaped engine message + dismiss. */
+export function chatErrorHtml(message: string): string {
+  return `<div class="send-error" role="alert"><span>${escapeHtml(message)}</span> <button data-dismiss-error type="button">dismiss</button></div>`;
+}

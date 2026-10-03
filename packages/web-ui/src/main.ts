@@ -2,6 +2,7 @@ import "./styles.css";
 import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
 import {
+  chatErrorHtml,
   chatListHtml,
   contextViewHtml,
   eventsPageHtml,
@@ -398,13 +399,42 @@ function bindSendBox(): void {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = form.querySelector("input[name=text]") as HTMLInputElement;
-    await client.sendMessage(
-      chatJid,
-      replyToId !== null ? `> ${replyToId}\n${input.value}` : input.value,
-    );
-    input.value = "";
-    replyToId = null;
+    const text = input.value;
+    if (text.length === 0) {
+      return;
+    }
+    form.querySelector(".send-error")?.remove();
+    try {
+      await client.sendMessage(chatJid, replyToId !== null ? `> ${replyToId}\n${text}` : text);
+      input.value = "";
+      replyToId = null;
+      // re-fetch + re-render so the sent bubble appears immediately (T67)
+      const payload = (await client.getMessages(chatJid, 50)) as {
+        messages: Parameters<typeof messageListHtml>[1];
+      };
+      const app = document.getElementById("app");
+      if (app !== null) {
+        app.innerHTML = messageListHtml(chatJid, payload.messages);
+        bindSendBox();
+        const scroller = app.querySelector(".messages");
+        if (scroller !== null) {
+          scroller.scrollTop = scroller.scrollHeight;
+        }
+      }
+    } catch (err) {
+      // keep the composer text (retry-able) and show the engine message inline
+      const message = err instanceof Error ? err.message : String(err);
+      form.insertAdjacentHTML(
+        "beforebegin",
+        chatErrorHtml(`${message} — message NOT sent, text preserved`),
+      );
+    }
     void client.sendPresence(chatJid, "paused").catch(() => undefined);
+  });
+  form.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).matches("[data-dismiss-error]")) {
+      form.parentElement?.querySelector(".send-error")?.remove();
+    }
   });
 }
 
