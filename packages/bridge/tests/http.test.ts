@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
@@ -391,7 +391,7 @@ test("/api/qr returns the qr string and base64 png once available", async () => 
   expect(Buffer.from(body.png, "base64")).toEqual(fileBytes);
 });
 
-test("/api/qr serves named files from qrDir", async () => {
+test("/api/qr?file= allows ONLY qr.png (T73 Grok C2 allowlist)", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
   const second = join(dir, "qr-2.png");
   await saveQrPng("QRDATA-rotation-2", second);
@@ -402,9 +402,45 @@ test("/api/qr serves named files from qrDir", async () => {
   });
   created.push(bridge);
   const res = await fetch(url(bridge, "/api/qr?file=qr-2.png"), { headers: authHeader });
-  expect(res.status).toBe(200);
-  const body = (await res.json()) as { qr: string; png: string };
-  expect(Buffer.from(body.png, "base64")).toEqual(await readFile(second));
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { code: string } };
+  expect(body.error.code).toBe("INVALID_PATH");
+  // the allowlisted name still serves
+  const good = await fetch(url(bridge, "/api/qr?file=qr.png"), { headers: authHeader });
+  expect(good.status).toBe(200);
+});
+
+test("/api/qr?file=token never leaks a neighbouring token file (T73 Grok C2)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
+  await writeFile(join(dir, "token"), "SECRET-DAEMON-TOKEN");
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
+    token: "test-token",
+    qrPngPath: join(dir, "qr.png"),
+    qrDir: dir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/qr?file=token"), { headers: authHeader });
+  expect(res.status).toBe(400);
+  const text = await res.text();
+  expect(text).not.toContain("SECRET-DAEMON-TOKEN");
+});
+
+test("/api/qr?file=qr.png refuses a symlink pointing outside qrDir (T73 Grok C2)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
+  const secretDir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-secret-"));
+  const outside = join(secretDir, "secret.txt");
+  await writeFile(outside, "OUTSIDE-SECRET");
+  await symlink(outside, join(dir, "qr.png"));
+  const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
+    token: "test-token",
+    qrPngPath: join(dir, "qr.png"),
+    qrDir: dir,
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/qr?file=qr.png"), { headers: authHeader });
+  expect(res.status).toBe(403);
+  const text = await res.text();
+  expect(text).not.toContain("OUTSIDE-SECRET");
 });
 
 test("/api/qr rejects path traversal with 400", async () => {
