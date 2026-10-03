@@ -928,7 +928,7 @@ describe("T79 — connection robustness", () => {
       logger: {
         error: () => undefined,
         warn: (obj: unknown, msg?: unknown) => warns.push(String(msg ?? obj)),
-      },
+      } as unknown as BridgeLogger,
     });
     for (let i = 0; i < 3; i += 1) {
       sock.emit("connection.update", {

@@ -40,18 +40,12 @@ test("parseMcpConfig prefers flags over env and applies defaults", () => {
 test("T79 line51 — the stdio server exits 0 when stdin closes (parent death)", async () => {
   const { spawn } = await import("node:child_process");
   const root = new URL("..", import.meta.url).pathname;
-  const child = spawn(
-    process.execPath,
-    ["--experimental-strip-types", "src/bin.ts"],
-    {
-      cwd: root,
-      env: { ...process.env, WA_TOKEN: "t" },
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  );
-  const exited = new Promise<number | null>((resolve) =>
-    child.on("exit", (code) => resolve(code)),
-  );
+  const child = spawn(process.execPath, ["--experimental-strip-types", "src/bin.ts"], {
+    cwd: root,
+    env: { ...process.env, WA_TOKEN: "t" },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const exited = new Promise<number | null>((resolve) => child.on("exit", (code) => resolve(code)));
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("server still alive 2s after stdin EOF")), 2000),
   );
