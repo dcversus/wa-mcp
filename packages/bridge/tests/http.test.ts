@@ -2944,3 +2944,13 @@ test("T76 H10 — the mock tts engine refuses voice sends to real chats", async 
   expect(body.error.message).toContain("tts engine is a mock");
   expect(socket.sendMessage).not.toHaveBeenCalled();
 });
+
+test("T79 line49 — /health exposes reconnects + lastDisconnectAt", async () => {
+  const handle = stubHandle("connected");
+  handle.connectionQuality = () => ({ reconnects: 2, lastDisconnectAt: 1_700_000_000_000 });
+  const bridge = await createHttpServer(handle, { token: "test-token" });
+  created.push(bridge);
+  const body = (await (await fetch(url(bridge, "/health"))).json()) as Record<string, unknown>;
+  expect(body.reconnects).toBe(2);
+  expect(body.lastDisconnectAt).toBe(1_700_000_000_000);
+});
