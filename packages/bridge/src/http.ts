@@ -6,6 +6,7 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join, resolve, sep } from "node:path";
 import { realpath } from "node:fs/promises";
 import type { BridgeHandle } from "./lifecycle.ts";
+import { isSafePublicEvent } from "./events.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
@@ -1759,6 +1760,11 @@ export async function createHttpServer(
           });
           res.write(": connected\n\n");
           const unsubscribe = handle.events.subscribe((event) => {
+            // T73 H2: credential-bearing events (creds.update et al) never
+            // reach the public SSE stream — safe-set whitelist
+            if (!isSafePublicEvent(event)) {
+              return;
+            }
             res.write(`data: ${JSON.stringify({ type: event.type, payload: event.payload })}\n\n`);
           });
           const heartbeat = setInterval(() => {

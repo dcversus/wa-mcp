@@ -771,7 +771,7 @@ test("POST /api/send kind=image sends, stores the file and links the row", async
   expect(arg.mimetype).toBe("image/png");
   const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
   expect(row.media_type).toBe("image");
-  const mediaPath = String(row.media_path ?? "");
+  const mediaPath = typeof row.media_path === "string" ? row.media_path : "";
   expect(mediaPath.endsWith(`SENTID1.png`)).toBe(true);
   if (POSIX_PERMS) {
     expect(statSync(mediaPath).mode & 0o777).toBe(0o644);

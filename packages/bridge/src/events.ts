@@ -44,6 +44,27 @@ export const EVENT_NAMES = [
 
 export type ConnectionUpdate = WaEventMap["connection.update"];
 
+/** T73 H2: the public SSE surface (/events) whitelists chat/message/presence/
+ * metadata events ONLY. Excluded on purpose: "creds.update" (partials carry
+ * me/pairingCode/account/signalIdentities/advSecretKey), "messaging-history.set"
+ * (bulk history blobs) and "call" (not chat-derived) must never stream. */
+export const SAFE_EVENT_NAMES: ReadonlySet<WaEventName> = new Set<WaEventName>([
+  "connection.update",
+  "messages.upsert",
+  "message-receipt.update",
+  "presence.update",
+  "chats.update",
+  "chats.upsert",
+  "contacts.upsert",
+  "groups.update",
+  "groups.upsert",
+  "group-participants.update",
+]);
+
+export function isSafePublicEvent(event: WaEvent): boolean {
+  return SAFE_EVENT_NAMES.has(event.type);
+}
+
 export interface EventBus {
   subscribe(handler: WaEventHandler): Unsubscribe;
   unsubscribe(handler: WaEventHandler): void;
