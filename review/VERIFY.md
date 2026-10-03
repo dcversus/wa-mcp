@@ -148,3 +148,7 @@ no checkbox is claimed without evidence.
 - T70 media query token — PASS — dogfood final sweep: chat route 1 img 0 broken (was: broken thumbnail — src lacked ?token=); suite 544/544; e2e PASS (my runs)
 - Owner UX directive execution — complete for this pass: 10 dogfood findings -> T67/T68/T69/T70 fixes -> dogfood re-run clean (10 routes, 0 console errors, 0 failed requests, 0 broken imgs) + webui-e2e gate PASS + archived/reactions verified shipped
 - release tarball (post-T70) — PASS — sha256 5e0f1004cf8675148bf27150f4da524d0de1d4c28dc46dfa8f48b657d7401ecd; includes the full UX overhaul (T66 protocol-ingest fix, T67 layout+pages, T68 send UX, T69 media/day-separators/banner, T70 media query-token). Dogfood/e2e harnesses ship in the repo (scripts/), not the npm package.
+- §5 FTS operators + global search live — PASS — q='wa-mcp AND test' → 7 hits; phrase '"storage fix"' → 2; global (no chat filter) q=test → 10
+- §5 context live — PASS — /api/context radius=2 on Vasilisa's reply → 4 messages
+- §8 presence live — PASS — composing → {ok:true}; recording → {ok:true}
+- §17 concurrent MCP clients live — PASS — two overlapping JSON-RPC /mcp streams (Promise.all, same daemon): both 200, 32 tools each
