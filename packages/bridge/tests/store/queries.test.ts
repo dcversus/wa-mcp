@@ -8,6 +8,7 @@ import type { WAMessage } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { applyMigrations } from "../../src/store/schema.ts";
 import { storeMessage } from "../../src/store/messages.ts";
+import { markHistorySynced } from "../../src/store/meta.ts";
 import {
   fetchMessageFromStore,
   getMessageContext,
@@ -262,7 +263,7 @@ test("fts stays in sync through the full message lifecycle", () => {
   try {
     const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
     expect(versions.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ]);
     storeMessage(store, message("S1", GROUP_A, 1000, "original words"));
     expect(searchMessages(store, "original", {})).toHaveLength(1);
@@ -550,6 +551,44 @@ describe("T78 M3 — poll data rides the read API", () => {
           { label: "Burger", votes: 0 },
         ],
       });
+    } finally {
+      store.close();
+    }
+  });
+});
+
+describe("T80 — line45 disappearing settings + line66 sync watermark", () => {
+  test("line45 — an EPHEMERAL_SETTING ingest stores per-chat disappearing", () => {
+    const store = makeStore();
+    try {
+      storeMessage(store, message("EPH1", GROUP_A, 1000, "x", {}, {
+        protocolMessage: {
+          type: proto.Message.ProtocolMessage.Type.EPHEMERAL_SETTING,
+          ephemeralDuration: 604_800,
+        },
+      } as never));
+      const row = store.db
+        .prepare("SELECT ephemeral_duration, ephemeral_setting_ts FROM chats WHERE jid = ?")
+        .get(GROUP_A) as { ephemeral_duration: number | null; ephemeral_setting_ts: string | null };
+      expect(row.ephemeral_duration).toBe(604_800);
+      expect(row.ephemeral_setting_ts).not.toBeNull();
+    } finally {
+      store.close();
+    }
+  });
+
+  test("line66 — a history sync advances the watermark and marks chats", () => {
+    const store = makeStore();
+    try {
+      markHistorySynced(store, GROUP_A);
+      const watermark = store.db
+        .prepare("SELECT value FROM meta WHERE key = 'history_sync_watermark'")
+        .get() as { value: string } | undefined;
+      expect(watermark?.value).toBeDefined();
+      const chat = store.db
+        .prepare("SELECT history_synced_at FROM chats WHERE jid = ?")
+        .get(GROUP_A) as { history_synced_at: string | null };
+      expect(chat.history_synced_at).not.toBeNull();
     } finally {
       store.close();
     }

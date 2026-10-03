@@ -194,6 +194,12 @@ CREATE TABLE IF NOT EXISTS reactions (
 );
 `;
 
+const MIGRATION_V10 = `
+ALTER TABLE chats ADD COLUMN history_synced_at TEXT;
+ALTER TABLE chats ADD COLUMN ephemeral_duration INTEGER;
+ALTER TABLE chats ADD COLUMN ephemeral_setting_ts TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -204,6 +210,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 7, sql: MIGRATION_V7 },
   { version: 8, sql: MIGRATION_V8 },
   { version: 9, sql: MIGRATION_V9 },
+  { version: 10, sql: MIGRATION_V10 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
