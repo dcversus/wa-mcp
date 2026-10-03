@@ -474,7 +474,7 @@ function bindGroupsControls(): void {
         description?: string;
       } | null;
       const list = (meta?.participants ?? []).map((p) =>
-        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: p.admin ?? null },
+        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: Boolean(p.admin) },
       );
       const panel = document.getElementById("group-participants");
       if (panel !== null) {
@@ -486,6 +486,7 @@ function bindGroupsControls(): void {
         groupParticipantsHtml(jid, list) +
           `<form id="group-meta-edit" data-meta-jid="${jid}"><input name="subject" placeholder="new subject" value="${meta?.subject ?? ""}" /><input name="description" placeholder="new description" value="${meta?.description ?? ""}" /><button type="submit">save</button></form>`,
       );
+      bindParticipantsControls();
       bindGroupMetaControls(jid);
     });
   });
