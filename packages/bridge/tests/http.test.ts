@@ -2777,3 +2777,54 @@ describe("T73 C3 — no unhandled rejections from the body-read callback", () =>
     expect(errors.length).toBeGreaterThan(0);
   });
 });
+
+describe("T73 H2 — SSE never streams credential-bearing events", () => {
+  function streamEvents(bridge: BridgeHttp, controller: AbortController): Promise<string> {
+    return (async () => {
+      const res = await fetch(url(bridge, "/events?token=test-token"), {
+        signal: controller.signal,
+      });
+      const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          text += decoder.decode(value, { stream: true });
+        }
+      } catch {
+        // aborted — expected
+      }
+      return text;
+    })();
+  }
+
+  test("creds.update payloads never reach the stream; safe events do", async () => {
+    const handle = stubHandle();
+    const bridge = await createHttpServer(handle, { token: "test-token" });
+    created.push(bridge);
+    const controller = new AbortController();
+    const streamDone = streamEvents(bridge, controller);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    handle.events.emit({
+      type: "creds.update",
+      payload: {
+        me: { id: "1:1@s.whatsapp.net", name: "x" },
+        account: { details: "SECRET-ACCOUNT" },
+        advSecretKey: "SECRET-ADV-KEY",
+        signalIdentities: [
+          { identifier: { name: "SECRET-IDENTITY", uuid: "u" }, identifierKey: null },
+        ],
+      },
+    } as never);
+    handle.events.emit({ type: "connection.update", payload: { connection: "open" } });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    controller.abort();
+    const text = await streamDone;
+    expect(text).toContain("connection.update");
+    expect(text).not.toContain("creds.update");
+    expect(text).not.toContain("SECRET-ADV-KEY");
+    expect(text).not.toContain("SECRET-ACCOUNT");
+  });
+});
