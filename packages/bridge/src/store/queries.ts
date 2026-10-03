@@ -33,6 +33,7 @@ export interface MessageRow {
   isFromMe: boolean;
   isUnread: boolean;
   reactions: Array<ReactionAggregate> | null;
+  poll?: { question: string; options: Array<{ label: string; votes: number }> } | null;
 }
 
 export interface Pagination {
@@ -123,8 +124,48 @@ function attachReactions(store: Store, rows: MessageRow[]): void {
   }
 }
 
+/** T78 M3: poll rows carry their question + per-option vote counts. */
+function attachPolls(store: Store, rows: MessageRow[]): void {
+  const pollIds = rows.filter((row) => row.poll === undefined).map((row) => row.id);
+  if (pollIds.length === 0) {
+    return;
+  }
+  const placeholders = pollIds.map(() => "?").join(",");
+  const options = store.db
+    .prepare(
+      `SELECT message_id, chat_jid, idx, label FROM poll_options WHERE message_id IN (${placeholders}) ORDER BY idx`,
+    )
+    .all(...pollIds) as Array<{ message_id: string; chat_jid: string; idx: number; label: string }>;
+  const votes = store.db
+    .prepare(
+      `SELECT message_id, option_idx, COUNT(*) AS n FROM poll_votes WHERE message_id IN (${placeholders}) GROUP BY message_id, option_idx`,
+    )
+    .all(...pollIds) as Array<{ message_id: string; option_idx: number; n: number }>;
+  const votesBy = new Map<string, number>();
+  for (const entry of votes) {
+    votesBy.set(`${entry.message_id}\u0000${entry.option_idx}`, entry.n);
+  }
+  for (const row of rows) {
+    const mine = options.filter(
+      (option) => option.message_id === row.id && option.chat_jid === row.chatJid,
+    );
+    if (mine.length === 0) {
+      row.poll = null;
+      continue;
+    }
+    row.poll = {
+      question: asString(row.content) ?? "",
+      options: mine.map((option) => ({
+        label: option.label,
+        votes: votesBy.get(`${row.id}\u0000${option.idx}`) ?? 0,
+      })),
+    };
+  }
+}
+
 function attachOne(store: Store, row: MessageRow): MessageRow {
   attachReactions(store, [row]);
+  attachPolls(store, [row]);
   return row;
 }
 function rowToMessage(row: RawRow): MessageRow {
@@ -217,6 +258,7 @@ export function listMessages(store: Store, opts: ListMessagesFilter): MessageRow
     .all(...params, limit, offset) as RawRow[];
   const messages = rows.map(rowToMessage);
   attachReactions(store, messages);
+  attachPolls(store, messages);
   return messages;
 }
 
@@ -317,6 +359,7 @@ export function searchMessages(
         .all(sanitized, ...chatParams, limit, offset) as RawRow[];
       const messages = rows.map(rowToMessage);
       attachReactions(store, messages);
+      attachPolls(store, messages);
       return messages;
     } catch {
       return likeFallback(store, query, opts, limit, offset);
@@ -345,6 +388,7 @@ function likeFallback(
       .all(pattern, opts.chatJid, limit, offset) as RawRow[];
     const messages = rows.map(rowToMessage);
     attachReactions(store, messages);
+    attachPolls(store, messages);
     return messages;
   }
   const rows = store.db
@@ -355,6 +399,7 @@ function likeFallback(
     .all(pattern, limit, offset) as RawRow[];
   const messages = rows.map(rowToMessage);
   attachReactions(store, messages);
+  attachPolls(store, messages);
   return messages;
 }
 

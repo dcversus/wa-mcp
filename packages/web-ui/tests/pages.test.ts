@@ -176,7 +176,13 @@ describe("T51-B chats", () => {
         content: null,
         isFromMe: true,
         isUnread: false,
-        poll: { question: "Lunch?", options: ["A", "B"] },
+        poll: {
+          question: "Lunch?",
+          options: [
+            { label: "A", votes: 3 },
+            { label: "B", votes: 1 },
+          ],
+        },
       },
       {
         id: "m3",
@@ -187,12 +193,12 @@ describe("T51-B chats", () => {
         isFromMe: false,
         isUnread: false,
         quoted: { text: "original", senderName: "V" },
-        reactions: [{ emoji: "👍", count: 2 }],
+        reactions: [{ emote: "👍", count: 2 }],
       },
     ]);
     expect(html).toContain('src="/api/media/m1"'); // T68: real thumbnail
     expect(html).toContain("📊 Lunch?");
-    expect(html).toContain("A · B");
+    expect(html).toContain("A · 3 votes");
     expect(html).toContain("original");
     expect(html).toContain("👍");
     expect(html).not.toContain("<b>bold</b>");
@@ -463,7 +469,7 @@ describe("T78 M3 — poll bubbles render question, options and vote counts", () 
   };
 
   test("question + option labels + counts render", () => {
-    const html = messageListHtml([row as never]);
+    const html = messageListHtml("1@g.us", [row as never]);
     expect(html).toContain("lunch?");
     expect(html).toContain("Pizza");
     expect(html).toContain("Burger");
@@ -472,7 +478,7 @@ describe("T78 M3 — poll bubbles render question, options and vote counts", () 
   });
 
   test("reaction badges read the aggregate shape (emote, not emoji)", () => {
-    const html = messageListHtml([
+    const html = messageListHtml("1@g.us", [
       { ...row, poll: null, reactions: [{ emote: "👍", count: 2, senders: ["a", "b"] }] } as never,
     ]);
     expect(html).toContain("👍");

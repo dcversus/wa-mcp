@@ -132,9 +132,9 @@ export interface MessageView {
   isFromMe: boolean;
   isUnread: boolean;
   mediaType?: "image" | "video" | "audio" | "document" | "sticker" | null;
-  poll?: { question: string; options: string[] } | null;
+  poll?: { question: string; options: Array<{ label: string; votes: number }> } | null;
   quoted?: { text: string | null; senderName: string | null } | null;
-  reactions?: Array<{ emoji: string; count: number }> | null;
+  reactions?: Array<{ emote: string; count: number; senders?: string[] }> | null;
 }
 
 export function dayKey(isoTimestamp: string): string {
@@ -165,8 +165,8 @@ export function messageListHtml(
     let body: string;
     if (message.poll) {
       body = `📊 ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
-        .map((option) => escapeHtml(option))
-        .join(" · ")}</span>`;
+        .map((option) => `${escapeHtml(option.label)} · ${option.votes} votes`)
+        .join(" — ")}</span>`;
     } else if (message.mediaType !== undefined && message.mediaType !== null) {
       const mediaSrc = mediaUrl(message.id);
       if (message.mediaType === "image") {
@@ -190,7 +190,7 @@ export function messageListHtml(
     const reactions =
       message.reactions && message.reactions.length > 0
         ? `<span class="reactions">${message.reactions
-            .map((r) => `<span class="reaction">${escapeHtml(r.emoji)} ${r.count}</span>`)
+            .map((r) => `<span class="reaction">${escapeHtml(r.emote)} ${r.count}</span>`)
             .join("")}</span>`
         : "";
     items.push(

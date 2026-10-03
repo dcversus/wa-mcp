@@ -343,7 +343,6 @@ const loaders: {
         Parameters<typeof messageListHtml>[1][number] & {
           mediaType?: string | null;
           quotedMessageId?: string | null;
-          reactions?: string | null;
         }
       >;
     };
@@ -353,7 +352,8 @@ const loaders: {
         row.quotedMessageId !== undefined && row.quotedMessageId !== null
           ? { text: null, senderName: null }
           : null,
-      reactions: parseReactions(row.reactions),
+      // T78 M2/M3: the API ships the aggregate ({emote,count,senders}) + poll data
+      reactions: row.reactions ?? null,
     }));
     return messageListHtml(params.jid ?? "", messages, {
       mediaToken: effectiveToken(settings, pairingToken),
@@ -491,20 +491,6 @@ function bindSendBox(): void {
       form.parentElement?.querySelector(".send-error")?.remove();
     }
   });
-}
-
-function parseReactions(raw: string | null | undefined): Array<{ emoji: string; count: number }> {
-  if (raw === undefined || raw === null || raw.length === 0) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw) as Array<{ emoji?: string; count?: number }>;
-    return parsed
-      .filter((entry) => typeof entry.emoji === "string")
-      .map((entry) => ({ emoji: entry.emoji as string, count: entry.count ?? 1 }));
-  } catch {
-    return [];
-  }
 }
 
 function bindContactsControls(): void {

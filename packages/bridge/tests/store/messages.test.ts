@@ -234,8 +234,11 @@ test("a reaction updates the target row instead of creating a row", () => {
     expect(count.n).toBe(1);
     const fetched = row(store, "MSG1");
     if (!fetched) throw new Error("target row missing");
-    const reactions = JSON.parse(String(fetched.reactions)) as Array<{ emote: string }>;
-    expect(reactions).toEqual([{ emote: "👍" }]);
+    // T78 M2: reactions live in the sender-keyed table now
+    const reactions = store.db
+      .prepare("SELECT emoji, sender_jid FROM reactions WHERE message_id = 'MSG1'")
+      .all() as Array<{ emoji: string; sender_jid: string }>;
+    expect(reactions).toEqual([{ emoji: "👍", sender_jid: "358497773518@s.whatsapp.net" }]);
     // T60: the send-echo + the reaction event both land here — a repeated
     // identical emote must NOT duplicate the entry (live: [{👍},{👍}])
     storeMessage(
@@ -259,8 +262,11 @@ test("a reaction updates the target row instead of creating a row", () => {
     );
     const refetched = row(store, "MSG1");
     if (!refetched) throw new Error("target row missing after dedupe");
-    const deduped = JSON.parse(String(refetched.reactions)) as Array<{ emote: string }>;
-    expect(deduped).toEqual([{ emote: "👍" }]);
+    // T78 M2: the sender-keyed PK dedupes — the repeated emote is ONE row
+    const deduped = store.db
+      .prepare("SELECT COUNT(*) AS n FROM reactions WHERE message_id = 'MSG1'")
+      .get() as { n: number };
+    expect(deduped.n).toBe(1);
   } finally {
     store.close();
   }
