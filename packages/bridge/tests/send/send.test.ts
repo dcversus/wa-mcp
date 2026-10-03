@@ -136,3 +136,40 @@ describe("T56 LID resolution", () => {
     expect(rows.some((row) => row.id === "id-221900000001937@lid" && row.isFromMe)).toBe(true);
   });
 });
+
+describe("T59 full-jid mapping args (engine lid-mapping contract)", () => {
+  // fork lid-mapping.js: getLIDsForPNsImpl skips any pn failing isPnUser
+  // (endsWith '@s.whatsapp.net') — BARE users are silently dropped.
+  function engineStyleSocket(map: Record<string, string>): { socket: WASocket; received: string[] } {
+    const received: string[] = [];
+    const socket = {
+      signalRepository: {
+        lidMapping: {
+          getLIDForPN: async (pn: string) => {
+            received.push(pn);
+            return map[pn] ?? null;
+          },
+        },
+      },
+      sendMessage: async (jid: string) => {
+        return { key: { remoteJid: jid, fromMe: true, id: `id-${jid}` } };
+      },
+    } as unknown as WASocket;
+    return { socket, received };
+  }
+
+  test("resolveLidJid passes the FULL PN jid to getLIDForPN and returns the LID", async () => {
+    const { socket, received } = engineStyleSocket({
+      "358497773518@s.whatsapp.net": "221900000001937@lid",
+    });
+    expect(await resolveLidJid(socket, "358497773518@s.whatsapp.net")).toBe("221900000001937@lid");
+    expect(received).toEqual(["358497773518@s.whatsapp.net"]);
+  });
+
+  test("resolveLidJid keeps the device suffix on the returned LID jid", async () => {
+    const { socket } = engineStyleSocket({
+      "358497773518:2@s.whatsapp.net": "221900000001937@lid",
+    });
+    expect(await resolveLidJid(socket, "358497773518:2@s.whatsapp.net")).toBe("221900000001937@lid");
+  });
+});
