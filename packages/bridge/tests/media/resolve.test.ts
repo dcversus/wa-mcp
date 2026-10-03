@@ -8,6 +8,9 @@ import { openStore, type Store } from "../../src/store/schema.ts";
 const POSIX_PERMS = process.platform !== "win32";
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+/** T73 H3: the SSRF guard resolves names — stub DNS with a public IP */
+const publicLookup = async () => [{ address: "93.184.216.34", family: 4 }];
+
 const JPEG = Buffer.from("ffd8ffe000104a464946", "hex");
 const MP3 = Buffer.concat([Buffer.from("494433", "hex"), Buffer.alloc(64, 1)]);
 const OGG = Buffer.concat([Buffer.from("4f676753", "hex"), Buffer.alloc(32, 2)]);
@@ -134,15 +137,21 @@ test("url input fetches, sniffs and caps size", async () => {
   }) as unknown as typeof fetch;
   const ok = await resolveMedia(
     { url: "https://cdn.example/cat.jpg" },
-    { mediaDir: dir, fetchFn: fetchMock },
+    { mediaDir: dir, fetchFn: fetchMock, lookupFn: publicLookup },
   );
   expect(ok.mimeType).toBe("image/jpeg");
   expect(ok.fileName).toBe("cat.jpg");
   await expect(
-    resolveMedia({ url: "https://cdn.example/big.bin" }, { mediaDir: dir, fetchFn: fetchMock }),
+    resolveMedia(
+      { url: "https://cdn.example/big.bin" },
+      { mediaDir: dir, fetchFn: fetchMock, lookupFn: publicLookup },
+    ),
   ).rejects.toMatchObject({ code: "TOO_LARGE" });
   await expect(
-    resolveMedia({ url: "https://cdn.example/down" }, { mediaDir: dir, fetchFn: fetchMock }),
+    resolveMedia(
+      { url: "https://cdn.example/down" },
+      { mediaDir: dir, fetchFn: fetchMock, lookupFn: publicLookup },
+    ),
   ).rejects.toMatchObject({ code: "FETCH_FAILED" });
 });
 

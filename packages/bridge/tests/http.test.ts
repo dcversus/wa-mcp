@@ -395,6 +395,7 @@ test("/api/qr?file= allows ONLY qr.png (T73 Grok C2 allowlist)", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-http-"));
   const second = join(dir, "qr-2.png");
   await saveQrPng("QRDATA-rotation-2", second);
+  await saveQrPng("QRDATA-rotation-1", join(dir, "qr.png"));
   const bridge = await createHttpServer(stubHandle("qr", "QRDATA-rotation-1"), {
     token: "test-token",
     qrPngPath: join(dir, "qr.png"),
@@ -467,12 +468,14 @@ test("/api/qr rejects path traversal with 400", async () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code, label).toBe("INVALID_PATH");
   }
+  // T73 Grok C2: the allowlist rejects ANY name other than qr.png before
+  // existence is even considered
   const missing = await fetch(url(bridge, "/api/qr?file=does-not-exist.png"), {
     headers: authHeader,
   });
-  expect(missing.status).toBe(404);
+  expect(missing.status).toBe(400);
   const missingBody = (await missing.json()) as { error: { code: string } };
-  expect(missingBody.error.code).toBe("NOT_FOUND");
+  expect(missingBody.error.code).toBe("INVALID_PATH");
 });
 
 test("GET /api/chats returns chats with previews and honors filters", async () => {
@@ -819,6 +822,7 @@ test("POST /api/send media url uses the injected fetcher", async () => {
     sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
     mediaDir,
     fetchFn,
+    lookupFn: async () => [{ address: "93.184.216.34", family: 4 }],
   });
   created.push(bridge);
   const res = await fetch(url(bridge, "/api/send"), {
@@ -1530,17 +1534,20 @@ test("GET /events fans out to multiple concurrent clients", async () => {
     if (!reader) throw new Error("no body");
     readers.push(reader);
   }
-  base.emit({ type: "creds.update", payload: {} });
+  // T73 H2: creds.update no longer streams — fan out with a safe event
+  base.emit({ type: "chats.upsert", payload: [] });
   for (const reader of readers) {
     const decoder = new TextDecoder();
     let seen = "";
     const deadline = Date.now() + 2000;
-    while (Date.now() < deadline && !seen.includes("creds.update")) {
+    while (Date.now() < deadline && !seen.includes("chats.upsert")) {
       const chunk = await reader.read();
       if (chunk.done) break;
       seen += decoder.decode(chunk.value);
     }
-    expect(seen).toContain("creds.update");
+    expect(seen).toContain("chats.upsert");
+    // T73 H2: the filtered event must never fan out
+    expect(seen).not.toContain("creds.update");
     await reader.cancel();
   }
 });

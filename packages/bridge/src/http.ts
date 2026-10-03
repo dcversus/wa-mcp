@@ -7,6 +7,7 @@ import { join, resolve, sep } from "node:path";
 import { realpath } from "node:fs/promises";
 import type { BridgeHandle } from "./lifecycle.ts";
 import { isSafePublicEvent } from "./events.ts";
+import type { LookupFn } from "./media/resolve.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
@@ -79,6 +80,8 @@ export interface HttpServerOptions {
   sendGuard?: SendGuard;
   mediaDir?: string;
   fetchFn?: typeof fetch;
+  /** T73 H3: DNS resolver for the media-url SSRF guard (tests inject a stub) */
+  lookupFn?: LookupFn;
   eventsHeartbeatMs?: number;
   uiDir?: string;
   rateLimitNow?: () => number;
@@ -709,6 +712,7 @@ export async function createHttpServer(
           const resolved = await resolveMedia(mediaArg, {
             mediaDir: mediaDirForSend,
             fetchFn: opts.fetchFn,
+            lookupFn: opts.lookupFn,
           });
           mediaToSave = resolved;
           return {
@@ -864,6 +868,7 @@ export async function createHttpServer(
       bridgeUrl: selfUrl,
       token: opts.token,
       fetchFn: opts.fetchFn,
+      lookupFn: opts.lookupFn,
     };
     void handleRpcMessage(parsed, ctx).then(
       (response) => {
