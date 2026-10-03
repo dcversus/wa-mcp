@@ -85,6 +85,13 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "transcribe_message",
     "send_voice_note",
     "get_pairing_code",
+    "restrict_sending",
+    "create_template",
+    "list_templates",
+    "send_template",
+    "schedule_message",
+    "list_scheduled",
+    "cancel_scheduled",
   ]);
   for (const tool of tools) {
     expect(typeof tool.description).toBe("string");
@@ -228,7 +235,11 @@ test("resources/read fetches each resource over the bridge api", async () => {
 });
 
 describe("T82-B — daemon utility tools", () => {
-  function recordingCtx(log: Array<{ url: string; init: RequestInit }>, status = 200, payload: unknown = {}) {
+  function recordingCtx(
+    log: Array<{ url: string; init: RequestInit }>,
+    status = 200,
+    payload: unknown = {},
+  ) {
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
       log.push({ url: String(url), init: init ?? {} });
       return new Response(JSON.stringify(payload), {
@@ -279,8 +290,14 @@ describe("T82-B — daemon utility tools", () => {
       const entry = { url: String(url), init: init ?? {} };
       log.push(entry);
       call += 1;
-      const payload = call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}!" }] } : { message_id: "M9" };
-      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+      const payload =
+        call === 1
+          ? { templates: [{ name: "greeting", body: "hi {{name}}!" }] }
+          : { message_id: "M9" };
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch;
     const response = await handleRpcLine(
       makeRequest(22, "tools/call", {
@@ -306,10 +323,13 @@ describe("T82-B — daemon utility tools", () => {
     let call = 0;
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
       call += 1;
-      const payload = call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}, {{event}}!" }] } : {};
-      void url;
-      void init;
-      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+      log.push({ url: String(url), init: init ?? {} });
+      const payload =
+        call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}, {{event}}!" }] } : {};
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch;
     const response = await handleRpcLine(
       makeRequest(25, "tools/call", {

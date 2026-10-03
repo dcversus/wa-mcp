@@ -43,3 +43,7 @@ export function renderTemplate(
   });
   return { text, missing };
 }
+
+export function deleteTemplate(store: Store, name: string): void {
+  store.db.prepare("DELETE FROM templates WHERE name = ?").run(name);
+}

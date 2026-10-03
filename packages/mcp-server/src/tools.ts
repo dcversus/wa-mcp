@@ -25,6 +25,14 @@ function requireString(args: Record<string, unknown>, name: string): string {
   return value;
 }
 
+function requireNumber(args: Record<string, unknown>, name: string): number {
+  const value = args[name];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ParamError(`${name} is required as a number`);
+  }
+  return value;
+}
+
 function optionalNumber(args: Record<string, unknown>, name: string): number | undefined {
   const value = args[name];
   if (value === undefined) {
@@ -803,6 +811,184 @@ export const TOOLS: ToolDef[] = [
         body: JSON.stringify(body),
       })) as Record<string, unknown>;
       return textResult(payload);
+    },
+  },
+  {
+    name: "restrict_sending",
+    description:
+      "Manage per-target send rules (T82). action=add requires target + mode (block|allow, optional expires_at ISO); action=list lists rules; action=remove requires id.",
+    inputSchema: {
+      type: "object",
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["add", "list", "remove"] },
+        target: { type: "string", description: "JID pattern; trailing * matches any suffix" },
+        mode: { type: "string", enum: ["block", "allow"] },
+        expires_at: { type: "string", description: "ISO timestamp after which the rule lapses" },
+        id: { type: "number", description: "Rule id (action=remove)" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const action = requireString(args, "action");
+      if (action === "add") {
+        const target = requireString(args, "target");
+        const mode = requireString(args, "mode");
+        const body: Record<string, unknown> = { target, mode };
+        if (typeof args.expires_at === "string") body.expires_at = args.expires_at;
+        await bridgeFetch(toolCtx, "/api/send-rules", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        return { content: [{ type: "text", text: `send rule added for ${target} (${mode})` }] };
+      }
+      if (action === "list") {
+        const rules = (await bridgeFetch(toolCtx, "/api/send-rules")) as { rules?: unknown };
+        return {
+          content: [{ type: "text", text: JSON.stringify(rules, null, 2) }],
+        };
+      }
+      const id = requireNumber(args, "id");
+      await bridgeFetch(toolCtx, `/api/send-rules/${id}`, { method: "DELETE" });
+      return { content: [{ type: "text", text: `send rule ${id} removed` }] };
+    },
+  },
+  {
+    name: "create_template",
+    description: "Create or update a message template with {{var}} placeholders.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "body"],
+      properties: {
+        name: { type: "string" },
+        body: { type: "string", description: "Template body; {{var}} placeholders allowed" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const name = requireString(args, "name");
+      const body = requireString(args, "body");
+      await bridgeFetch(toolCtx, "/api/templates", {
+        method: "POST",
+        body: JSON.stringify({ name, body }),
+      });
+      return { content: [{ type: "text", text: `template ${name} saved` }] };
+    },
+  },
+  {
+    name: "list_templates",
+    description: "List saved message templates.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx) => {
+      const templates = (await bridgeFetch(toolCtx, "/api/templates")) as { templates?: unknown };
+      return { content: [{ type: "text", text: JSON.stringify(templates, null, 2) }] };
+    },
+  },
+  {
+    name: "send_template",
+    description:
+      "Render a saved template for a chat and send it. Missing variables are reported without sending.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "name"],
+      properties: {
+        chat_jid: { type: "string" },
+        name: { type: "string", description: "Template name" },
+        vars: { type: "object", description: 'Placeholder values, e.g. { "name": "V" }' },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const name = requireString(args, "name");
+      const vars = (args.vars ?? {}) as Record<string, unknown>;
+      const payload = (await bridgeFetch(toolCtx, "/api/templates")) as {
+        templates?: Array<{ name: string; body: string }>;
+      };
+      const template = payload.templates?.find((entry) => entry.name === name);
+      if (template === undefined) {
+        return {
+          content: [{ type: "text", text: `NOT_FOUND: template ${name} does not exist` }],
+        };
+      }
+      const missing: string[] = [];
+      const text = template.body.replace(/\{\{(\w+)\}\}/g, (_match, varName: string) => {
+        const value = vars[varName];
+        if (typeof value !== "string") {
+          missing.push(varName);
+          return `{{${varName}}}`;
+        }
+        return value;
+      });
+      if (missing.length > 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `VALIDATION_ERROR: missing variables: ${missing.join(", ")} — supply vars and retry`,
+            },
+          ],
+        };
+      }
+      const sent = (await bridgeFetch(toolCtx, "/api/send", {
+        method: "POST",
+        body: JSON.stringify({ chat_jid: chatJid, text }),
+      })) as { message_id?: string };
+      return {
+        content: [{ type: "text", text: `template sent: ${sent.message_id ?? "unknown id"}` }],
+      };
+    },
+  },
+  {
+    name: "schedule_message",
+    description: "Schedule a text message for later delivery (daemon scheduler tick).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "text", "send_at"],
+      properties: {
+        chat_jid: { type: "string" },
+        text: { type: "string" },
+        send_at: { type: "string", description: "ISO timestamp" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const text = requireString(args, "text");
+      const sendAt = requireString(args, "send_at");
+      const payload = (await bridgeFetch(toolCtx, "/api/scheduled", {
+        method: "POST",
+        body: JSON.stringify({ chat_jid: chatJid, text, send_at: sendAt }),
+      })) as { id?: number };
+      return {
+        content: [{ type: "text", text: `scheduled #${payload.id ?? "?"} for ${sendAt}` }],
+      };
+    },
+  },
+  {
+    name: "list_scheduled",
+    description: "List scheduled messages, optionally by status (pending|sent|failed|cancelled).",
+    inputSchema: {
+      type: "object",
+      properties: { status: { type: "string", enum: ["pending", "sent", "failed", "cancelled"] } },
+    },
+    handler: async (toolCtx, args) => {
+      const status = args.status;
+      const suffix = typeof status === "string" ? `?status=${encodeURIComponent(status)}` : "";
+      const rows = (await bridgeFetch(toolCtx, `/api/scheduled${suffix}`)) as {
+        scheduled?: unknown;
+      };
+      return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
+    },
+  },
+  {
+    name: "cancel_scheduled",
+    description: "Cancel a pending scheduled message.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "number" } },
+    },
+    handler: async (toolCtx, args) => {
+      const id = requireNumber(args, "id");
+      await bridgeFetch(toolCtx, `/api/scheduled/${id}`, { method: "DELETE" });
+      return { content: [{ type: "text", text: `scheduled message ${id} cancelled` }] };
     },
   },
 ];

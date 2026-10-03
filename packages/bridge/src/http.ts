@@ -10,7 +10,27 @@ import { isSafePublicEvent } from "./events.ts";
 import { spawn } from "node:child_process";
 import { toVoiceOgg } from "./media/voice.ts";
 import type { LookupFn } from "./media/resolve.ts";
-import { evaluateSendRules } from "./store/send-rules.ts";
+import {
+  addSendRule,
+  evaluateSendRules,
+  listSendRules,
+  removeSendRule,
+} from "./store/send-rules.ts";
+import {
+  deleteTemplate,
+  getTemplate,
+  listTemplates,
+  renderTemplate,
+  upsertTemplate,
+} from "./store/templates.ts";
+import {
+  cancelScheduled,
+  dueScheduled,
+  listScheduled,
+  markScheduled,
+  scheduleMessage,
+} from "./store/scheduled.ts";
+
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
@@ -505,6 +525,9 @@ export async function createHttpServer(
     try {
       parsedSend = JSON.parse(body.toString("utf8")) as unknown;
     } catch {
+      parsedSend = {};
+    }
+    if (parsedSend === null || typeof parsedSend !== "object") {
       parsedSend = {};
     }
     const sendTarget = (parsedSend as { chat_jid?: unknown }).chat_jid;
@@ -2133,6 +2156,201 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        if (path === "/api/send-rules" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { rules: listSendRules(opts.store) });
+          return;
+        }
+        if (path === "/api/send-rules" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          void readBodyWithCap(req, MAX_BODY_BYTES)
+            .then(async ({ fits, body: raw }) => {
+              if (!fits) {
+                sendJson(res, 413, {
+                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
+                });
+                return;
+              }
+              const input = JSON.parse(raw.toString("utf8")) as {
+                target?: unknown;
+                mode?: unknown;
+                expires_at?: unknown;
+              };
+              if (typeof input.target !== "string" || input.target.length === 0) {
+                sendJson(res, 400, {
+                  error: { code: "VALIDATION_ERROR", message: "target is required" },
+                });
+                return;
+              }
+              if (input.mode !== "block" && input.mode !== "allow") {
+                sendJson(res, 400, {
+                  error: { code: "VALIDATION_ERROR", message: "mode must be block or allow" },
+                });
+                return;
+              }
+              const id = addSendRule(opts.store!, {
+                target: input.target,
+                mode: input.mode,
+                expiresAt: typeof input.expires_at === "string" ? input.expires_at : undefined,
+              });
+              sendJson(res, 200, { id });
+            })
+            .catch((err: unknown) => {
+              opts.logger?.error({ err }, "send-rule add failed");
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "send-rule add failed" } });
+            });
+          return;
+        }
+        if (path.startsWith("/api/send-rules/") && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          removeSendRule(opts.store, Number(path.slice("/api/send-rules/".length)));
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path === "/api/templates" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { templates: listTemplates(opts.store) });
+          return;
+        }
+        if (path === "/api/templates" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          void readBodyWithCap(req, MAX_BODY_BYTES)
+            .then(async ({ fits, body: raw }) => {
+              if (!fits) {
+                sendJson(res, 413, {
+                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
+                });
+                return;
+              }
+              const input = JSON.parse(raw.toString("utf8")) as { name?: unknown; body?: unknown };
+              if (
+                typeof input.name !== "string" ||
+                input.name.length === 0 ||
+                typeof input.body !== "string"
+              ) {
+                sendJson(res, 400, {
+                  error: { code: "VALIDATION_ERROR", message: "name and body are required" },
+                });
+                return;
+              }
+              upsertTemplate(opts.store!, { name: input.name, body: input.body });
+              sendJson(res, 200, { ok: true });
+            })
+            .catch((err: unknown) => {
+              opts.logger?.error({ err }, "template save failed");
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "template save failed" } });
+            });
+          return;
+        }
+        if (path.startsWith("/api/templates/") && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          deleteTemplate(opts.store, decodeURIComponent(path.slice("/api/templates/".length)));
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path === "/api/scheduled" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const status = new URL(req.url ?? "/", "http://localhost").searchParams.get("status");
+          sendJson(res, 200, {
+            scheduled: listScheduled(opts.store, status ?? undefined),
+          });
+          return;
+        }
+        if (path === "/api/scheduled" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          void readBodyWithCap(req, MAX_BODY_BYTES)
+            .then(async ({ fits, body: raw }) => {
+              if (!fits) {
+                sendJson(res, 413, {
+                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
+                });
+                return;
+              }
+              const input = JSON.parse(raw.toString("utf8")) as {
+                chat_jid?: unknown;
+                text?: unknown;
+                send_at?: unknown;
+              };
+              if (
+                typeof input.chat_jid !== "string" ||
+                typeof input.text !== "string" ||
+                typeof input.send_at !== "string"
+              ) {
+                sendJson(res, 400, {
+                  error: {
+                    code: "VALIDATION_ERROR",
+                    message: "chat_jid, text and send_at are required",
+                  },
+                });
+                return;
+              }
+              const id = scheduleMessage(opts.store!, {
+                chatJid: input.chat_jid,
+                payload: input.text,
+                sendAt: input.send_at,
+              });
+              sendJson(res, 200, { id });
+            })
+            .catch((err: unknown) => {
+              opts.logger?.error({ err }, "schedule failed");
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "schedule failed" } });
+            });
+          return;
+        }
+        if (path.startsWith("/api/scheduled/") && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const cancelled = cancelScheduled(
+            opts.store,
+            Number(path.slice("/api/scheduled/".length)),
+          );
+          sendJson(res, 200, { cancelled });
           return;
         }
         if (path.startsWith("/api/notifications/") && req.method === "DELETE") {

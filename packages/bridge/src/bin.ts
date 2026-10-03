@@ -16,6 +16,9 @@ import { openAuthStore } from "./auth.ts";
 import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
+import { dueScheduled, markScheduled } from "./store/scheduled.ts";
+import { sendViaSocket } from "./send/send.ts";
+import type { AnyMessageContent } from "baileys";
 import { installShutdownHooks } from "./shutdown.ts";
 import { resolveChannel } from "./channels/cloud/config.ts";
 import { SendGuard } from "./send/safety.ts";
@@ -122,6 +125,37 @@ export async function main(
     qrPngPath,
     store,
   });
+  // T82 line88: daemon scheduler — every 30s, due scheduled texts are sent
+  // through the live socket and marked sent/failed.
+  let schedulerBusy = false;
+  const schedulerTimer = setInterval(() => {
+    if (schedulerBusy) {
+      return;
+    }
+    schedulerBusy = true;
+    void (async () => {
+      const due = dueScheduled(store, new Date());
+      for (const row of due) {
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          return;
+        }
+        try {
+          const result = await sendViaSocket(socket, row.chat_jid, {
+            text: row.payload,
+          } as AnyMessageContent);
+          markScheduled(store, row.id, "sent", result.messageId);
+        } catch (err: unknown) {
+          markScheduled(store, row.id, "failed");
+          logger.warn({ err, id: row.id }, "scheduled send failed");
+        }
+      }
+    })().finally(() => {
+      schedulerBusy = false;
+    });
+  }, 30_000);
+  schedulerTimer.unref();
+
   const selection = resolveChannel(env);
   let cloud: Parameters<typeof createHttpServer>[1]["cloud"];
   if (selection.channel === "cloud" && "errors" in selection) {

@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 32 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 39 tools. Regenerate with `pnpm run docs:gen`.
 
 ### send_message
 
@@ -562,3 +562,123 @@ Request a pairing code to link a device (bridge must be in qr/connecting state).
 
 - `phone` (string, required) — Phone number, 8-15 digits after stripping
 - required: `phone`
+
+### restrict_sending
+
+Manage per-target send rules (T82). action=add requires target + mode (block|allow, optional expires_at ISO); action=list lists rules; action=remove requires id.
+
+```json
+{
+  "type": "object",
+  "required": ["action"],
+  "properties": {
+    "action": { "type": "string", "enum": ["add", "list", "remove"] },
+    "target": { "type": "string", "description": "JID pattern; trailing * matches any suffix" },
+    "mode": { "type": "string", "enum": ["block", "allow"] },
+    "expires_at": { "type": "string", "description": "ISO timestamp after which the rule lapses" },
+    "id": { "type": "number", "description": "Rule id (action=remove)" }
+  }
+}
+```
+
+- `action` (string, required)
+- `target` (string, optional) — JID pattern; trailing * matches any suffix
+- `mode` (string, optional)
+- `expires_at` (string, optional) — ISO timestamp after which the rule lapses
+- `id` (number, optional) — Rule id (action=remove)
+- required: `action`
+
+### create_template
+
+Create or update a message template with {{var}} placeholders.
+
+```json
+{
+  "type": "object",
+  "required": ["name", "body"],
+  "properties": {
+    "name": { "type": "string" },
+    "body": { "type": "string", "description": "Template body; {{var}} placeholders allowed" }
+  }
+}
+```
+
+- `name` (string, required)
+- `body` (string, required) — Template body; {{var}} placeholders allowed
+- required: `name`, `body`
+
+### list_templates
+
+List saved message templates.
+
+```json
+{ "type": "object", "properties": {} }
+```
+
+### send_template
+
+Render a saved template for a chat and send it. Missing variables are reported without sending.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "name"],
+  "properties": {
+    "chat_jid": { "type": "string" },
+    "name": { "type": "string", "description": "Template name" },
+    "vars": { "type": "object", "description": "Placeholder values, e.g. { \"name\": \"V\" }" }
+  }
+}
+```
+
+- `chat_jid` (string, required)
+- `name` (string, required) — Template name
+- `vars` (object, optional) — Placeholder values, e.g. { "name": "V" }
+- required: `chat_jid`, `name`
+
+### schedule_message
+
+Schedule a text message for later delivery (daemon scheduler tick).
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "text", "send_at"],
+  "properties": {
+    "chat_jid": { "type": "string" },
+    "text": { "type": "string" },
+    "send_at": { "type": "string", "description": "ISO timestamp" }
+  }
+}
+```
+
+- `chat_jid` (string, required)
+- `text` (string, required)
+- `send_at` (string, required) — ISO timestamp
+- required: `chat_jid`, `text`, `send_at`
+
+### list_scheduled
+
+List scheduled messages, optionally by status (pending|sent|failed|cancelled).
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": { "type": "string", "enum": ["pending", "sent", "failed", "cancelled"] }
+  }
+}
+```
+
+- `status` (string, optional)
+
+### cancel_scheduled
+
+Cancel a pending scheduled message.
+
+```json
+{ "type": "object", "required": ["id"], "properties": { "id": { "type": "number" } } }
+```
+
+- `id` (number, required)
+- required: `id`

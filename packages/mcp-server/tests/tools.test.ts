@@ -66,6 +66,13 @@ test("the registry exposes the full launch set", () => {
     "transcribe_message",
     "send_voice_note",
     "get_pairing_code",
+    "restrict_sending",
+    "create_template",
+    "list_templates",
+    "send_template",
+    "schedule_message",
+    "list_scheduled",
+    "cancel_scheduled",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");
   expect(toolByName("nope")).toBeUndefined();
