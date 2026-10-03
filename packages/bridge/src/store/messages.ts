@@ -105,7 +105,7 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     updateTargetContent(store, chatJid, extracted.revokedMessageId, "[revoked]");
     store.db
       .prepare(
-        "UPDATE messages SET media_type = NULL, media_path = NULL WHERE chat_jid = ? AND id = ?",
+        "UPDATE messages SET deleted = 1, media_type = NULL, media_path = NULL WHERE chat_jid = ? AND id = ?",
       )
       .run(chatJid, extracted.revokedMessageId);
     return false;

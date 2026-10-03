@@ -43,6 +43,7 @@ test("the registry exposes the full launch set", () => {
     "get_chat",
     "send_reaction",
     "edit_message",
+    "delete_message",
     "forward_message",
     "mark_chat_read",
     "set_chat_state",

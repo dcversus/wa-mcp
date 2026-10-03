@@ -2340,7 +2340,11 @@ describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
 });
 
 describe("T62 delete_message", () => {
-  async function deleteServer(): Promise<{ bridge: Awaited<ReturnType<typeof startServer>>; socket: WASocket }> {
+  async function deleteServer(): Promise<{
+    bridge: Awaited<ReturnType<typeof startServer>>;
+    socket: WASocket;
+    store: Store;
+  }> {
     const socket = makeFakeSocket();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-del-")));
     openedStores.push(store);
@@ -2351,11 +2355,11 @@ describe("T62 delete_message", () => {
       sendGuard: new SendGuard(store),
     });
     created.push(bridge);
-    return { bridge, socket };
+    return { bridge, socket, store };
   }
 
   test("POST /api/delete sends a revoke and tombstones the local row", async () => {
-    const { bridge, socket } = await deleteServer();
+    const { bridge, socket, store } = await deleteServer();
     const res = await fetch(url(bridge, "/api/delete"), {
       method: "POST",
       headers: { authorization: "Bearer test-token", "content-type": "application/json" },
@@ -2392,9 +2396,10 @@ describe("T62 delete_message", () => {
     const res = await fetch(url(bridge, "/api/delete"), {
       method: "POST",
       headers: {
-        authorization: `Bearer ${(
-          await (await fetch(url(bridge, "/health"))).json()
-        ).pairingToken as string}`,
+        authorization: `Bearer ${
+          ((await (await fetch(url(bridge, "/health"))).json()) as { pairingToken: string })
+            .pairingToken
+        }`,
         "content-type": "application/json",
       },
       body: JSON.stringify({ chat_jid: "1@s.whatsapp.net", message_id: "X" }),

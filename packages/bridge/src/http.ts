@@ -1478,7 +1478,7 @@ export async function createHttpServer(
       });
   };
 
-  const server: Server = createServer((req, res) => {
+  const server: Server = createServer(async (req, res) => {
     const ip = req.socket.remoteAddress ?? "unknown";
     const gate = checkRate(ip, now());
     if (!gate.ok) {
@@ -1621,7 +1621,7 @@ export async function createHttpServer(
       });
       return;
     }
-    void readBodyWithCap(req, MAX_BODY_BYTES).then(({ fits, body }) => {
+    void readBodyWithCap(req, MAX_BODY_BYTES).then(async ({ fits, body }) => {
       if (!fits) {
         sendJson(res, 413, {
           error: { code: "PAYLOAD_TOO_LARGE", message: `body exceeds ${MAX_BODY_BYTES} bytes` },
@@ -1692,6 +1692,58 @@ export async function createHttpServer(
         path === "/api/group/leave"
       ) {
         serveGroup(path, req, res, body);
+        return;
+      }
+      if (path === "/api/delete" && req.method === "POST") {
+        const input = JSON.parse(body.toString("utf8")) as {
+          chat_jid?: unknown;
+          message_id?: unknown;
+        };
+        if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+          validationError(res, "chat_jid is required");
+          return;
+        }
+        if (typeof input.message_id !== "string" || input.message_id.length === 0) {
+          validationError(res, "message_id is required");
+          return;
+        }
+        const socket = handle.socket;
+        if (socket === undefined || socket === null) {
+          sendJson(res, 501, {
+            error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+          });
+          return;
+        }
+        if (opts.store === undefined) {
+          sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+          return;
+        }
+        const target = opts.store.db
+          .prepare("SELECT is_from_me, deleted FROM messages WHERE chat_jid = ? AND id = ?")
+          .get(input.chat_jid, input.message_id) as
+          | { is_from_me: number; deleted: number }
+          | undefined;
+        if (target === undefined) {
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+          return;
+        }
+        if (target.deleted === 1) {
+          sendJson(res, 200, { deleted: true, already: true });
+          return;
+        }
+        await socket.sendMessage(input.chat_jid, {
+          delete: {
+            remoteJid: input.chat_jid,
+            id: input.message_id,
+            fromMe: target.is_from_me === 1,
+          },
+        });
+        opts.store.db
+          .prepare(
+            "UPDATE messages SET deleted = 1, content = '[revoked]', media_type = NULL, media_path = NULL WHERE chat_jid = ? AND id = ?",
+          )
+          .run(input.chat_jid, input.message_id);
+        sendJson(res, 200, { deleted: true });
         return;
       }
       if (path === "/api/pair/resume" && req.method === "POST") {

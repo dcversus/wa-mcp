@@ -158,6 +158,10 @@ CREATE TABLE IF NOT EXISTS notification_rules (
 );
 `;
 
+const MIGRATION_V7 = `
+ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
+`;
+
 const MIGRATION_V6 = `
 CREATE TABLE IF NOT EXISTS transcripts (
   chat_jid TEXT NOT NULL,
@@ -177,6 +181,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 4, sql: MIGRATION_V4 },
   { version: 5, sql: MIGRATION_V5 },
   { version: 6, sql: MIGRATION_V6 },
+  { version: 7, sql: MIGRATION_V7 },
 ];
 
 export function openStore(dir: string): Store {

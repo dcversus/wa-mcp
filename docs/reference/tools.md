@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 30 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 32 tools. Regenerate with `pnpm run docs:gen`.
 
 ### send_message
 
@@ -189,6 +189,25 @@ Edit a message you sent.
 - `message_id` (string, required)
 - `text` (string, required)
 - required: `chat_jid`, `message_id`, `text`
+
+### delete_message
+
+Delete a message for everyone (WhatsApp revoke). The local row is tombstoned.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "message_id"],
+  "properties": {
+    "chat_jid": { "type": "string", "description": "Chat containing the message" },
+    "message_id": { "type": "string", "description": "Message id to delete" }
+  }
+}
+```
+
+- `chat_jid` (string, required) — Chat containing the message
+- `message_id` (string, required) — Message id to delete
+- required: `chat_jid`, `message_id`
 
 ### forward_message
 
@@ -526,3 +545,20 @@ Synthesize text to speech (mock engine) and send it as a push-to-talk voice note
 - `text` (string, required)
 - `chat_jid` (string, required)
 - required: `text`, `chat_jid`
+
+### get_pairing_code
+
+Request a pairing code to link a device (bridge must be in qr/connecting state).
+
+```json
+{
+  "type": "object",
+  "required": ["phone"],
+  "properties": {
+    "phone": { "type": "string", "description": "Phone number, 8-15 digits after stripping" }
+  }
+}
+```
+
+- `phone` (string, required) — Phone number, 8-15 digits after stripping
+- required: `phone`

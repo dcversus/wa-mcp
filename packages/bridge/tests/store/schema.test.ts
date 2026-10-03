@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { DatabaseSync } from "node:sqlite";
 import { openStore } from "../../src/store/schema.ts";
 
@@ -42,6 +42,7 @@ const EXPECTED_MESSAGE_COLUMNS = [
   "is_unread",
   "reactions",
   "raw",
+  "deleted",
 ];
 
 test.skipIf(!POSIX_PERMS)("openStore runs in a 0700 directory with a 0600 database file", () => {
@@ -126,7 +127,7 @@ test("migrations records schema versions 1 through 3", () => {
     const rows = store.db
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
-    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(rows.map((row) => (row as { version: number }).version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
     store.close();
@@ -140,7 +141,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(6);
+    expect(versions).toHaveLength(7);
   } finally {
     second.close();
   }
@@ -150,13 +151,11 @@ describe("T62 deleted tombstone migration (v7)", () => {
   test("a fresh store has the deleted column and migration v7 applied", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-v7-fresh-")));
     try {
-      const columns = store.db
-        .prepare("PRAGMA table_info(messages)")
-        .all() as Array<{ name: string }>;
+      const columns = store.db.prepare("PRAGMA table_info(messages)").all() as Array<{
+        name: string;
+      }>;
       expect(columns.some((column) => column.name === "deleted")).toBe(true);
-      const applied = store.db
-        .prepare("SELECT 1 FROM migrations WHERE version = 7")
-        .get();
+      const applied = store.db.prepare("SELECT 1 FROM migrations WHERE version = 7").get();
       expect(applied).toBeDefined();
     } finally {
       store.close();
@@ -169,10 +168,9 @@ describe("T62 deleted tombstone migration (v7)", () => {
     const raw = new DatabaseSync(dbPath);
     raw.exec("CREATE TABLE migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
     for (const version of [1, 2, 3, 4, 5, 6]) {
-      raw.prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)").run(
-        version,
-        "2026-01-01",
-      );
+      raw
+        .prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)")
+        .run(version, "2026-01-01");
     }
     raw.exec(
       "CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, sender_jid TEXT, sender_name TEXT, timestamp TEXT NOT NULL, content TEXT, media_type TEXT, media_path TEXT, quoted_message_id TEXT, mentions TEXT, is_from_me INTEGER NOT NULL DEFAULT 0, is_unread INTEGER NOT NULL DEFAULT 1, reactions TEXT, raw TEXT, PRIMARY KEY (chat_jid, id))",
@@ -180,9 +178,9 @@ describe("T62 deleted tombstone migration (v7)", () => {
     raw.close();
     const store = openStore(dir);
     try {
-      const columns = store.db
-        .prepare("PRAGMA table_info(messages)")
-        .all() as Array<{ name: string }>;
+      const columns = store.db.prepare("PRAGMA table_info(messages)").all() as Array<{
+        name: string;
+      }>;
       expect(columns.some((column) => column.name === "deleted")).toBe(true);
     } finally {
       store.close();

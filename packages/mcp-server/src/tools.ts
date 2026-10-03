@@ -312,6 +312,29 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "delete_message",
+    description: "Delete a message for everyone (WhatsApp revoke). The local row is tombstoned.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id"],
+      properties: {
+        chat_jid: { type: "string", description: "Chat containing the message" },
+        message_id: { type: "string", description: "Message id to delete" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const messageId = requireString(args, "message_id");
+      const payload = (await bridgeFetch(toolCtx, "/api/delete", {
+        method: "POST",
+        body: JSON.stringify({ chat_jid: chatJid, message_id: messageId }),
+      })) as { deleted?: boolean };
+      return {
+        content: [{ type: "text", text: payload.deleted ? "message deleted" : "delete failed" }],
+      };
+    },
+  },
+  {
     name: "forward_message",
     description: "Forward a stored message to another chat.",
     inputSchema: {
