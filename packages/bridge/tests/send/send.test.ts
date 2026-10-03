@@ -5,6 +5,8 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { resolveLidJid, SendError, sendViaSocket } from "../../src/send/send.ts";
+import { resolveRecipient } from "../../src/send/send.ts";
+import { setAlias } from "../../src/store/contacts.ts";
 import { listMessages } from "../../src/store/queries.ts";
 
 function fakeSocket(): { sock: WASocket; sendMessage: ReturnType<typeof vi.fn> } {
@@ -180,5 +182,51 @@ describe("T59 full-jid mapping args (engine lid-mapping contract)", () => {
     expect(await resolveLidJid(socket, "358497773518:2@s.whatsapp.net")).toBe(
       "221900000001937:0@lid",
     );
+  });
+});
+
+describe("T65 resolveRecipient (alias resolution)", () => {
+  function aliasStore(aliases: Record<string, string>): Store {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-alias-")));
+    for (const [alias, jid] of Object.entries(aliases)) {
+      setAlias(store, jid, alias);
+    }
+    return store;
+  }
+
+  test("an exact alias resolves to the mapped jid", async () => {
+    const store = aliasStore({ vasilisa: "351930017568@s.whatsapp.net" });
+    expect(resolveRecipient(store, "vasilisa")).toEqual({
+      ok: true,
+      jid: "351930017568@s.whatsapp.net",
+    });
+  });
+
+  test("a valid jid passes through untouched", async () => {
+    const store = aliasStore({});
+    expect(resolveRecipient(store, "351930017568@s.whatsapp.net")).toEqual({
+      ok: true,
+      jid: "351930017568@s.whatsapp.net",
+    });
+    expect(resolveRecipient(store, "120363428874442773@g.us")).toEqual({
+      ok: true,
+      jid: "120363428874442773@g.us",
+    });
+  });
+
+  test("an unknown name fails with INVALID_JID and suggests the closest alias", () => {
+    const store = aliasStore({ vasilisa: "351930017568@s.whatsapp.net" });
+    const result = resolveRecipient(store, "vasil");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("INVALID_JID");
+      expect(result.message).toContain("vasilisa");
+    }
+  });
+
+  test("a fuzzy prefix does NOT send — exact-only per GOAL", () => {
+    const store = aliasStore({ vasilisa: "351930017568@s.whatsapp.net" });
+    const result = resolveRecipient(store, "vasil");
+    expect(result.ok).toBe(false);
   });
 });
