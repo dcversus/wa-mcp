@@ -200,6 +200,23 @@ ALTER TABLE chats ADD COLUMN ephemeral_duration INTEGER;
 ALTER TABLE chats ADD COLUMN ephemeral_setting_ts TEXT;
 `;
 
+const MIGRATION_V11 = `
+CREATE TABLE IF NOT EXISTS send_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  target TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('block', 'allow')),
+  expires_at TEXT
+);
+CREATE TABLE IF NOT EXISTS scheduled_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_jid TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  send_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  sent_message_id TEXT
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -211,6 +228,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 8, sql: MIGRATION_V8 },
   { version: 9, sql: MIGRATION_V9 },
   { version: 10, sql: MIGRATION_V10 },
+  { version: 11, sql: MIGRATION_V11 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

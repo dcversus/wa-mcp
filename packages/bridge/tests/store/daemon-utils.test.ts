@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { proto } from "baileys";
 import type { WAMessage } from "baileys";
 import { openStore } from "../../src/store/schema.ts";

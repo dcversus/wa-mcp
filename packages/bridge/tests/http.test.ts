@@ -2,6 +2,7 @@ import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { EventEmitter } from "node:events";
+import { addSendRule } from "../src/store/send-rules.ts";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -3006,4 +3007,32 @@ test("T81 line72 — POST /api/tts with audio_path converts and sends PTT", asyn
   };
   expect(call.ptt).toBe(true);
   expect(call.mimetype).toBe("audio/ogg");
+});
+
+test("T82 line91 — a block rule SEND_BLOCKs before the message is built", async () => {
+  const socket = makeFakeSocket();
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-http-send-")));
+  openedStores.push(store);
+  addSendRule(store, { target: "120363428874442773@g.us", mode: "block" });
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 10 }),
+  });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "120363428874442773@g.us", text: "nope" }),
+  });
+  expect(res.status).toBe(403);
+  const body = (await res.json()) as { error: { code: string; message: string } };
+  expect(body.error.code).toBe("SEND_BLOCKED");
+  expect(socket.sendMessage).not.toHaveBeenCalled();
+  const ok = await fetch(url(bridge, "/api/send"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "fine" }),
+  });
+  expect(ok.status).toBe(200);
 });

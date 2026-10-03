@@ -10,6 +10,7 @@ import { isSafePublicEvent } from "./events.ts";
 import { spawn } from "node:child_process";
 import { toVoiceOgg } from "./media/voice.ts";
 import type { LookupFn } from "./media/resolve.ts";
+import { evaluateSendRules } from "./store/send-rules.ts";
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
@@ -499,6 +500,27 @@ export async function createHttpServer(
   };
 
   const serveSend = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+    // T82 line91: per-target blocklist rules gate every send
+    let parsedSend: unknown;
+    try {
+      parsedSend = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      parsedSend = {};
+    }
+    const sendTarget = (parsedSend as { chat_jid?: unknown }).chat_jid;
+    if (typeof sendTarget === "string" && opts.store !== undefined) {
+      const verdict = evaluateSendRules(opts.store, sendTarget);
+      if (!verdict.allowed) {
+        sendJson(res, 403, {
+          error: {
+            code: "SEND_BLOCKED",
+            message: `sending to ${sendTarget} is blocked by rule #${verdict.rule?.id} (${verdict.rule?.target})`,
+          },
+        });
+        return;
+      }
+    }
+
     let parsed: unknown;
     try {
       parsed = JSON.parse(body.toString("utf8")) as unknown;
