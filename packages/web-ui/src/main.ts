@@ -4,6 +4,7 @@ import { createApiClient, type ApiClient } from "./api.ts";
 import {
   chatListHtml,
   contextViewHtml,
+  eventsPageHtml,
   groupParticipantsHtml,
   profilePageHtml,
   contactsPageHtml,
@@ -95,10 +96,57 @@ function currentPairingView(): PairingView {
   return pairingView;
 }
 
+// ---- live events feed (T52 module) — bounded, pausable
+let eventsPaused = false;
+let eventsLines: import("./events-feed.ts").FeedLine[] = [];
+let eventsStream: { close(): void } | null = null;
+
+function eventsFeedLines(): FeedLine[] {
+  return eventsLines;
+}
+
+function startEventsLive(): void {
+  if (eventsStream === null && typeof EventSource === "function") {
+    statusFeed = appendEvent(statusFeed, { at: Date.now(), type: "events", detail: "stream open" });
+    eventsStream = openStatusStream({
+      url: settings.bridgeUrl,
+      token: effectiveToken(settings, pairingToken),
+      onLine: (line) => {
+        if (eventsPaused) return;
+        eventsLines.push(line);
+        const list = document.querySelector("#events-feed");
+        if (list !== null) {
+          list.innerHTML = eventsLines
+            .map(
+              (l) =>
+                `<li><time>${new Date(l.at).toISOString()}</time> <strong>${l.type}</strong></li>`,
+            )
+            .join("");
+        }
+      },
+    });
+  }
+  if (eventsPoll === null) {
+    eventsPoll = setInterval(() => {
+      if (location.hash === "#/events") void renderCurrent();
+    }, 5_000);
+  }
+}
+
+function stopEventsLive(): void {
+  eventsStream?.close();
+  eventsStream = null;
+  if (eventsPoll !== null) {
+    clearInterval(eventsPoll);
+    eventsPoll = null;
+  }
+}
+
 // ---- live status feed (T52): bounded SSE feed + 5s health poll
 let statusFeed: FeedLine[] = [];
 let statusStream: { close(): void } | null = null;
 let statusPoll: ReturnType<typeof setInterval> | null = null;
+let eventsPoll: ReturnType<typeof setInterval> | null = null;
 
 function startStatusLive(): void {
   if (statusStream === null && typeof EventSource === "function") {
@@ -194,6 +242,7 @@ async function renderCurrent(): Promise<void> {
 const loaders: {
   [R in Route]: (params: Record<string, string>) => Promise<string>;
 } = {
+  events: async () => eventsPageHtml(eventsFeedLines()),
   status: async () => {
     const [health, notifications] = await Promise.all([
       client.getHealth(),
@@ -306,6 +355,11 @@ function bindRoute(): void {
   if (hash === "#/status" || hash === "#/health") {
     bindStatusControls();
     startStatusLive();
+    return;
+  }
+  if (hash === "#/events") {
+    bindEventsControls();
+    startEventsLive();
     return;
   }
   if (hash === "#/pairing") {
@@ -472,6 +526,18 @@ function bindProfileControls(): void {
       await client.block(jid).catch(() => undefined);
       await renderCurrent();
     });
+  });
+}
+
+function bindEventsControls(): void {
+  document.getElementById("events-pause")?.addEventListener("click", (event) => {
+    eventsPaused = !eventsPaused;
+    (event.currentTarget as HTMLButtonElement).textContent = eventsPaused ? "resume" : "pause";
+  });
+  document.getElementById("events-clear")?.addEventListener("click", () => {
+    eventsLines = [];
+    const list = document.querySelector("#events-feed");
+    if (list !== null) list.innerHTML = "";
   });
 }
 
@@ -688,6 +754,9 @@ function bindSettingsForm(): void {
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#/status" && location.hash !== "#/health") {
     stopStatusLive();
+  }
+  if (location.hash !== "#/events") {
+    stopEventsLive();
   }
   if (pairingPoll !== null && location.hash !== "#/pairing") {
     clearInterval(pairingPoll);

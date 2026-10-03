@@ -52,16 +52,12 @@ describe("T67 empty states + 404", () => {
     const html = groupsPageHtml([]);
     expect(html).toContain('id="group-create"');
     expect(html).toContain("No groups yet");
-    const withGroups = groupsPageHtml([
-      { jid: "1@g.us", name: "G", unreadCount: 0 },
-    ]);
+    const withGroups = groupsPageHtml([{ jid: "1@g.us", name: "G", unreadCount: 0 }]);
     expect(withGroups).toContain('data-group-jid="1@g.us"');
   });
 
   test("events page renders a live feed skeleton with pause + clear", () => {
-    const html = eventsPageHtml([
-      { at: 1, type: "connection.update", detail: "connected" },
-    ]);
+    const html = eventsPageHtml([{ at: 1, type: "connection.update", detail: "connected" }]);
     expect(html).toContain('id="events-page"');
     expect(html).toContain('id="events-feed"');
     expect(html).toContain('id="events-pause"');
@@ -93,7 +89,7 @@ describe("T67 privacy matrix", () => {
   });
 
   test("privacy matrix escapes unknown values", () => {
-    const html = privacyMatrixHtml({ lastSeen: '<script>x</script>' });
+    const html = privacyMatrixHtml({ lastSeen: "<script>x</script>" });
     expect(html).not.toContain("<script>x</script>");
   });
 });

@@ -1,5 +1,21 @@
 import { escapeHtml } from "./escape.ts";
 
+export function initials(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return "?";
+  }
+  const parts = trimmed.split(/\s+/);
+  const first = parts[0]?.charAt(0) ?? "";
+  const second = parts[1]?.charAt(0) ?? "";
+  const value = (first + second).toUpperCase();
+  return value.length > 0 ? value : "?";
+}
+
+export function emptyState(text: string): string {
+  return `<div class="empty-state">${escapeHtml(text)}</div>`;
+}
+
 const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "status", label: "Status", href: "#/status" },
   { id: "chats", label: "Chats", href: "#/chats" },
@@ -54,7 +70,9 @@ export function contactsPageHtml(contacts: Array<{ jid: string; name: string | n
         `<li data-contact-jid="${escapeHtml(contact.jid)}"><span class="contact-name">${escapeHtml(contact.name ?? contact.jid)}</span> <code>${escapeHtml(contact.jid)}</code> <button data-alias-jid="${escapeHtml(contact.jid)}">set alias</button></li>`,
     )
     .join("");
-  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" /></form><ul id="contacts-list">${items}</ul></section>`;
+  const empty =
+    contacts.length === 0 ? emptyState("No contacts yet — they appear after you chat") : "";
+  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
 }
 
 export function groupsPageHtml(
@@ -66,7 +84,9 @@ export function groupsPageHtml(
         `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button data-leave-jid="${escapeHtml(group.jid)}">leave</button></li>`,
     )
     .join("");
-  return `<section id="groups-page"><form id="group-create"><input name="subject" placeholder="group subject" /><button type="submit">create group</button></form><ul id="groups-list">${items}</ul></section>`;
+  const empty =
+    groups.length === 0 ? emptyState("No groups yet — create one or ask to be added") : "";
+  return `<section id="groups-page"><form id="group-create"><input name="subject" placeholder="group subject" /><button type="submit">create group</button></form><ul id="groups-list">${items}</ul>${empty}</section>`;
 }
 
 export interface ChatSummaryView {
@@ -84,6 +104,9 @@ export function chatListHtml(
   >,
   opts: { showArchived?: boolean; query?: string } = {},
 ): string {
+  if (chats.length === 0) {
+    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${emptyState("No chats yet — they appear after your first message")}</section>`;
+  }
   const items = chats
     .map((chat) => {
       const badge =
@@ -93,10 +116,10 @@ export function chatListHtml(
         ? `<time class="chat-time">${escapeHtml(chat.lastMessage.timestamp.slice(11, 16))}</time>`
         : "";
       const archivedTag = chat.archived ? ' data-archived="1"' : "";
-      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span>${badge}${time}<span class="chat-preview">${escapeHtml(preview)}</span></li>`;
+      const name = chat.name ?? chat.jid;
+      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</li>`;
     })
     .join("");
-  // archived chats stay in the DOM (tagged) and hide via CSS unless toggled on
   return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
 }
 
@@ -235,3 +258,46 @@ export function groupParticipantsHtml(
 
 /** T54: a 401 on a just-navigated route renders the token form INLINE on the
  * same route (no redirect loop) with the exact recovery hint. */
+
+export function notFoundHtml(route: string): string {
+  return `<section id="not-found" class="pane"><h2>Page not found</h2><p>The route <code>${escapeHtml(route)}</code> does not exist.</p><p><a href="#/chats">Go to chats</a></p></section>`;
+}
+
+export interface FeedEntry {
+  at: number;
+  type: string;
+  detail?: string;
+}
+
+export function eventsPageHtml(events: Array<FeedEntry>): string {
+  const items = events
+    .map(
+      (event) =>
+        `<li><time>${new Date(event.at).toISOString()}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
+    )
+    .join("");
+  return `<section id="events-page"><div class="events-header"><h2>Events</h2><button id="events-pause">pause</button><button id="events-clear">clear</button></div><ul id="events-feed">${items}</ul></section>`;
+}
+
+const PRIVACY_FIELDS: Array<{ key: string; label: string }> = [
+  { key: "readReceipts", label: "Read receipts" },
+  { key: "lastSeen", label: "Last seen" },
+  { key: "status", label: "Status addressee" },
+  { key: "groups", label: "Who can add me to groups" },
+  { key: "profilePic", label: "Profile photo" },
+  { key: "online", label: "Online status" },
+];
+
+const PRIVACY_VALUES = ["all", "contacts", "contact_blacklist", "known", "none", "match_last_seen"];
+
+export function privacyMatrixHtml(current: Record<string, string>): string {
+  const rows = PRIVACY_FIELDS.map((field) => {
+    const value = current[field.key] ?? "unknown";
+    const options = PRIVACY_VALUES.map(
+      (option) =>
+        `<option value="${option}"${option === value ? " selected" : ""}>${option}</option>`,
+    ).join("");
+    return `<div class="privacy-row"><label>${field.label}<select name="${field.key}">${options}</select></label></div>`;
+  }).join("");
+  return `<section id="privacy-matrix"><h3>Privacy</h3>${rows}<button id="privacy-apply" type="button">apply privacy</button></section>`;
+}

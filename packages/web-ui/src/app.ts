@@ -2,6 +2,7 @@ import {
   contactsPageHtml,
   groupsPageHtml,
   navHtml,
+  notFoundHtml,
   settingsHtml,
   statusDashboardHtml,
 } from "./pages.ts";
@@ -26,6 +27,7 @@ export type Route =
   | "profile"
   | "settings"
   | "health"
+  | "events"
   | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
@@ -38,6 +40,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "profile", pattern: "profile" },
   { route: "settings", pattern: "settings" },
   { route: "health", pattern: "health" },
+  { route: "events", pattern: "events" },
   { route: "pairing", pattern: "pairing" },
 ];
 
@@ -58,7 +61,8 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const match = resolveRoute(dom.getHash(), ROUTES);
   dom.setNav(navHtml(match?.route ?? "status"));
   if (match === null) {
-    dom.setApp("<p>not found</p>");
+    dom.setNav(navHtml("status"));
+    dom.setApp(notFoundHtml(dom.getHash()));
     return;
   }
   if (match.route === "settings") {
