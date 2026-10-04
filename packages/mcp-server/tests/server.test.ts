@@ -718,3 +718,53 @@ describe("T89-D — newsletter MCP tools", () => {
     expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/newsletters");
   });
 });
+
+test("T94-A — the serialized tools/list carries complete hint coverage", async () => {
+  const response = await handleRpcLine(makeRequest(930, "tools/list"), ctx);
+  const tools = resultOf(response).tools as Array<{
+    name: string;
+    annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
+  }>;
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+
+  const READ_ONLY = [
+    "get_chat",
+    "label_list",
+    "export_chat",
+    "export_unread_messages",
+    "view_media",
+    "download_media",
+    "fetch_history",
+    "get_group_invite",
+    "newsletter_list",
+    "transcribe_message",
+    "transcribe_voice",
+  ] as const;
+  for (const name of READ_ONLY) {
+    const annotations = byName.get(name)?.annotations;
+    if (annotations?.readOnlyHint !== true) {
+      throw new Error(`T94-A RED: ${name} is read-only but carries no readOnlyHint`);
+    }
+  }
+  // get_pairing_code mints codes against WhatsApp's pairing endpoint and
+  // burns the T56 anti-abuse budget — deliberately NOT read-only
+  expect(byName.get("get_pairing_code")?.annotations?.readOnlyHint).toBeUndefined();
+
+  const DESTRUCTIVE = ["bulk_clear", "label_remove", "newsletter_unfollow", "label_assign"] as const;
+  for (const name of DESTRUCTIVE) {
+    const annotations = byName.get(name)?.annotations;
+    if (annotations?.destructiveHint !== true) {
+      throw new Error(`T94-A RED: ${name} mutates account state but carries no destructiveHint`);
+    }
+  }
+
+  // mutating-but-benign + reversible: idempotent, not destructive
+  expect(byName.get("mark_chat_read")?.annotations?.idempotentHint).toBe(true);
+
+  // the stale map entry (no logout tool exists in the registry)
+  expect(byName.has("logout")).toBe(false);
+  const { TOOL_ANNOTATIONS } = (await import("../src/tools.ts")) as {
+    TOOL_ANNOTATIONS: Record<string, unknown>;
+  };
+  expect(TOOL_ANNOTATIONS).not.toHaveProperty("logout");
+});

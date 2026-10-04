@@ -1795,7 +1795,7 @@ export function toolByName(name: string): ToolDef | undefined {
 }
 
 /** T87 line118: name-keyed hints merged into tools/list responses. */
-const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
+export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   get_login_qr: { readOnlyHint: true },
   list_chats: { readOnlyHint: true },
   list_messages: { readOnlyHint: true },
