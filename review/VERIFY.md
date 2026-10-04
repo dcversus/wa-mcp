@@ -305,3 +305,10 @@ no checkbox is claimed without evidence.
 - L330 (MCP resources): LIVE probe → wa://chats, wa://unread, wa://health. GAP: wa://sync-status, wa://config missing. Implementable in Phase 2 N1 batch.
 - L321 (chat list renders history): webui-dogfood PASS (Phase 0) shows chats list + Vasilisa/Test-group entries rendering; message-history browser covered by webui-e2e (open chat → send → bubble). Status: VERIFIED LIVE via Phase 0 gates (e2e + dogfood reports).
 - L325 (health/sync status panel): dogfood route #/ renders Status page from /health (connected state shown; dogfood report bodyText shows app rendering). Status: VERIFIED LIVE (dogfood EXIT 0, zero console errors).
+
+### Phase 1 live-verification batch 2 (2026-10-04T20:20:18Z)
+
+- L322 (unread view + mark-read): LIVE — mark_chat_read on Test group → result {"read":5}, unreadCount 5→0 in /api/chats. VERIFIED.
+- L190 (typed failure-mode codes): LIVE — send_message to "not-a-jid" → {code: INVALID_JID, message: "cannot resolve recipient: not-a-jid"}. Structured {code,message} shape VERIFIED (hint field not present in this path — noted; bridge errors carry code+message).
+- L241 (stdio stdout purity): LIVE — full handshake (initialize → initialized → tools/list) through dist/bin.mjs: stdout = exactly 2 JSON-RPC frames (ids 1,2), zero non-RPC lines, diagnostics on stderr only. VERIFIED.
+- L41 (WA_DEVICE_NAME): code path exists (lifecycle.ts:372 reads env; browser[0]=deviceName). Live phone-screen confirmation requires re-pairing — stays owner-gated (pairing budget). Unit-verified (T10). Disposition: owner-gated live check.
