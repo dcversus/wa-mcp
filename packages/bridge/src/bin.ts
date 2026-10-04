@@ -17,6 +17,7 @@ import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
 import { processDue } from "./store/scheduled.ts";
+import { runBackup } from "./store/backup.ts";
 import { resolveMedia } from "./media/resolve.ts";
 import { resolveRecipient, sendViaSocket } from "./send/send.ts";
 import { evaluateSendRules } from "./store/send-rules.ts";
@@ -173,6 +174,19 @@ export async function main(
   }
   const logger = pino({ level: env.WA_LOG_LEVEL ?? "info" }, pino.destination({ fd: 2 }));
   installRejectionGuard(process, logger);
+  // T94-F Runtime-M9: runBackup existed since T80 but was NEVER called
+  const backupsRoot = join(config.dataDir, "backups");
+  const runNightlyBackup = (): void => {
+    try {
+      const dir = runBackup(config.dataDir, backupsRoot, 1);
+      logger.info({ dir }, "store backup written");
+    } catch (err) {
+      logger.warn({ err }, "store backup failed");
+    }
+  };
+  runNightlyBackup();
+  const backupTimer = setInterval(runNightlyBackup, 24 * 60 * 60 * 1000);
+  backupTimer.unref();
   let lock;
   try {
     lock = acquireLock(config.dataDir);

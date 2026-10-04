@@ -264,7 +264,9 @@ export function listChats(
     .prepare(
       `
       SELECT c.jid AS jid, c.name AS name, c.archived AS archived,
-        (SELECT COUNT(*) FROM messages m WHERE m.chat_jid = c.jid AND m.is_unread = 1) AS unread_count,
+        CASE WHEN c.manual_unread = 1 THEN MAX((SELECT COUNT(*) FROM messages m WHERE m.chat_jid = c.jid AND m.is_unread = 1), 1)
+             ELSE (SELECT COUNT(*) FROM messages m WHERE m.chat_jid = c.jid AND m.is_unread = 1)
+        END AS unread_count,
         lm.id AS last_id, lm.content AS last_content, lm.timestamp AS last_ts, lm.sender_name AS last_sender
       FROM chats c
       LEFT JOIN messages lm ON lm.chat_jid = c.jid AND lm.rowid = (

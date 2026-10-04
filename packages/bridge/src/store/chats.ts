@@ -55,9 +55,20 @@ export function markAllRead(store: Store): void {
 }
 
 export function getUnreadCounts(store: Store): Array<{ chatJid: string; unreadCount: number }> {
+  // T94-F Runtime-M9: chats.manual_unread was write-only — a manually
+  // marked chat counts as unread even with zero unread messages
   const rows = store.db
     .prepare(
-      "SELECT chat_jid, COUNT(*) AS unread FROM messages WHERE is_unread = 1 GROUP BY chat_jid ORDER BY MAX(timestamp) DESC",
+      `SELECT COALESCE(c.jid, counts.chat_jid) AS chat_jid,
+              CASE WHEN c.manual_unread = 1 THEN MAX(counts.unread, 1) ELSE counts.unread END AS unread
+       FROM (
+         SELECT chat_jid, COUNT(*) AS unread FROM messages WHERE is_unread = 1 GROUP BY chat_jid
+         UNION ALL
+         SELECT jid, 0 FROM chats WHERE manual_unread = 1
+       ) AS counts
+       LEFT JOIN chats c ON c.jid = counts.chat_jid
+       GROUP BY COALESCE(c.jid, counts.chat_jid)
+       ORDER BY MAX(counts.unread) DESC`,
     )
     .all() as Array<{ chat_jid: string; unread: number }>;
   return rows.map((row) => ({ chatJid: row.chat_jid, unreadCount: row.unread }));

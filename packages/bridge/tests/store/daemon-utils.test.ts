@@ -398,7 +398,7 @@ describe("T94-F M9 — manual-unread is readable; backups run", () => {
   });
 
   test("bin.ts wires the nightly backup", () => {
-    const source = readFileSync(new URL("../src/bin.ts", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../src/bin.ts", import.meta.url), "utf8");
     expect(source).toContain("runBackup(");
     expect(source).toContain("backups");
   });
