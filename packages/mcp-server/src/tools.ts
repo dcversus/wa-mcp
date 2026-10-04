@@ -1147,6 +1147,77 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "label_add",
+    description: "Create a label (name + color) in the daemon's label registry.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string" },
+        color: { type: "string", description: "Hex color, default #000000" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const name = requireString(args, "name");
+      const color = typeof args.color === "string" ? args.color : "#000000";
+      const payload = (await bridgeFetch(toolCtx, "/api/labels", {
+        method: "POST",
+        body: JSON.stringify({ name, color }),
+      })) as { id?: number };
+      return { content: [{ type: "text", text: `label created: id ${payload.id ?? "?"}` }] };
+    },
+  },
+  {
+    name: "label_list",
+    description:
+      "List labels — all registry labels, or (with chat_jid) the labels carried by one chat.",
+    inputSchema: {
+      type: "object",
+      properties: { chat_jid: { type: "string", description: "Scope to one chat's labels" } },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = typeof args.chat_jid === "string" ? args.chat_jid : undefined;
+      const suffix = chatJid !== undefined ? `?chat_jid=${encodeURIComponent(chatJid)}` : "";
+      const payload = (await bridgeFetch(toolCtx, `/api/labels${suffix}`)) as { labels?: unknown };
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
+    },
+  },
+  {
+    name: "label_assign",
+    description: "Attach a label to a chat.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "label_id"],
+      properties: {
+        chat_jid: { type: "string" },
+        label_id: { type: "number" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const labelId = requireNumber(args, "label_id");
+      await bridgeFetch(toolCtx, "/api/labels", {
+        method: "PUT",
+        body: JSON.stringify({ chat_jid: chatJid, label_id: labelId }),
+      });
+      return { content: [{ type: "text", text: `label ${labelId} assigned to ${chatJid}` }] };
+    },
+  },
+  {
+    name: "label_remove",
+    description: "Delete a label from the registry (and every chat carrying it).",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "number" } },
+    },
+    handler: async (toolCtx, args) => {
+      const id = requireNumber(args, "id");
+      await bridgeFetch(toolCtx, `/api/labels/${id}`, { method: "DELETE" });
+      return { content: [{ type: "text", text: `label ${id} removed` }] };
+    },
+  },
+  {
     name: "get_contact",
     description: "Get one contact's detail by JID (name, pushname, business name, phone).",
     inputSchema: {

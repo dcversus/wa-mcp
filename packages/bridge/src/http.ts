@@ -32,6 +32,7 @@ import {
   setChatPinned,
 } from "./store/chats.ts";
 import { getContact, listContacts, setAlias } from "./store/contacts.ts";
+import { assignChatLabel, chatLabels, addLabel, listLabels, removeLabel } from "./store/labels.ts";
 import { exportMessages } from "./store/export.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
 import { requestPairingCode } from "./pairing-code.ts";
@@ -2550,6 +2551,79 @@ export async function createHttpServer(
             return;
           }
           deleteRule(opts.store, id);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path === "/api/labels" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const chatJid = new URL(req.url ?? "/", "http://localhost").searchParams.get("chat_jid");
+          if (chatJid !== null && chatJid.length > 0) {
+            sendJson(res, 200, { labels: chatLabels(opts.store, chatJid) });
+            return;
+          }
+          sendJson(res, 200, { labels: listLabels(opts.store) });
+          return;
+        }
+        if (path === "/api/labels" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const input = JSON.parse(body.toString("utf8")) as { name?: unknown; color?: unknown };
+          if (typeof input.name !== "string" || input.name.length === 0) {
+            validationError(res, "name is required");
+            return;
+          }
+          const id = addLabel(opts.store, {
+            name: input.name,
+            color: typeof input.color === "string" ? input.color : "#000000",
+          });
+          sendJson(res, 200, { id });
+          return;
+        }
+        if (path === "/api/labels" && req.method === "PUT") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const input = JSON.parse(body.toString("utf8")) as {
+            chat_jid?: unknown;
+            label_id?: unknown;
+          };
+          if (
+            typeof input.chat_jid !== "string" ||
+            typeof input.label_id !== "number" ||
+            !Number.isFinite(input.label_id)
+          ) {
+            validationError(res, "chat_jid and numeric label_id are required");
+            return;
+          }
+          assignChatLabel(opts.store, input.chat_jid, input.label_id);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path.startsWith("/api/labels/") && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const id = Number(path.slice("/api/labels/".length));
+          if (!Number.isInteger(id) || id <= 0) {
+            validationError(res, "label id must be a positive integer");
+            return;
+          }
+          removeLabel(opts.store, id);
           sendJson(res, 200, { ok: true });
           return;
         }

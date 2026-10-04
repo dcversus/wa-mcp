@@ -34,3 +34,8 @@ export function chatLabels(store: Store, chatJid: string): LabelRow[] {
     )
     .all(chatJid) as unknown as LabelRow[];
 }
+
+export function removeLabel(store: Store, id: number): void {
+  store.db.prepare("DELETE FROM labels WHERE id = ?").run(id);
+  store.db.prepare("DELETE FROM chat_labels WHERE label_id = ?").run(id);
+}

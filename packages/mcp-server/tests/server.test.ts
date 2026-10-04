@@ -101,6 +101,10 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "export_chat",
     "export_unread_messages",
     "bulk_clear",
+    "label_add",
+    "label_list",
+    "label_assign",
+    "label_remove",
     "get_contact",
     "get_picture_url",
     "get_poll_votes",
@@ -484,16 +488,25 @@ describe("T89-B GAP2 — label MCP tools", () => {
       log.push({ url: String(url), init: init ?? {} });
       const payload =
         log.length === 2 ? { labels: [{ id: 1, name: "Work", color: "#ff0000" }] } : { ok: true };
-      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }) as unknown as typeof fetch;
     const toolCtx = { ...ctx, fetchFn };
     await handleRpcLine(
-      makeRequest(61, "tools/call", { name: "label_add", arguments: { name: "Work", color: "#ff0000" } }),
+      makeRequest(61, "tools/call", {
+        name: "label_add",
+        arguments: { name: "Work", color: "#ff0000" },
+      }),
       toolCtx,
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/labels");
     expect(JSON.parse(String(log[0]?.init.body))).toEqual({ name: "Work", color: "#ff0000" });
-    await handleRpcLine(makeRequest(62, "tools/call", { name: "label_list", arguments: {} }), toolCtx);
+    await handleRpcLine(
+      makeRequest(62, "tools/call", { name: "label_list", arguments: {} }),
+      toolCtx,
+    );
     expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/labels");
     await handleRpcLine(
       makeRequest(63, "tools/call", {
