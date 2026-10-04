@@ -25,7 +25,7 @@ test("initialize returns protocol version, capabilities and server info", async 
   );
   const result = resultOf(response);
   expect(typeof result.protocolVersion).toBe("string");
-  expect(result.capabilities).toEqual({ tools: {}, resources: {} });
+  expect(result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
   expect(result.serverInfo).toEqual(SERVER_INFO);
   expect(SERVER_INFO.name).toBe("wa-mcp");
   expect(typeof SERVER_INFO.version).toBe("string");
@@ -138,7 +138,7 @@ test("an unknown tool is an invalid-params error", async () => {
 });
 
 test("an unknown method is method-not-found", async () => {
-  const response = await handleRpcLine(makeRequest(6, "prompts/list"), ctx);
+  const response = await handleRpcLine(makeRequest(6, "nope/nope"), ctx);
   if (response === null || response.error === undefined)
     throw new Error("expected an error response");
   expect(response.error.code).toBe(-32601);
@@ -398,8 +398,8 @@ describe("T86 — MCP prompts capability", () => {
     );
     const result = resultOf(response);
     const text = (result.messages as Array<{ content: { text: string } }>)[0]?.content.text;
-    expect(text).toContain("group-digest");
     expect(text).toContain("digest_group");
+    expect(text).toContain("120363428874442773@g.us");
     expect(text).toContain("120363428874442773@g.us");
   });
 });

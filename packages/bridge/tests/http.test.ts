@@ -103,6 +103,7 @@ function stubHandle(
     hasPairedAccount: () => hasPairedAccount,
     pairingBudget: () => current,
     connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+    fetchHistory: async () => ({ requested: true, request_id: "" }),
     logout: async () => {},
     resumePairing: () => {
       current = { blocked: false, used: 0, limit: current.limit };
@@ -1094,7 +1095,7 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
   };
   expect(body.jsonrpc).toBe("2.0");
   expect(body.id).toBe(1);
-  expect(body.result.capabilities).toEqual({ tools: {}, resources: {} });
+  expect(body.result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
   expect(body.result.serverInfo.name).toBe("wa-mcp");
 });
 
@@ -1472,6 +1473,7 @@ test(
         pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
         resumePairing: () => {},
         connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+        fetchHistory: async () => ({ requested: true, request_id: "" }),
         logout: async () => {},
         socket: makeFakeSocket(),
       },
@@ -1533,6 +1535,7 @@ test("GET /events fans out to multiple concurrent clients", async () => {
       pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+      fetchHistory: async () => ({ requested: true, request_id: "" }),
       logout: async () => {},
       socket: makeFakeSocket(),
     },
@@ -1578,6 +1581,7 @@ test("GET /events sends heartbeats on the configured interval", async () => {
       pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+      fetchHistory: async () => ({ requested: true, request_id: "" }),
       logout: async () => {},
       socket: makeFakeSocket(),
     },
@@ -3224,6 +3228,105 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
         voters: ["358400000001@s.whatsapp.net"],
       });
       expect(body.poll.options[1]?.votes).toBe(0);
+    } finally {
+      store.close();
+    }
+  });
+});
+
+describe("T86 — fetch-history + catch-up digest", () => {
+  test("line110 — /api/fetch-history requests on-demand sync with the oldest cursor", async () => {
+    const socket = makeFakeSocket();
+    (socket as { fetchMessageHistory?: unknown }).fetchMessageHistory = vi.fn(
+      async () => "PDO-REQ-1",
+    );
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fetchh-")));
+    openedStores.push(store);
+    storeMessage(store, {
+      key: { remoteJid: GROUP_A, fromMe: false, id: "OLDEST-1" },
+      message: { conversation: "oldest kept" },
+      messageTimestamp: 1000,
+    } as never);
+    const handle = stubHandle("connected", null, socket);
+    handle.fetchHistory = async (chatJid: string, count: number) => {
+      const fetcher = (
+        socket as {
+          fetchMessageHistory: (
+            c: number,
+            key: { remoteJid: string; fromMe: boolean; id: string },
+            ts: number,
+          ) => Promise<string>;
+        }
+      ).fetchMessageHistory;
+      const oldest = store.db
+        .prepare(
+          "SELECT id, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp ASC LIMIT 1",
+        )
+        .get(chatJid) as { id: string; from_me: number; timestamp: string };
+      const request_id = await fetcher(
+        count,
+        { remoteJid: chatJid, fromMe: oldest.is_from_me === 1, id: oldest.id },
+        new Date(oldest.timestamp).getTime(),
+      );
+      return { requested: true, request_id };
+    };
+    const bridge = await createHttpServer(handle, {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/fetch-history"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: GROUP_A, count: 25 }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { requested: boolean; request_id: string };
+    expect(body.requested).toBe(true);
+    expect(body.request_id).toBe("PDO-REQ-1");
+    const call = (socket as { fetchMessageHistory: ReturnType<typeof vi.fn> }).fetchMessageHistory
+      .mock.calls[0];
+    expect(call?.[0]).toBe(25);
+    expect((call?.[1] as { id: string }).id).toBe("OLDEST-1");
+  });
+
+  test("line112 — /api/catch-up returns the activity digest since a timestamp", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-catchup-")));
+    try {
+      const mk = (id: string, ts: number, text: string, fromMe = false) =>
+        storeMessage(store, {
+          key: { remoteJid: GROUP_A, fromMe, id },
+          message: { conversation: text },
+          messageTimestamp: ts,
+        } as never);
+      mk("C1", 1700000100, "where is the plan?", false);
+      mk("C2", 1700000200, "look at this", false);
+      store.db.prepare("UPDATE messages SET media_type = 'image' WHERE id = 'C2'").run();
+      mk("C3", 1700000300, "old message before the window", false);
+      store.db
+        .prepare("UPDATE messages SET timestamp = ? WHERE id = 'C3'")
+        .run("2020-01-01T00:00:00.000Z");
+      const bridge = await createHttpServer(stubHandle("connected"), {
+        token: "test-token",
+        store,
+      });
+      created.push(bridge);
+      const res = await fetch(
+        url(bridge, `/api/catch-up?since=${encodeURIComponent("2021-01-01T00:00:00.000Z")}`),
+        { headers: authHeader },
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        activeChats: Array<{ jid: string; messageCount: number; lastActivity: string }>;
+        questions: Array<{ chat: string; excerpt: string }>;
+        mediaCount: number;
+      };
+      expect(body.activeChats).toHaveLength(1);
+      expect(body.activeChats[0]?.jid).toBe(GROUP_A);
+      expect(body.activeChats[0]?.messageCount).toBe(2);
+      expect(body.questions).toHaveLength(1);
+      expect(body.questions[0]?.excerpt).toContain("plan");
+      expect(body.mediaCount).toBe(1);
     } finally {
       store.close();
     }

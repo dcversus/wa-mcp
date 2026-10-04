@@ -2092,6 +2092,83 @@ export async function createHttpServer(
           sendJson(res, 200, { deleted: true });
           return;
         }
+        if (path === "/api/fetch-history" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as {
+            chat_jid?: unknown;
+            count?: unknown;
+          };
+          if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+            validationError(res, "chat_jid is required");
+            return;
+          }
+          const count = typeof input.count === "number" ? input.count : 25;
+          const result = await handle.fetchHistory(input.chat_jid, count);
+          sendJson(res, 200, result);
+          return;
+        }
+        if (path === "/api/catch-up" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+          const since = params.get("since");
+          if (since === null || since.length === 0) {
+            validationError(res, "since is required (ISO timestamp)");
+            return;
+          }
+          const rows = opts.store.db
+            .prepare(
+              "SELECT chat_jid, content, media_type, timestamp, is_from_me FROM messages WHERE timestamp >= ? ORDER BY timestamp",
+            )
+            .all(since) as Array<{
+            chat_jid: string;
+            content: string | null;
+            media_type: string | null;
+            timestamp: string;
+            is_from_me: number;
+          }>;
+          const byChat = new Map<
+            string,
+            { jid: string; name: string | null; messageCount: number; lastActivity: string }
+          >();
+          let mediaCount = 0;
+          const questions: Array<{ chat: string; excerpt: string; at: string }> = [];
+          const names = opts.store.db.prepare("SELECT name FROM chats WHERE jid = ?");
+          for (const row of rows) {
+            const entry = byChat.get(row.chat_jid) ?? {
+              jid: row.chat_jid,
+              name: (names.get(row.chat_jid) as { name?: string } | undefined)?.name ?? null,
+              messageCount: 0,
+              lastActivity: row.timestamp,
+            };
+            entry.messageCount += 1;
+            entry.lastActivity = row.timestamp;
+            byChat.set(row.chat_jid, entry);
+            if (row.media_type !== null) {
+              mediaCount += 1;
+            }
+            if (
+              row.is_from_me !== 1 &&
+              typeof row.content === "string" &&
+              row.content.includes("?")
+            ) {
+              questions.push({
+                chat: row.chat_jid,
+                excerpt: row.content.slice(0, 120),
+                at: row.timestamp,
+              });
+            }
+          }
+          sendJson(res, 200, {
+            activeChats: Array.from(byChat.values()),
+            questions,
+            mediaCount,
+          });
+          return;
+        }
         if (path === "/api/logout" && req.method === "POST") {
           await handle.logout();
           sendJson(res, 200, { ok: true, status: handle.status });

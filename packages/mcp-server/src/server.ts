@@ -162,9 +162,101 @@ export async function handleRpcMessage(
       case "initialize":
         return {
           protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: {}, resources: {} },
+          capabilities: { tools: {}, resources: {}, prompts: {} },
           serverInfo: SERVER_INFO,
         };
+      case "prompts/list":
+        return {
+          prompts: [
+            {
+              name: "group-digest",
+              description:
+                "Summarize a group's activity since a date (counts, top participants, open questions).",
+              arguments: [
+                { name: "group", description: "Group JID", required: true },
+                { name: "since", description: "ISO date to summarize from", required: true },
+              ],
+            },
+            {
+              name: "catch-up",
+              description:
+                "Catch-up digest across all chats since a date (active chats, questions aimed at you, media).",
+              arguments: [
+                { name: "since", description: "ISO date to catch up from", required: true },
+              ],
+            },
+            {
+              name: "action-items",
+              description: "Extract open questions and asks from one chat.",
+              arguments: [
+                { name: "chat", description: "Chat JID", required: true },
+                { name: "since", description: "ISO date to scan from" },
+              ],
+            },
+          ],
+        };
+      case "prompts/get": {
+        const promptParams = ((request as { params?: { arguments?: Record<string, string> } })
+          .params ?? {}) as { arguments?: Record<string, string> };
+        const promptName = String(promptParams.name ?? "");
+        const promptArgs = promptParams.arguments ?? {};
+        if (promptName === "group-digest") {
+          const group = String(promptArgs.group ?? "");
+          const since = String(promptArgs.since ?? "");
+          return {
+            description: `Summarize ${group} since ${since}`,
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text:
+                    `Use the digest_group tool (group=${group}, since=${since}) to summarize this group: ` +
+                    "message counts, top participants by volume, open questions and media/poll counts. " +
+                    "Present the result as a short markdown briefing.",
+                },
+              },
+            ],
+          };
+        }
+        if (promptName === "catch-up") {
+          const since = String(promptArgs.since ?? "");
+          return {
+            description: `Catch-up digest since ${since}`,
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text:
+                    `Use the catch_up tool (since=${since}) to list active chats, questions directed at me ` +
+                    "and media counts. Highlight anything that looks urgent or unanswered.",
+                },
+              },
+            ],
+          };
+        }
+        if (promptName === "action-items") {
+          const chat = String(promptArgs.chat ?? "");
+          const since = String(promptArgs.since ?? "");
+          return {
+            description: `Action items in ${chat}`,
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text:
+                    `Use search_messages on chat ${chat}` +
+                    (since ? ` (since=${since})` : "") +
+                    " to find open questions and requests, then list each as an action item with its sender and date.",
+                },
+              },
+            ],
+          };
+        }
+        throw new MethodNotFoundError(promptName || "(empty)");
+      }
       case "ping":
         return {};
       case "tools/list":

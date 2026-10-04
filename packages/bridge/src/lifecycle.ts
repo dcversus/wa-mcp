@@ -66,6 +66,9 @@ export interface BridgeHandle {
   connectionQuality(): { reconnects: number; lastDisconnectAt: number | null };
   /** T84 line92: explicit logout — teardown + logged-out marker, no reconnection. */
   logout(): Promise<void>;
+  /** T86 line110: request on-demand history for a chat (async — messages
+   * arrive via the normal ingest). */
+  fetchHistory(chatJid: string, count: number): Promise<{ requested: boolean; request_id: string }>;
   close(): Promise<void>;
 }
 
@@ -608,6 +611,45 @@ export async function startBridge(
       reconnects,
       lastDisconnectAt,
     }),
+    fetchHistory: async (chatJid: string, count: number) => {
+      const current = socket;
+      if (current === null || current === undefined) {
+        throw new Error("bridge not connected");
+      }
+      const oldest = opts.store?.db
+        .prepare(
+          "SELECT id, from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp ASC LIMIT 1",
+        )
+        .get(chatJid) as { id: string; from_me: number; timestamp: string } | undefined;
+      const fetcher = (
+        current as unknown as {
+          fetchMessageHistory?: (
+            count: number,
+            key: { remoteJid: string; fromMe: boolean; id: string },
+            tsMs: number,
+          ) => Promise<string>;
+        }
+      ).fetchMessageHistory;
+      if (typeof fetcher !== "function") {
+        throw new Error("engine does not expose fetchMessageHistory");
+      }
+      if (oldest === undefined) {
+        // no local anchor: ask the engine with the chat jid itself as cursor
+        const requestId = await fetcher(
+          count,
+          { remoteJid: chatJid, fromMe: false, id: chatJid },
+          0,
+        );
+        return { requested: true, request_id: String(requestId ?? "") };
+      }
+      const oldestTs = new Date(oldest.timestamp).getTime();
+      const requestId = await fetcher(
+        count,
+        { remoteJid: chatJid, fromMe: oldest.from_me === 1, id: oldest.id },
+        oldestTs,
+      );
+      return { requested: true, request_id: String(requestId ?? "") };
+    },
     logout: async () => {
       // T84 line92: creds are KEPT but the session is marked logged-out —
       // closed=true stops every auto-reconnect path from here on.
