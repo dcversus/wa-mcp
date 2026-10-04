@@ -3284,7 +3284,10 @@ describe("T86 — fetch-history + catch-up digest", () => {
     const body = (await res.json()) as { requested: boolean; request_id: string };
     expect(body.requested).toBe(true);
     expect(body.request_id).toBe("PDO-REQ-1");
-    const call = (socket as { fetchMessageHistory: ReturnType<typeof vi.fn> }).fetchMessageHistory
+    const call = (
+      (socket as unknown as { fetchMessageHistory: ReturnType<typeof vi.fn> })
+        .fetchMessageHistory
+    ).mock.calls[0];
       .mock.calls[0];
     expect(call?.[0]).toBe(25);
     expect((call?.[1] as { id: string }).id).toBe("OLDEST-1");
