@@ -135,6 +135,37 @@ async function bridgeFetch(
   return body;
 }
 
+/** T94-C1: /api/export returns raw NDJSON/MD/TXT — never JSON. Text is
+ * passed through unmodified (cut at 4000 chars WITH a marker), while error
+ * bodies still surface as failures. */
+async function bridgeFetchText(toolCtx: ToolContext, path: string): Promise<string> {
+  const fetchFn = toolCtx.fetchFn ?? fetch;
+  const response = await fetchFn(`${toolCtx.bridgeUrl}${path}`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${toolCtx.token}`,
+    },
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    try {
+      const parsed = JSON.parse(text) as { error?: { message?: unknown } };
+      if (parsed?.error?.message !== undefined) {
+        throw new Error(`bridge request failed: ${String(parsed.error.message)}`);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("bridge request failed")) {
+        throw err;
+      }
+    }
+    throw new Error(`bridge request failed: bridge returned ${response.status}`);
+  }
+  if (text.length > 4000) {
+    return `${text.slice(0, 4000)}\n\n[truncated: showing first 4000 of ${text.length} characters — export the file via /api/export for the rest]`;
+  }
+  return text;
+}
+
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -1503,11 +1534,11 @@ export const TOOLS: ToolDef[] = [
     handler: async (toolCtx, args) => {
       const chatJid = requireString(args, "chat_jid");
       const format = typeof args.format === "string" ? args.format : "jsonl";
-      const payload = (await bridgeFetch(
+      const text = await bridgeFetchText(
         toolCtx,
         `/api/export?chat_jid=${encodeURIComponent(chatJid)}&format=${encodeURIComponent(format)}`,
-      )) as unknown;
-      return { content: [{ type: "text", text: JSON.stringify(payload).slice(0, 4000) }] };
+      );
+      return { content: [{ type: "text", text }] };
     },
   },
   {
@@ -1519,11 +1550,11 @@ export const TOOLS: ToolDef[] = [
     },
     handler: async (toolCtx, args) => {
       const format = typeof args.format === "string" ? args.format : "jsonl";
-      const payload = (await bridgeFetch(
+      const text = await bridgeFetchText(
         toolCtx,
         `/api/export?unread=true&format=${encodeURIComponent(format)}`,
-      )) as unknown;
-      return { content: [{ type: "text", text: JSON.stringify(payload).slice(0, 4000) }] };
+      );
+      return { content: [{ type: "text", text }] };
     },
   },
   {
