@@ -6,7 +6,7 @@ documented disposition. WEAK = partial/mismatched evidence (tool exists but
 no cited proof, feature lives on a sibling tool). UNBACKED = no anchor and
 no evidence found. Nothing was unticked; this report only observes.
 
-Summary: 145 BACKED / 2 WEAK / 1 UNBACKED (of 148)
+Summary: 145 BACKED / 3 WEAK / 0 UNBACKED (of 148)
 
 | GOAL line | checkbox (first 80 chars) | anchor type | evidence | verdict |
 |---|---|---|---|---|
