@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import { proto } from "baileys";
 import {
+  buildAlbumMessage,
   buildButtonsMessage,
   buildContactMessage,
   buildEditMessage,
@@ -194,8 +195,9 @@ describe("T84 line99 — poll validation", () => {
 describe("T85 line95 — album container (engine truth: fork albumMessage)", () => {
   test("3 images build the albumMessage container", async () => {
     const msg = await buildAlbumMessage(3, 0);
-    const album = (msg as { albumMessage?: { expectedImageCount?: number; expectedVideoCount?: number } })
-      .albumMessage;
+    const album = (
+      msg as { albumMessage?: { expectedImageCount?: number; expectedVideoCount?: number } }
+    ).albumMessage;
     expect(album?.expectedImageCount).toBe(3);
     expect(album?.expectedVideoCount).toBe(0);
   });

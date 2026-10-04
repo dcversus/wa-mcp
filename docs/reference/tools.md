@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 39 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 43 tools. Regenerate with `pnpm run docs:gen`.
 
 ### send_message
 
@@ -588,6 +588,31 @@ Manage per-target send rules (T82). action=add requires target + mode (block|all
 - `id` (number, optional) — Rule id (action=remove)
 - required: `action`
 
+### autoreply_set
+
+Manage autoreply rules. action=add requires match (regex) + reply; list lists; remove/toggle require id (toggle also uses enabled).
+
+```json
+{
+  "type": "object",
+  "required": ["action"],
+  "properties": {
+    "action": { "type": "string", "enum": ["add", "list", "remove", "toggle"] },
+    "match": { "type": "string", "description": "Regex matched case-insensitively" },
+    "reply": { "type": "string" },
+    "id": { "type": "number" },
+    "enabled": { "type": "boolean" }
+  }
+}
+```
+
+- `action` (string, required)
+- `match` (string, optional) — Regex matched case-insensitively
+- `reply` (string, optional)
+- `id` (number, optional)
+- `enabled` (boolean, optional)
+- required: `action`
+
 ### create_template
 
 Create or update a message template with {{var}} placeholders.
@@ -671,6 +696,44 @@ List scheduled messages, optionally by status (pending|sent|failed|cancelled).
 ```
 
 - `status` (string, optional)
+
+### get_contact
+
+Get one contact's detail by JID (name, pushname, business name, phone).
+
+```json
+{ "type": "object", "required": ["jid"], "properties": { "jid": { "type": "string" } } }
+```
+
+- `jid` (string, required)
+- required: `jid`
+
+### get_picture_url
+
+Fetch a chat/contact profile picture URL (preview size).
+
+```json
+{ "type": "object", "required": ["jid"], "properties": { "jid": { "type": "string" } } }
+```
+
+- `jid` (string, required)
+- required: `jid`
+
+### get_poll_votes
+
+Poll results: question + per-option vote counts and voter lists.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "message_id"],
+  "properties": { "chat_jid": { "type": "string" }, "message_id": { "type": "string" } }
+}
+```
+
+- `chat_jid` (string, required)
+- `message_id` (string, required)
+- required: `chat_jid`, `message_id`
 
 ### cancel_scheduled
 

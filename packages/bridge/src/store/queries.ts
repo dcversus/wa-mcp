@@ -34,6 +34,9 @@ export interface MessageRow {
   isUnread: boolean;
   reactions: Array<ReactionAggregate> | null;
   poll?: { question: string; options: Array<{ label: string; votes: number }> } | null;
+  forwarded?: boolean;
+  forwardedFrom?: string | null;
+  raw?: string | null;
 }
 
 export interface Pagination {
@@ -163,8 +166,72 @@ function attachPolls(store: Store, rows: MessageRow[]): void {
   }
 }
 
+/** T85 line97: forwarded rows surface the flag + the original participant
+ * when the engine's contextInfo carries it (raw JSON written at ingest). */
+function attachForwarded(rows: MessageRow[]): void {
+  for (const row of rows) {
+    if (row.raw === undefined || row.raw === null) {
+      row.forwarded = false;
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(row.raw) as {
+        contextInfo?: { isForwarded?: boolean; participant?: string };
+      };
+      row.forwarded = parsed.contextInfo?.isForwarded === true;
+      row.forwardedFrom = parsed.contextInfo?.participant ?? null;
+    } catch {
+      row.forwarded = false;
+    }
+  }
+}
+
+/** T85 line117: poll vote aggregate with per-option voter lists. */
+export function pollVotesAggregate(
+  store: Store,
+  chatJid: string,
+  messageId: string,
+): { question: string; options: Array<{ label: string; votes: number; voters: string[] }> } | null {
+  const row = store.db
+    .prepare("SELECT content, raw FROM messages WHERE chat_jid = ? AND id = ?")
+    .get(chatJid, messageId) as { content?: string | null; raw?: string | null } | undefined;
+  if (row === undefined) {
+    return null;
+  }
+  let question = "";
+  try {
+    const parsed =
+      row.raw !== null && row.raw !== undefined
+        ? (JSON.parse(row.raw) as { pollCreationMessage?: { name?: string } })
+        : undefined;
+    question = parsed?.pollCreationMessage?.name ?? asString(row.content) ?? "";
+  } catch {
+    question = asString(row.content) ?? "";
+  }
+  const options = store.db
+    .prepare(
+      "SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx",
+    )
+    .all(chatJid, messageId) as Array<{ idx: number; label: string }>;
+  const votes = store.db
+    .prepare(
+      "SELECT option_idx, voter_jid FROM poll_votes WHERE chat_jid = ? AND message_id = ? ORDER BY voted_at",
+    )
+    .all(chatJid, messageId) as Array<{ option_idx: number; voter_jid: string }>;
+  return {
+    question,
+    options: options.map((option) => {
+      const voters = votes
+        .filter((vote) => vote.option_idx === option.idx)
+        .map((vote) => vote.voter_jid);
+      return { label: option.label, votes: voters.length, voters };
+    }),
+  };
+}
+
 function attachOne(store: Store, row: MessageRow): MessageRow {
   attachReactions(store, [row]);
+  attachForwarded([row]);
   attachPolls(store, [row]);
   return row;
 }
@@ -183,6 +250,7 @@ function rowToMessage(row: RawRow): MessageRow {
     isFromMe: row.is_from_me === 1,
     isUnread: row.is_unread === 1,
     reactions: null, // populated by attachReactions (T78 M2 aggregate)
+    raw: asString(row.raw),
   };
 }
 
@@ -258,6 +326,7 @@ export function listMessages(store: Store, opts: ListMessagesFilter): MessageRow
     .all(...params, limit, offset) as RawRow[];
   const messages = rows.map(rowToMessage);
   attachReactions(store, messages);
+  attachForwarded(messages);
   attachPolls(store, messages);
   return messages;
 }
@@ -359,6 +428,7 @@ export function searchMessages(
         .all(sanitized, ...chatParams, limit, offset) as RawRow[];
       const messages = rows.map(rowToMessage);
       attachReactions(store, messages);
+      attachForwarded(messages);
       attachPolls(store, messages);
       return messages;
     } catch {
@@ -388,6 +458,7 @@ function likeFallback(
       .all(pattern, opts.chatJid, limit, offset) as RawRow[];
     const messages = rows.map(rowToMessage);
     attachReactions(store, messages);
+    attachForwarded(messages);
     attachPolls(store, messages);
     return messages;
   }
@@ -399,6 +470,7 @@ function likeFallback(
     .all(pattern, limit, offset) as RawRow[];
   const messages = rows.map(rowToMessage);
   attachReactions(store, messages);
+  attachForwarded(messages);
   attachPolls(store, messages);
   return messages;
 }

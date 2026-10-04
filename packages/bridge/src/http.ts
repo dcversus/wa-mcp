@@ -9,12 +9,6 @@ import type { BridgeHandle } from "./lifecycle.ts";
 import { isSafePublicEvent } from "./events.ts";
 import { spawn } from "node:child_process";
 import { toVoiceOgg } from "./media/voice.ts";
-import {
-  addAutoreplyRule,
-  listAutoreplyRules,
-  removeAutoreplyRule,
-  toggleAutoreplyRule,
-} from "./store/autoreply.ts";
 import type { LookupFn } from "./media/resolve.ts";
 import {
   addSendRule,
@@ -37,7 +31,7 @@ import {
   setChatMuted,
   setChatPinned,
 } from "./store/chats.ts";
-import { listContacts, setAlias } from "./store/contacts.ts";
+import { getContact, listContacts, setAlias } from "./store/contacts.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
 import { requestPairingCode } from "./pairing-code.ts";
 import {
@@ -64,6 +58,7 @@ import {
 import {
   fetchMessageFromStore,
   getMessageContext,
+  pollVotesAggregate,
   listChats,
   listMessages,
   searchMessages,
@@ -555,11 +550,13 @@ export async function createHttpServer(
       text?: unknown;
       mentions?: unknown;
       reply_to_message_id?: unknown;
+      reply_to_ids?: unknown;
       link_preview?: unknown;
       media?: unknown;
       caption?: unknown;
       file_name?: unknown;
       message_id?: unknown;
+      ids?: unknown;
       emote?: unknown;
       latitude?: unknown;
       longitude?: unknown;
@@ -661,6 +658,56 @@ export async function createHttpServer(
         break;
       }
       case "forward": {
+        // T85 line96: batch forward — one engine call per id, sequential
+        if (Array.isArray(input.ids)) {
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          const ids = (input.ids as unknown[]).filter(
+            (id): id is string => typeof id === "string" && id.length > 0,
+          );
+          if (ids.length === 0) {
+            validationError(res, "ids must contain at least one message id");
+            return;
+          }
+          void (async () => {
+            const messageIds: string[] = [];
+            for (const id of ids) {
+              const original = fetchMessageFromStore(opts.store!, id);
+              if (original === null) {
+                sendJson(res, 404, {
+                  error: { code: "NOT_FOUND", message: `message ${id} not found` },
+                });
+                return;
+              }
+            }
+            for (const id of ids) {
+              const original = fetchMessageFromStore(opts.store!, id);
+              const result = await sendViaSocket(
+                socket,
+                chatJid as string,
+                {
+                  forward: original,
+                } as unknown as AnyMessageContent,
+              );
+              messageIds.push(result.messageId);
+            }
+            sendJson(res, 200, { message_ids: messageIds });
+          })().catch((err: unknown) => {
+            if (err instanceof SendError) {
+              sendJson(res, err.code === "SEND_FAILED" ? 500 : 400, {
+                error: { code: err.code, message: err.message },
+              });
+              return;
+            }
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "batch forward failed" } });
+          });
+          return;
+        }
         if (typeof input.message_id !== "string" || input.message_id.length === 0) {
           validationError(res, "message_id is required");
           return;
@@ -2169,73 +2216,6 @@ export async function createHttpServer(
           serveReadPost("/api/notifications", req, res, body);
           return;
         }
-        if (path === "/api/autoreply-rules" && req.method === "GET") {
-          if (opts.store === undefined) {
-            sendJson(res, 501, {
-              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
-            });
-            return;
-          }
-          sendJson(res, 200, { rules: listAutoreplyRules(opts.store) });
-          return;
-        }
-        if (path === "/api/autoreply-rules" && req.method === "POST") {
-          if (opts.store === undefined) {
-            sendJson(res, 501, {
-              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
-            });
-            return;
-          }
-          void readBodyWithCap(req, MAX_BODY_BYTES)
-            .then(async ({ fits, body: raw }) => {
-              if (!fits) {
-                sendJson(res, 413, {
-                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
-                });
-                return;
-              }
-              const input = JSON.parse(raw.toString("utf8")) as {
-                action?: unknown;
-                match?: unknown;
-                reply?: unknown;
-                id?: unknown;
-                enabled?: unknown;
-              };
-              const action = typeof input.action === "string" ? input.action : "add";
-              if (action === "add") {
-                if (typeof input.match !== "string" || typeof input.reply !== "string") {
-                  sendJson(res, 400, {
-                    error: { code: "VALIDATION_ERROR", message: "match and reply are required" },
-                  });
-                  return;
-                }
-                const id = addAutoreplyRule(opts.store!, {
-                  match: input.match,
-                  reply: input.reply,
-                });
-                sendJson(res, 200, { id });
-                return;
-              }
-              if (action === "toggle") {
-                toggleAutoreplyRule(opts.store!, Number(input.id), input.enabled === true);
-                sendJson(res, 200, { ok: true });
-                return;
-              }
-              if (action === "remove") {
-                removeAutoreplyRule(opts.store!, Number(input.id));
-                sendJson(res, 200, { ok: true });
-                return;
-              }
-              sendJson(res, 400, {
-                error: { code: "VALIDATION_ERROR", message: "unknown action" },
-              });
-            })
-            .catch((err: unknown) => {
-              opts.logger?.error({ err }, "autoreply rule failed");
-              sendJson(res, 500, { error: { code: "INTERNAL", message: "autoreply rule failed" } });
-            });
-          return;
-        }
         if (path === "/api/send-rules" && req.method === "GET") {
           if (opts.store === undefined) {
             sendJson(res, 501, {
@@ -2451,6 +2431,71 @@ export async function createHttpServer(
           }
           deleteRule(opts.store, id);
           sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (path.startsWith("/api/contacts/") && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const contact = getContact(
+            opts.store,
+            decodeURIComponent(path.slice("/api/contacts/".length)),
+          );
+          if (contact === undefined) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "contact not found" } });
+            return;
+          }
+          sendJson(res, 200, { contact });
+          return;
+        }
+        if (path === "/api/picture-url" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as { jid?: unknown };
+          if (typeof input.jid !== "string" || input.jid.length === 0) {
+            validationError(res, "jid is required");
+            return;
+          }
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          try {
+            const url = await socket.profilePictureUrl(input.jid, "preview");
+            if (typeof url !== "string" || url.length === 0) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no profile picture" } });
+              return;
+            }
+            sendJson(res, 200, { url });
+          } catch {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no profile picture" } });
+          }
+          return;
+        }
+        if (path === "/api/poll-votes" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+          const messageId = params.get("message_id");
+          const chatJid = params.get("chat_jid");
+          if (messageId === null || chatJid === null) {
+            validationError(res, "message_id and chat_jid are required");
+            return;
+          }
+          const poll = pollVotesAggregate(opts.store, chatJid, messageId);
+          if (poll === null) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "poll not found" } });
+            return;
+          }
+          sendJson(res, 200, { poll });
           return;
         }
         if (path === "/api/contacts") {

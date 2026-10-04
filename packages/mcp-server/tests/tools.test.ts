@@ -73,6 +73,9 @@ test("the registry exposes the full launch set", () => {
     "send_template",
     "schedule_message",
     "list_scheduled",
+    "get_contact",
+    "get_picture_url",
+    "get_poll_votes",
     "cancel_scheduled",
   ]);
   expect(toolByName("send_message")?.name).toBe("send_message");

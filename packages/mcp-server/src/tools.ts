@@ -354,11 +354,16 @@ export const TOOLS: ToolDef[] = [
       },
     },
     handler: async (toolCtx, args) => {
-      const body = {
+      const body: Record<string, unknown> = {
         kind: "forward",
         chat_jid: requireString(args, "chat_jid"),
-        message_id: requireString(args, "message_id"),
       };
+      // T85 line96: batch mode — ids[] forwards every id in one call
+      if (Array.isArray(args.ids)) {
+        body.ids = args.ids;
+      } else {
+        body.message_id = requireString(args, "message_id");
+      }
       const payload = (await bridgeFetch(toolCtx, "/api/send", {
         method: "POST",
         body: JSON.stringify(body),
@@ -1013,6 +1018,74 @@ export const TOOLS: ToolDef[] = [
         scheduled?: unknown;
       };
       return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
+    },
+  },
+  {
+    name: "get_contact",
+    description: "Get one contact's detail by JID (name, pushname, business name, phone).",
+    inputSchema: {
+      type: "object",
+      required: ["jid"],
+      properties: { jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      const payload = (await bridgeFetch(toolCtx, `/api/contacts/${encodeURIComponent(jid)}`)) as {
+        contact?: unknown;
+        error?: { code: string; message: string };
+      };
+      if (payload.contact === undefined) {
+        return {
+          content: [{ type: "text", text: `NOT_FOUND: ${payload.error?.message ?? "contact"}` }],
+        };
+      }
+      return { content: [{ type: "text", text: JSON.stringify(payload.contact, null, 2) }] };
+    },
+  },
+  {
+    name: "get_picture_url",
+    description: "Fetch a chat/contact profile picture URL (preview size).",
+    inputSchema: {
+      type: "object",
+      required: ["jid"],
+      properties: { jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      const payload = (await bridgeFetch(toolCtx, "/api/picture-url", {
+        method: "POST",
+        body: JSON.stringify({ jid }),
+      })) as { url?: string; error?: { code: string } };
+      if (payload.url === undefined) {
+        return { content: [{ type: "text", text: `NOT_FOUND: no profile picture for ${jid}` }] };
+      }
+      return { content: [{ type: "text", text: payload.url }] };
+    },
+  },
+  {
+    name: "get_poll_votes",
+    description: "Poll results: question + per-option vote counts and voter lists.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id"],
+      properties: {
+        chat_jid: { type: "string" },
+        message_id: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const messageId = requireString(args, "message_id");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/poll-votes?message_id=${encodeURIComponent(messageId)}&chat_jid=${encodeURIComponent(chatJid)}`,
+      )) as { poll?: unknown; error?: { code: string; message: string } };
+      if (payload.poll === undefined) {
+        return {
+          content: [{ type: "text", text: `NOT_FOUND: ${payload.error?.message ?? "poll"}` }],
+        };
+      }
+      return { content: [{ type: "text", text: JSON.stringify(payload.poll, null, 2) }] };
     },
   },
   {

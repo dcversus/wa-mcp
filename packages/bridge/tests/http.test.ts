@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { EventEmitter } from "node:events";
 import { addSendRule } from "../src/store/send-rules.ts";
+import { storePollVotes } from "../src/store/poll-votes.ts";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -3067,6 +3068,13 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
     const socket = makeFakeSocket();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fwd-")));
     openedStores.push(store);
+    for (const [idx, id] of ["F1", "F2", "F3"].entries()) {
+      storeMessage(store, {
+        key: { remoteJid: "120363428874442773@g.us", fromMe: false, id },
+        message: { conversation: `msg ${id}` },
+        messageTimestamp: 1000 + idx,
+      } as never);
+    }
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",
       store,
@@ -3091,7 +3099,12 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fwdattr-")));
     try {
       storeMessage(store, {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "FW1", participant: "358400000001@s.whatsapp.net" },
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "FW1",
+          participant: "358400000001@s.whatsapp.net",
+        },
         message: {
           conversation: "forwarded text",
           contextInfo: {
@@ -3115,7 +3128,7 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-contacts-")));
     upsertContact(store, { jid: "358497773518@s.whatsapp.net", name: "Vasilisa" });
     upsertContact(store, { jid: "358400000001@s.whatsapp.net", name: "Andreas" });
-    upsertContact(store, { jid: "120363428874442773@g.us", name: "V-core" });
+    upsertContact(store, { jid: "120363428874442773@g.us", name: "Vaseline group" });
     const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
     created.push(bridge);
     const list = (await (
@@ -3135,8 +3148,8 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
 
   test("line109 — /api/picture-url resolves or 404s structured", async () => {
     const socket = makeFakeSocket();
-    (socket as { profilePictureUrl?: unknown }).profilePictureUrl = vi.fn(
-      async (jid: string) => (jid.includes("has-pic") ? "https://cdn.example/pic.jpg" : ""),
+    (socket as { profilePictureUrl?: unknown }).profilePictureUrl = vi.fn((jid: string) =>
+      jid.includes("has-pic") ? "https://cdn.example/pic.jpg" : "",
     );
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",
@@ -3162,7 +3175,12 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-pollvotes-")));
     try {
       storeMessage(store, {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "PV1", participant: "358401112222@s.whatsapp.net" },
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "PV1",
+          participant: "358401112222@s.whatsapp.net",
+        },
         message: {
           pollCreationMessage: {
             name: "lunch?",
@@ -3175,11 +3193,18 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
       storePollVotes(store, GROUP_A, "PV1", [
         {
           pollUpdateMessageKey: { participant: "358400000001@s.whatsapp.net" },
-          vote: { selectedOptions: [createHash("sha256").update("Pizza").digest()] },
+          vote: {
+            selectedOptions: [
+              (await import("node:crypto")).createHash("sha256").update("Pizza").digest(),
+            ],
+          },
           senderTimestampMs: Date.now(),
         },
       ]);
-      const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+      const bridge = await createHttpServer(stubHandle("connected"), {
+        token: "test-token",
+        store,
+      });
       created.push(bridge);
       const res = await fetch(
         url(bridge, `/api/poll-votes?message_id=PV1&chat_jid=${encodeURIComponent(GROUP_A)}`),
@@ -3187,7 +3212,10 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
       );
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
-        poll: { question: string; options: Array<{ label: string; votes: number; voters: string[] }> };
+        poll: {
+          question: string;
+          options: Array<{ label: string; votes: number; voters: string[] }>;
+        };
       };
       expect(body.poll.question).toBe("lunch?");
       expect(body.poll.options[0]).toEqual({

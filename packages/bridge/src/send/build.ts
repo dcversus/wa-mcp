@@ -177,6 +177,31 @@ export async function buildPollMessage(
   );
 }
 
+/** T85 line95: the fork supports the album CONTAINER via
+ * generateWAMessageContent({album:{expectedImageCount, expectedVideoCount}}) —
+ * WhatsApp groups the follow-up media under it. Only image/video counts. */
+export async function buildAlbumMessage(
+  imageCount: number,
+  videoCount: number,
+): Promise<proto.IMessage> {
+  const total = imageCount + videoCount;
+  if (total < 2 || total > 10) {
+    throw new SendError("VALIDATION_ERROR", "an album needs between 2 and 10 media items");
+  }
+  if (imageCount > 0 && videoCount > 0) {
+    throw new SendError(
+      "VALIDATION_ERROR",
+      "mixed albums are not supported — use one image or video media type",
+    );
+  }
+  return generateWAMessageContent(
+    {
+      album: { expectedImageCount: imageCount, expectedVideoCount: videoCount },
+    } as AnyMessageContent,
+    GENERATION_OPTIONS,
+  );
+}
+
 export interface ListSectionInput {
   title: string;
   rows: Array<{ title: string; rowId: string; description?: string }>;

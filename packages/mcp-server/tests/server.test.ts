@@ -92,6 +92,9 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "send_template",
     "schedule_message",
     "list_scheduled",
+    "get_contact",
+    "get_picture_url",
+    "get_poll_votes",
     "cancel_scheduled",
   ]);
   for (const tool of tools) {
