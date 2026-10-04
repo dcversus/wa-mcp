@@ -99,3 +99,14 @@ describe("T61 media dir default", () => {
     expect(existsSync(dir)).toBe(true);
   });
 });
+
+test("T94-C-H5 — the daemon hands startBridge the mediaDir (auto-download live)", () => {
+  // CODEX review H5: mediaDir reached only createHttpServer — startBridge
+  // never got it, so T93-D's auto-download + backfill were inert in the real
+  // daemon (both early-return when opts.mediaDir === undefined)
+  const source = readFileSync(new URL("../src/bin.ts", import.meta.url), "utf8");
+  const start = source.indexOf("startBridge(authDir, {");
+  expect(start).toBeGreaterThan(-1);
+  const block = source.slice(start, source.indexOf("});", start));
+  expect(block).toContain("mediaDir: config.mediaDir");
+});
