@@ -12,25 +12,98 @@ Get the current WhatsApp login QR code + pairing instructions. Returns NOT_PAIRI
 
 ### send_message
 
-Send a WhatsApp text message. Accepts phone numbers, group JIDs, or any chat jid.
+Send a WhatsApp message: plain text, link card, status broadcast, buttons or a list.
 
 ```json
 {
   "type": "object",
-  "required": ["chat_jid", "text"],
+  "required": ["text"],
   "properties": {
     "chat_jid": {
       "type": "string",
-      "description": "Recipient: phone number, group JID, or any chat JID"
+      "description": "Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)"
     },
-    "text": { "type": "string", "description": "Message text" }
+    "text": { "type": "string", "description": "Message text" },
+    "link_preview": {
+      "type": "boolean",
+      "description": "Send text as a link card — the bridge forces an engine link preview; pair with url or embed a URL in text"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL to preview when link_preview is true (defaults to the first URL in text)"
+    },
+    "status_broadcast": {
+      "type": "boolean",
+      "description": "Post the text to your status (status@broadcast) instead of a chat — chat_jid not required"
+    },
+    "buttons": {
+      "type": "array",
+      "description": "Quick-reply buttons under the text. Renders for WhatsApp Business accounts only.",
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": { "label": { "type": "string", "description": "Button label" } }
+      }
+    },
+    "interactive": {
+      "type": "object",
+      "description": "Rich button message (title, body, footer). Renders for WhatsApp Business accounts only.",
+      "properties": {
+        "title": { "type": "string", "description": "Message title (content text)" },
+        "description": { "type": "string", "description": "Body appended under the title" },
+        "footer": { "type": "string", "description": "Footer line above the buttons" },
+        "buttons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "properties": { "label": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "list": {
+      "type": "object",
+      "description": "List message with sections and rows. Renders for WhatsApp Business accounts only.",
+      "properties": {
+        "title": { "type": "string", "description": "List title" },
+        "description": { "type": "string", "description": "List subtitle" },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "rows"],
+            "properties": {
+              "title": { "type": "string", "description": "Section title" },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["title"],
+                  "properties": {
+                    "title": { "type": "string", "description": "Row title" },
+                    "description": { "type": "string", "description": "Row subtitle" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 ```
 
-- `chat_jid` (string, required) — Recipient: phone number, group JID, or any chat JID
+- `chat_jid` (string, optional) — Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)
 - `text` (string, required) — Message text
-- required: `chat_jid`, `text`
+- `link_preview` (boolean, optional) — Send text as a link card — the bridge forces an engine link preview; pair with url or embed a URL in text
+- `url` (string, optional) — URL to preview when link_preview is true (defaults to the first URL in text)
+- `status_broadcast` (boolean, optional) — Post the text to your status (status@broadcast) instead of a chat — chat_jid not required
+- `buttons` (array, optional) — Quick-reply buttons under the text. Renders for WhatsApp Business accounts only.
+- `interactive` (object, optional) — Rich button message (title, body, footer). Renders for WhatsApp Business accounts only.
+- `list` (object, optional) — List message with sections and rows. Renders for WhatsApp Business accounts only.
+- required: `text`
 
 ### list_chats
 

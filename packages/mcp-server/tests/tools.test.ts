@@ -125,7 +125,14 @@ test("T92-B — send_message schema exposes the variant params", () => {
   const tool = toolByName("send_message");
   if (!tool) throw new Error("send_message missing");
   const props = (tool.inputSchema.properties ?? {}) as Record<string, { description?: string }>;
-  for (const name of ["link_preview", "url", "status_broadcast", "buttons", "interactive", "list"]) {
+  for (const name of [
+    "link_preview",
+    "url",
+    "status_broadcast",
+    "buttons",
+    "interactive",
+    "list",
+  ]) {
     expect(props[name], `missing property: ${name}`).toBeDefined();
   }
   // Business-account caveat must ride the interactive param descriptions
@@ -161,7 +168,11 @@ test("T92-B — link_preview without url extracts the first URL from text", asyn
   if (!tool) throw new Error("send_message missing");
   await tool.handler(
     { ...ctx, fetchFn },
-    { chat_jid: "358497773518@s.whatsapp.net", text: "see https://example.com/y now", link_preview: true },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "see https://example.com/y now",
+      link_preview: true,
+    },
   );
   expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
     kind: "link_preview",

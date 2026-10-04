@@ -60,6 +60,48 @@ function optionalNumber(args: Record<string, unknown>, name: string): number | u
   return value;
 }
 
+function optionalString(args: Record<string, unknown>, name: string): string | undefined {
+  const value = args[name];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ParamError(`${name} must be a non-empty string`);
+  }
+  return value;
+}
+
+function requireObject(value: unknown, name: string): Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new ParamError(`${name} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+/** T92-B: buttons accept {label} objects (schema shape) or bare strings. */
+function requireLabels(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ParamError(`${name} must be a non-empty array of labels`);
+  }
+  return value.map((entry, index) => {
+    if (typeof entry === "string" && entry.length > 0) {
+      return entry;
+    }
+    if (entry !== null && typeof entry === "object" && !Array.isArray(entry)) {
+      const label = (entry as { label?: unknown }).label;
+      if (typeof label === "string" && label.length > 0) {
+        return label;
+      }
+    }
+    throw new ParamError(`${name}[${index}] must carry a label`);
+  });
+}
+
+function firstUrlIn(text: string): string | undefined {
+  const match = /https?:\/\/[^\s<>"')\]]+/.exec(text);
+  return match?.[0];
+}
+
 function textResult(payload: Record<string, unknown>): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify(payload) }] };
 }
@@ -163,24 +205,186 @@ export const TOOLS: ToolDef[] = [
   {
     name: "send_message",
     description:
-      "Send a WhatsApp text message. Accepts phone numbers, group JIDs, or any chat jid.",
+      "Send a WhatsApp message: plain text, link card, status broadcast, buttons or a list.",
     inputSchema: {
       type: "object",
-      required: ["chat_jid", "text"],
+      required: ["text"],
       properties: {
         chat_jid: {
           type: "string",
-          description: "Recipient: phone number, group JID, or any chat JID",
+          description:
+            "Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)",
         },
         text: { type: "string", description: "Message text" },
+        link_preview: {
+          type: "boolean",
+          description:
+            "Send text as a link card — the bridge forces an engine link preview; pair with url or embed a URL in text",
+        },
+        url: {
+          type: "string",
+          description:
+            "URL to preview when link_preview is true (defaults to the first URL in text)",
+        },
+        status_broadcast: {
+          type: "boolean",
+          description:
+            "Post the text to your status (status@broadcast) instead of a chat — chat_jid not required",
+        },
+        buttons: {
+          type: "array",
+          description:
+            "Quick-reply buttons under the text. Renders for WhatsApp Business accounts only.",
+          items: {
+            type: "object",
+            required: ["label"],
+            properties: { label: { type: "string", description: "Button label" } },
+          },
+        },
+        interactive: {
+          type: "object",
+          description:
+            "Rich button message (title, body, footer). Renders for WhatsApp Business accounts only.",
+          properties: {
+            title: { type: "string", description: "Message title (content text)" },
+            description: { type: "string", description: "Body appended under the title" },
+            footer: { type: "string", description: "Footer line above the buttons" },
+            buttons: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["label"],
+                properties: { label: { type: "string" } },
+              },
+            },
+          },
+        },
+        list: {
+          type: "object",
+          description:
+            "List message with sections and rows. Renders for WhatsApp Business accounts only.",
+          properties: {
+            title: { type: "string", description: "List title" },
+            description: { type: "string", description: "List subtitle" },
+            sections: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["title", "rows"],
+                properties: {
+                  title: { type: "string", description: "Section title" },
+                  rows: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["title"],
+                      properties: {
+                        title: { type: "string", description: "Row title" },
+                        description: { type: "string", description: "Row subtitle" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     handler: async (toolCtx, args) => {
-      const chatJid = requireString(args, "chat_jid");
-      const text = requireString(args, "text");
+      const linkPreview = args.link_preview === true;
+      const statusBroadcast = args.status_broadcast === true;
+      const hasButtons = args.buttons !== undefined;
+      const hasInteractive = args.interactive !== undefined;
+      const hasList = args.list !== undefined;
+      const variants = [linkPreview, statusBroadcast, hasButtons, hasInteractive, hasList].filter(
+        (set) => set,
+      ).length;
+      if (variants > 1) {
+        throw new ParamError(
+          "pass only one of link_preview, status_broadcast, buttons, interactive, list",
+        );
+      }
+
+      // T92-B: the bridge kinds are status-text / link_preview / buttons / list
+      // (plain text stays the un-kinded {chat_jid, text} body the bridge defaults)
+      let body: Record<string, unknown>;
+      if (statusBroadcast) {
+        body = { kind: "status-text", text: requireString(args, "text") };
+      } else {
+        const chatJid = requireString(args, "chat_jid");
+        if (linkPreview) {
+          const text = requireString(args, "text");
+          const explicit =
+            typeof args.url === "string" && args.url.length > 0 ? args.url : undefined;
+          const url = explicit ?? firstUrlIn(text);
+          if (url === undefined) {
+            throw new ParamError(
+              "link_preview needs a url — pass url or include a URL in the text",
+            );
+          }
+          body = { kind: "link_preview", chat_jid: chatJid, text, url };
+        } else if (hasInteractive) {
+          const spec = requireObject(args.interactive, "interactive");
+          const labels = requireLabels(spec.buttons, "interactive.buttons");
+          const title = requireString(spec, "title");
+          const description = optionalString(spec, "description");
+          body = {
+            kind: "buttons",
+            chat_jid: chatJid,
+            text: description === undefined ? title : `${title}\n${description}`,
+            buttons: labels,
+            ...(optionalString(spec, "footer") !== undefined
+              ? { caption: optionalString(spec, "footer") }
+              : {}),
+          };
+        } else if (hasButtons) {
+          body = {
+            kind: "buttons",
+            chat_jid: chatJid,
+            text: requireString(args, "text"),
+            buttons: requireLabels(args.buttons, "buttons"),
+          };
+        } else if (hasList) {
+          const spec = requireObject(args.list, "list");
+          const title = requireString(spec, "title");
+          const description = optionalString(spec, "description");
+          const rawSections = Array.isArray(spec.sections) ? spec.sections : [];
+          if (rawSections.length === 0) {
+            throw new ParamError("list.sections is required with at least one section");
+          }
+          const sections = rawSections.map((section, sectionIndex) => {
+            const s = requireObject(section, `list.sections[${sectionIndex}]`);
+            const sectionTitle = requireString(s, "title");
+            const rawRows = Array.isArray(s.rows) ? s.rows : [];
+            if (rawRows.length === 0) {
+              throw new ParamError(`list.sections[${sectionIndex}].rows needs at least one row`);
+            }
+            const rows = rawRows.map((row, rowIndex) => {
+              const r = requireObject(row, `list.sections[${sectionIndex}].rows[${rowIndex}]`);
+              const rowTitle = requireString(r, "title");
+              const rowDescription = optionalString(r, "description");
+              return {
+                title: rowTitle,
+                row_id: `r${sectionIndex}-${rowIndex}`,
+                ...(rowDescription !== undefined ? { description: rowDescription } : {}),
+              };
+            });
+            return { title: sectionTitle, rows };
+          });
+          body = {
+            kind: "list",
+            chat_jid: chatJid,
+            text: description === undefined ? title : `${title}\n${description}`,
+            sections,
+          };
+        } else {
+          body = { chat_jid: chatJid, text: requireString(args, "text") };
+        }
+      }
       const payload = (await bridgeFetch(toolCtx, "/api/send", {
         method: "POST",
-        body: JSON.stringify({ chat_jid: chatJid, text }),
+        body: JSON.stringify(body),
       })) as { message_id?: string };
       return {
         content: [{ type: "text", text: `message sent: ${payload.message_id ?? "unknown id"}` }],
