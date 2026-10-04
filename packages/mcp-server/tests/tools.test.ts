@@ -1,5 +1,10 @@
 import { expect, test } from "vite-plus/test";
-import { TOOLS, toolByName, type ToolContext } from "../src/tools.ts";
+import { TOOLS, toolByName, type ToolContext, type ToolResult } from "../src/tools.ts";
+
+function firstText(result: ToolResult): string {
+  const part = result.content[0];
+  return part?.type === "text" ? part.text : "";
+}
 
 const ctx: ToolContext = { bridgeUrl: "http://bridge.test:8080", token: "tok" };
 
@@ -109,7 +114,7 @@ test("send_message posts to the bridge with the bearer token", async () => {
     chat_jid: "358497773518",
     text: "hello",
   });
-  expect(result.content[0]?.text).toContain("M9");
+  expect(firstText(result)).toContain("M9");
 });
 
 test("list_chats fetches the chat list and returns json text", async () => {
@@ -119,7 +124,7 @@ test("list_chats fetches the chat list and returns json text", async () => {
   const result = await tool.handler({ ...ctx, fetchFn }, { limit: 50 });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/chats?limit=50");
   expect(calls[0]?.method).toBe("GET");
-  expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({ chats: [{ jid: "a@g.us" }] });
+  expect(JSON.parse(firstText(result) || "{}")).toEqual({ chats: [{ jid: "a@g.us" }] });
 });
 
 test("list_messages and search_messages pass their filters through", async () => {
@@ -168,7 +173,7 @@ test("send_media posts the media body to /api/send", async () => {
   expect(body.media).toEqual({ base64: "aGk=" });
   expect(body.caption).toBe("cap");
   expect(body.file_name).toBe("x.png");
-  expect(result.content[0]?.text).toContain("MM1");
+  expect(firstText(result)).toContain("MM1");
 });
 
 test("get_chat finds one chat from the chat list", async () => {
@@ -179,9 +184,9 @@ test("get_chat finds one chat from the chat list", async () => {
   if (!tool) throw new Error("get_chat missing");
   const result = await tool.handler({ ...ctx, fetchFn }, { chat_jid: "120363428874442773@g.us" });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/chats?limit=200");
-  expect(result.content[0]?.text).toContain("Test");
+  expect(firstText(result)).toContain("Test");
   const missing = await tool.handler({ ...ctx, fetchFn }, { chat_jid: "nope@g.us" });
-  expect(missing.content[0]?.text).toContain("not found");
+  expect(firstText(missing)).toContain("not found");
 });
 
 test("reaction, edit and forward route their kinds", async () => {
@@ -244,7 +249,7 @@ test("list_contacts, set_alias and get_unread_counts call their endpoints", asyn
   const contacts = toolByName("list_contacts");
   if (!contacts) throw new Error("list_contacts missing");
   const contactResult = await contacts.handler(toolCtx, { query: "jo" });
-  expect(contactResult.content[0]?.text).toContain("John");
+  expect(firstText(contactResult)).toContain("John");
   const alias = toolByName("set_alias");
   if (!alias) throw new Error("set_alias missing");
   await alias.handler(toolCtx, { alias: "me", jid: "358497773518@s.whatsapp.net" });
@@ -255,7 +260,7 @@ test("list_contacts, set_alias and get_unread_counts call their endpoints", asyn
   const unread = toolByName("get_unread_counts");
   if (!unread) throw new Error("get_unread_counts missing");
   const unreadResult = await unread.handler(toolCtx, {});
-  expect(unreadResult.content[0]?.text).toContain("unreadCount");
+  expect(firstText(unreadResult)).toContain("unreadCount");
   expect(calls.map((call) => call.url.replace("http://bridge.test:8080", ""))).toEqual([
     "/api/contacts?query=jo",
     "/api/alias",
@@ -293,7 +298,7 @@ test("block_unblock posts the action and get_blocklist reads the list", async ()
   const list = toolByName("get_blocklist");
   if (!list) throw new Error("get_blocklist missing");
   const result = await list.handler(toolCtx, {});
-  expect(result.content[0]?.text).toContain("999@s.whatsapp.net");
+  expect(firstText(result)).toContain("999@s.whatsapp.net");
 });
 
 test("get_media triggers the download and returns metadata", async () => {
@@ -305,8 +310,8 @@ test("get_media triggers the download and returns metadata", async () => {
   const result = await tool.handler({ ...ctx, fetchFn }, { message_id: "M1" });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/media/M1");
   expect(calls[0]?.method).toBe("POST");
-  expect(result.content[0]?.text).toContain("M1.png");
-  expect(result.content[0]?.text).toContain("image/png");
+  expect(firstText(result)).toContain("M1.png");
+  expect(firstText(result)).toContain("image/png");
 });
 
 test("notification rule tools hit their endpoints", async () => {
@@ -374,7 +379,7 @@ test("group tools drive their endpoints", async () => {
   expect(bodies[2]).toEqual({ group_jid: "g@g.us", subject: "S", description: "D" });
   expect(bodies[3]).toEqual({ group_jid: "g@g.us" });
   expect(calls[4]?.url).toBe("http://bridge.test:8080/api/group/invite/g%40us");
-  expect(inviteResult.content[0]?.text).toContain("CODE9");
+  expect(firstText(inviteResult)).toContain("CODE9");
 });
 
 test("transcribe_message and send_voice_note hit their endpoints", async () => {
@@ -388,7 +393,7 @@ test("transcribe_message and send_voice_note hit their endpoints", async () => {
   const transcript = await transcribe.handler(toolCtx, { message_id: "M1" });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/transcribe");
   expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ message_id: "M1" });
-  expect(transcript.content[0]?.text).toContain("mock transcript");
+  expect(firstText(transcript)).toContain("mock transcript");
   const voice = toolByName("send_voice_note");
   if (!voice) throw new Error("send_voice_note missing");
   await voice.handler(toolCtx, { text: "say hi", chat_jid: "g@g.us" });
@@ -403,7 +408,7 @@ test("get_pairing_code posts the phone to the bridge", async () => {
   const result = await tool.handler({ ...ctx, fetchFn }, { phone: "+358 497 773 518" });
   expect(calls[0]?.url).toBe("http://bridge.test:8080/api/pairing-code");
   expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ phone: "+358 497 773 518" });
-  expect(result.content[0]?.text).toContain("ABCD-1234");
+  expect(firstText(result)).toContain("ABCD-1234");
 });
 
 test("T62: delete_message tool POSTs /api/delete with the bearer token", async () => {
@@ -420,5 +425,5 @@ test("T62: delete_message tool POSTs /api/delete with the bearer token", async (
     chat_jid: "351930017568@s.whatsapp.net",
     message_id: "TARGET1",
   });
-  expect(result.content[0]?.text).toContain("deleted");
+  expect(firstText(result)).toContain("deleted");
 });

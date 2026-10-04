@@ -297,7 +297,7 @@ describe("T82-B — daemon utility tools", () => {
       recordingCtx(log),
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/send-rules");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+    expect(JSON.parse(String(log[0]?.init.body ?? "{}"))).toEqual({
       target: "*@g.us",
       mode: "block",
     });
