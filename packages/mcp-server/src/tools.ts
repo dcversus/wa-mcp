@@ -10,6 +10,9 @@ export interface ToolResult {
   content: Array<
     { type: "text"; text: string } | { type: "image"; data: string; mimeType: string }
   >;
+  /** T94-D-H5claude: MCP tool-execution failures ride isError so the model
+   * can read the message and recover, instead of a protocol error */
+  isError?: boolean;
 }
 
 export interface ToolAnnotations {
@@ -106,6 +109,10 @@ function textResult(payload: Record<string, unknown>): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify(payload) }] };
 }
 
+/** T94-D-H5claude: one hung bridge call used to block the whole stdio
+ * session — every call arms an abort timeout. */
+export const BRIDGE_TIMEOUT_MS = 30_000;
+
 async function bridgeFetch(
   toolCtx: ToolContext,
   path: string,
@@ -119,12 +126,27 @@ async function bridgeFetch(
   if (init?.headers !== undefined) {
     Object.assign(headers, init.headers);
   }
-  const response = await fetchFn(`${toolCtx.bridgeUrl}${path}`, {
-    method: init?.method ?? "GET",
-    headers,
-    ...(init?.body !== undefined ? { body: init.body } : {}),
-  });
-  const body: unknown = await response.json();
+  let response: Response;
+  try {
+    response = await fetchFn(`${toolCtx.bridgeUrl}${path}`, {
+      method: init?.method ?? "GET",
+      headers,
+      signal: AbortSignal.timeout(BRIDGE_TIMEOUT_MS),
+      ...(init?.body !== undefined ? { body: init.body } : {}),
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`bridge unreachable (${reason}) — is the daemon running? wa-mcp status`);
+  }
+  const raw = await response.text();
+  let body: unknown;
+  try {
+    body = raw.length > 0 ? JSON.parse(raw) : null;
+  } catch {
+    // a proxy 502/504 page must not surface as a bare SyntaxError —
+    // keep the HTTP status
+    throw new Error(`bridge request failed: non-JSON response (HTTP ${response.status})`);
+  }
   if (!response.ok) {
     const message =
       body !== null && typeof body === "object" && "error" in body

@@ -127,17 +127,38 @@ async function dispatchToolCall(
   if (tool === undefined) {
     throw new ParamError(`unknown tool: ${name}`);
   }
-  if (args === undefined || args === null) {
-    return toolResultToPayload(await tool.handler(toolCtx, {}));
+  // T94-D-H5claude: tool-EXECUTION failures ride result.isError (the model
+  // reads the message and recovers) — only argument problems stay protocol
+  // errors. One hung call can no longer wedge the stdio session either,
+  // because bridgeFetch arms its own abort timeout.
+  try {
+    if (args === undefined || args === null) {
+      return toolResultToPayload(await tool.handler(toolCtx, {}));
+    }
+    if (typeof args !== "object" || Array.isArray(args)) {
+      throw new ParamError("arguments must be an object");
+    }
+    return toolResultToPayload(await tool.handler(toolCtx, args as Record<string, unknown>));
+  } catch (err) {
+    if (err instanceof ParamError) {
+      throw err;
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: `tool failed: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      ],
+      isError: true,
+    };
   }
-  if (typeof args !== "object" || Array.isArray(args)) {
-    throw new ParamError("arguments must be an object");
-  }
-  return toolResultToPayload(await tool.handler(toolCtx, args as Record<string, unknown>));
 }
 
 function toolResultToPayload(result: import("./tools.ts").ToolResult): Record<string, unknown> {
-  return { content: result.content };
+  return result.isError === true
+    ? { content: result.content, isError: true }
+    : { content: result.content };
 }
 
 type PromptGetParams = { name?: string; arguments?: Record<string, string> };

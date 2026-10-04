@@ -916,3 +916,35 @@ describe("T94-C1 — export tools read raw text (NDJSON/MD/TXT), not JSON", () =
     ).rejects.toThrow("no such chat");
   });
 });
+
+test("T94-D-H5claude — bridgeFetch arms an abort timeout", async () => {
+  let seenSignal: unknown;
+  const fetchFn = (async (_url: string | URL, init?: RequestInit) => {
+    seenSignal = init?.signal;
+    return new Response(JSON.stringify({ chats: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as unknown as typeof fetch;
+  const tool = toolByName("list_chats");
+  if (!tool) throw new Error("list_chats missing");
+  await tool.handler({ ...ctx, fetchFn }, {});
+  expect(seenSignal).toBeInstanceOf(AbortSignal);
+});
+
+test("T94-D-H5claude — non-JSON 5xx keeps the HTTP status in the message", async () => {
+  const fetchFn = (async () =>
+    new Response("<html>502 Bad Gateway</html>", { status: 502 })) as unknown as typeof fetch;
+  const tool = toolByName("list_chats");
+  if (!tool) throw new Error("list_chats missing");
+  await expect(tool.handler({ ...ctx, fetchFn }, {})).rejects.toThrow("HTTP 502");
+});
+
+test("T94-D-H5claude — an unreachable bridge names the remedy", async () => {
+  const fetchFn = (async () => {
+    throw new TypeError("fetch failed");
+  }) as unknown as typeof fetch;
+  const tool = toolByName("list_chats");
+  if (!tool) throw new Error("list_chats missing");
+  await expect(tool.handler({ ...ctx, fetchFn }, {})).rejects.toThrow("wa-mcp status");
+});

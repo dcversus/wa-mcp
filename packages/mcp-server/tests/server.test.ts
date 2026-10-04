@@ -774,3 +774,29 @@ test("T94-A — the serialized tools/list carries complete hint coverage", async
   };
   expect(TOOL_ANNOTATIONS).not.toHaveProperty("logout");
 });
+
+test("T94-D-H5claude — bridge failures come back as isError results, not protocol errors", async () => {
+  const failing = (async () => {
+    throw new Error("bridge request failed: bridge returned 500");
+  }) as unknown as typeof fetch;
+  const response = await handleRpcLine(
+    makeRequest(940, "tools/call", { name: "list_chats", arguments: {} }),
+    { ...ctx, fetchFn: failing },
+  );
+  // RED today: the failure surfaced as a JSON-RPC -32603 protocol error
+  expect(response?.error).toBeUndefined();
+  const result = resultOf(response) as {
+    isError?: boolean;
+    content: Array<{ text?: string }>;
+  };
+  expect(result.isError).toBe(true);
+  expect(result.content[0]?.text).toContain("500");
+});
+
+test("T94-D-H5claude — param errors stay protocol errors", async () => {
+  const response = await handleRpcLine(
+    makeRequest(941, "tools/call", { name: "nope_not_real", arguments: {} }),
+    ctx,
+  );
+  expect(response?.error?.code).toBe(-32602);
+});
