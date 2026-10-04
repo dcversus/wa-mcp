@@ -69,6 +69,8 @@ export interface BridgeHandle {
   /** T86 line110: request on-demand history for a chat (async — messages
    * arrive via the normal ingest). */
   fetchHistory(chatJid: string, count: number): Promise<{ requested: boolean; request_id: string }>;
+  /** T89 line128: true once the contacts store holds at least one entry. */
+  contactsWarm(): boolean;
   close(): Promise<void>;
 }
 
@@ -611,6 +613,14 @@ export async function startBridge(
       reconnects,
       lastDisconnectAt,
     }),
+    contactsWarm: () => {
+      const store = opts.store;
+      if (store === undefined) {
+        return false;
+      }
+      const row = store.db.prepare("SELECT COUNT(*) AS n FROM contacts").get() as { n: number };
+      return row.n > 0;
+    },
     fetchHistory: async (chatJid: string, count: number) => {
       const current = socket;
       if (current === null || current === undefined) {

@@ -21,9 +21,7 @@ export function listLabels(store: Store): LabelRow[] {
 
 export function assignChatLabel(store: Store, chatJid: string, labelId: number): void {
   store.db
-    .prepare(
-      "INSERT OR IGNORE INTO chat_labels (chat_jid, label_id) VALUES (?, ?)",
-    )
+    .prepare("INSERT OR IGNORE INTO chat_labels (chat_jid, label_id) VALUES (?, ?)")
     .run(chatJid, labelId);
 }
 

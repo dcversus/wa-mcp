@@ -1844,6 +1844,7 @@ export async function createHttpServer(
         uptime: Math.floor((Date.now() - startedAt) / 1000),
         // T79 line49: connection-quality counters
         reconnects: handle.connectionQuality().reconnects,
+        contactsWarm: handle.contactsWarm(),
         lastDisconnectAt: handle.connectionQuality().lastDisconnectAt,
       });
       return;
@@ -2187,6 +2188,28 @@ export async function createHttpServer(
             questions,
             mediaCount,
           });
+          return;
+        }
+        if (path === "/api/mark-unread" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const input = JSON.parse(body.toString("utf8")) as {
+            chat_jid?: unknown;
+            clear?: unknown;
+          };
+          if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+            validationError(res, "chat_jid is required");
+            return;
+          }
+          const value = input.clear === true ? 0 : 1;
+          opts.store.db
+            .prepare("UPDATE chats SET manual_unread = ? WHERE jid = ?")
+            .run(value, input.chat_jid);
+          sendJson(res, 200, { chat_jid: input.chat_jid, manual_unread: value });
           return;
         }
         if (path === "/api/logout" && req.method === "POST") {
@@ -2600,7 +2623,7 @@ export async function createHttpServer(
                 throw new Error("engine lacks profilePictureUrl");
               }
               const url = await fn.call(socket, jid, "preview");
-                        if (typeof url === "string" && url.length > 0) {
+              if (typeof url === "string" && url.length > 0) {
                 hasPhoto = true;
                 pictureUrl = url;
               }

@@ -104,6 +104,7 @@ function stubHandle(
     pairingBudget: () => current,
     connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
     fetchHistory: async () => ({ requested: true, request_id: "" }),
+    contactsWarm: () => false,
     logout: async () => {},
     resumePairing: () => {
       current = { blocked: false, used: 0, limit: current.limit };
@@ -1474,6 +1475,7 @@ test(
         resumePairing: () => {},
         connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
         fetchHistory: async () => ({ requested: true, request_id: "" }),
+        contactsWarm: () => false,
         logout: async () => {},
         socket: makeFakeSocket(),
       },
@@ -1536,6 +1538,7 @@ test("GET /events fans out to multiple concurrent clients", async () => {
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
       fetchHistory: async () => ({ requested: true, request_id: "" }),
+      contactsWarm: () => false,
       logout: async () => {},
       socket: makeFakeSocket(),
     },
@@ -1582,6 +1585,7 @@ test("GET /events sends heartbeats on the configured interval", async () => {
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
       fetchHistory: async () => ({ requested: true, request_id: "" }),
+      contactsWarm: () => false,
       logout: async () => {},
       socket: makeFakeSocket(),
     },
