@@ -3061,3 +3061,143 @@ test("T84 line92 — POST /api/logout invokes the handle teardown", async () => 
   expect(res.status).toBe(200);
   expect(logout).toHaveBeenCalledTimes(1);
 });
+
+describe("T85 — forward batch, forward attribution, contacts, picture, poll votes", () => {
+  test("line96 — batch forward sends one engine call per id", async () => {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fwd-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "forward",
+        chat_jid: "358497773518@s.whatsapp.net",
+        ids: ["F1", "F2", "F3"],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const calls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("line97 — a forwarded ingest carries the flag + original sender", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fwdattr-")));
+    try {
+      storeMessage(store, {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "FW1", participant: "358400000001@s.whatsapp.net" },
+        message: {
+          conversation: "forwarded text",
+          contextInfo: {
+            isForwarded: true,
+            forwardingScore: 3,
+            participant: "358400000009@s.whatsapp.net",
+          },
+        },
+        messageTimestamp: 1000,
+      } as never);
+      const list = listMessages(store, { chatJid: GROUP_A });
+      const row = list.find((entry) => entry.id === "FW1");
+      expect(row?.forwarded).toBe(true);
+      expect(row?.forwardedFrom).toBe("358400000009@s.whatsapp.net");
+    } finally {
+      store.close();
+    }
+  });
+
+  test("line108 — contacts search + detail", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-contacts-")));
+    upsertContact(store, { jid: "358497773518@s.whatsapp.net", name: "Vasilisa" });
+    upsertContact(store, { jid: "358400000001@s.whatsapp.net", name: "Andreas" });
+    upsertContact(store, { jid: "120363428874442773@g.us", name: "V-core" });
+    const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+    created.push(bridge);
+    const list = (await (
+      await fetch(url(bridge, "/api/contacts"), { headers: authHeader })
+    ).json()) as { contacts: unknown[] };
+    expect(list.contacts).toHaveLength(3);
+    const search = (await (
+      await fetch(url(bridge, "/api/contacts?query=vas"), { headers: authHeader })
+    ).json()) as { contacts: unknown[] };
+    expect(search.contacts).toHaveLength(2);
+    const detail = (await (
+      await fetch(url(bridge, "/api/contacts/358497773518@s.whatsapp.net"), { headers: authHeader })
+    ).json()) as { contact?: { jid: string } };
+    expect(detail.contact?.jid).toBe("358497773518@s.whatsapp.net");
+    store.close();
+  });
+
+  test("line109 — /api/picture-url resolves or 404s structured", async () => {
+    const socket = makeFakeSocket();
+    (socket as { profilePictureUrl?: unknown }).profilePictureUrl = vi.fn(
+      async (jid: string) => (jid.includes("has-pic") ? "https://cdn.example/pic.jpg" : ""),
+    );
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+    });
+    created.push(bridge);
+    const ok = await fetch(url(bridge, "/api/picture-url"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "has-pic@s.whatsapp.net" }),
+    });
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { url: string }).url).toContain("https://");
+    const missing = await fetch(url(bridge, "/api/picture-url"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "no-pic@s.whatsapp.net" }),
+    });
+    expect(missing.status).toBe(404);
+    expect(((await missing.json()) as { error: { code: string } }).error.code).toBe("NOT_FOUND");
+  });
+
+  test("line117 — /api/poll-votes returns options with voters", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-pollvotes-")));
+    try {
+      storeMessage(store, {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "PV1", participant: "358401112222@s.whatsapp.net" },
+        message: {
+          pollCreationMessage: {
+            name: "lunch?",
+            options: [{ optionName: "Pizza" }, { optionName: "Burger" }],
+            selectableOptionsCount: 1,
+          },
+        },
+        messageTimestamp: 1000,
+      } as never);
+      storePollVotes(store, GROUP_A, "PV1", [
+        {
+          pollUpdateMessageKey: { participant: "358400000001@s.whatsapp.net" },
+          vote: { selectedOptions: [createHash("sha256").update("Pizza").digest()] },
+          senderTimestampMs: Date.now(),
+        },
+      ]);
+      const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+      created.push(bridge);
+      const res = await fetch(
+        url(bridge, `/api/poll-votes?message_id=PV1&chat_jid=${encodeURIComponent(GROUP_A)}`),
+        { headers: authHeader },
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        poll: { question: string; options: Array<{ label: string; votes: number; voters: string[] }> };
+      };
+      expect(body.poll.question).toBe("lunch?");
+      expect(body.poll.options[0]).toEqual({
+        label: "Pizza",
+        votes: 1,
+        voters: ["358400000001@s.whatsapp.net"],
+      });
+      expect(body.poll.options[1]?.votes).toBe(0);
+    } finally {
+      store.close();
+    }
+  });
+});

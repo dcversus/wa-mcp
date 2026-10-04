@@ -190,3 +190,28 @@ describe("T84 line99 — poll validation", () => {
     });
   });
 });
+
+describe("T85 line95 — album container (engine truth: fork albumMessage)", () => {
+  test("3 images build the albumMessage container", async () => {
+    const msg = await buildAlbumMessage(3, 0);
+    const album = (msg as { albumMessage?: { expectedImageCount?: number; expectedVideoCount?: number } })
+      .albumMessage;
+    expect(album?.expectedImageCount).toBe(3);
+    expect(album?.expectedVideoCount).toBe(0);
+  });
+
+  test("2-10 image/video items only", async () => {
+    await expect(buildAlbumMessage(1, 0)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("2"),
+    });
+    await expect(buildAlbumMessage(9, 2)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("10"),
+    });
+    await expect(buildAlbumMessage(2, 1)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("image"),
+    });
+  });
+});
