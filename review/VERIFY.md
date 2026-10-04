@@ -411,3 +411,10 @@ no checkbox is claimed without evidence.
 - LIVE E2E: own-send upsert appended {ts,kind:chat,from,text,media:false} to ~/.wa-mcp/subs/<id>/inbox.jsonl; /health subscriptions {count:1,dropped:0}; cleanup DELETE 204.
 - Suite 886/886 (84 files), vp check clean, pushed.
 - Lesson (proto safety): never property-probe Baileys protos — use Object.keys.
+
+### Phase 2 T108 CLOSED — MCP notification mapper + /api/mcp-notify SSE (2026-10-04T23:46:26Z)
+
+- toMcpNotifications: safe-set guarded (creds.update → nothing — security regression guard), messages.upsert → resources/updated wa://unread + wa://chats, connection.update → notifications/message info (wa-mcp.connection) + wa://health, rule match → notifications/message notice (wa-mcp.rules).
+- /api/mcp-notify: SSE stream, auth via the shared bearer gate (401 verified), heartbeat pattern from /events.
+- LIVE: 4 JSON-RPC frames captured on the real daemon during an own-send (wa://unread seen verbatim).
+- Suite 891/891 (85 files), check clean, pushed.
