@@ -22,13 +22,17 @@ const GROUP_A = "120363428874442773@g.us";
 
 let contactsWarmFlag = false;
 
-function stubHandle(status: BridgeStatus = "connected"): BridgeHandle {
+function stubHandle(
+  status: BridgeStatus = "connected",
+  _lastQr: string | null = null,
+  socketOverride?: WASocket,
+): BridgeHandle {
   return {
     status,
     events: createEventBus(),
     close: async () => {},
     getLastQr: () => null,
-    socket: {} as unknown as WASocket,
+    socket: (socketOverride ?? {}) as unknown as WASocket,
     hasPairedAccount: () => false,
     pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
     resumePairing: () => {},
@@ -272,7 +276,7 @@ describe("T89-D — newsletters follow/unfollow/send/list", () => {
     const list = (await (
       await fetch(url(bridge, "/api/newsletters"), { headers: authHeader })
     ).json()) as { newsletters: Array<{ jid: string }> };
-    expect(list.newsletters).toEqual([{ jid: "1234@newsletter" }]);
+    expect(list.newsletters.map((row) => row.jid)).toEqual(["1234@newsletter"]);
     const unfollow = await fetch(url(bridge, "/api/newsletters/unfollow"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -296,6 +300,10 @@ describe("T89-D — newsletters follow/unfollow/send/list", () => {
     });
     expect(res.status).toBe(200);
     const sendCalls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
-    expect(sendCalls[0]).toEqual(["1234@newsletter", { text: "bulletin" }]);
+    // sendViaSocket passes (jid, content, opts) — assert the first two
+    expect(sendCalls[0]?.slice(0, 2)).toEqual([
+      "1234@newsletter",
+      { text: "bulletin" },
+    ]);
   });
 });

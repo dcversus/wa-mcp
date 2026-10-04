@@ -2363,6 +2363,77 @@ export async function createHttpServer(
           sendJson(res, 200, { chat_jid: groupJid, ephemeral_duration: input.duration });
           return;
         }
+        if (path === "/api/newsletters" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+            return;
+          }
+          const rows = opts.store.db
+            .prepare("SELECT jid, followed_at FROM newsletters ORDER BY followed_at")
+            .all() as Array<{ jid: string; followed_at: string }>;
+          sendJson(res, 200, { newsletters: rows });
+          return;
+        }
+        if (path === "/api/newsletters/follow" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as { jid?: unknown };
+          const jid = typeof input.jid === "string" ? input.jid : "";
+          if (jid.length === 0) {
+            validationError(res, "jid is required");
+            return;
+          }
+          const engine = handle.socket as unknown as {
+            newsletterFollow?: (jid: string) => Promise<void>;
+          };
+          if (typeof engine.newsletterFollow !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" } });
+            return;
+          }
+          await engine.newsletterFollow(jid);
+          opts.store?.db
+            .prepare("INSERT OR IGNORE INTO newsletters (jid, followed_at) VALUES (?, ?)")
+            .run(jid, new Date().toISOString());
+          sendJson(res, 200, { ok: true, jid });
+          return;
+        }
+        if (path === "/api/newsletters/unfollow" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as { jid?: unknown };
+          const jid = typeof input.jid === "string" ? input.jid : "";
+          if (jid.length === 0) {
+            validationError(res, "jid is required");
+            return;
+          }
+          const engine = handle.socket as unknown as {
+            newsletterUnfollow?: (jid: string) => Promise<void>;
+          };
+          if (typeof engine.newsletterUnfollow !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" } });
+            return;
+          }
+          await engine.newsletterUnfollow(jid);
+          opts.store?.db.prepare("DELETE FROM newsletters WHERE jid = ?").run(jid);
+          sendJson(res, 200, { ok: true, jid });
+          return;
+        }
+        if (path === "/api/newsletters/send" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as {
+            jid?: unknown;
+            text?: unknown;
+          };
+          if (typeof input.jid !== "string" || typeof input.text !== "string") {
+            validationError(res, "jid and text are required");
+            return;
+          }
+          const socket = handle.socket;
+          if (socket === undefined || socket === null) {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+            return;
+          }
+          const result = await sendViaSocket(socket, input.jid, {
+            text: input.text,
+          } as AnyMessageContent);
+          sendJson(res, 200, { message_id: result.messageId });
+          return;
+        }
         if (path === "/api/calls/reject" && req.method === "POST") {
           const input = JSON.parse(body.toString("utf8")) as {
             call_id?: unknown;

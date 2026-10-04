@@ -235,6 +235,13 @@ CREATE TABLE IF NOT EXISTS chat_labels (
 ALTER TABLE chats ADD COLUMN manual_unread INTEGER NOT NULL DEFAULT 0;
 `;
 
+const MIGRATION_V14 = `
+CREATE TABLE IF NOT EXISTS newsletters (
+  jid TEXT PRIMARY KEY,
+  followed_at TEXT NOT NULL
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -249,6 +256,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 11, sql: MIGRATION_V11 },
   { version: 12, sql: MIGRATION_V12 },
   { version: 13, sql: MIGRATION_V13 },
+  { version: 14, sql: MIGRATION_V14 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
