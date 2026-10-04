@@ -424,3 +424,11 @@ no checkbox is claimed without evidence.
 - McpSession {subscriptions} on ServerContext; resources/subscribe + resources/unsubscribe (unknown uri → -32602 ParamError, idempotent delete); capability now resources.subscribe:true; shouldForward exported (resources/updated only for subscribed uris; notifications/message + tools/list_changed always pass; anything else false).
 - server.test.ts:37 stale subscribe:false assertion updated in-commit per spec.
 - Suite 895/895 (86 files), check clean, pushed.
+
+### Phase 2 T110 CLOSED — transport forwarding, LIVE E2E (2026-10-04T23:55:38Z)
+
+- stdio: handleStream pump (starts after first resources/subscribe; reads /api/mcp-notify SSE; shouldForward filter; JSON lines to stdout). LIVE-CAUGHT BUG: main() ctx lacked fetchFn → pump never started in the real binary (unit tests injected it) — fixed by defaulting to global fetch (T110b).
+- HTTP: serveMcp mints Mcp-Session-Id on initialize, session Map shared with resources/subscribe; GET /mcp SSE streams shouldForward-filtered notifications; unknown session 404; POST/GET method guards (serveMcp was swallowing GETs).
+- Capabilities assertions updated (subscribe:true) in mcp-server + bridge tests.
+- LIVE E2E: stdio client → initialize (subscribe:true advertised) → resources/subscribe wa://unread → own-send to Test group → stdout received notifications/message (wa-mcp.connection) + notifications/resources/updated wa://unread.
+- Suite 898/898 (88 files), check clean, pushed.
