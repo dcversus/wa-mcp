@@ -47,6 +47,7 @@ const EXPECTED_MESSAGE_COLUMNS = [
   "reactions",
   "raw",
   "deleted",
+  "edited",
 ];
 
 test.skipIf(!POSIX_PERMS)("openStore runs in a 0700 directory with a 0600 database file", () => {
@@ -135,7 +136,7 @@ test("migrations records schema versions 1 through 3", () => {
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
     expect(rows.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
@@ -150,7 +151,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(11);
+    expect(versions).toHaveLength(12);
   } finally {
     second.close();
   }
@@ -223,8 +224,9 @@ describe("T62/I group participants table (v8)", () => {
         .prepare("INSERT INTO migrations (version, applied_at) VALUES (?, ?)")
         .run(version, "2026-01-01");
     }
-    // v1 chats table (v10 ALTERs it)
+    // v1 chats table (v10 ALTERs it) + messages (v12 ALTERs it)
     raw.exec("CREATE TABLE chats (jid TEXT PRIMARY KEY, name TEXT)");
+    raw.exec("CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, PRIMARY KEY (chat_jid, id))");
     raw.close();
     const store = openStore(dir);
     try {

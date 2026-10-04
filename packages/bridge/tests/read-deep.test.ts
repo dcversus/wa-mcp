@@ -39,12 +39,22 @@ describe("T87 — read deepening", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-editflag-")));
     try {
       storeMessage(store, {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "EDIT-1", participant: "358401112222@s.whatsapp.net" },
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "EDIT-1",
+          participant: "358401112222@s.whatsapp.net",
+        },
         message: { conversation: "original" },
         messageTimestamp: 1000,
       } as never);
       storeMessage(store, {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "EDIT-2", participant: "358401112222@s.whatsapp.net" },
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "EDIT-2",
+          participant: "358401112222@s.whatsapp.net",
+        },
         message: {
           protocolMessage: {
             type: 14,
@@ -95,7 +105,10 @@ describe("T87 — read deepening", () => {
         url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=50&offset=0`),
         { headers: authHeader },
       );
-      const fullBody = (await full.json()) as { messages: unknown[]; meta?: { truncated: boolean } };
+      const fullBody = (await full.json()) as {
+        messages: unknown[];
+        meta?: { truncated: boolean };
+      };
       expect(fullBody.messages).toHaveLength(30);
       expect(fullBody.meta?.truncated ?? false).toBe(false);
     } finally {
@@ -107,7 +120,12 @@ describe("T87 — read deepening", () => {
     const store: Store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fidelity-")));
     try {
       storeMessage(store, {
-        key: { remoteJid: GROUP_A, fromMe: false, id: "FF1", participant: "358401112222@s.whatsapp.net" },
+        key: {
+          remoteJid: GROUP_A,
+          fromMe: false,
+          id: "FF1",
+          participant: "358401112222@s.whatsapp.net",
+        },
         message: {
           extendedTextMessage: {
             text: "check @358400000001@s.whatsapp.net",

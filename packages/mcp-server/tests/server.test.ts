@@ -53,6 +53,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     inputSchema: unknown;
   }>;
   expect(tools.map((tool) => tool.name)).toEqual([
+    "get_login_qr",
     "send_message",
     "list_chats",
     "list_messages",

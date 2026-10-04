@@ -1,4 +1,10 @@
-import { TOOLS, toolByName, ParamError, type ToolContext, type ToolDef } from "./tools.ts";
+import {
+  toolsWithAnnotations,
+  toolByName,
+  ParamError,
+  type ToolContext,
+  type ToolDef,
+} from "./tools.ts";
 
 export interface JsonRpcError {
   code: number;
@@ -262,7 +268,7 @@ export async function handleRpcMessage(
         return {};
       case "tools/list":
         return {
-          tools: ctx.tools.map((tool) => ({
+          tools: toolsWithAnnotations().map((tool) => ({
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
@@ -327,5 +333,6 @@ export async function handleRpcLine(
   return handleRpcMessage(parsed, ctx);
 }
 
-export { TOOLS, toolByName };
+export { toolByName };
+export { TOOLS } from "./tools.ts";
 export type { ToolContext, ToolDef };

@@ -541,7 +541,9 @@ export function countMessages(
     params.push(opts.before.toISOString());
   }
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
-  const row = store.db.prepare(`SELECT COUNT(*) AS n FROM messages${where}`).get(...params) as {
+  const row = store.db
+    .prepare(`SELECT COUNT(*) AS n FROM messages${where}`)
+    .get(...(params as unknown[])) as unknown as {
     n: number;
   };
   return row.n;

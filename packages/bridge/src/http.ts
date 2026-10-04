@@ -454,11 +454,11 @@ export async function createHttpServer(
       let total = 0;
       try {
         total = countMessages(store, {
-        chatJid: params.get("chat_jid") ?? undefined,
-        sender: params.get("sender") ?? undefined,
-        after: after.value,
-        before: before.value,
-      });
+          chatJid: params.get("chat_jid") ?? undefined,
+          sender: params.get("sender") ?? undefined,
+          after: after.value,
+          before: before.value,
+        });
       } catch (err: unknown) {
         console.error("T87-DEBUG:", err);
         throw err;

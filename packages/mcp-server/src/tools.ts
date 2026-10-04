@@ -10,11 +10,25 @@ export interface ToolResult {
   content: Array<{ type: "text"; text: string }>;
 }
 
+export interface ToolAnnotations {
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
 export interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: ToolAnnotations;
   handler(toolCtx: ToolContext, args: Record<string, unknown>): Promise<ToolResult>;
+}
+
+/** T87 line118: every tool is closed-world; helpers classify reads,
+ * destructive ops and idempotent status calls. */
+export function annotate(tool: Omit<ToolDef, "annotations">, hints: ToolAnnotations): ToolDef {
+  return { ...tool, annotations: { openWorldHint: false, ...hints } };
 }
 
 function requireString(args: Record<string, unknown>, name: string): string {
@@ -89,6 +103,61 @@ function query(params: Record<string, string | number | undefined>): string {
 }
 
 export const TOOLS: ToolDef[] = [
+  annotate(
+    {
+      name: "get_login_qr",
+      description:
+        "Get the current WhatsApp login QR code + pairing instructions. Returns NOT_PAIRING once connected.",
+      inputSchema: { type: "object", properties: {} },
+      handler: async (toolCtx) => {
+        const health = (await bridgeFetch(toolCtx, "/health")) as {
+          status?: string;
+          loggedIn?: boolean;
+        };
+        if (health.status === "connected" || health.loggedIn === true) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "NOT_PAIRING: the daemon is already connected — no QR is needed.",
+              },
+            ],
+          };
+        }
+        const qr = (await bridgeFetch(toolCtx, "/api/qr")) as {
+          qr?: string | null;
+          pairingBlocked?: boolean;
+        };
+        if (qr.pairingBlocked === true) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "PAIRING_BLOCKED: pairing attempts exhausted — restart the daemon or call POST /api/pair/resume.",
+              },
+            ],
+          };
+        }
+        if (typeof qr.qr !== "string" || qr.qr.length === 0) {
+          return {
+            content: [{ type: "text", text: "NO_QR: no QR available yet" }],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                "Scan this QR with WhatsApp (Settings > Linked devices > Link a device):\n\n" +
+                qr.qr +
+                "\n\nOr open the daemon web UI pairing page to scan the rendered image.",
+            },
+          ],
+        };
+      },
+    },
+    { readOnlyHint: true },
+  ),
   {
     name: "send_message",
     description:
@@ -1106,4 +1175,38 @@ export const TOOLS: ToolDef[] = [
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((tool) => tool.name === name);
+}
+
+/** T87 line118: name-keyed hints merged into tools/list responses. */
+const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
+  get_login_qr: { readOnlyHint: true },
+  list_chats: { readOnlyHint: true },
+  list_messages: { readOnlyHint: true },
+  get_message_context: { readOnlyHint: true },
+  search_messages: { readOnlyHint: true },
+  list_contacts: { readOnlyHint: true },
+  get_contact: { readOnlyHint: true },
+  get_picture_url: { readOnlyHint: true },
+  get_poll_votes: { readOnlyHint: true },
+  list_templates: { readOnlyHint: true },
+  list_scheduled: { readOnlyHint: true },
+  list_notification_rules: { readOnlyHint: true },
+  get_blocklist: { readOnlyHint: true },
+  get_unread_counts: { readOnlyHint: true, idempotentHint: true },
+  get_media: { readOnlyHint: true },
+  delete_message: { destructiveHint: true },
+  logout: { destructiveHint: true },
+  leave_group: { destructiveHint: true },
+  block_unblock: { destructiveHint: true },
+  cancel_scheduled: { destructiveHint: true },
+  delete_notification_rule: { destructiveHint: true },
+  restrict_sending: { destructiveHint: true, idempotentHint: true },
+  autoreply_set: { destructiveHint: true, idempotentHint: true },
+};
+
+export function toolsWithAnnotations(): ToolDef[] {
+  return TOOLS.map((tool) => ({
+    ...tool,
+    annotations: { openWorldHint: false, ...TOOL_ANNOTATIONS[tool.name] },
+  }));
 }

@@ -34,6 +34,7 @@ function mockFetch(routes: Record<string, unknown>): {
 
 test("the registry exposes the full launch set", () => {
   expect(TOOLS.map((tool) => tool.name)).toEqual([
+    "get_login_qr",
     "send_message",
     "list_chats",
     "list_messages",
