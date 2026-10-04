@@ -351,3 +351,33 @@ describe("T94-F M3 — transient scheduled failures retry, bounded", () => {
     }
   });
 });
+
+test("T94-F M4 — a chat row with a NULL timestamp still updates from messages", () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m4chat-")));
+  try {
+    // history-sync name rows carry no timestamp — CODEX M4: the UPSERT guard
+    // `excluded.last_message_ts > chats.last_message_ts` is NULL-false, so
+    // those rows never learned their first message
+    upsertChatMeta(store, { id: "358497773518@s.whatsapp.net", name: "Synced Name" });
+    storeMessage(store, {
+      key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "FIRST1" },
+      message: { conversation: "first!" },
+      messageTimestamp: 1_760_000_000,
+      pushName: "V",
+    } as never);
+    const row = store.db
+      .prepare(
+        "SELECT name, last_message_text, last_message_ts FROM chats WHERE jid = ?",
+      )
+      .get("358497773518@s.whatsapp.net") as {
+      name: string | null;
+      last_message_text: string | null;
+      last_message_ts: string | null;
+    };
+    expect(row.name).toBe("Synced Name"); // the name survives (COALESCE)
+    expect(row.last_message_text).toBe("first!");
+    expect(row.last_message_ts).not.toBeNull();
+  } finally {
+    store.close();
+  }
+});
