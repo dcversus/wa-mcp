@@ -403,3 +403,11 @@ no checkbox is claimed without evidence.
 - T105: V18 subscriptions migration + subscriptions.ts (create/list/delete + matchSubscription filter matrix). RED via stash-pop proof. Schema/queries tests updated to V18 (3 hardcoded version arrays + table list + length). Suite 878/878.
 - T106: inbox.ts (JSONL append, 280-char cap, bounded 2-file rotation with rename-eviction, dropped counter). My impl bugs caught by own tests: rotation data-loss (empty-file cleanup hack → rmSync+rename), chmod-dir injection didn't block owner writes (→ chmod file 0400). Bounded-retention semantics clarified per opus spec. Suite 882/882 (83 files).
 - zai still 429 (probes at 02:1x-02:2x timed out). BLOCKED.md carries the takeover decision.
+
+### Phase 2 T107 CLOSED — subscriptions HTTP + bus→inbox wiring, live-verified (2026-10-04T23:43:37Z)
+
+- Routes: POST/GET/DELETE /api/subscriptions (201+inboxPath, list, 204, 401s); /health gains subscriptions {count,dropped}; bin.ts passes subscriptionsDir (dataDir root — doubled-path bug caught live and fixed).
+- LIVE BUG HUNT (5 instrumented rounds on the real daemon): inbox stayed empty while SSE saw the same upserts. Root cause: Baileys message protos return non-undefined for ANY property access (getters) — content.imageMessage !== undefined was ALWAYS true → media:true → matchSubscription rejected every sub with include_media=false. Proof: diag logged present=[all five media keys] while keys=[extendedTextMessage,messageContextInfo]. Fix: media = Object.keys(content) ∩ MEDIA_KEYS (aca4144).
+- LIVE E2E: own-send upsert appended {ts,kind:chat,from,text,media:false} to ~/.wa-mcp/subs/<id>/inbox.jsonl; /health subscriptions {count:1,dropped:0}; cleanup DELETE 204.
+- Suite 886/886 (84 files), vp check clean, pushed.
+- Lesson (proto safety): never property-probe Baileys protos — use Object.keys.
