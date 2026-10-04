@@ -76,6 +76,7 @@ import {
   type ResolvedMedia,
 } from "./media/resolve.ts";
 import { downloadMessageMedia } from "./media/download.ts";
+import { viewMedia } from "./media/view.ts";
 import { createTranscriptionEngine, saveTranscript, getTranscript } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
@@ -2006,14 +2007,18 @@ export async function createHttpServer(
               validationError(res, "invalid message id");
               return;
             }
-            const original =
-              opts.store !== undefined ? fetchMessageFromStore(opts.store, messageId) : null;
+            const store = opts.store;
             const socketOk = handle.socket !== undefined && handle.socket !== null;
-            if (!socketOk || original === null) {
+            if (store === undefined || !socketOk) {
               sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
               return;
             }
-            const row = opts.store.db
+            const original = fetchMessageFromStore(store, messageId);
+            if (original === null) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+              return;
+            }
+            const row = store.db
               .prepare("SELECT media_path, media_type FROM messages WHERE id = ?")
               .get(messageId) as
               | { media_path: string | null; media_type: string | null }
@@ -2026,7 +2031,7 @@ export async function createHttpServer(
                 mime = row.media_type === "image" ? "image/jpeg" : "video/mp4";
               } else {
                 const downloaded = await downloadMessageMedia(handle.socket as never, original, {
-                  store: opts.store,
+                  store,
                   mediaDir: opts.mediaDir ?? ".",
                   messageId,
                 });
