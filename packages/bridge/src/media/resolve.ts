@@ -198,6 +198,10 @@ export async function assertPublicHttpUrl(rawUrl: string, lookupFn?: LookupFn): 
 
 const DEFAULT_MAX_BYTES = 20_000_000;
 
+/** T94-F Runtime-M6: URL media fetches are time-bounded — a hanging host
+ * must not hold the ingest route forever. */
+export const FETCH_TIMEOUT_MS = 30_000;
+
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -329,11 +333,13 @@ export async function resolveMedia(
     // blindly). 3 hops max.
     let target = input.url;
     let response: Response | null = null;
+    // T94-F Runtime-M6: every hop is time-bounded
+    const hopSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
     for (let hop = 0; hop < 4; hop += 1) {
       await assertPublicHttpUrl(target, opts.lookupFn);
       let fetched: Response;
       try {
-        fetched = await fetchFn(target, { redirect: "manual" });
+        fetched = await fetchFn(target, { redirect: "manual", signal: hopSignal });
       } catch {
         throw new MediaError("FETCH_FAILED", `media fetch failed: ${input.url}`);
       }
@@ -369,9 +375,34 @@ export async function resolveMedia(
     if (declared > maxBytes) {
       throw new MediaError("TOO_LARGE", `media exceeds ${maxBytes} bytes`);
     }
-    buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > maxBytes) {
-      throw new MediaError("TOO_LARGE", `media exceeds ${maxBytes} bytes`);
+    // T94-F Runtime-M6: stream with a running cap — a lying body (no
+    // content-length, or huge) never buffers unbounded into memory
+    if (
+      response.body !== null &&
+      typeof (response.body as never)[Symbol.asyncIterator] === "function"
+    ) {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      try {
+        for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+          total += chunk.byteLength;
+          if (total > maxBytes) {
+            throw new MediaError("TOO_LARGE", `media exceeds ${maxBytes} bytes`);
+          }
+          chunks.push(Buffer.from(chunk));
+        }
+      } catch (err) {
+        if (err instanceof MediaError) {
+          throw err;
+        }
+        throw new MediaError("FETCH_FAILED", `media fetch failed: ${input.url}`);
+      }
+      buffer = Buffer.concat(chunks);
+    } else {
+      buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > maxBytes) {
+        throw new MediaError("TOO_LARGE", `media exceeds ${maxBytes} bytes`);
+      }
     }
     if (buffer.length === 0) {
       throw new MediaError("EMPTY", "media payload is empty");

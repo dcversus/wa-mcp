@@ -1,7 +1,7 @@
 import { mkdtempSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {afterEach, expect, test, describe} from "vite-plus/test";
+import { afterEach, expect, test, describe } from "vite-plus/test";
 import { MediaError, resolveMedia, saveOutboundMedia } from "../../src/media/resolve.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 
@@ -211,14 +211,16 @@ describe("T94-F M6 — URL media fetch is time- and size-bounded", () => {
         }
       },
     });
-    const fetchFn = (async () =>
-      new Response(stream, { status: 200 })) as unknown as typeof fetch;
+    const fetchFn = (async () => new Response(stream, { status: 200 })) as unknown as typeof fetch;
     await expect(
-      resolveMedia({ url: "https://example.com/big.png" }, {
-        fetchFn,
-        mediaDir: tmpdir(),
-        maxBytes: 10,
-      }),
+      resolveMedia(
+        { url: "https://example.com/big.png" },
+        {
+          fetchFn,
+          mediaDir: tmpdir(),
+          maxBytes: 10,
+        },
+      ),
     ).rejects.toHaveProperty("code", "TOO_LARGE");
   });
 });
