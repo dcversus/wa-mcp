@@ -233,7 +233,7 @@ describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () 
   });
 
   test("line148 — mlx engine spawns WA_MLX_BIN and maps errors to UNAVAILABLE", async () => {
-    const { MlxTranscriptionEngine } = await import("../../src/media/transcribe.ts");
+    const { MlxTranscriptionEngine } = await import("../src/media/transcribe.ts");
     const missing = new MlxTranscriptionEngine({ binPath: "/nonexistent/mlx" });
     await expect(missing.transcribe(Buffer.from("x"), "audio/ogg")).rejects.toHaveProperty(
       "code",
