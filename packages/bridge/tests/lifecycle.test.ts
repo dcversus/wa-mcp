@@ -1108,8 +1108,8 @@ test("T84-B line93 — an autoreply rule answers an inbound hello once per coold
 test("T89-B GAP1 — warmup pulls group participants into contacts at open", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-warmup-")));
   const sock = fakeSocket();
-  (sock as unknown as { groupFetchAllParticipating?: unknown }).groupFetchAllParticipating =
-    vi.fn(async () => ({
+  (sock as unknown as { groupFetchAllParticipating?: unknown }).groupFetchAllParticipating = vi.fn(
+    async () => ({
       "120363428874442773@g.us": {
         id: "120363428874442773@g.us",
         subject: "Test Group",
@@ -1126,9 +1126,11 @@ test("T89-B GAP1 — warmup pulls group participants into contacts at open", asy
           { id: "358400000004@s.whatsapp.net", admin: null },
         ],
       },
-    }));
+    }),
+  );
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
   const handle = await trackedStart("/tmp/wa-mcp-gap1/", { store });
+  sock.emit("connection.update", { connection: "open" });
   // fire-and-forget: poll until the warmup completes
   for (let i = 0; i < 20 && !handle.contactsWarm(); i += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));

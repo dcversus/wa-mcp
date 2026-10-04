@@ -112,6 +112,7 @@ export async function startBridge(
   let reconnects = 0;
   let lastDisconnectAt: number | null = null;
   let failureStreak = 0;
+  let contactsWarmDone = false;
   let alertFired = false;
 
   // T79 line48: the fork surfaces LTHash 409s ONLY through the injected
@@ -229,6 +230,7 @@ export async function startBridge(
   };
 
   const connect = (): void => {
+    contactsWarmDone = false;
     stripPairingPollution();
     if (state.creds.account !== undefined) {
       // a completed pairing resets the budget; these connects are handshake
@@ -335,6 +337,35 @@ export async function startBridge(
           if (update.connection === "open") {
             failureStreak = 0;
             alertFired = false;
+            // T89-B GAP1: background contact warmup — pull group rosters into
+            // the contacts store so lookups never block on a cold table.
+            if (opts.store !== undefined && !contactsWarmDone) {
+              void (async () => {
+                try {
+                  const engine = socket as unknown as {
+                    groupFetchAllParticipating?: () => Promise<
+                      Record<string, { participants?: Array<{ id?: string }> }>
+                    >;
+                  };
+                  if (typeof engine.groupFetchAllParticipating !== "function") {
+                    contactsWarmDone = true;
+                    return;
+                  }
+                  const groups = await engine.groupFetchAllParticipating();
+                  for (const group of Object.values(groups ?? {})) {
+                    for (const participant of group.participants ?? []) {
+                      if (typeof participant.id === "string" && participant.id.length > 0) {
+                        upsertContact(opts.store!, { jid: participant.id });
+                      }
+                    }
+                  }
+                  contactsWarmDone = true;
+                } catch (err: unknown) {
+                  opts.logger?.warn({ err }, "contact warmup failed");
+                  contactsWarmDone = false;
+                }
+              })();
+            }
           }
           if (status === "connected") {
             reconnectAttempt = 0;
@@ -613,14 +644,7 @@ export async function startBridge(
       reconnects,
       lastDisconnectAt,
     }),
-    contactsWarm: () => {
-      const store = opts.store;
-      if (store === undefined) {
-        return false;
-      }
-      const row = store.db.prepare("SELECT COUNT(*) AS n FROM contacts").get() as { n: number };
-      return row.n > 0;
-    },
+    contactsWarm: () => contactsWarmDone,
     fetchHistory: async (chatJid: string, count: number) => {
       const current = socket;
       if (current === null || current === undefined) {
