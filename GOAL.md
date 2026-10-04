@@ -170,7 +170,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] `get_privacy`/`set_privacy`/`update_privacy` (kahflane/biliboss/delltrak) — verify: live read-receipts toggle + restore — PENDING: live (pairing); T23 unit — VERIFIED: get_privacy live reader + set_privacy live round-trip (T99 + batch 4)
 - [ ] `block_contact`/`unblock_contact` + `blocklist` (kahflane/biliboss/delltrak) — verify: live block+unblock test number; blocklist lists it while blocked — PENDING: live (pairing); T23 unit
 - [ ] `star_message`/`unstar`, `pin_message`/`unpin`, `pin_chat`/`unpin_chat` (kahflane/biliboss) — verify: live star on Test-group message — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `archive_chat`/`unarchive`, `mute_chat`/`unmute` (duration), `delete_chat`, `clear_chat`, `mark_chat_read`, `mark_chat_unread` (kahflane/biliboss/delltrak) — verify: live mark-read zeroes unread; archive flag in list_chats — PENDING: live (pairing); archive+mark-read PASS (T21/T22); mute/delete/clear OUT-OF-SCOPE
+- [x] `archive_chat`/`unarchive`, `mute_chat`/`unmute` (duration), `delete_chat`, `clear_chat`, `mark_chat_read`, `mark_chat_unread` (kahflane/biliboss/delltrak) — verify: live mark-read zeroes unread; archive flag in list_chats — PENDING: live (pairing); archive+mark-read PASS (T21/T22); mute/delete/clear OUT-OF-SCOPE — VERIFIED: live archive/unarchive/mute/unmute/mark-unread/mark-read on Test group (T100 228bb14); delete/clear unit-tested, live owner-gated
 
 ## 9. Events & integrations
 

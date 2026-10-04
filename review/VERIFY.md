@@ -343,3 +343,9 @@ no checkbox is claimed without evidence.
 - resources LIVE: wa://sync-status + wa://config present alongside chats/unread/health — L330 SATISFIED (5 resources). VERIFIED.
 - chat-mgmt LIVE: DM archive→unarchive round-trip WORKS ({applied:archive} / {applied:unarchive} on Vasilisa chat, restored). GROUP chats FAIL: engine chatModify throws 'Expected not from me message to have participant' (reconciliation on participant-less stored last message) → INTERNAL error. T100 opened: group-chat chatModify failure (catch + structured GROUP_CHAT_MODIFY_FAILED, or pre-clear lastMessage participant expectation — needs engine-side handling).
 - Suite 861/861 (77 files), vp check clean, doc-coverage 71/71. Tools 63→71.
+
+### T100 live-verified + L173 closed (2026-10-04T21:44:04Z)
+
+- Root cause: fork chat-utils.js:397-399 rejects group lastMessages rows without participant; fix 228bb14 assembles participant=sender_jid from store (M10 canonicalized). My first retest hit a STALE dist (silent build race — lesson: verify dist markers after every rebuild before live tests); rebuilt with fix marker present (bin.mjs GROUP_CHAT_MODIFY_FAILED) → live group round-trip PASS.
+- LIVE Test group: archive→unarchive ({applied} x2), mute(1h)→unmute ({applied} x2), mark_unread ({applied}), mark_chat_read after (no unread — engine state consistent). delete_chat/clear_chat NOT live-tested (destructive — left for owner opt-in; unit-tested).
+- L173 TICKED: all 7 chat-mgmt tools live-verified on allowed chats (except destructive delete/clear = unit + owner-gated live).
