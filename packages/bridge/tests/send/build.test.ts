@@ -217,3 +217,24 @@ describe("T85 line95 — album container (engine truth: fork albumMessage)", () 
     });
   });
 });
+
+describe("T90 line74 — link preview builder", () => {
+  test("text + url builds extendedTextMessage with matchedText + canonicalUrl", async () => {
+    const msg = await buildLinkPreviewMessage({ text: "look at https://example.com/x", url: "https://example.com/x" });
+    const ext = msg.extendedTextMessage;
+    expect(ext?.text).toBe("look at https://example.com/x");
+    expect(ext?.matchedText).toBe("https://example.com/x");
+    expect(ext?.canonicalUrl).toBe("https://example.com/x");
+  });
+
+  test("title/description passthrough when provided", async () => {
+    const msg = await buildLinkPreviewMessage({
+      text: "look",
+      url: "https://example.com/x",
+      title: "Example",
+      description: "The example site",
+    });
+    expect(msg.extendedTextMessage?.title).toBe("Example");
+    expect(msg.extendedTextMessage?.description).toBe("The example site");
+  });
+});
