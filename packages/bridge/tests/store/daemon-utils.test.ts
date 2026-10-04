@@ -25,7 +25,15 @@ import {
   markScheduled,
   listScheduled,
   cancelScheduled,
+  processDue,
 } from "../../src/store/scheduled.ts";
+import {
+  addAutoreplyRule,
+  evaluateAutoreply,
+  listAutoreplyRules,
+  removeAutoreplyRule,
+  toggleAutoreplyRule,
+} from "../../src/store/autoreply.ts";
 
 const GROUP = "120363428874442773@g.us";
 
@@ -116,6 +124,71 @@ describe("T82 line88 — scheduler", () => {
       const list = listMessages(store, { chatJid: GROUP });
       expect(list[0]?.content).toBe("scheduled body");
       void proto;
+    } finally {
+      store.close();
+    }
+  });
+});
+
+describe("T84-B — line93 autoreply store + line98 scheduled media", () => {
+  test("line93 — evaluateAutoreply matches, cools down per chat, skips disabled", () => {
+    const store = makeStore();
+    try {
+      addAutoreplyRule(store, { match: "hello", reply: "hi there!" });
+      const now = Date.now();
+      expect(evaluateAutoreply(store, GROUP, "hello there", now)).toBe("hi there!");
+      expect(evaluateAutoreply(store, GROUP, "hello again", now + 1000)).toBeNull();
+      expect(evaluateAutoreply(store, "358497773518@s.whatsapp.net", "hello", now)).toBe(
+        "hi there!",
+      );
+      toggleAutoreplyRule(store, 1, false);
+      expect(evaluateAutoreply(store, "358400000001@g.us", "hello", now)).toBeNull();
+    } finally {
+      store.close();
+    }
+  });
+
+  test("line93 — remove works and non-matching text returns null", () => {
+    const store = makeStore();
+    try {
+      addAutoreplyRule(store, { match: "hello", reply: "hi" });
+      expect(evaluateAutoreply(store, GROUP, "goodbye", Date.now())).toBeNull();
+      removeAutoreplyRule(store, 1);
+      expect(listAutoreplyRules(store)).toHaveLength(0);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("line98 — scheduled media payloads round-trip and processDue routes them", async () => {
+    const store = makeStore();
+    try {
+      scheduleMessage(store, {
+        chatJid: GROUP,
+        payload: { kind: "image", url: "https://cdn.example/pic.jpg", caption: "look" },
+        sendAt: new Date(Date.now() - 1000).toISOString(),
+      });
+      const sent: Array<{ chatJid: string; payload: unknown }> = [];
+      await processDue(store, new Date(), async (chatJid, payload) => {
+        sent.push({ chatJid, payload });
+        return "MSGID9";
+      });
+      expect(sent).toEqual([
+        {
+          chatJid: GROUP,
+          payload: { kind: "image", url: "https://cdn.example/pic.jpg", caption: "look" },
+        },
+      ]);
+      expect(listScheduled(store, "sent")[0]?.sent_message_id).toBe("MSGID9");
+      scheduleMessage(store, {
+        chatJid: GROUP,
+        payload: { kind: "image", url: "https://cdn.example/2.jpg" },
+        sendAt: new Date(Date.now() - 2000).toISOString(),
+      });
+      await processDue(store, new Date(), async () => {
+        throw new Error("send exploded");
+      });
+      expect(listScheduled(store, "failed").length).toBeGreaterThan(0);
     } finally {
       store.close();
     }
