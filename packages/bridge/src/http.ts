@@ -2149,6 +2149,15 @@ export async function createHttpServer(
       req.headers.authorization.startsWith("Bearer ")
         ? req.headers.authorization.slice("Bearer ".length)
         : null;
+    // T94-F Runtime-M2 (RUNTIME review): the API bucket is keyed per-token
+    // (hashed bearer), not per-IP — on loopback every client shares
+    // 127.0.0.1, so a tokenless flood (401s) or another credential must not
+    // starve legitimate traffic. /health stays unauthenticated with its own
+    // per-IP bucket.
+    const gateKey =
+      bearer !== null
+        ? `${ip}:${createHash("sha256").update(bearer).digest("hex").slice(0, 16)}`
+        : `${ip}:anon`;
     const gate =
       path === "/health" || PAIRING_SURFACE.has(path)
         ? checkHealthRate(ip, now())
@@ -2156,7 +2165,7 @@ export async function createHttpServer(
           ? null
           : bearer !== null && tokenMatches(bearer, uiToken)
             ? checkUiRate(ip, now())
-            : checkRate(ip, now());
+            : checkRate(gateKey, now());
     if (gate !== null && !gate.ok) {
       sendJson(
         res,

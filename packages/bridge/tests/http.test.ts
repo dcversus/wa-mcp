@@ -3982,9 +3982,9 @@ test("T94-F M2 — tokenless floods do not burn the account token's API bucket",
   // legitimate token traffic
   const bridge = await startServer({ rateLimit: { capacity: 2, refillPerMinute: 2 } });
   for (let i = 0; i < 3; i += 1) {
-    await fetch(url(bridge, "/api/chats"));
+    await fetch(url(bridge, "/api/blocklist"));
   }
-  const legit = await fetch(url(bridge, "/api/chats"), {
+  const legit = await fetch(url(bridge, "/api/blocklist"), {
     headers: { authorization: "Bearer test-token" },
   });
   // RED today: 429 — the anon flood consumed the shared per-IP bucket
