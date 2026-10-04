@@ -131,6 +131,9 @@ export async function main(
     logger,
     qrPngPath,
     store,
+    // CODEX H5: inbound media auto-download + the startup backfill are
+    // no-ops without it (lifecycle early-returns on mediaDir === undefined)
+    mediaDir: config.mediaDir,
     sendGuard,
   });
   // T82 line88: daemon scheduler — every 30s, due scheduled texts are sent
