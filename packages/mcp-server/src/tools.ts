@@ -1130,6 +1130,16 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "get_privacy",
+    description:
+      "Read the account's current privacy settings (lastSeen, online, profilePic, status, groupAdd, call, messages, readReceipts).",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx, args) => {
+      const payload = (await bridgeFetch(toolCtx, "/api/privacy")) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
     name: "block_unblock",
     description: "Block or unblock a contact.",
     inputSchema: {
@@ -2076,6 +2086,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   // T94-A parity sweep — reads (no account mutation; download_media and the
   // transcribe_* pair only write the LOCAL media dir / transcript cache)
   get_chat: { readOnlyHint: true },
+  get_privacy: { readOnlyHint: true },
   label_list: { readOnlyHint: true },
   export_chat: { readOnlyHint: true },
   export_unread_messages: { readOnlyHint: true },

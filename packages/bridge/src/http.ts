@@ -3037,6 +3037,32 @@ export async function createHttpServer(
           serveTts(req, res, body);
           return;
         }
+        if (path === "/api/privacy" && req.method === "GET") {
+          const socket = handle.socket;
+          if (
+            socket === undefined ||
+            socket === null ||
+            typeof socket.fetchPrivacySettings !== "function"
+          ) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
+            return;
+          }
+          void (socket.fetchPrivacySettings() as Promise<Record<string, string>>)
+            .then((privacy) => {
+              sendJson(res, 200, { privacy });
+            })
+            .catch((err: unknown) => {
+              sendJson(res, 502, {
+                error: {
+                  code: "FETCH_FAILED",
+                  message: err instanceof Error ? err.message : "privacy read failed",
+                },
+              });
+            });
+          return;
+        }
         if (
           path === "/api/read" ||
           path === "/api/presence" ||

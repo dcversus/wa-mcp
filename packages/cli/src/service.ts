@@ -57,7 +57,7 @@ export function startDaemon(deps: StartDeps): StartResult {
     {
       detached: true,
       stdio: ["ignore", logFd, logFd],
-      env: { ...process.env, ...(deps.envExtras ?? {}) },
+      env: { ...process.env, ...deps.envExtras },
     },
   );
   child.unref();
