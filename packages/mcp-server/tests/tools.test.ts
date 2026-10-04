@@ -63,6 +63,7 @@ test("the registry exposes the full launch set", () => {
     "get_unread_counts",
     "update_profile",
     "set_privacy",
+    "get_privacy",
     "block_unblock",
     "get_blocklist",
     "get_media",
@@ -1016,4 +1017,15 @@ test("T94-D-H5claude — an unreachable bridge names the remedy", async () => {
   const tool = toolByName("list_chats");
   if (!tool) throw new Error("list_chats missing");
   await expect(tool.handler({ ...ctx, fetchFn }, {})).rejects.toThrow("wa-mcp status");
+});
+
+test("T99 — get_privacy reads the engine privacy settings", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/privacy": { privacy: { lastSeen: "all", online: "match_last_seen" } },
+  });
+  const tool = toolByName("get_privacy");
+  if (!tool) throw new Error("get_privacy missing");
+  const result = await tool.handler({ ...ctx, fetchFn }, {});
+  expect(calls[0]?.method).toBe("GET");
+  expect(firstText(result)).toContain("lastSeen");
 });

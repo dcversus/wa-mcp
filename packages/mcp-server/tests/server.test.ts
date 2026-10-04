@@ -87,6 +87,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "get_unread_counts",
     "update_profile",
     "set_privacy",
+    "get_privacy",
     "block_unblock",
     "get_blocklist",
     "get_media",

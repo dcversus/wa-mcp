@@ -4053,3 +4053,37 @@ describe("T94-G — the owner rule: a fresh browser bootstraps on a PAIRED daemo
     }
   });
 });
+
+describe("T99 — GET /api/privacy (get_privacy reader)", () => {
+  test("returns the engine privacy categories", async () => {
+    const socket = makeFakeSocket();
+    (socket as { fetchPrivacySettings?: unknown }).fetchPrivacySettings = vi.fn(async () => ({
+      lastSeen: "all",
+      online: "match_last_seen",
+      profilePic: "all",
+      status: "all",
+      groupAdd: "contacts",
+      call: "known",
+      messages: "contacts",
+      readReceipts: "all",
+    }));
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/privacy"), { headers: authHeader });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { privacy: { lastSeen: string; online: string } };
+    expect(body.privacy.lastSeen).toBe("all");
+    expect(body.privacy.online).toBe("match_last_seen");
+  });
+
+  test("501 when the bridge is not connected", async () => {
+    const bridge = await createHttpServer(stubHandle("connecting", null, undefined as never), {
+      token: "test-token",
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/privacy"), { headers: authHeader });
+    expect(res.status).toBe(501);
+  });
+});
