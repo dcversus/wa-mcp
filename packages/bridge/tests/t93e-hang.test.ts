@@ -84,39 +84,27 @@ test.afterEach(async () => {
   }
 });
 
-test(
-  "T93-E — POST /api/templates answers a real socket client",
-  { timeout: 15_000 },
-  async () => {
-    const port = await startBridge();
-    const res = await postJson(port, "/api/templates", { name: "greet", body: "hi {{name}}" });
-    expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toEqual({ ok: true });
-  },
-);
+test("T93-E — POST /api/templates answers a real socket client", { timeout: 15_000 }, async () => {
+  const port = await startBridge();
+  const res = await postJson(port, "/api/templates", { name: "greet", body: "hi {{name}}" });
+  expect(res.status).toBe(200);
+  expect(JSON.parse(res.body)).toEqual({ ok: true });
+});
 
-test(
-  "T93-E — POST /api/send-rules answers a real socket client",
-  { timeout: 15_000 },
-  async () => {
-    const port = await startBridge();
-    const res = await postJson(port, "/api/send-rules", { target: "+358497773518", mode: "block" });
-    expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toHaveProperty("id");
-  },
-);
+test("T93-E — POST /api/send-rules answers a real socket client", { timeout: 15_000 }, async () => {
+  const port = await startBridge();
+  const res = await postJson(port, "/api/send-rules", { target: "+358497773518", mode: "block" });
+  expect(res.status).toBe(200);
+  expect(JSON.parse(res.body)).toHaveProperty("id");
+});
 
-test(
-  "T93-E — POST /api/scheduled answers a real socket client",
-  { timeout: 15_000 },
-  async () => {
-    const port = await startBridge();
-    const res = await postJson(port, "/api/scheduled", {
-      chat_jid: "358497773518@s.whatsapp.net",
-      text: "later",
-      send_at: "2026-12-01T09:00:00Z",
-    });
-    expect(res.status).toBe(200);
-    expect(JSON.parse(res.body)).toHaveProperty("id");
-  },
-);
+test("T93-E — POST /api/scheduled answers a real socket client", { timeout: 15_000 }, async () => {
+  const port = await startBridge();
+  const res = await postJson(port, "/api/scheduled", {
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "later",
+    send_at: "2026-12-01T09:00:00Z",
+  });
+  expect(res.status).toBe(200);
+  expect(JSON.parse(res.body)).toHaveProperty("id");
+});

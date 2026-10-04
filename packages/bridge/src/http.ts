@@ -2773,15 +2773,12 @@ export async function createHttpServer(
             });
             return;
           }
-          void readBodyWithCap(req, MAX_BODY_BYTES)
-            .then(async ({ fits, body: raw }) => {
-              if (!fits) {
-                sendJson(res, 413, {
-                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
-                });
-                return;
-              }
-              const input = JSON.parse(raw.toString("utf8")) as {
+          // T93-E: the dispatch read at the top of this handler already
+          // consumed the request stream — a second readBodyWithCap attached
+          // after 'end' had fired and hung the client forever
+          void (async () => {
+            {
+              const input = JSON.parse(body.toString("utf8")) as {
                 target?: unknown;
                 mode?: unknown;
                 expires_at?: unknown;
@@ -2804,11 +2801,11 @@ export async function createHttpServer(
                 expiresAt: typeof input.expires_at === "string" ? input.expires_at : undefined,
               });
               sendJson(res, 200, { id });
-            })
-            .catch((err: unknown) => {
-              opts.logger?.error({ err }, "send-rule add failed");
-              sendJson(res, 500, { error: { code: "INTERNAL", message: "send-rule add failed" } });
-            });
+            }
+          })().catch((err: unknown) => {
+            opts.logger?.error({ err }, "send-rule add failed");
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "send-rule add failed" } });
+          });
           return;
         }
         if (path.startsWith("/api/send-rules/") && req.method === "DELETE") {
@@ -2839,15 +2836,10 @@ export async function createHttpServer(
             });
             return;
           }
-          void readBodyWithCap(req, MAX_BODY_BYTES)
-            .then(async ({ fits, body: raw }) => {
-              if (!fits) {
-                sendJson(res, 413, {
-                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
-                });
-                return;
-              }
-              const input = JSON.parse(raw.toString("utf8")) as { name?: unknown; body?: unknown };
+          // T93-E: consume the outer dispatch body — no second stream read
+          void (async () => {
+            {
+              const input = JSON.parse(body.toString("utf8")) as { name?: unknown; body?: unknown };
               if (
                 typeof input.name !== "string" ||
                 input.name.length === 0 ||
@@ -2860,11 +2852,11 @@ export async function createHttpServer(
               }
               upsertTemplate(opts.store!, { name: input.name, body: input.body });
               sendJson(res, 200, { ok: true });
-            })
-            .catch((err: unknown) => {
-              opts.logger?.error({ err }, "template save failed");
-              sendJson(res, 500, { error: { code: "INTERNAL", message: "template save failed" } });
-            });
+            }
+          })().catch((err: unknown) => {
+            opts.logger?.error({ err }, "template save failed");
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "template save failed" } });
+          });
           return;
         }
         if (path.startsWith("/api/templates/") && req.method === "DELETE") {
@@ -2898,15 +2890,10 @@ export async function createHttpServer(
             });
             return;
           }
-          void readBodyWithCap(req, MAX_BODY_BYTES)
-            .then(async ({ fits, body: raw }) => {
-              if (!fits) {
-                sendJson(res, 413, {
-                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
-                });
-                return;
-              }
-              const input = JSON.parse(raw.toString("utf8")) as {
+          // T93-E: consume the outer dispatch body — no second stream read
+          void (async () => {
+            {
+              const input = JSON.parse(body.toString("utf8")) as {
                 chat_jid?: unknown;
                 text?: unknown;
                 send_at?: unknown;
@@ -2930,11 +2917,11 @@ export async function createHttpServer(
                 sendAt: input.send_at,
               });
               sendJson(res, 200, { id });
-            })
-            .catch((err: unknown) => {
-              opts.logger?.error({ err }, "schedule failed");
-              sendJson(res, 500, { error: { code: "INTERNAL", message: "schedule failed" } });
-            });
+            }
+          })().catch((err: unknown) => {
+            opts.logger?.error({ err }, "schedule failed");
+            sendJson(res, 500, { error: { code: "INTERNAL", message: "schedule failed" } });
+          });
           return;
         }
         if (path.startsWith("/api/scheduled/") && req.method === "DELETE") {
