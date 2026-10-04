@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Store } from "./store/schema.ts";
@@ -49,6 +49,10 @@ export function createSubscription(
     );
   const dir = join(dataDir, "subs", id);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const inboxPath = join(dir, "inbox.jsonl");
+  if (!existsSync(inboxPath)) {
+    writeFileSync(inboxPath, "", { mode: 0o600 });
+  }
   return { id, createdAt, ...filters };
 }
 

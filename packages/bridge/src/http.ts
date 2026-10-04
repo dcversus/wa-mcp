@@ -50,6 +50,14 @@ import {
 import { GroupValidationError } from "./groups.ts";
 import { createRule, deleteRule, listRules } from "./notifications.ts";
 import {
+  createSubscription,
+  deleteSubscription,
+  listSubscriptions,
+  matchSubscription,
+  subscriptionDir,
+} from "./subscriptions.ts";
+import { openInbox } from "./inbox.ts";
+import {
   ValidationError,
   blockUnblock,
   getBlocklist,
@@ -122,6 +130,10 @@ export interface HttpServerOptions {
    * survives daemon restarts so a fresh browser bootstraps on a paired
    * daemon without any user action */
   uiBootstrapToken?: string;
+  /** T107: root directory for subscription inboxes; when present with a
+   * store, the daemon serves /api/subscriptions and wires bus events to
+   * matching inboxes. */
+  subscriptionsDir?: string;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -442,6 +454,69 @@ export async function createHttpServer(
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
   const checkHealthRate = createRateLimiter(HEALTH_RATE.capacity, HEALTH_RATE.refillPerMinute);
   const checkUiRate = createRateLimiter(UI_RATE.capacity, UI_RATE.refillPerMinute);
+  const subscriptions = (() => {
+    if (opts.subscriptionsDir === undefined || opts.store === undefined) {
+      return null;
+    }
+    const inboxes = new Map<string, ReturnType<typeof openInbox>>();
+    const writer = (id: string): ReturnType<typeof openInbox> => {
+      const existing = inboxes.get(id);
+      if (existing !== undefined) {
+        return existing;
+      }
+      const fresh = openInbox(subscriptionDir(opts.subscriptionsDir as string, id));
+      inboxes.set(id, fresh);
+      return fresh;
+    };
+    const unsubscribeBus = handle.events.subscribe((event) => {
+      if (event.type !== "messages.upsert" || event.payload.type === "notify") {
+        return;
+      }
+      const subs = listSubscriptions(opts.store as Store);
+      for (const upsert of event.payload.messages) {
+        const chatJid = upsert.key.remoteJid ?? "";
+        const fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+        const content = upsert.message ?? {};
+        const text =
+          (content as { conversation?: string }).conversation ??
+          (content as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ??
+          "";
+        const media =
+          (content as { imageMessage?: unknown }).imageMessage !== undefined ||
+          (content as { videoMessage?: unknown }).videoMessage !== undefined ||
+          (content as { audioMessage?: unknown }).audioMessage !== undefined ||
+          (content as { documentMessage?: unknown }).documentMessage !== undefined ||
+          (content as { stickerMessage?: unknown }).stickerMessage !== undefined;
+        for (const sub of subs) {
+          if (
+            matchSubscription(sub, { chatJid, fromJid, kind: "message", hasMedia: media }) &&
+            (sub.includeMedia || !media)
+          ) {
+            writer(sub.id).append({
+              ts: new Date().toISOString(),
+              kind: "message",
+              chat: chatJid,
+              from: fromJid,
+              text,
+              media,
+            });
+          }
+        }
+      }
+    });
+    return {
+      unsubscribeBus,
+      writer,
+      dropped(): number {
+        let total = 0;
+        for (const inbox of inboxes.values()) {
+          total += inbox.dropped();
+        }
+        return total;
+      },
+    };
+  })();
+
   const serveQr = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (handle.pairingBudget().blocked) {
       sendJson(res, 429, {
@@ -2213,6 +2288,14 @@ export async function createHttpServer(
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
         uptime: Math.floor((Date.now() - startedAt) / 1000),
+        // T107: subscription delivery health
+        subscriptions: {
+          count:
+            opts.store !== undefined && subscriptions !== null
+              ? listSubscriptions(opts.store).length
+              : 0,
+          dropped: subscriptions?.dropped() ?? 0,
+        },
         // T79 line49: connection-quality counters
         reconnects: handle.connectionQuality().reconnects,
         contactsWarm: handle.contactsWarm(),
@@ -3096,6 +3179,93 @@ export async function createHttpServer(
             .catch(() => {
               sendJson(res, 500, { error: { code: "INTERNAL", message: "blocklist failed" } });
             });
+          return;
+        }
+        if (path === "/api/subscriptions" && req.method === "GET") {
+          if (opts.store === undefined || subscriptions === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { subscriptions: listSubscriptions(opts.store) });
+          return;
+        }
+        if (path === "/api/subscriptions" && req.method === "POST") {
+          if (opts.store === undefined || subscriptions === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
+            });
+            return;
+          }
+          let subInput: unknown;
+          try {
+            subInput = JSON.parse(body.toString("utf8")) as unknown;
+          } catch {
+            validationError(res, "body must be valid JSON");
+            return;
+          }
+          const input = subInput as {
+            chat_jid?: unknown;
+            from_jid?: unknown;
+            kinds?: unknown;
+            include_media?: unknown;
+            all_chats?: unknown;
+          };
+          if (input === null || typeof input !== "object") {
+            validationError(res, "chat_jid or all_chats required");
+            return;
+          }
+          if (input.chat_jid !== undefined && typeof input.chat_jid !== "string") {
+            validationError(res, "chat_jid must be a string");
+            return;
+          }
+          if (input.from_jid !== undefined && typeof input.from_jid !== "string") {
+            validationError(res, "from_jid must be a string");
+            return;
+          }
+          if (input.kinds !== undefined && !Array.isArray(input.kinds)) {
+            validationError(res, "kinds must be an array");
+            return;
+          }
+          if (input.include_media !== undefined && typeof input.include_media !== "boolean") {
+            validationError(res, "include_media must be a boolean");
+            return;
+          }
+          if (input.chat_jid === undefined && input.all_chats !== true) {
+            validationError(res, "chat_jid or all_chats required");
+            return;
+          }
+          const sub = createSubscription(opts.store as Store, opts.subscriptionsDir as string, {
+            chatJid: typeof input.chat_jid === "string" ? input.chat_jid : null,
+            fromJid: typeof input.from_jid === "string" ? input.from_jid : null,
+            kinds: Array.isArray(input.kinds) ? (input.kinds as string[]) : ["message"],
+            includeMedia: input.include_media === true,
+            allChats: input.all_chats === true,
+          });
+          sendJson(res, 201, {
+            id: sub.id,
+            inboxPath: join(
+              subscriptionDir(opts.subscriptionsDir as string, sub.id),
+              "inbox.jsonl",
+            ),
+          });
+          return;
+        }
+        const subDelete = path.match(/^\/api\/subscriptions\/([a-z0-9-]+)$/);
+        if (subDelete !== null && req.method === "DELETE") {
+          if (opts.store === undefined || subscriptions === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
+            });
+            return;
+          }
+          if (deleteSubscription(opts.store as Store, subDelete[1] as string)) {
+            res.writeHead(204);
+            res.end();
+            return;
+          }
+          sendJson(res, 404, { error: { code: "NOT_FOUND", message: "subscription not found" } });
           return;
         }
         if (path === "/api/notifications" && req.method === "GET") {

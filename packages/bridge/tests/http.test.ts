@@ -258,6 +258,7 @@ test("health leaks no other data", async () => {
       "pairingBlocked",
       "pairingToken",
       "reconnects",
+      "subscriptions",
       "status",
       "uiBootstrapToken",
       "uptime",
