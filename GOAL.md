@@ -135,7 +135,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Bulk cleanup: delete/clear multiple chats in one call (chigwell P#102) — verify: fixture — bulk_clear([chatA, chatB]) empties both — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 6. Media pipeline
 
-- [x] Auto-download all types, opt-out `WA_AUTO_DOWNLOAD` (VGP #237), skip status media (VGP #237) — rules module (enabled/skipStatus/minFreeBytes) with env overrides — VERIFY: T89 line135 contracts, T93-D INGEST WIRING (auto-download + bounded start backfill live) — skip-if-row-failed (VGP #231) remains: ACCOUNTING
+- [x] Auto-download all types, opt-out `WA_AUTO_DOWNLOAD` (VGP #237), skip status media (VGP #237) — rules module (enabled/skipStatus/minFreeBytes) with env overrides — VERIFY: T89 line135 contracts, T93-D INGEST WIRING, T94-C-H5 daemon mediaDir plumb (auto-download + bounded start backfill live in the daemon) — skip-if-row-failed (VGP #231) remains: ACCOUNTING
 - [x] Message-ID filenames, collision-safe (lharries #156/#320) — verify: 2 images same second → both files — VERIFY: T24 message-id filenames
 - [x] Path guard: media reads confined to `~/.wa-mcp/media` (CWE-22, symlink-resolved, boundary — Felix #74) — verify: `../../etc/passwd` rejected (unit) — VERIFY: T24 traversal tests
 - [x] `download_media(message_id)` (NIXKnight) — verify: live image → path — PENDING: live (pairing); endpoint PASS (T24); live image needs pairing
