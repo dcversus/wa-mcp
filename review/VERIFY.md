@@ -324,3 +324,9 @@ no checkbox is claimed without evidence.
 - T97b: 47846fd — limit-after-filter contract test, 26/26 green, RED evidence real ('expected [S3] to deeply equal [S3, S2]'). VERIFIED by orchestrator.
 - T97c: 7cc83bc RED then 7d8fc84 GREEN — get_chat gains with_photo (tools.ts + docs/reference/tools.md + tests). Orchestrator verify: mcp-server 94/94, vp check clean. VERIFIED.
 - GOAL lines 40/126/129 now fully evidenced — WEAK set from T96 cleared.
+
+### Phase 1 live-verification batch 4 (2026-10-04T20:27:05Z)
+
+- L171 (block tools): get_blocklist LIVE → {blocklist:[]} works. block_unblock tool exists (setter). VERIFIED (read side live; block+unblock round-trip on a real number NOT executed — mutating someone's block state needs a sacrificial number; disposition: live read verified, write path unit-tested).
+- L170 (privacy): set_privacy LIVE → readReceipts=all applied ({applied:[{key,value}]}). Values constrained by profile.ts schema (all|none for readReceipts). GAP: no get_privacy reader (GOAL names get/update variants) — small tool addition queued T99.
+- L173 (chat mgmt): tool surface has mark_chat_read (L322 verified), set_chat_state, bulk_clear, restrict_sending. GAP: no archive_chat/unarchive/mute_chat/unmute_chat/delete_chat/clear_chat/mark_chat_unread wrappers — queued T99 batch (engine supports chatModify/archive).
