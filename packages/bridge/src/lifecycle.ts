@@ -18,6 +18,7 @@ import { fetchMessageFromStore } from "./store/queries.ts";
 import { autoDownloadRules, shouldAutoDownload } from "./store/autodl.ts";
 import { downloadMessageMedia } from "./media/download.ts";
 import { decryptInboundPollVote } from "./ingest/poll-vote.ts";
+import { createEventRecorder } from "./ingest/event-recorder.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
 import type { WAMessage } from "baileys";
@@ -136,6 +137,7 @@ export async function startBridge(
   const autodlRules = autoDownloadRules(process.env);
   // T94-D-H4codex(d): message ids already autoreplied — bounded FIFO
   const autoreplySeenIds = new Set<string>();
+  const eventRecorder = createEventRecorder(process.env.WA_RECORD_EVENTS);
   let mediaBackfillDone = false;
 
   /** T93-D: fire-and-forget media download for one stored message. Never
@@ -461,6 +463,7 @@ export async function startBridge(
     for (const name of EVENT_NAMES) {
       socket.ev.on(name, (payload) => {
         void (async () => {
+          eventRecorder.record(name, payload);
           lastInboundAt = Date.now();
           if (name === "connection.update") {
             const update = payload as ConnectionUpdate;

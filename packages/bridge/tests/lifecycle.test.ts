@@ -1,5 +1,5 @@
 import { mkdtemp, readFile } from "node:fs/promises";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
@@ -1829,10 +1829,16 @@ test("T102 — WA_RECORD_EVENTS captures raw engine events as JSONL", async () =
   await new Promise((resolve) => setTimeout(resolve, 60));
   const upsertFile = join(recordDir, "messages.upsert.jsonl");
   expect(existsSync(upsertFile)).toBe(true);
-  const lines = readFileSync(upsertFile, "utf8").split("\n").filter((l) => l.length > 0);
+  const lines = readFileSync(upsertFile, "utf8")
+    .split("\n")
+    .filter((l) => l.length > 0);
   expect(lines).toHaveLength(1);
-  const parsed = JSON.parse(lines[0]) as { key?: { id?: string } };
-  expect(parsed.key?.id).toBe("REC1");
+  const parsed = JSON.parse(lines[0] ?? "{}") as {
+    type?: string;
+    messages?: Array<{ key?: { id?: string } }>;
+  };
+  expect(parsed.type).toBe("notify");
+  expect(parsed.messages?.[0]?.key?.id).toBe("REC1");
   expect(existsSync(join(recordDir, "connection.update.jsonl"))).toBe(true);
   await handle.close();
   store.close();
