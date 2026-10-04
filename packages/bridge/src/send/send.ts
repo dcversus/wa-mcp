@@ -8,9 +8,14 @@ import type { Store } from "../store/schema.ts";
 export class SendError extends Error {
   readonly code: string;
 
-  constructor(code: string, message: string) {
+  readonly retryAfterSeconds?: number;
+  readonly hint?: string;
+
+  constructor(code: string, message: string, retryAfterSeconds?: number, hint?: string) {
     super(message);
     this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.hint = hint;
   }
 }
 
@@ -128,6 +133,34 @@ export function resolveRecipient(store: Store, chatJid: string): RecipientResolu
   };
 }
 
+/** T84 line101: engine rate-limit/ban surfaces map to ONE structured code —
+ * WA_RATE_LIMITED with retryAfterSeconds when the engine says so — so every
+ * caller (http, MCP, scheduler) reports the same actionable shape. */
+export function mapWaError(err: unknown): {
+  code: string;
+  message: string;
+  retryAfterSeconds?: number;
+  hint?: string;
+} {
+  const message = err instanceof Error ? err.message : String(err);
+  const retryMatch = /retry after (\d+)s/i.exec(message);
+  const banned = /temporarily banned|banned/i.test(message);
+  const rateLimited =
+    banned || /\b429\b/.test(message) || /rate.?overlimit|rate.?limit/i.test(message);
+  if (rateLimited) {
+    return {
+      code: "WA_RATE_LIMITED",
+      message,
+      retryAfterSeconds:
+        retryMatch !== null ? Number(retryMatch[1]) : banned ? 3600 : undefined,
+      hint: banned
+        ? "the account is temporarily banned — wait before sending again"
+        : "WhatsApp is rate-limiting this account — slow down or wait for the retry window",
+    };
+  }
+  return { code: "SEND_FAILED", message };
+}
+
 export async function sendViaSocket(
   socket: WASocket,
   chatJid: string,
@@ -145,11 +178,20 @@ export async function sendViaSocket(
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
   }
   const wireJid = await resolveLidJid(socket, jid);
-  const sent = await socket.sendMessage(
-    wireJid,
-    content as AnyMessageContent,
-    opts.quoted !== undefined ? { quoted: opts.quoted } : undefined,
-  );
+  let sent: proto.IWebMessageInfo | undefined;
+  try {
+    sent = await socket.sendMessage(
+      wireJid,
+      content as AnyMessageContent,
+      opts.quoted !== undefined ? { quoted: opts.quoted } : undefined,
+    );
+  } catch (err: unknown) {
+    if (err instanceof SendError) {
+      throw err;
+    }
+    const mapped = mapWaError(err);
+    throw new SendError(mapped.code, mapped.message, mapped.retryAfterSeconds, mapped.hint);
+  }
   // production sockets return the engine-GENERATED proto in sent.message;
   // if a socket omits it, synthesize the text proto so persistence keeps the
   // sent text (the "socket return omits it" contract)

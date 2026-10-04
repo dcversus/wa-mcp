@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { openStore, type Store } from "../../src/store/schema.ts";
-import { resolveLidJid, SendError, sendViaSocket } from "../../src/send/send.ts";
+import { mapWaError, resolveLidJid, SendError, sendViaSocket } from "../../src/send/send.ts";
 import { resolveRecipient } from "../../src/send/send.ts";
 import { setAlias } from "../../src/store/contacts.ts";
 import { listMessages } from "../../src/store/queries.ts";
@@ -228,5 +228,21 @@ describe("T65 resolveRecipient (alias resolution)", () => {
     const store = aliasStore({ vasilisa: "351930017568@s.whatsapp.net" });
     const result = resolveRecipient(store, "vasil");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("T84 line101 — engine errors map to structured WA_RATE_LIMITED", () => {
+  test("temporarily banned with retry-after derives the seconds", () => {
+    const mapped = mapWaError(
+      new Error("Connection Closed: temporarily banned (retry after 123s)"),
+    );
+    expect(mapped.code).toBe("WA_RATE_LIMITED");
+    expect(mapped.retryAfterSeconds).toBe(123);
+    expect(mapped.hint).toContain("wait");
+  });
+
+  test("429 / rate-overlimit patterns map too; plain errors stay SEND_FAILED", () => {
+    expect(mapWaError(new Error("rate-overlimit: 429 exceeded")).code).toBe("WA_RATE_LIMITED");
+    expect(mapWaError(new Error("boom")).code).toBe("SEND_FAILED");
   });
 });
