@@ -80,3 +80,38 @@ Tightened, keeping the owner flow intact:
    pairing (localStorage); the pairing page only renders pre-pairing anyway.
 4. The UI token (T93-C2) remains full-surface but is only mintable inside
    the pairing window.
+
+## Addendum 2 (T94-G, owner-rule regression)
+
+Addendum 1 broke the OWNER RULE — "the WebUI should never expect the user to
+do something with the CLI". A fresh browser on a PAIRED daemon had no
+bootstrap path: /health hid the pairing token and the exchange refused
+paired mode (e2e: `missing or invalid bearer token` on #/chats).
+
+**Threat model (analysis agreed, with one honest refinement):**
+- CR1's attacker was a local process. A SAME-user process can already read
+  `~/.wa-mcp/token` (0600) — the ui-token exchange added zero capability
+  for it. REFUTED for same-user.
+- A DIFFERENT-user local process cannot read the token file but CAN reach
+  loopback. For them the pairing-token leak was real — but there is no
+  cryptographic way to distinguish a browser from a same-host process on
+  loopback: both send plain HTTP with forgeable headers. Any gate that
+  admits the browser admits them.
+
+**DECISION:** loopback + same-user is the trust boundary (the 0600 file
+already establishes it). On a paired daemon `/api/ui-token` still mints the
+full-surface UI token — the owner USES the web UI to chat.
+
+**Mechanics:** a STABLE bootstrap credential lives at
+`<dataDir>/ui-bootstrap-token` (0600, survives restarts — the pairing token
+rotates per boot). `/health` publishes it as `uiBootstrapToken` (the pairing
+token stays hidden when paired). `/api/ui-token` accepts the pairing token
+(retained in the browser's localStorage from the pairing session) OR the
+bootstrap token. `WA_UI_BOOTSTRAP=0` is a kill switch restoring the strict
+addendum-1 posture.
+
+**Residual risk, stated plainly:** a different-user local process can read
+`/health` and mint a full UI token — strictly weaker than the 0600 boundary.
+Mitigations: the daemon binds 127.0.0.1 by default; the kill switch exists;
+multi-user hosts should run the daemon under a dedicated user or set
+`WA_UI_BOOTSTRAP=0`.
