@@ -1779,3 +1779,29 @@ test("T94-F M5codex — history sync leaves no phantom @lid chat rows", async ()
   expect(canonical.name).toBe("Lid Row");
   store.close();
 });
+
+test("T94-F M8 — close() drains the save chain before returning", async () => {
+  let releaseSave: (value: undefined) => void = () => {};
+  const gate = new Promise<undefined>((resolve) => {
+    releaseSave = resolve;
+  });
+  mockSaveCreds.mockImplementation(() => gate);
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  // the connect-time save is queued and BLOCKED on the gate
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  let closed = false;
+  const closing = handle.close().then(() => {
+    closed = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  // RUNTIME review M8: shutdown awaits close() then exits — an undrained
+  // saveChain cuts a creds write mid-flight. RED today: close() resolves
+  // while the save is still writing.
+  expect(closed).toBe(false);
+  releaseSave(undefined);
+  await closing;
+  expect(closed).toBe(true);
+});
