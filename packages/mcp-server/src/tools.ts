@@ -1813,8 +1813,31 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   get_blocklist: { readOnlyHint: true },
   get_unread_counts: { readOnlyHint: true, idempotentHint: true },
   get_media: { readOnlyHint: true },
+  // T94-A parity sweep — reads (no account mutation; download_media and the
+  // transcribe_* pair only write the LOCAL media dir / transcript cache)
+  get_chat: { readOnlyHint: true },
+  label_list: { readOnlyHint: true },
+  export_chat: { readOnlyHint: true },
+  export_unread_messages: { readOnlyHint: true },
+  view_media: { readOnlyHint: true },
+  download_media: { readOnlyHint: true },
+  // requests on-demand history sync — no user-visible mutation
+  fetch_history: { readOnlyHint: true },
+  get_group_invite: { readOnlyHint: true },
+  newsletter_list: { readOnlyHint: true },
+  // cached transcripts — local cache write only
+  transcribe_message: { readOnlyHint: true },
+  transcribe_voice: { readOnlyHint: true },
+  // NOT annotated readOnly: get_pairing_code mints codes against WhatsApp's
+  // pairing endpoint and burns the T56 anti-abuse budget
+  // T94-A — destructive: account-state mutations
+  bulk_clear: { destructiveHint: true },
+  label_remove: { destructiveHint: true },
+  newsletter_unfollow: { destructiveHint: true },
+  label_assign: { destructiveHint: true },
+  // mutating but benign and reversible (re-mark toggles state)
+  mark_chat_read: { idempotentHint: true },
   delete_message: { destructiveHint: true },
-  logout: { destructiveHint: true },
   leave_group: { destructiveHint: true },
   block_unblock: { destructiveHint: true },
   cancel_scheduled: { destructiveHint: true },
