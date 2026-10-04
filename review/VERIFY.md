@@ -257,3 +257,22 @@ no checkbox is claimed without evidence.
 - §16 owner rule (no CLI step) — PASS — my webui-e2e on the T94-E build FAILED ('missing or invalid bearer token' — the pairing-only ui-token gate broke fresh-browser bootstrap). RED b271920 + GREEN 8b3f35b: stable ui-bootstrap token (0600 data-dir) serves /api/ui-token when paired; webui-e2e PASS on the fixed build (chats → send → bubble, zero console errors).
 - §10 CR1 still closed — PASS — /health pairingToken len 0 when loggedIn; bad token → 401 UNAUTHORIZED on /api/ui-token; account-token flow intact (chats 200).
 - Suite 839/839 (75 files); vp check clean.
+
+## Phase 0 mechanical truth audit — orchestrator first-hand gates (2026-10-04T19:56:32Z)
+
+- vp test: 75 files, 839/839 PASS (EXIT 0) — claim VERIFIED
+- vp check: initially EXIT 1 (formatting: SOURCE.md + 5 package.json after skills install/revert) → fixed, EXIT 0, 0 errors — claim was STALE, now clean (commit "chore: oxfmt")
+- coverage:gate: EXIT 0 — shared 97.77% lines (floor 90), bridge 80.6% (floor 80), mcp-server 81.86% (floor 80) — claim VERIFIED
+- doc-coverage: 63/63 tools documented — VERIFIED
+- accounting:check: OK, 1,029 rows — VERIFIED
+- CHANGELOG: "## 0.9.0" section present — VERIFIED
+- ADRs: 12 files (0001–0012, last: scoped-pairing-token-and-loopback-guard) — VERIFIED
+- docs:build: EXIT 0 (build complete in 2.16s) — VERIFIED
+- no-publish guard: zero publish calls in .github/workflows/; ci.yml triggers push/PR/workflow_dispatch (CI only; release job deferred per GOAL line 308) — VERIFIED
+- 8-platform sandbox install: all 8 OK + read-back (claude.json mcpServers.wa-mcp, .codex/config.toml, .cursor/mcp.json, .gemini/antigravity, .grok, .hermes, .pi, Claude Desktop) — VERIFIED
+- fresh-container Docker: wa-mcp-0.9.0.tgz install → PASS (EXIT 0) — VERIFIED
+- webui-e2e on live daemon: PASS (chats → open → send → bubble, zero console errors) — VERIFIED
+- live daemon: version 0.9.0, loggedIn true, connected true (uptime 2459s at check) — VERIFIED (note: /health RATE_LIMITED observed under probe volume — 120-cap bucket, design behavior, self-recovered)
+- tarball reproducibility: repack from HEAD → sha256 0fa2fb11c46506ed… IDENTICAL to on-record tarball — VERIFIED
+- version-drift guard: ABSENT — probe set version 9.9.9 → pack fails (mv error) = accidental guard only; NO explicit assertion → follow-up task (T95)
+- package.json = 0.9.0 across 6 packages + bin.ts + SERVER_INFO + device label — VERIFIED (grep zero hits for other versions)
