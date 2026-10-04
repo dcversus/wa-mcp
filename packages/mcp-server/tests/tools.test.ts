@@ -499,6 +499,49 @@ test("T94-B — set_presence posts the bridge presence route", async () => {
   });
 });
 
+test("T94-D-H1claude — reply_to_message_id and mentions reach the bridge body", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "RP1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "look up",
+      reply_to_message_id: "MID9",
+      mentions: ["358400000001@s.whatsapp.net", "358400000002@s.whatsapp.net"],
+    },
+  );
+  // review CLAUDE H1: the bridge validates and wires quoted context +
+  // mentionedJid, but the tool never forwarded them
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "look up",
+    reply_to_message_id: "MID9",
+    mentions: ["358400000001@s.whatsapp.net", "358400000002@s.whatsapp.net"],
+  });
+});
+
+test("T94-D-H4claude — list_messages and list_chats pass offset through", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/messages?chat_jid=a%40s.whatsapp.net&limit=25&offset=40": { messages: [], meta: { nextOffset: 65 } },
+    "/api/chats?limit=50&offset=25": { chats: [] },
+  });
+  const messages = toolByName("list_messages");
+  if (!messages) throw new Error("list_messages missing");
+  await messages.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "a@s.whatsapp.net", limit: 25, offset: 40 },
+  );
+  expect(calls[0]?.url).toBe(
+    "http://bridge.test:8080/api/messages?chat_jid=a%40s.whatsapp.net&limit=25&offset=40",
+  );
+  const chats = toolByName("list_chats");
+  if (!chats) throw new Error("list_chats missing");
+  await chats.handler({ ...ctx, fetchFn }, { limit: 50, offset: 25 });
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/chats?limit=50&offset=25");
+});
+
 test("list_chats fetches the chat list and returns json text", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chats?limit=50": { chats: [{ jid: "a@g.us" }] } });
   const tool = toolByName("list_chats");
