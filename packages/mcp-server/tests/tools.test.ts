@@ -57,6 +57,7 @@ test("the registry exposes the full launch set", () => {
     "mark_chat_read",
     "set_chat_state",
     "list_contacts",
+    "get_group_info",
     "set_presence",
     "set_alias",
     "get_unread_counts",
@@ -543,6 +544,52 @@ test("T94-D-H4claude — list_messages and list_chats pass offset through", asyn
   if (!chats) throw new Error("list_chats missing");
   await chats.handler({ ...ctx, fetchFn }, { limit: 50, offset: 25 });
   expect(calls[1]?.url).toBe("http://bridge.test:8080/api/chats?limit=50&offset=25");
+});
+
+test("T94-D-H3claude — get_chat merges group participants; get_group_info reads meta", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/chats?limit=200": {
+      chats: [{ jid: "120363428874442773@g.us", name: "Test Group", unreadCount: 0 }],
+    },
+    "/api/group/info?jid=120363428874442773%40g.us": {
+      id: "120363428874442773@g.us",
+      subject: "Test Group",
+      desc: "a group",
+      participants: [
+        { id: "358497773518@s.whatsapp.net", admin: "admin" },
+        { id: "358400000077@s.whatsapp.net", admin: null },
+      ],
+    },
+  });
+  const chat = toolByName("get_chat");
+  if (!chat) throw new Error("get_chat missing");
+  const merged = await chat.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "120363428874442773@g.us" },
+  );
+  // review CLAUDE H3 / GOAL 124: group chats expose their roster
+  expect(firstText(merged)).toContain("358400000077@s.whatsapp.net");
+  const parsed = JSON.parse(firstText(merged)) as {
+    chat: { jid: string };
+    participants: Array<{ id: string; admin: string | null }>;
+  };
+  expect(parsed.chat.jid).toBe("120363428874442773@g.us");
+  expect(parsed.participants).toHaveLength(2);
+
+  const info = toolByName("get_group_info");
+  if (!info) throw new Error("get_group_info missing");
+  const infoResult = await info.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "120363428874442773@g.us" },
+  );
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/group/info?jid=120363428874442773%40g.us");
+  const infoBody = JSON.parse(firstText(infoResult)) as {
+    subject: string;
+    participants: Array<{ admin: string | null }>;
+  };
+  expect(infoBody.subject).toBe("Test Group");
+  expect(infoBody.participants[0]?.admin).toBe("admin");
+  expect((info.inputSchema.properties ?? {}) as unknown).toBeDefined();
 });
 
 test("list_chats fetches the chat list and returns json text", async () => {
