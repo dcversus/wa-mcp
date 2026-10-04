@@ -226,7 +226,9 @@ describe("T62/I group participants table (v8)", () => {
     }
     // v1 chats table (v10 ALTERs it) + messages (v12 ALTERs it)
     raw.exec("CREATE TABLE chats (jid TEXT PRIMARY KEY, name TEXT)");
-    raw.exec("CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, PRIMARY KEY (chat_jid, id))");
+    raw.exec(
+      "CREATE TABLE messages (id TEXT NOT NULL, chat_jid TEXT NOT NULL, PRIMARY KEY (chat_jid, id))",
+    );
     raw.close();
     const store = openStore(dir);
     try {
