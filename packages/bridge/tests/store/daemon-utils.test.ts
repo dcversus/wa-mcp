@@ -219,7 +219,6 @@ test("T94-D-H3 — processDue marks failed rows with the structured reason", asy
   }
 });
 
-
 describe("T94-D-M6 — scheduler timezone normalization", () => {
   test("scheduleMessage normalizes offsets to UTC ISO (string-compare then works)", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6-")));

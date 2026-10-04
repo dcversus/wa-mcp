@@ -3167,11 +3167,22 @@ export async function createHttpServer(
                 });
                 return;
               }
-              const id = scheduleMessage(opts.store!, {
-                chatJid: input.chat_jid,
-                payload: input.text,
-                sendAt: input.send_at,
-              });
+              try {
+                var scheduledId = scheduleMessage(opts.store!, {
+                  chatJid: input.chat_jid,
+                  payload: input.text,
+                  sendAt: input.send_at,
+                });
+              } catch (err) {
+                sendJson(res, 400, {
+                  error: {
+                    code: "VALIDATION_ERROR",
+                    message: err instanceof Error ? err.message : "invalid send_at",
+                  },
+                });
+                return;
+              }
+              const id = scheduledId;
               sendJson(res, 200, { id });
             }
           })().catch((err: unknown) => {

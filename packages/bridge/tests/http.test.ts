@@ -3820,7 +3820,6 @@ describe("T94-C2 — the send-safety gates cannot be bypassed", () => {
   });
 });
 
-
 test("T94-D-M6 — POST /api/scheduled refuses a non-ISO send_at", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6d-")));
   openedStores.push(store);

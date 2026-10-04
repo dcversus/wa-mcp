@@ -14,10 +14,17 @@ export function scheduleMessage(
   store: Store,
   input: { chatJid: string; payload: string | Record<string, unknown>; sendAt: string },
 ): number {
+  // T94-D-M6 (CODEX): the due comparison is lexical over the stored string —
+  // offsets like +03:00 fired 3h late and non-ISO values never fired at all.
+  // Normalize EVERYTHING to UTC ISO on the way in.
+  const parsed = new Date(input.sendAt);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("VALIDATION_ERROR: send_at must be an ISO 8601 timestamp");
+  }
   const payload = typeof input.payload === "string" ? input.payload : JSON.stringify(input.payload);
   const result = store.db
     .prepare("INSERT INTO scheduled_messages (chat_jid, payload, send_at) VALUES (?, ?, ?)")
-    .run(input.chatJid, payload, input.sendAt);
+    .run(input.chatJid, payload, parsed.toISOString());
   return Number(result.lastInsertRowid);
 }
 
