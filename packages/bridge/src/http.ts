@@ -9,6 +9,12 @@ import type { BridgeHandle } from "./lifecycle.ts";
 import { isSafePublicEvent } from "./events.ts";
 import { spawn } from "node:child_process";
 import { toVoiceOgg } from "./media/voice.ts";
+import {
+  addAutoreplyRule,
+  listAutoreplyRules,
+  removeAutoreplyRule,
+  toggleAutoreplyRule,
+} from "./store/autoreply.ts";
 import type { LookupFn } from "./media/resolve.ts";
 import {
   addSendRule,
@@ -2161,6 +2167,73 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        if (path === "/api/autoreply-rules" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, { rules: listAutoreplyRules(opts.store) });
+          return;
+        }
+        if (path === "/api/autoreply-rules" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          void readBodyWithCap(req, MAX_BODY_BYTES)
+            .then(async ({ fits, body: raw }) => {
+              if (!fits) {
+                sendJson(res, 413, {
+                  error: { code: "PAYLOAD_TOO_LARGE", message: "body too large" },
+                });
+                return;
+              }
+              const input = JSON.parse(raw.toString("utf8")) as {
+                action?: unknown;
+                match?: unknown;
+                reply?: unknown;
+                id?: unknown;
+                enabled?: unknown;
+              };
+              const action = typeof input.action === "string" ? input.action : "add";
+              if (action === "add") {
+                if (typeof input.match !== "string" || typeof input.reply !== "string") {
+                  sendJson(res, 400, {
+                    error: { code: "VALIDATION_ERROR", message: "match and reply are required" },
+                  });
+                  return;
+                }
+                const id = addAutoreplyRule(opts.store!, {
+                  match: input.match,
+                  reply: input.reply,
+                });
+                sendJson(res, 200, { id });
+                return;
+              }
+              if (action === "toggle") {
+                toggleAutoreplyRule(opts.store!, Number(input.id), input.enabled === true);
+                sendJson(res, 200, { ok: true });
+                return;
+              }
+              if (action === "remove") {
+                removeAutoreplyRule(opts.store!, Number(input.id));
+                sendJson(res, 200, { ok: true });
+                return;
+              }
+              sendJson(res, 400, {
+                error: { code: "VALIDATION_ERROR", message: "unknown action" },
+              });
+            })
+            .catch((err: unknown) => {
+              opts.logger?.error({ err }, "autoreply rule failed");
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "autoreply rule failed" } });
+            });
           return;
         }
         if (path === "/api/send-rules" && req.method === "GET") {

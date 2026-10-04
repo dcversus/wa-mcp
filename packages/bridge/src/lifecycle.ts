@@ -6,11 +6,13 @@ import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
-import { canonicalChatJid } from "./send/send.ts";
+import { canonicalChatJid, sendViaSocket } from "./send/send.ts";
 import { upsertContact } from "./store/contacts.ts";
 import { removeGroupParticipants, upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
+import { evaluateAutoreply } from "./store/autoreply.ts";
+import { evaluateSendRules } from "./store/send-rules.ts";
 import { markHistorySynced } from "./store/meta.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
@@ -386,6 +388,32 @@ export async function startBridge(
                 message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
               }
               storeMessage(opts.store, message);
+              // T84-B line93: inbound non-own texts may trigger an autoreply —
+              // gated by WA_SENDS_DISABLED and the T82 restrict rules, with a
+              // per-chat cooldown inside evaluateAutoreply
+              if (message.key.fromMe !== true) {
+                const inboundText =
+                  (message.message?.conversation as string | undefined) ??
+                  (message.message?.extendedTextMessage?.text as string | undefined);
+                if (typeof inboundText === "string" && inboundText.length > 0) {
+                  const reply = evaluateAutoreply(
+                    opts.store,
+                    remoteJid as string,
+                    inboundText,
+                    Date.now(),
+                  );
+                  if (reply !== null && process.env.WA_SENDS_DISABLED !== "1") {
+                    const verdict = evaluateSendRules(opts.store, remoteJid as string);
+                    if (verdict.allowed) {
+                      void sendViaSocket(socket, remoteJid as string, { text: reply }).catch(
+                        (err: unknown) => {
+                          opts.logger?.warn({ err }, "autoreply send failed");
+                        },
+                      );
+                    }
+                  }
+                }
+              }
             }
           }
         }

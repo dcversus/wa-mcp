@@ -16,7 +16,8 @@ import { openAuthStore } from "./auth.ts";
 import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
-import { dueScheduled, markScheduled } from "./store/scheduled.ts";
+import { processDue } from "./store/scheduled.ts";
+import { resolveMedia } from "./media/resolve.ts";
 import { sendViaSocket } from "./send/send.ts";
 import type { AnyMessageContent } from "baileys";
 import { installShutdownHooks } from "./shutdown.ts";
@@ -133,24 +134,29 @@ export async function main(
       return;
     }
     schedulerBusy = true;
-    void (async () => {
-      const due = dueScheduled(store, new Date());
-      for (const row of due) {
-        const socket = handle.socket;
-        if (socket === undefined || socket === null) {
-          return;
-        }
-        try {
-          const result = await sendViaSocket(socket, row.chat_jid, {
-            text: row.payload,
-          } as AnyMessageContent);
-          markScheduled(store, row.id, "sent", result.messageId);
-        } catch (err: unknown) {
-          markScheduled(store, row.id, "failed");
-          logger.warn({ err, id: row.id }, "scheduled send failed");
-        }
+    void processDue(store, new Date(), async (chatJid, payload) => {
+      const socket = handle.socket;
+      if (socket === undefined || socket === null) {
+        throw new Error("bridge not connected");
       }
-    })().finally(() => {
+      if (typeof payload === "string") {
+        const result = await sendViaSocket(socket, chatJid, { text: payload } as AnyMessageContent);
+        return result.messageId;
+      }
+      // T84-B line98: media payloads route through resolveMedia like /api/send
+      const kind = String(payload.kind ?? "image");
+      const resolved = await resolveMedia(
+        typeof payload.url === "string"
+          ? { url: payload.url }
+          : { base64: String(payload.base64 ?? "") },
+        { mediaDir: config.mediaDir, fetchFn: undefined },
+      );
+      const result = await sendViaSocket(socket, chatJid, {
+        [kind]: resolved.buffer,
+        mimetype: resolved.mimeType,
+      } as unknown as AnyMessageContent);
+      return result.messageId;
+    }).finally(() => {
       schedulerBusy = false;
     });
   }, 30_000);

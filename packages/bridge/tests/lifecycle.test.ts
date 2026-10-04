@@ -30,6 +30,7 @@ import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
 import { openStore } from "../src/store/schema.ts";
+import { addAutoreplyRule } from "../src/store/autoreply.ts";
 import { listChats, listMessages } from "../src/store/queries.ts";
 import type { WAMessage } from "baileys";
 import { startBridge, type BridgeLogger, type StartBridgeOptions } from "../src/lifecycle.ts";
@@ -1061,4 +1062,40 @@ describe("T84 line92 — logout", () => {
     expect(mockMakeWASocket.mock.calls).toHaveLength(1);
     await handle.close();
   });
+});
+
+test("T84-B line93 — an autoreply rule answers an inbound hello once per cooldown", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autoreply-")));
+  addAutoreplyRule(store, { match: "hello", reply: "hi from the daemon" });
+  const sock = fakeSocket();
+  (sock as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+    key: { id: "AUTO1", fromMe: true },
+  }));
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { store });
+  sock.emit("messages.upsert", {
+    messages: [
+      {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN1" },
+        message: { conversation: "hello" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  sock.emit("messages.upsert", {
+    messages: [
+      {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN2" },
+        message: { conversation: "hello again" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const sendCalls = (sock.sendMessage as ReturnType<typeof vi.fn>).mock.calls.filter(
+    (call) => (call[1] as { text?: string }).text === "hi from the daemon",
+  );
+  expect(sendCalls).toHaveLength(1);
+  store.close();
 });

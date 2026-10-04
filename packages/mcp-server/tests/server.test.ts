@@ -86,6 +86,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "send_voice_note",
     "get_pairing_code",
     "restrict_sending",
+    "autoreply_set",
     "create_template",
     "list_templates",
     "send_template",

@@ -853,6 +853,44 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "autoreply_set",
+    description:
+      "Manage autoreply rules. action=add requires match (regex) + reply; list lists; remove/toggle require id (toggle also uses enabled).",
+    inputSchema: {
+      type: "object",
+      required: ["action"],
+      properties: {
+        action: { type: "string", enum: ["add", "list", "remove", "toggle"] },
+        match: { type: "string", description: "Regex matched case-insensitively" },
+        reply: { type: "string" },
+        id: { type: "number" },
+        enabled: { type: "boolean" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const action = requireString(args, "action");
+      if (action === "list") {
+        const rules = (await bridgeFetch(toolCtx, "/api/autoreply-rules")) as { rules?: unknown };
+        return { content: [{ type: "text", text: JSON.stringify(rules, null, 2) }] };
+      }
+      const body: Record<string, unknown> = { action };
+      if (action === "add") {
+        body.match = requireString(args, "match");
+        body.reply = requireString(args, "reply");
+      } else {
+        body.id = requireNumber(args, "id");
+        if (action === "toggle") {
+          body.enabled = args.enabled === true;
+        }
+      }
+      await bridgeFetch(toolCtx, "/api/autoreply-rules", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      return { content: [{ type: "text", text: `autoreply rule ${action} done` }] };
+    },
+  },
+  {
     name: "create_template",
     description: "Create or update a message template with {{var}} placeholders.",
     inputSchema: {

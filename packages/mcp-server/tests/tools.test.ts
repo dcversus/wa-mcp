@@ -67,6 +67,7 @@ test("the registry exposes the full launch set", () => {
     "send_voice_note",
     "get_pairing_code",
     "restrict_sending",
+    "autoreply_set",
     "create_template",
     "list_templates",
     "send_template",
