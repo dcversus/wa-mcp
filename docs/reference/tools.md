@@ -1,6 +1,14 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 43 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 44 tools. Regenerate with `pnpm run docs:gen`.
+
+### get_login_qr
+
+Get the current WhatsApp login QR code + pairing instructions. Returns NOT_PAIRING once connected.
+
+```json
+{ "type": "object", "properties": {} }
+```
 
 ### send_message
 

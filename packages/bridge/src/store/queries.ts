@@ -306,11 +306,11 @@ export function listMessages(store: Store, opts: ListMessagesFilter): MessageRow
   const params: Array<string | number> = [];
   if (opts.chatJid !== undefined) {
     clauses.push("chat_jid = ?");
-    params.push(opts.chatJid);
+    params.push(opts.chatJid as string);
   }
   if (opts.sender !== undefined) {
     clauses.push("sender_jid = ?");
-    params.push(opts.sender);
+    params.push(opts.sender as string);
   }
   if (opts.after !== undefined) {
     clauses.push("timestamp > ?");
@@ -523,14 +523,14 @@ export function countMessages(
   opts: { chatJid?: string; sender?: string; after?: Date; before?: Date } = {},
 ): number {
   const conditions: string[] = [];
-  const params: unknown[] = [];
+  const params: (string | number)[] = [];
   if (opts.chatJid !== undefined) {
     conditions.push("chat_jid = ?");
-    params.push(opts.chatJid);
+    params.push(opts.chatJid as string);
   }
   if (opts.sender !== undefined) {
     conditions.push("sender_jid = ?");
-    params.push(opts.sender);
+    params.push(opts.sender as string);
   }
   if (opts.after !== undefined) {
     conditions.push("timestamp >= ?");
