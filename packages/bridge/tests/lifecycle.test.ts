@@ -40,6 +40,7 @@ import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
 import { storeMessage } from "../src/store/messages.ts";
 import { openStore } from "../src/store/schema.ts";
 import { addAutoreplyRule } from "../src/store/autoreply.ts";
+import { addSendRule } from "../src/store/send-rules.ts";
 import { listChats, listMessages } from "../src/store/queries.ts";
 import type { WAMessage } from "baileys";
 import { startBridge, type BridgeLogger, type StartBridgeOptions } from "../src/lifecycle.ts";
@@ -1318,6 +1319,7 @@ test("T84-B line93 — an autoreply rule answers an inbound hello once per coold
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
   await trackedStart("/tmp/wa-mcp-test-auth", { store });
   sock.emit("messages.upsert", {
+    type: "notify",
     messages: [
       {
         key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN1" },
@@ -1328,6 +1330,7 @@ test("T84-B line93 — an autoreply rule answers an inbound hello once per coold
   });
   await new Promise((resolve) => setTimeout(resolve, 50));
   sock.emit("messages.upsert", {
+    type: "notify",
     messages: [
       {
         key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN2" },
@@ -1449,6 +1452,7 @@ test("T94-C2f — the autoreply send rides the send budget", async () => {
     sendGuard: guard as unknown as import("../src/send/safety.ts").SendGuard,
   });
   sock.emit("messages.upsert", {
+    type: "notify",
     messages: [
       {
         key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN1" },
@@ -1562,5 +1566,106 @@ describe("T94-C-H2 — live-crash regression: null media part + contained handle
       });
     }).not.toThrow();
     expect(handle.status).not.toBe("closed");
+  });
+});
+
+
+describe("T94-D-H4codex — autoreply guards", () => {
+  function autoreplyFixture() {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-h4codex-")));
+    addAutoreplyRule(store, { match: "hello", reply: "hi from the daemon" });
+    const sock = fakeSocket();
+    (sock as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+      key: { id: "AUTO9", fromMe: true },
+    }));
+    mockMakeWASocket.mockReset();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    return { store, sock };
+  }
+
+  function inbound(id: string, text: string, remoteJid = "358497773518@s.whatsapp.net") {
+    return {
+      key: { remoteJid, fromMe: false, id },
+      message: { conversation: text },
+      messageTimestamp: Math.floor(Date.now() / 1000),
+    };
+  }
+
+  async function replyCount(sock: ReturnType<typeof fakeSocket>): Promise<number> {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    return (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage.mock.calls
+      .length;
+  }
+
+  test("(a) rules and replies key off the CANONICAL jid, not the raw LID", async () => {
+    const { store, sock } = autoreplyFixture();
+    const PN = "358497773518@s.whatsapp.net";
+    const LID = "358400000055@lid";
+    // the engine's lid mapping resolves the LID to the PN
+    (sock as { signalRepository?: unknown }).signalRepository = {
+      lidMapping: { getPNForLID: async () => PN },
+    };
+    // a block rule authored on the PN must silence the LID-routed sender
+    addSendRule(store, { target: PN, mode: "block" });
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    sock.emit("messages.upsert", {
+      type: "notify",
+      messages: [inbound("LID1", "hello", LID)],
+    });
+    // RED today: evaluateAutoreply + the rules run on the RAW LID — the PN
+    // rule never matches and the reply fires to the LID jid
+    expect(await replyCount(sock)).toBe(0);
+    store.close();
+  });
+
+  test("(b) status@broadcast never triggers an autoreply", async () => {
+    const { store, sock } = autoreplyFixture();
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    sock.emit("messages.upsert", {
+      type: "notify",
+      messages: [inbound("ST9", "hello", "status@broadcast")],
+    });
+    // RED today: a status text matching a rule gets answered
+    expect(await replyCount(sock)).toBe(0);
+    store.close();
+  });
+
+  test("(c) backlog replays (type != notify) never trigger an autoreply", async () => {
+    const { store, sock } = autoreplyFixture();
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    sock.emit("messages.upsert", {
+      type: "append",
+      messages: [inbound("BG1", "hello")],
+    });
+    // RED today: reconnect replays answer stale messages
+    expect(await replyCount(sock)).toBe(0);
+    store.close();
+  });
+
+  test("(d) the same message id answers at most once (past the cooldown)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { store, sock } = autoreplyFixture();
+      await trackedStart("/tmp/wa-mcp-test-auth", { store });
+      const message = inbound("DUP1", "hello");
+      sock.emit("messages.upsert", { type: "notify", messages: [message] });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(
+        (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage.mock.calls
+          .length,
+      ).toBe(1);
+      // re-delivered duplicate AFTER the 60s autoreply cooldown — only the
+      // per-message dedupe can keep the answer at one (RED: replies again)
+      await vi.advanceTimersByTimeAsync(61_000);
+      sock.emit("messages.upsert", { type: "notify", messages: [message] });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(
+        (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage.mock.calls
+          .length,
+      ).toBe(1);
+      store.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
