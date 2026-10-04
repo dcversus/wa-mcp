@@ -57,6 +57,7 @@ test("the registry exposes the full launch set", () => {
     "mark_chat_read",
     "set_chat_state",
     "list_contacts",
+    "set_presence",
     "set_alias",
     "get_unread_counts",
     "update_profile",
@@ -445,7 +446,10 @@ test("T94-B — bridge validation errors pass through structured", async () => {
   const failingFetch = (async () =>
     new Response(
       JSON.stringify({
-        error: { code: "VALIDATION_ERROR", message: "options must have between 2 and 12 unique entries" },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "options must have between 2 and 12 unique entries",
+        },
       }),
       { status: 400, headers: { "content-type": "application/json" } },
     )) as unknown as typeof fetch;

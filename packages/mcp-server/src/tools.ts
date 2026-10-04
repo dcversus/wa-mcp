@@ -259,6 +259,37 @@ export const TOOLS: ToolDef[] = [
             },
           },
         },
+        location: {
+          type: "object",
+          description: "Send a location pin instead of text.",
+          properties: {
+            latitude: { type: "number", description: "Degrees latitude" },
+            longitude: { type: "number", description: "Degrees longitude" },
+            label: { type: "string", description: "Optional place name" },
+          },
+        },
+        contact: {
+          type: "object",
+          description: "Send a contact card (vcard) instead of text.",
+          properties: {
+            name: { type: "string", description: "Display name for the card" },
+            phones: {
+              type: "array",
+              description: "Phone numbers embedded in the vcard",
+              items: { type: "string" },
+            },
+          },
+        },
+        poll: {
+          type: "object",
+          description:
+            "Send a poll instead of text. The bridge validates 2-12 unique non-empty options.",
+          properties: {
+            question: { type: "string", description: "Poll question" },
+            options: { type: "array", items: { type: "string" } },
+            selectableCount: { type: "number", description: "Selectable options (default all)" },
+          },
+        },
         list: {
           type: "object",
           description:
@@ -297,12 +328,22 @@ export const TOOLS: ToolDef[] = [
       const hasButtons = args.buttons !== undefined;
       const hasInteractive = args.interactive !== undefined;
       const hasList = args.list !== undefined;
-      const variants = [linkPreview, statusBroadcast, hasButtons, hasInteractive, hasList].filter(
-        (set) => set,
-      ).length;
+      const hasLocation = args.location !== undefined;
+      const hasContact = args.contact !== undefined;
+      const hasPoll = args.poll !== undefined;
+      const variants = [
+        linkPreview,
+        statusBroadcast,
+        hasButtons,
+        hasInteractive,
+        hasList,
+        hasLocation,
+        hasContact,
+        hasPoll,
+      ].filter((set) => set).length;
       if (variants > 1) {
         throw new ParamError(
-          "pass only one of link_preview, status_broadcast, buttons, interactive, list",
+          "pass only one of link_preview, status_broadcast, buttons, interactive, list, location, contact, poll",
         );
       }
 
@@ -377,6 +418,53 @@ export const TOOLS: ToolDef[] = [
             chat_jid: chatJid,
             text: description === undefined ? title : `${title}\n${description}`,
             sections,
+          };
+        } else if (hasLocation) {
+          const spec = requireObject(args.location, "location");
+          const latitude = requireNumber(spec, "latitude");
+          const longitude = requireNumber(spec, "longitude");
+          const label = optionalString(spec, "label");
+          body = {
+            kind: "location",
+            chat_jid: chatJid,
+            latitude,
+            longitude,
+            ...(label !== undefined ? { label } : {}),
+          };
+        } else if (hasContact) {
+          const spec = requireObject(args.contact, "contact");
+          const name = requireString(spec, "name");
+          const rawPhones = spec.phones;
+          if (
+            !Array.isArray(rawPhones) ||
+            (rawPhones as unknown[]).some((phone) => typeof phone !== "string")
+          ) {
+            throw new ParamError("contact.phones must be an array of strings");
+          }
+          body = {
+            kind: "contact",
+            chat_jid: chatJid,
+            contact_name: name,
+            phones: rawPhones as string[],
+          };
+        } else if (hasPoll) {
+          const spec = requireObject(args.poll, "poll");
+          const question = requireString(spec, "question");
+          const rawOptions = spec.options;
+          if (
+            !Array.isArray(rawOptions) ||
+            (rawOptions as unknown[]).some((option) => typeof option !== "string")
+          ) {
+            throw new ParamError("poll.options must be an array of strings");
+          }
+          const selectableCount =
+            spec.selectableCount === undefined ? undefined : requireNumber(spec, "selectableCount");
+          body = {
+            kind: "poll",
+            chat_jid: chatJid,
+            poll_name: question,
+            options: rawOptions as string[],
+            ...(selectableCount !== undefined ? { selectable_count: selectableCount } : {}),
           };
         } else {
           body = { chat_jid: chatJid, text: requireString(args, "text") };
@@ -797,6 +885,38 @@ export const TOOLS: ToolDef[] = [
         toolCtx,
         `/api/contacts${query({ query: queryValue, limit })}`,
       )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "set_presence",
+    description:
+      "Send a presence or typing signal: composing/recording/paused for one chat, or available/unavailable globally.",
+    inputSchema: {
+      type: "object",
+      required: ["presence"],
+      properties: {
+        chat_jid: {
+          type: "string",
+          description: "Chat to direct the typing signal at (optional for available/unavailable)",
+        },
+        presence: {
+          type: "string",
+          description: "one of available, unavailable, composing, recording, paused",
+          enum: ["available", "unavailable", "composing", "recording", "paused"],
+        },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const presence = requireString(args, "presence");
+      const chatJid = optionalString(args, "chat_jid");
+      const payload = (await bridgeFetch(toolCtx, "/api/presence", {
+        method: "POST",
+        body: JSON.stringify({
+          presence,
+          ...(chatJid !== undefined ? { chat_jid: chatJid } : {}),
+        }),
+      })) as Record<string, unknown>;
       return textResult(payload);
     },
   },
@@ -1837,6 +1957,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   label_assign: { destructiveHint: true },
   // mutating but benign and reversible (re-mark toggles state)
   mark_chat_read: { idempotentHint: true },
+  // ephemeral presence signal — no durable account state
+  set_presence: { idempotentHint: true },
   delete_message: { destructiveHint: true },
   leave_group: { destructiveHint: true },
   block_unblock: { destructiveHint: true },

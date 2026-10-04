@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 61 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 62 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -62,6 +62,36 @@ Send a WhatsApp message: plain text, link card, status broadcast, buttons or a l
         }
       }
     },
+    "location": {
+      "type": "object",
+      "description": "Send a location pin instead of text.",
+      "properties": {
+        "latitude": { "type": "number", "description": "Degrees latitude" },
+        "longitude": { "type": "number", "description": "Degrees longitude" },
+        "label": { "type": "string", "description": "Optional place name" }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "description": "Send a contact card (vcard) instead of text.",
+      "properties": {
+        "name": { "type": "string", "description": "Display name for the card" },
+        "phones": {
+          "type": "array",
+          "description": "Phone numbers embedded in the vcard",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "poll": {
+      "type": "object",
+      "description": "Send a poll instead of text. The bridge validates 2-12 unique non-empty options.",
+      "properties": {
+        "question": { "type": "string", "description": "Poll question" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "selectableCount": { "type": "number", "description": "Selectable options (default all)" }
+      }
+    },
     "list": {
       "type": "object",
       "description": "List message with sections and rows. Renders for WhatsApp Business accounts only.",
@@ -102,6 +132,9 @@ Send a WhatsApp message: plain text, link card, status broadcast, buttons or a l
 - `status_broadcast` (boolean, optional) — Post the text to your status (status@broadcast) instead of a chat — chat_jid not required
 - `buttons` (array, optional) — Quick-reply buttons under the text. Renders for WhatsApp Business accounts only.
 - `interactive` (object, optional) — Rich button message (title, body, footer). Renders for WhatsApp Business accounts only.
+- `location` (object, optional) — Send a location pin instead of text.
+- `contact` (object, optional) — Send a contact card (vcard) instead of text.
+- `poll` (object, optional) — Send a poll instead of text. The bridge validates 2-12 unique non-empty options.
 - `list` (object, optional) — List message with sections and rows. Renders for WhatsApp Business accounts only.
 - required: `text`
 
@@ -418,6 +451,32 @@ List or search stored WhatsApp contacts.
 
 - `query` (string, optional) — Case-insensitive search over name, pushname and jid
 - `limit` (number, optional)
+
+### set_presence
+
+Send a presence or typing signal: composing/recording/paused for one chat, or available/unavailable globally.
+
+```json
+{
+  "type": "object",
+  "required": ["presence"],
+  "properties": {
+    "chat_jid": {
+      "type": "string",
+      "description": "Chat to direct the typing signal at (optional for available/unavailable)"
+    },
+    "presence": {
+      "type": "string",
+      "description": "one of available, unavailable, composing, recording, paused",
+      "enum": ["available", "unavailable", "composing", "recording", "paused"]
+    }
+  }
+}
+```
+
+- `chat_jid` (string, optional) — Chat to direct the typing signal at (optional for available/unavailable)
+- `presence` (string, required) — one of available, unavailable, composing, recording, paused
+- required: `presence`
 
 ### set_alias
 
