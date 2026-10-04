@@ -262,6 +262,18 @@ const MIGRATION_V17 = `
 ALTER TABLE scheduled_messages ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
 `;
 
+const MIGRATION_V18 = `
+CREATE TABLE subscriptions (
+  id TEXT PRIMARY KEY,
+  chat_jid TEXT,
+  from_jid TEXT,
+  kinds TEXT NOT NULL DEFAULT '[]',
+  include_media INTEGER NOT NULL DEFAULT 0,
+  all_chats INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -280,6 +292,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 15, sql: MIGRATION_V15 },
   { version: 16, sql: MIGRATION_V16 },
   { version: 17, sql: MIGRATION_V17 },
+  { version: 18, sql: MIGRATION_V18 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
