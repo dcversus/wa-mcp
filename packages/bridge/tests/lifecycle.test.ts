@@ -1806,3 +1806,51 @@ test("T94-F M8 — close() drains the save chain before returning", async () => 
   await closing;
   expect(closed).toBe(true);
 });
+
+test("T102 — WA_RECORD_EVENTS captures raw engine events as JSONL", async () => {
+  const recordDir = mkdtempSync(join(tmpdir(), "wa-mcp-record-"));
+  process.env.WA_RECORD_EVENTS = recordDir;
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-recstore-")));
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store });
+  sock.emit("messages.upsert", {
+    type: "notify",
+    messages: [
+      {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "REC1" },
+        message: { conversation: "record me" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  sock.emit("connection.update", { connection: "open" });
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  const upsertFile = join(recordDir, "messages.upsert.jsonl");
+  expect(existsSync(upsertFile)).toBe(true);
+  const lines = readFileSync(upsertFile, "utf8").split("\n").filter((l) => l.length > 0);
+  expect(lines).toHaveLength(1);
+  const parsed = JSON.parse(lines[0]) as { key?: { id?: string } };
+  expect(parsed.key?.id).toBe("REC1");
+  expect(existsSync(join(recordDir, "connection.update.jsonl"))).toBe(true);
+  await handle.close();
+  store.close();
+});
+
+test("T102 — env unset records nothing", async () => {
+  delete process.env.WA_RECORD_EVENTS;
+  const { existsSync: dirExists } = await import("node:fs");
+  const probeParent = mkdtempSync(join(tmpdir(), "wa-mcp-norec-"));
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  sock.emit("messages.upsert", {
+    type: "notify",
+    messages: [],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  expect(dirExists(probeParent + "/anything")).toBe(false);
+  await handle.close();
+});
