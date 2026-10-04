@@ -1038,3 +1038,23 @@ test("T80-FIX — the conflict-aware logger preserves the pino prototype surface
   expect(recoveries).toHaveLength(1);
   await handle.close();
 });
+
+describe("T84 line92 — logout", () => {
+  test("logout ends the socket, marks creds, keeps status logged-out (no auto-reconnect)", async () => {
+    const sock = fakeSocket();
+    (sock as { logout?: unknown }).logout = vi.fn(async () => ({ success: true }));
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+    await handle.logout();
+    expect((sock as { logout: ReturnType<typeof vi.fn> }).logout).toHaveBeenCalledTimes(1);
+    expect(handle.status).toBe("logged-out");
+    // a later close from the dead socket must NOT schedule a reconnect
+    sock.emit("connection.update", {
+      connection: "close",
+      lastDisconnect: { error: { output: { statusCode: 401 } } },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(mockMakeWASocket.mock.calls).toHaveLength(1);
+    await handle.close();
+  });
+});
