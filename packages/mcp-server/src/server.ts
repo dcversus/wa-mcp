@@ -136,6 +136,8 @@ function toolResultToPayload(result: {
   return { content: result.content };
 }
 
+type PromptGetParams = { name?: string; arguments?: Record<string, string> };
+
 export async function handleRpcMessage(
   message: unknown,
   ctx: ServerContext,
@@ -196,10 +198,9 @@ export async function handleRpcMessage(
           ],
         };
       case "prompts/get": {
-        const promptParams = ((request as { params?: { arguments?: Record<string, string> } })
-          .params ?? {}) as { arguments?: Record<string, string> };
-        const promptName = String(promptParams.name ?? "");
-        const promptArgs = promptParams.arguments ?? {};
+        const promptParams = (request as { params?: PromptGetParams }).params;
+        const promptName = String(promptParams?.name ?? "");
+        const promptArgs = promptParams?.arguments ?? {};
         if (promptName === "group-digest") {
           const group = String(promptArgs.group ?? "");
           const since = String(promptArgs.since ?? "");
