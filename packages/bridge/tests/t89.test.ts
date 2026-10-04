@@ -198,9 +198,10 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
       body: JSON.stringify({ duration: 604800 }),
     });
     expect(res.status).toBe(200);
-    expect(
-      (socket.groupToggleEphemeral as ReturnType<typeof vi.fn>).mock.calls[0],
-    ).toEqual([GROUP_A, 604800]);
+    expect((socket.groupToggleEphemeral as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([
+      GROUP_A,
+      604800,
+    ]);
   });
 
   test("line162 — POST reject-call routes to the engine rejectCall", async () => {
@@ -228,9 +229,7 @@ describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () 
       ok: false,
       reason: expect.stringContaining("extension"),
     });
-    expect(
-      shouldAutoDownload("1@s.whatsapp.net", tmpdir(), rules, "pic.jpg").ok,
-    ).toBe(true);
+    expect(shouldAutoDownload("1@s.whatsapp.net", tmpdir(), rules, "pic.jpg").ok).toBe(true);
   });
 
   test("line148 — mlx engine spawns WA_MLX_BIN and maps errors to UNAVAILABLE", async () => {

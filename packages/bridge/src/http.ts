@@ -2287,11 +2287,7 @@ export async function createHttpServer(
           });
           return;
         }
-        if (
-          path.startsWith("/api/groups/") &&
-          path.endsWith("/requests") &&
-          req.method === "GET"
-        ) {
+        if (path.startsWith("/api/groups/") && path.endsWith("/requests") && req.method === "GET") {
           const groupJid = decodeURIComponent(
             path.slice("/api/groups/".length, -"/requests".length),
           );
@@ -2299,7 +2295,9 @@ export async function createHttpServer(
             groupRequestParticipantsList?: (jid: string) => Promise<unknown>;
           };
           if (typeof engine.groupRequestParticipantsList !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" },
+            });
             return;
           }
           sendJson(res, 200, { requests: await engine.groupRequestParticipantsList(groupJid) });
@@ -2329,7 +2327,9 @@ export async function createHttpServer(
             ) => Promise<unknown>;
           };
           if (typeof engine.groupRequestParticipantsUpdate !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" },
+            });
             return;
           }
           sendJson(res, 200, {
@@ -2337,7 +2337,11 @@ export async function createHttpServer(
           });
           return;
         }
-        if (path.startsWith("/api/groups/") && path.endsWith("/ephemeral") && req.method === "POST") {
+        if (
+          path.startsWith("/api/groups/") &&
+          path.endsWith("/ephemeral") &&
+          req.method === "POST"
+        ) {
           const groupJid = decodeURIComponent(
             path.slice("/api/groups/".length, -"/ephemeral".length),
           );
@@ -2350,7 +2354,9 @@ export async function createHttpServer(
             groupToggleEphemeral?: (jid: string, expiration: number) => Promise<void>;
           };
           if (typeof engine.groupToggleEphemeral !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks ephemeral API" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks ephemeral API" },
+            });
             return;
           }
           await engine.groupToggleEphemeral(groupJid, input.duration);
@@ -2370,7 +2376,9 @@ export async function createHttpServer(
             rejectCall?: (callId: string, callFrom: string) => Promise<void>;
           };
           if (typeof socket.rejectCall !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks rejectCall" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks rejectCall" },
+            });
             return;
           }
           await socket.rejectCall(input.call_id, input.call_from);
