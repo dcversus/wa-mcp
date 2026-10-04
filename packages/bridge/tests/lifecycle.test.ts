@@ -1104,3 +1104,37 @@ test("T84-B line93 — an autoreply rule answers an inbound hello once per coold
   expect(sendCalls).toHaveLength(1);
   store.close();
 });
+
+test("T89-B GAP1 — warmup pulls group participants into contacts at open", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-warmup-")));
+  const sock = fakeSocket();
+  (sock as unknown as { groupFetchAllParticipating?: unknown }).groupFetchAllParticipating =
+    vi.fn(async () => ({
+      "120363428874442773@g.us": {
+        id: "120363428874442773@g.us",
+        subject: "Test Group",
+        participants: [
+          { id: "358400000001@s.whatsapp.net", admin: null },
+          { id: "358400000002@s.whatsapp.net", admin: "admin" },
+        ],
+      },
+      "120363999999999999@g.us": {
+        id: "120363999999999999@g.us",
+        subject: "Other",
+        participants: [
+          { id: "358400000003@s.whatsapp.net", admin: null },
+          { id: "358400000004@s.whatsapp.net", admin: null },
+        ],
+      },
+    }));
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-gap1/", { store });
+  // fire-and-forget: poll until the warmup completes
+  for (let i = 0; i < 20 && !handle.contactsWarm(); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  expect(handle.contactsWarm()).toBe(true);
+  const rows = store.db.prepare("SELECT COUNT(*) AS n FROM contacts").get() as { n: number };
+  expect(rows.n).toBeGreaterThanOrEqual(4);
+  store.close();
+});
