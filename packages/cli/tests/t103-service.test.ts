@@ -1,3 +1,4 @@
+import { createServer, type AddressInfo } from "node:net";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -61,7 +62,24 @@ test("T103 — install --service writes the plist into the user LaunchAgents dir
   process.env.WA_CLI_TEST_HOME = tmpHome();
   const home = process.env.WA_CLI_TEST_HOME as string;
   const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t103-data-"));
-  await main(["install", "--service", "--home", home, "--data-dir", dataDir, "--port", "8080"]);
+  const free = await new Promise<number>((resolve) => {
+    const probe = createServer();
+    probe.listen(0, "127.0.0.1", () => {
+      const port = (probe.address() as AddressInfo).port;
+      probe.close(() => resolve(port));
+    });
+  });
+  // a free port: the T104 guard must pass (8080 is the live daemon here)
+  await main([
+    "install",
+    "--service",
+    "--home",
+    home,
+    "--data-dir",
+    dataDir,
+    "--port",
+    String(free),
+  ]);
   const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
   expect(existsSync(plistPath)).toBe(true);
   const plist = readFileSync(plistPath, "utf8");
