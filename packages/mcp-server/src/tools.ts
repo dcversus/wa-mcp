@@ -1130,6 +1130,162 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "archive_chat",
+    description: "Archive a chat (hide it from the main list).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "archive";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "unarchive_chat",
+    description: "Unarchive a previously archived chat.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "unarchive";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "mute_chat",
+    description: "Mute a chat for a duration (default 7 days).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+        duration_seconds: {
+          type: "number",
+          description: "Mute duration in seconds (default 604800 = 7 days)",
+        },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "mute";
+      const durationSeconds = optionalNumber(args, "duration_seconds");
+      const body2 = {
+        chat_jid: chatJid,
+        action,
+        ...(durationSeconds !== undefined ? { duration_seconds: durationSeconds } : {}),
+      };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "unmute_chat",
+    description: "Remove the mute from a chat.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "unmute";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "mark_chat_unread",
+    description: "Flag a chat as unread in the phone's chat list.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "mark_unread";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "delete_chat",
+    description: "Delete a whole chat from this device (messages gone for you).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "delete";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "clear_chat",
+    description: "Clear all messages in a chat (chat stays in the list).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const action = "clear";
+      const body2 = { chat_jid: chatJid, action };
+      const payload = (await bridgeFetch(toolCtx, "/api/chat/modify", {
+        method: "POST",
+        body: JSON.stringify(body2),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
     name: "get_privacy",
     description:
       "Read the account's current privacy settings (lastSeen, online, profilePic, status, groupAdd, call, messages, readReceipts).",
@@ -2108,6 +2264,13 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   label_assign: { destructiveHint: true },
   // mutating but benign and reversible (re-mark toggles state)
   mark_chat_read: { idempotentHint: true },
+  archive_chat: { idempotentHint: true },
+  unarchive_chat: { idempotentHint: true },
+  mute_chat: { idempotentHint: true },
+  unmute_chat: { idempotentHint: true },
+  mark_chat_unread: { destructiveHint: true },
+  delete_chat: { destructiveHint: true },
+  clear_chat: { destructiveHint: true },
   // ephemeral presence signal — no durable account state
   set_presence: { idempotentHint: true },
   delete_message: { destructiveHint: true },

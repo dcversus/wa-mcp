@@ -3563,7 +3563,9 @@ export async function createHttpServer(
         }
         if (path === "/api/chat/modify" && req.method === "POST") {
           if (opts.store === undefined) {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
             return;
           }
           const input = JSON.parse(body.toString("utf8")) as {
@@ -3586,15 +3588,14 @@ export async function createHttpServer(
             "delete",
           ];
           if (typeof input.action !== "string" || !actions.includes(input.action)) {
-            validationError(
-              res,
-              `action must be one of ${actions.join(", ")}`,
-            );
+            validationError(res, `action must be one of ${actions.join(", ")}`);
             return;
           }
           const socket = handle.socket;
           if (socket === undefined || socket === null || typeof socket.chatModify !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
             return;
           }
           const lastMessages = (
@@ -3625,10 +3626,7 @@ export async function createHttpServer(
             delete: { delete: true, lastMessages },
           };
           void socket
-            .chatModify(
-              modifications[input.action] as never,
-              input.chat_jid,
-            )
+            .chatModify(modifications[input.action] as never, input.chat_jid)
             .then(() => {
               sendJson(res, 200, { applied: input.action });
             })

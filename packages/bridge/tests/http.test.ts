@@ -4144,12 +4144,13 @@ describe("T99 chatModify — POST /api/chat/modify", () => {
     const mods = (socket.chatModify as ReturnType<typeof vi.fn>).mock.calls.map(
       (call) => call[0],
     ) as Array<Record<string, unknown>>;
-    expect(mods[0].archive).toBe(false);
-    expect(Number(mods[1].mute)).toBeGreaterThan(Date.now());
-    expect(mods[2].mute).toBeNull();
-    expect(mods[3].markRead).toBe(false);
-    expect(mods[4].clear).toBe(true);
-    expect(mods[5].delete).toBe(true);
+    const mod = (index: number) => mods[index] ?? {};
+    expect(mod(0).archive).toBe(false);
+    expect(Number(mod(1).mute)).toBeGreaterThan(Date.now());
+    expect(mod(2).mute).toBeNull();
+    expect(mod(3).markRead).toBe(false);
+    expect(mod(4).clear).toBe(true);
+    expect(mod(5).delete).toBe(true);
   });
 
   test("unknown action and missing chat_jid are 400", async () => {
