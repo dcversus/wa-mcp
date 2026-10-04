@@ -1048,7 +1048,9 @@ describe("T84 line92 — logout", () => {
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
     const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
     await handle.logout();
-    expect((sock as { logout: ReturnType<typeof vi.fn> }).logout).toHaveBeenCalledTimes(1);
+    expect((sock as unknown as { logout: ReturnType<typeof vi.fn> }).logout).toHaveBeenCalledTimes(
+      1,
+    );
     expect(handle.status).toBe("logged-out");
     // a later close from the dead socket must NOT schedule a reconnect
     sock.emit("connection.update", {

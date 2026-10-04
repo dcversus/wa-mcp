@@ -883,7 +883,12 @@ export async function createHttpServer(
         if (err instanceof SendError) {
           // T56/T84: structured errors are still LOGGED — silent failures forbidden
           opts.logger?.error(
-            { code: err.code, retryAfterSeconds: err.retryAfterSeconds, hint: err.hint },
+            {
+              code: err.code,
+              message: err.message,
+              retryAfterSeconds: err.retryAfterSeconds,
+              hint: err.hint,
+            },
             "send failed",
           );
           const status =
