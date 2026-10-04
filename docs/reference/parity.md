@@ -1,0 +1,101 @@
+# Tool parity — wa-mcp vs reference implementations (T101-D, GOAL L286)
+
+Per-tool crosswalk against the reference repos from the census
+(`review/BACKLOG-FULL.md` → `review/ACCOUNTING.md`, 1029 items dispositioned).
+
+## Counts
+
+| project | tools/features | basis |
+|---|---|---|
+| **wa-mcp (ours)** | 71 | live registry (`packages/mcp-server/src/tools.ts`) |
+| chigwell/telegram-mcp | 80+ tools | GOAL L286 research; per-tool presence below derived from its 252 census rows |
+| kahflane/whatsapp-mcp | 87 | README feature-level count — trackers empty (0 issues, 0 PRs), per-tool presence not enumerable from the census |
+| biliboss/whatsapp-mcp | 62 | README feature-level count — trackers empty, same caveat |
+
+Full census with dispositions: [ACCOUNTING.md](../ACCOUNTING.md)
+
+## Legend
+
+- ✓ — an equivalent census item exists in that repo (IDs cited)
+- — — no equivalent census item found for this tool
+- · — per-tool presence not enumerable (README-level accounting only)
+
+## Rows
+
+| # | our tool | ours | chigwell (80+) | kahflane (87) | biliboss (62) | chigwell census ids |
+|---|---|---|---|---|---|---|
+| 1 | `get_login_qr` | ✓ | ✓ PR#135 | · | · | PR#135 |
+| 2 | `send_message` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#169, I#219, I#226, PR#5, PR#17, PR#30, PR#64, PR#67, PR#68, PR#86, PR#95, PR#110, PR#118, PR#132, PR#135, PR#147, PR#165, PR#174, PR#187, PR#193, PR#196, PR#197, PR#202, PR#205, PR#206, PR#220, PR#229, PR#235, PR#240, PR#246, PR#247, PR#252 |
+| 3 | `list_chats` | ✓ | ✓ I#243, PR#46, PR#78 | · | · | I#243, PR#46, PR#78, PR#84, PR#106, PR#249 |
+| 4 | `list_messages` | ✓ | ✓ I#27, I#243, PR#28 | · | · | I#27, I#243, PR#28, PR#29, PR#95, PR#132, PR#193, PR#196, PR#210, PR#245, PR#254 |
+| 5 | `search_messages` | ✓ | ✓ I#27, I#243, PR#28 | · | · | I#27, I#243, PR#28, PR#29, PR#45, PR#73, PR#74, PR#75, PR#203, PR#245, PR#254 |
+| 6 | `get_message_context` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#162, I#169, I#219, I#226, PR#5, PR#17, PR#45, PR#64, PR#67, PR#86, PR#96, PR#110, PR#118, PR#132, PR#133, PR#135, PR#147, PR#165, PR#174, PR#187, PR#196, PR#197, PR#202, PR#205, PR#206, PR#210, PR#220, PR#225, PR#229, PR#235, PR#237, PR#246, PR#251, PR#252, PR#254 |
+| 7 | `catch_up` | ✓ | — | · | · | — |
+| 8 | `digest_group` | ✓ | — | · | · | — |
+| 9 | `fetch_history` | ✓ | — | · | · | — |
+| 10 | `send_media` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#169, I#219, I#226, PR#5, PR#64, PR#67, PR#86, PR#110, PR#118, PR#132, PR#135, PR#147, PR#165, PR#174, PR#187, PR#196, PR#197, PR#202, PR#205, PR#206, PR#220, PR#229, PR#235, PR#246, PR#252 |
+| 11 | `get_chat` | ✓ | ✓ I#61, I#76, I#162 | · | · | I#61, I#76, I#162, PR#46, PR#62, PR#78, PR#82, PR#84, PR#92, PR#100, PR#155, PR#157, PR#175, PR#191, PR#202, PR#237, PR#251 |
+| 12 | `get_group_info` | ✓ | ✓ I#14, I#61, I#76 | · | · | I#14, I#61, I#76, I#170, PR#62, PR#108, PR#109, PR#171, PR#175 |
+| 13 | `send_reaction` | ✓ | ✓ PR#248 | · | · | PR#248 |
+| 14 | `edit_message` | ✓ | ✓ PR#208 | · | · | PR#208 |
+| 15 | `delete_message` | ✓ | ✓ PR#67 | · | · | PR#67 |
+| 16 | `forward_message` | ✓ | ✓ PR#129, PR#182, PR#230 | · | · | PR#129, PR#182, PR#230 |
+| 17 | `mark_chat_read` | ✓ | ✓ I#116, I#162, PR#46 | · | · | I#116, I#162, PR#46, PR#78, PR#82, PR#84, PR#92, PR#157, PR#237, PR#251 |
+| 18 | `set_chat_state` | ✓ | ✓ I#162, PR#46, PR#78 | · | · | I#162, PR#46, PR#78, PR#82, PR#84, PR#104, PR#155, PR#233, PR#237, PR#251 |
+| 19 | `list_contacts` | ✓ | ✓ PR#57, PR#173, PR#178 | · | · | PR#57, PR#173, PR#178, PR#199 |
+| 20 | `set_presence` | ✓ | — | · | · | — |
+| 21 | `set_alias` | ✓ | ✓ PR#57, PR#173, PR#178 | · | · | PR#57, PR#173, PR#178, PR#199 |
+| 22 | `get_unread_counts` | ✓ | ✓ I#162, PR#46, PR#78 | · | · | I#162, PR#46, PR#78, PR#82, PR#84, PR#237, PR#251 |
+| 23 | `update_profile` | ✓ | ✓ PR#101, PR#106, PR#191 | · | · | PR#101, PR#106, PR#191 |
+| 24 | `set_privacy` | ✓ | ✓ PR#233 | · | · | PR#233 |
+| 25 | `archive_chat` | ✓ | ✓ PR#60 | · | · | PR#60 |
+| 26 | `unarchive_chat` | ✓ | ✓ PR#60 | · | · | PR#60 |
+| 27 | `mute_chat` | ✓ | ✓ PR#78 | · | · | PR#78 |
+| 28 | `unmute_chat` | ✓ | ✓ PR#78 | · | · | PR#78 |
+| 29 | `mark_chat_unread` | ✓ | ✓ I#162, PR#46 | · | · | I#162, PR#46 |
+| 30 | `delete_chat` | ✓ | ✓ PR#222 | · | · | PR#222 |
+| 31 | `clear_chat` | ✓ | — | · | · | — |
+| 32 | `get_privacy` | ✓ | — | · | · | — |
+| 33 | `block_unblock` | ✓ | ✓ PR#140, PR#210 | · | · | PR#140, PR#210 |
+| 34 | `get_blocklist` | ✓ | ✓ PR#140, PR#210 | · | · | PR#140, PR#210 |
+| 35 | `get_media` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#169, I#219, I#226, PR#5, PR#64, PR#67, PR#86, PR#110, PR#118, PR#132, PR#135, PR#147, PR#165, PR#174, PR#187, PR#196, PR#197, PR#202, PR#205, PR#206, PR#220, PR#229, PR#235, PR#246, PR#252 |
+| 36 | `list_notification_rules` | ✓ | — | · | · | — |
+| 37 | `add_notification_rule` | ✓ | ✓ I#11, I#33, PR#17 | · | · | I#11, I#33, PR#17, PR#18, PR#31, PR#32, PR#34, PR#40, PR#41, PR#48, PR#65, PR#72, PR#100, PR#102, PR#103, PR#104, PR#105, PR#113, PR#115, PR#119, PR#136, PR#138, PR#213, PR#224, PR#236, PR#247, PR#249 |
+| 38 | `delete_notification_rule` | ✓ | ✓ PR#222 | · | · | PR#222 |
+| 39 | `create_group` | ✓ | ✓ PR#175 | · | · | PR#175 |
+| 40 | `update_group_participants` | ✓ | ✓ I#14, I#170, PR#108 | · | · | I#14, I#170, PR#108, PR#109, PR#171 |
+| 41 | `update_group_meta` | ✓ | — | · | · | — |
+| 42 | `leave_group` | ✓ | — | · | · | — |
+| 43 | `get_group_invite` | ✓ | ✓ I#14, I#61, I#76 | · | · | I#14, I#61, I#76, I#170, PR#44, PR#62, PR#108, PR#109, PR#171, PR#175, PR#192, PR#251 |
+| 44 | `transcribe_message` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#169, I#219, I#226, PR#5, PR#64, PR#67, PR#86, PR#110, PR#118, PR#132, PR#135, PR#147, PR#165, PR#174, PR#187, PR#196, PR#197, PR#202, PR#205, PR#206, PR#220, PR#229, PR#235, PR#246, PR#252 |
+| 45 | `send_voice_note` | ✓ | ✓ I#219, PR#118, PR#197 | · | · | I#219, PR#118, PR#197 |
+| 46 | `get_pairing_code` | ✓ | ✓ I#150 | · | · | I#150 |
+| 47 | `restrict_sending` | ✓ | — | · | · | — |
+| 48 | `autoreply_set` | ✓ | — | · | · | — |
+| 49 | `create_template` | ✓ | — | · | · | — |
+| 50 | `list_templates` | ✓ | — | · | · | — |
+| 51 | `send_template` | ✓ | — | · | · | — |
+| 52 | `schedule_message` | ✓ | ✓ PR#103, PR#205, PR#247 | · | · | PR#103, PR#205, PR#247 |
+| 53 | `list_scheduled` | ✓ | — | · | · | — |
+| 54 | `export_chat` | ✓ | ✓ I#162, PR#202, PR#237 | · | · | I#162, PR#202, PR#237, PR#251 |
+| 55 | `export_unread_messages` | ✓ | ✓ I#162, PR#237, PR#251 | · | · | I#162, PR#237, PR#251 |
+| 56 | `bulk_clear` | ✓ | ✓ PR#102, I#162 | · | · | PR#102, I#162 |
+| 57 | `label_add` | ✓ | — | · | · | — |
+| 58 | `label_list` | ✓ | ✓ PR#196 | · | · | PR#196 |
+| 59 | `label_assign` | ✓ | — | · | · | — |
+| 60 | `label_remove` | ✓ | — | · | · | — |
+| 61 | `download_media` | ✓ | ✓ I#51, I#52, I#85 | · | · | I#51, I#52, I#85, I#169, I#219, I#226, PR#5, PR#64, PR#67, PR#86, PR#110, PR#118, PR#132, PR#135, PR#147, PR#165, PR#174, PR#187, PR#196, PR#197, PR#202, PR#205, PR#206, PR#220, PR#229, PR#235, PR#246, PR#252 |
+| 62 | `view_media` | ✓ | — | · | · | — |
+| 63 | `transcribe_voice` | ✓ | ✓ I#219, PR#118, PR#197 | · | · | I#219, PR#118, PR#197 |
+| 64 | `newsletter_follow` | ✓ | — | · | · | — |
+| 65 | `newsletter_unfollow` | ✓ | — | · | · | — |
+| 66 | `newsletter_send` | ✓ | — | · | · | — |
+| 67 | `newsletter_list` | ✓ | — | · | · | — |
+| 68 | `get_contact` | ✓ | — | · | · | — |
+| 69 | `get_picture_url` | ✓ | — | · | · | — |
+| 70 | `get_poll_votes` | ✓ | ✓ PR#175 | · | · | PR#175 |
+| 71 | `cancel_scheduled` | ✓ | — | · | · | — |
+
+kahflane/biliboss dots are `·` by census limitation, not by absence claim —
+their trackers are empty and only README feature counts (87/62) exist in the
+census. Absorb-or-differ decisions per tool live in ACCOUNTING.md.
