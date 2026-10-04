@@ -335,3 +335,11 @@ no checkbox is claimed without evidence.
 
 - L149 (media size cap + staging): VERIFIED at code level (resolve.ts:199 DEFAULT_MAX_BYTES=20MB — stricter than the 50MB ask; :374 declared content-length cap; :378-392 running-cap stream guard T94-F M6; TOO_LARGE structured error). Files stage to disk (media_path) after capped fetch. Orchestrator first-hand read.
 - L286/L320-era items drawing on webui-dogfood: covered by Phase 0 gates.
+
+### T99 live verification (2026-10-04T21:33:07Z)
+
+- get_privacy LIVE: real account privacy settings returned (calladd/channelcreation/cover_photo/defense/groupadd/...). VERIFIED.
+- capabilities LIVE: {tools, resources:{subscribe:false, listChanged:true}, prompts, logging, notifications} — L332 SATISFIED (honest declarations; subscribe arrives with Phase 2 N1). VERIFIED.
+- resources LIVE: wa://sync-status + wa://config present alongside chats/unread/health — L330 SATISFIED (5 resources). VERIFIED.
+- chat-mgmt LIVE: DM archive→unarchive round-trip WORKS ({applied:archive} / {applied:unarchive} on Vasilisa chat, restored). GROUP chats FAIL: engine chatModify throws 'Expected not from me message to have participant' (reconciliation on participant-less stored last message) → INTERNAL error. T100 opened: group-chat chatModify failure (catch + structured GROUP_CHAT_MODIFY_FAILED, or pre-clear lastMessage participant expectation — needs engine-side handling).
+- Suite 861/861 (77 files), vp check clean, doc-coverage 71/71. Tools 63→71.
