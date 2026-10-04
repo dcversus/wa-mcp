@@ -486,3 +486,37 @@ describe("T78 M3 — poll bubbles render question, options and vote counts", () 
     expect(html).not.toContain("undefined");
   });
 });
+
+test("C1 — errorBannerHtml escapes the message and marks the banner", async () => {
+  const { errorBannerHtml } = await import("../src/pages.ts");
+  const html = errorBannerHtml('<script>alert("x")</script> rate limited');
+  expect(html).toContain("error-banner");
+  expect(html).not.toContain("<script>");
+  expect(html).toContain("rate limited");
+});
+
+test("C1 — guardLoader renders the banner when a loader throws", async () => {
+  const { guardLoader } = await import("../src/pages.ts");
+  const guarded = guardLoader(async () => {
+    throw new Error("bridge request failed: 429");
+  });
+  const html = await guarded({});
+  expect(html).toContain("error-banner");
+  expect(html).toContain("429");
+});
+
+test("C3 — retryUntil polls until the check passes or attempts run out", async () => {
+  const { retryUntil } = await import("../src/preflight.ts");
+  let calls = 0;
+  const ok = await retryUntil(
+    async () => {
+      calls += 1;
+      return calls >= 3;
+    },
+    { attempts: 5, delayMs: 1 },
+  );
+  expect(ok).toBe(true);
+  expect(calls).toBe(3);
+  const failed = await retryUntil(async () => false, { attempts: 3, delayMs: 1 });
+  expect(failed).toBe(false);
+});

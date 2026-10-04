@@ -277,3 +277,33 @@ describe("T77 — client requests match the bridge validation contracts", () => 
     });
   });
 });
+
+test("C1 — a 429/500 error body throws a structured ApiError, not the payload", async () => {
+  const { fetchFn } = mockFetch(
+    { error: { code: "RATE_LIMITED", message: "rate limit exceeded" } },
+    429,
+  );
+  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  await expect(client.getChats()).rejects.toMatchObject({
+    name: "ApiError",
+    status: 429,
+    message: "rate limit exceeded",
+  });
+});
+
+test("C1 — a non-JSON error page throws a structured ApiError", async () => {
+  const fetchFn = (async () =>
+    new Response("<html>502 Bad Gateway</html>", { status: 502 })) as unknown as typeof fetch;
+  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  await expect(client.getChats()).rejects.toMatchObject({
+    name: "ApiError",
+    status: 502,
+  });
+});
+
+test("C1 — search sends the bridge's q param (query was silently ignored)", async () => {
+  const { fetchFn, calls } = mockFetch({ results: [] });
+  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  await client.search("pizza", 5);
+  expect(calls[0]?.url).toBe("http://bridge:8080/api/search?q=pizza&limit=5");
+});

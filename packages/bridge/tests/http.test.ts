@@ -3574,3 +3574,48 @@ describe("T93-B — /api/digest (digest_group data source)", () => {
     expect(noSince.status).toBe(400);
   });
 });
+
+describe("T93-C2 — the UI token rides its own rate bucket", () => {
+  test("ui-token mints a distinct credential that authorizes the read API", async () => {
+    const bridge = await startServer();
+    const pairing = await pairingTokenOf(bridge);
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${pairing}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+    // RED today: /api/ui-token hands out the DAEMON token — the UI then
+    // shares (and can starve) the same per-IP API bucket as agent clients
+    expect(body.token).not.toBe("test-token");
+    expect(body.token).not.toBe(pairing);
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${body.token}` },
+    });
+    expect(chats.status).not.toBe(401);
+  });
+
+  test("exhausting the API bucket with the daemon token leaves the UI bucket intact", async () => {
+    const bridge = await startServer({ rateLimit: { capacity: 1, refillPerMinute: 1 } });
+    const pairing = await pairingTokenOf(bridge);
+    const minted = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${pairing}` },
+    });
+    const { token: uiToken } = (await minted.json()) as { token: string };
+    // the daemon token burns the tiny API bucket
+    const first = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(first.status).not.toBe(429);
+    const second = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(second.status).toBe(429);
+    // the UI token keeps answering from its own bucket
+    for (let i = 0; i < 3; i += 1) {
+      const uiPoll = await fetch(url(bridge, "/api/chats"), {
+        headers: { authorization: `Bearer ${uiToken}` },
+      });
+      expect(uiPoll.status).not.toBe(429);
+    }
+  });
+});
