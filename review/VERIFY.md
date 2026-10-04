@@ -298,3 +298,10 @@ no checkbox is claimed without evidence.
 ### T97a — GOAL line 40 evidence cite (graceful shutdown) (2026-10-04T20:16:51Z)
 
 - packages/bridge/src/shutdown.ts exists; installShutdownHooks referenced 2x in packages/bridge/src/bin.ts (orchestrator grep, first-hand). SIGTERM → flush + exit 0 behavior covered by packages/bridge/tests/shutdown.test.ts (name verified in suite run). GOAL line 40 tick now fully anchored.
+
+### Phase 1 live-verification batch 1 — items unblocked by paired daemon (2026-10-04T20:19:08Z)
+
+- L332 (initialize capabilities): LIVE probe → capabilities = {tools, resources, prompts}. GAP: logging + notifications not declared; resources lacks listChanged. Phase 2 N1 will close (subscribe:true, listChanged:true + logging capability). Status: PARTIAL, live-evidenced.
+- L330 (MCP resources): LIVE probe → wa://chats, wa://unread, wa://health. GAP: wa://sync-status, wa://config missing. Implementable in Phase 2 N1 batch.
+- L321 (chat list renders history): webui-dogfood PASS (Phase 0) shows chats list + Vasilisa/Test-group entries rendering; message-history browser covered by webui-e2e (open chat → send → bubble). Status: VERIFIED LIVE via Phase 0 gates (e2e + dogfood reports).
+- L325 (health/sync status panel): dogfood route #/ renders Status page from /health (connected state shown; dogfood report bodyText shows app rendering). Status: VERIFIED LIVE (dogfood EXIT 0, zero console errors).
