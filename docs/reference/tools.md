@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 62 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 63 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -334,6 +334,21 @@ Get one chat's summary (name, unread count, last message).
 ```
 
 - `chat_jid` (string, required)
+- required: `chat_jid`
+
+### get_group_info
+
+Read one group's live metadata: subject, description, participants and admin list.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid"],
+  "properties": { "chat_jid": { "type": "string", "description": "Group JID" } }
+}
+```
+
+- `chat_jid` (string, required) — Group JID
 - required: `chat_jid`
 
 ### send_reaction

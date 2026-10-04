@@ -776,7 +776,38 @@ export const TOOLS: ToolDef[] = [
       if (chat === undefined) {
         return { content: [{ type: "text", text: `chat not found: ${chatJid}` }] };
       }
+      // T94-D-H3claude (GOAL 124): group chats expose their roster — the
+      // live group meta carries participants + admin flags
+      if (chatJid.endsWith("@g.us")) {
+        try {
+          const meta = (await bridgeFetch(
+            toolCtx,
+            `/api/group/info?jid=${encodeURIComponent(chatJid)}`,
+          )) as { participants?: Array<{ id: string; admin?: string | null }> };
+          return textResult({ chat, participants: meta.participants ?? [] });
+        } catch {
+          // meta is best-effort — the chat summary still returns
+        }
+      }
       return textResult({ chat });
+    },
+  },
+  {
+    name: "get_group_info",
+    description:
+      "Read one group's live metadata: subject, description, participants and admin list.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: { chat_jid: { type: "string", description: "Group JID" } },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/group/info?jid=${encodeURIComponent(chatJid)}`,
+      )) as Record<string, unknown>;
+      return textResult(payload);
     },
   },
   {
@@ -2001,6 +2032,7 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   search_messages: { readOnlyHint: true },
   list_contacts: { readOnlyHint: true },
   get_contact: { readOnlyHint: true },
+  get_group_info: { readOnlyHint: true },
   get_picture_url: { readOnlyHint: true },
   get_poll_votes: { readOnlyHint: true },
   list_templates: { readOnlyHint: true },

@@ -50,6 +50,7 @@ test("the registry exposes the full launch set", () => {
     "fetch_history",
     "send_media",
     "get_chat",
+    "get_group_info",
     "send_reaction",
     "edit_message",
     "delete_message",
@@ -57,7 +58,6 @@ test("the registry exposes the full launch set", () => {
     "mark_chat_read",
     "set_chat_state",
     "list_contacts",
-    "get_group_info",
     "set_presence",
     "set_alias",
     "get_unread_counts",
@@ -563,10 +563,7 @@ test("T94-D-H3claude — get_chat merges group participants; get_group_info read
   });
   const chat = toolByName("get_chat");
   if (!chat) throw new Error("get_chat missing");
-  const merged = await chat.handler(
-    { ...ctx, fetchFn },
-    { chat_jid: "120363428874442773@g.us" },
-  );
+  const merged = await chat.handler({ ...ctx, fetchFn }, { chat_jid: "120363428874442773@g.us" });
   // review CLAUDE H3 / GOAL 124: group chats expose their roster
   expect(firstText(merged)).toContain("358400000077@s.whatsapp.net");
   const parsed = JSON.parse(firstText(merged)) as {
@@ -582,7 +579,9 @@ test("T94-D-H3claude — get_chat merges group participants; get_group_info read
     { ...ctx, fetchFn },
     { chat_jid: "120363428874442773@g.us" },
   );
-  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/group/info?jid=120363428874442773%40g.us");
+  expect(calls[1]?.url).toBe(
+    "http://bridge.test:8080/api/group/info?jid=120363428874442773%40g.us",
+  );
   const infoBody = JSON.parse(firstText(infoResult)) as {
     subject: string;
     participants: Array<{ admin: string | null }>;
