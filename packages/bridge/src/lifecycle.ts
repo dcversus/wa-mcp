@@ -134,6 +134,8 @@ export async function startBridge(
   let lastInboundAt = 0;
   // T93-D: auto-download rules are process-env static — read once per start
   const autodlRules = autoDownloadRules(process.env);
+  // T94-D-H4codex(d): message ids already autoreplied — bounded FIFO
+  const autoreplySeenIds = new Set<string>();
   let mediaBackfillDone = false;
 
   /** T93-D: fire-and-forget media download for one stored message. Never
@@ -549,12 +551,16 @@ export async function startBridge(
           if (name === "messages.upsert") {
             // live inbound traffic: notify (real-time) and append (post-reconnect
             // backlog) both persist; media_path stays null until download
-            const upsert = payload as { messages?: WAMessage[] };
+            const upsert = payload as { messages?: WAMessage[]; type?: string };
             if (opts.store !== undefined) {
               for (const message of upsert.messages ?? []) {
-                const remoteJid: string | null | undefined = message.key.remoteJid;
+                // T94-D-H4codex(a): everything downstream (rules, autoreply,
+                // poll votes, media) keys off the CANONICAL jid — the raw LID
+                // leaked before this fix
+                let remoteJid: string | null | undefined = message.key.remoteJid;
                 if (remoteJid !== undefined && remoteJid !== null && remoteJid.endsWith("@lid")) {
-                  message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
+                  remoteJid = await canonicalChatJid(socket, remoteJid);
+                  message.key.remoteJid = remoteJid;
                 }
                 storeMessage(opts.store, message);
                 // T94-C-H1: the pinned fork's poll-vote decrypt block is
@@ -585,12 +591,6 @@ export async function startBridge(
                     pollMessage,
                     state.creds.me?.id ?? "",
                   );
-                  console.error(
-                    "DEBUG H1:",
-                    voteUpdate !== null,
-                    JSON.stringify(state.creds.me),
-                    JSON.stringify(voteUpdate ?? {}),
-                  );
                   const pollChatJid = remoteJid ?? "";
                   if (voteUpdate !== null && pollChatJid.length > 0) {
                     storePollVotes(opts.store, pollChatJid, creationKey.id, [voteUpdate]);
@@ -601,8 +601,24 @@ export async function startBridge(
                 maybeAutoDownload(message, remoteJid);
                 // T84-B line93: inbound non-own texts may trigger an autoreply —
                 // gated by WA_SENDS_DISABLED and the T82 restrict rules, with a
-                // per-chat cooldown inside evaluateAutoreply
-                if (message.key.fromMe !== true) {
+                // per-chat cooldown inside evaluateAutoreply.
+                // T94-D-H4codex: live notify traffic only — never status, and
+                // never the same message id twice
+                const inboundMessageId = message.key.id ?? "";
+                if (
+                  message.key.fromMe !== true &&
+                  upsert.type === "notify" &&
+                  remoteJid !== "status@broadcast" &&
+                  inboundMessageId.length > 0 &&
+                  !autoreplySeenIds.has(inboundMessageId)
+                ) {
+                  autoreplySeenIds.add(inboundMessageId);
+                  if (autoreplySeenIds.size > 500) {
+                    const oldest = autoreplySeenIds.values().next().value;
+                    if (oldest !== undefined) {
+                      autoreplySeenIds.delete(oldest);
+                    }
+                  }
                   const inboundText =
                     (message.message?.conversation as string | undefined) ??
                     (message.message?.extendedTextMessage?.text as string | undefined);

@@ -1569,7 +1569,6 @@ describe("T94-C-H2 — live-crash regression: null media part + contained handle
   });
 });
 
-
 describe("T94-D-H4codex — autoreply guards", () => {
   function autoreplyFixture() {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-h4codex-")));
