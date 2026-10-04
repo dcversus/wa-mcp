@@ -42,8 +42,14 @@ export async function processDue(
     try {
       const messageId = await send(row.chat_jid, parsed);
       markScheduled(store, row.id, "sent", messageId);
-    } catch {
-      markScheduled(store, row.id, "failed");
+    } catch (err) {
+      markScheduled(
+        store,
+        row.id,
+        "failed",
+        undefined,
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 }
@@ -70,10 +76,15 @@ export function markScheduled(
   id: number,
   status: "sent" | "failed" | "cancelled",
   sentMessageId?: string,
+  reason?: string,
 ): void {
+  // T94-D-H3: the refusal reason survives on the row — "failed" alone hides
+  // whether it was the rules, the budget or the engine
   store.db
-    .prepare("UPDATE scheduled_messages SET status = ?, sent_message_id = ? WHERE id = ?")
-    .run(status, sentMessageId ?? null, id);
+    .prepare(
+      "UPDATE scheduled_messages SET status = ?, sent_message_id = ?, last_error = ? WHERE id = ?",
+    )
+    .run(status, sentMessageId ?? null, reason ?? null, id);
 }
 
 /** T82 line88: cancel a pending schedule — too-late cancels report false. */

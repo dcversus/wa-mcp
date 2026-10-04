@@ -18,8 +18,9 @@ import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
 import { processDue } from "./store/scheduled.ts";
 import { resolveMedia } from "./media/resolve.ts";
-import { sendViaSocket } from "./send/send.ts";
-import type { AnyMessageContent } from "baileys";
+import { resolveRecipient, sendViaSocket } from "./send/send.ts";
+import { evaluateSendRules } from "./store/send-rules.ts";
+import type { AnyMessageContent, WASocket } from "baileys";
 import { installShutdownHooks } from "./shutdown.ts";
 import { resolveChannel } from "./channels/cloud/config.ts";
 import { SendGuard } from "./send/safety.ts";
@@ -86,6 +87,61 @@ export async function ensureToken(config: BridgeConfig): Promise<string> {
   return generated;
 }
 
+/** T94-D-H3 (CODEX H3): the scheduler's send callback — the SAME gate as
+ * /api/send: recipient canonicalization, restrict rules, the daemon-wide
+ * budget. Refusals throw structured errors that processDue persists. */
+export function createScheduledSender(deps: {
+  store: ReturnType<typeof import("./store/schema.ts").openStore>;
+  sendGuard: SendGuard;
+  socket: WASocket;
+  mediaDir: string;
+}): (chatJid: string, payload: string | Record<string, unknown>) => Promise<string> {
+  const { store, sendGuard, socket, mediaDir } = deps;
+  return async (chatJid, payload) => {
+    if (socket === undefined || socket === null) {
+      throw new Error("bridge not connected");
+    }
+    const resolution = resolveRecipient(store, chatJid);
+    if (!resolution.ok) {
+      throw new Error(`${resolution.code}: ${resolution.message}`);
+    }
+    const target = resolution.jid;
+    const rules = evaluateSendRules(store, target);
+    if (!rules.allowed) {
+      throw new Error(
+        `SEND_BLOCKED: sending to ${target} is blocked by rule #${rules.rule?.id} (${rules.rule?.target})`,
+      );
+    }
+    const budget = sendGuard.check(Date.now());
+    if (!budget.ok) {
+      throw new Error(
+        budget.code === "RATE_LIMITED"
+          ? `RATE_LIMITED: sending too fast`
+          : `DAILY_CAP_EXCEEDED: daily send cap of ${budget.cap} reached`,
+      );
+    }
+    let result: { messageId: string };
+    if (typeof payload === "string") {
+      result = await sendViaSocket(socket, target, { text: payload } as AnyMessageContent);
+    } else {
+      // T84-B line98: media payloads route through resolveMedia like /api/send
+      const kind = String(payload.kind ?? "image");
+      const resolved = await resolveMedia(
+        typeof payload.url === "string"
+          ? { url: payload.url }
+          : { base64: String(payload.base64 ?? "") },
+        { mediaDir, fetchFn: undefined },
+      );
+      result = await sendViaSocket(socket, target, {
+        [kind]: resolved.buffer,
+        mimetype: resolved.mimeType,
+      } as unknown as AnyMessageContent);
+    }
+    sendGuard.record(Date.now());
+    return result.messageId;
+  };
+}
+
 export async function main(
   cli: { dataDir?: string; port?: string; uiDir?: string } = {},
   env: NodeJS.ProcessEnv = process.env,
@@ -144,29 +200,16 @@ export async function main(
       return;
     }
     schedulerBusy = true;
-    void processDue(store, new Date(), async (chatJid, payload) => {
-      const socket = handle.socket;
-      if (socket === undefined || socket === null) {
-        throw new Error("bridge not connected");
-      }
-      if (typeof payload === "string") {
-        const result = await sendViaSocket(socket, chatJid, { text: payload } as AnyMessageContent);
-        return result.messageId;
-      }
-      // T84-B line98: media payloads route through resolveMedia like /api/send
-      const kind = String(payload.kind ?? "image");
-      const resolved = await resolveMedia(
-        typeof payload.url === "string"
-          ? { url: payload.url }
-          : { base64: String(payload.base64 ?? "") },
-        { mediaDir: config.mediaDir, fetchFn: undefined },
-      );
-      const result = await sendViaSocket(socket, chatJid, {
-        [kind]: resolved.buffer,
-        mimetype: resolved.mimeType,
-      } as unknown as AnyMessageContent);
-      return result.messageId;
-    }).finally(() => {
+    void processDue(
+      store,
+      new Date(),
+      createScheduledSender({
+        store,
+        sendGuard,
+        socket: handle.socket,
+        mediaDir: config.mediaDir,
+      }),
+    ).finally(() => {
       schedulerBusy = false;
     });
   }, 30_000);

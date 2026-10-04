@@ -3,7 +3,13 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
-import { buildConfig, createScheduledSender, ensureMediaDir, ensureToken, redactPhone } from "../src/bin.ts";
+import {
+  buildConfig,
+  createScheduledSender,
+  ensureMediaDir,
+  ensureToken,
+  redactPhone,
+} from "../src/bin.ts";
 import { addSendRule } from "../src/store/send-rules.ts";
 import { setAlias } from "../src/store/contacts.ts";
 import { openStore } from "../src/store/schema.ts";
@@ -149,7 +155,7 @@ describe("T94-D-H3 — the scheduler send gate (CODEX H3)", () => {
   });
 
   test("the daily budget is consumed and enforced", async () => {
-    const { store, sendGuard, sender } = senderFixture(1);
+    const { store, sender } = senderFixture(1);
     await sender(TARGET, "one");
     // RED today: scheduled sends never drew from the budget
     await expect(sender(TARGET, "two")).rejects.toThrow("DAILY_CAP_EXCEEDED");
@@ -160,10 +166,7 @@ describe("T94-D-H3 — the scheduler send gate (CODEX H3)", () => {
     const { store, sendMessage, sender } = senderFixture();
     const id = await sender("+358 497 773 518", "hello");
     expect(id).toBe("SCHED1");
-    const call = (sendMessage as ReturnType<typeof vi.fn>).mock.calls[0] as [
-      string,
-      unknown,
-    ];
+    const call = (sendMessage as ReturnType<typeof vi.fn>).mock.calls[0] as [string, unknown];
     expect(call[0]).toBe("358497773518@s.whatsapp.net");
     store.close();
   });

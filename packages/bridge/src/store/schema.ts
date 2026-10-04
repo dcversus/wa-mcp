@@ -242,6 +242,10 @@ CREATE TABLE IF NOT EXISTS newsletters (
 );
 `;
 
+const MIGRATION_V15 = `
+ALTER TABLE scheduled_messages ADD COLUMN last_error TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -257,6 +261,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 12, sql: MIGRATION_V12 },
   { version: 13, sql: MIGRATION_V13 },
   { version: 14, sql: MIGRATION_V14 },
+  { version: 15, sql: MIGRATION_V15 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

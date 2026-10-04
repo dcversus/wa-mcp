@@ -208,9 +208,10 @@ test("T94-D-H3 — processDue marks failed rows with the structured reason", asy
     });
     // CODEX H3: a refusal reason must survive on the row — "failed" alone
     // hides whether it was the rules, the budget or the engine
-    const row = store.db
-      .prepare("SELECT status, last_error FROM scheduled_messages")
-      .get() as { status: string; last_error?: string | null };
+    const row = store.db.prepare("SELECT status, last_error FROM scheduled_messages").get() as {
+      status: string;
+      last_error?: string | null;
+    };
     expect(row.status).toBe("failed");
     expect(row.last_error ?? "").toContain("SEND_BLOCKED");
   } finally {
