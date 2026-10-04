@@ -1293,11 +1293,15 @@ export const TOOLS: ToolDef[] = [
           ],
         };
       }
-      const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
+      const content: ToolResult["content"] = [
         { type: "text", text: `${payload.mime} (${payload.frames.length} frame(s))` },
       ];
       for (const frame of payload.frames) {
-        content.push({ type: "image", data: frame.data_base64, mimeType: payload.mime });
+        content.push({
+          type: "image",
+          data: frame.data_base64,
+          mimeType: payload.mime ?? "image/jpeg",
+        });
       }
       return { content };
     },

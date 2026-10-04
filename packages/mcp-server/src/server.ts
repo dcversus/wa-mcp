@@ -136,9 +136,7 @@ async function dispatchToolCall(
   return toolResultToPayload(await tool.handler(toolCtx, args as Record<string, unknown>));
 }
 
-function toolResultToPayload(result: {
-  content: Array<{ type: string; text: string }>;
-}): Record<string, unknown> {
+function toolResultToPayload(result: import("./tools.ts").ToolResult): Record<string, unknown> {
   return { content: result.content };
 }
 
