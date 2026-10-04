@@ -62,3 +62,22 @@ manually, but they set them _themselves_ — `Host: evil.example:8080`,
   explicitly out of scope for the loopback web UI.
 - The T54-revised "ui token reads account data" contracts were rewritten;
   the destructive-mutation 401s they already asserted remain true.
+
+
+## Addendum (T94-E CR1, runtime-security review)
+
+The original design leaked: `/health` is public and published the pairing
+token unconditionally, so any local process could read it and exchange it at
+`/api/ui-token` for a full-surface credential — a complete tokenless access
+chain (reviewer-confirmed against a live daemon).
+
+Tightened, keeping the owner flow intact:
+
+1. `/health` publishes `pairingToken` ONLY while `hasPairedAccount()` is
+   false (the pairing window). Once paired, the field disappears.
+2. `/api/ui-token` refuses with `403 PAIRED` once paired. The exchange is a
+   pairing-window operation, not a standing one.
+3. The owner's browser keeps the account token it obtained at the first
+   pairing (localStorage); the pairing page only renders pre-pairing anyway.
+4. The UI token (T93-C2) remains full-surface but is only mintable inside
+   the pairing window.

@@ -3839,10 +3839,10 @@ test("T94-D-M6 — POST /api/scheduled refuses a non-ISO send_at", async () => {
 
 describe("T94-E CR1 — the tokenless chain is closed once paired", () => {
   async function pairedBridge() {
-    const bridge = await createHttpServer(
-      stubHandle("connected", null, makeFakeSocket(), true),
-      { token: "test-token", pairingToken: "pair-tok" },
-    );
+    const bridge = await createHttpServer(stubHandle("connected", null, makeFakeSocket(), true), {
+      token: "test-token",
+      pairingToken: "pair-tok",
+    });
     created.push(bridge);
     return bridge;
   }

@@ -2153,7 +2153,11 @@ export async function createHttpServer(
           (handle.status === "reconnecting" && handle.hasPairedAccount()),
         pairingBlocked: budget.blocked,
         pairingAttempts: { used: budget.used, limit: budget.limit },
-        pairingToken,
+        // T94-E CR1 (RUNTIME review): /health is PUBLIC — the pairing token
+        // may only leave it while pairing is actually possible. Once paired,
+        // any local process could read it here and exchange it for a
+        // full-surface credential at /api/ui-token.
+        pairingToken: handle.hasPairedAccount() ? undefined : pairingToken,
         channel: opts.cloud ? "cloud" : "baileys",
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
@@ -3473,9 +3477,20 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/ui-token" && req.method === "GET") {
-          // ADR 0012: one-time exchange so the loopback web UI can hold the real
-          // token. Double-gated: the loopback Host + same-origin guard above,
-          // and the scoped pairing token itself.
+          // ADR 0012 (+ T94-E CR1 addendum): the exchange exists for the
+          // PAIRING window only. Once the account is paired the scoped token
+          // must not mint a full-surface credential — the owner's browser
+          // already holds the account token from the first pairing.
+          if (handle.hasPairedAccount()) {
+            sendJson(res, 403, {
+              error: {
+                code: "PAIRED",
+                message:
+                  "the pairing window is closed — configure the account token in the web UI settings",
+              },
+            });
+            return;
+          }
           sendJson(res, 200, { token: uiToken });
           return;
         }
