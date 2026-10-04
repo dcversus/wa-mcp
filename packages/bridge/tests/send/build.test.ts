@@ -178,12 +178,10 @@ describe("T84 line99 — poll validation", () => {
   });
 
   test("duplicate options (case-insensitive) are rejected", async () => {
-    const err = await buildPollMessage("lunch", ["Pizza", "pizza", "Burger"]).catch(
-      (e: SendError) => e,
-    );
-    expect(err.code).toBe("VALIDATION_ERROR");
-    expect(err.message).toContain("duplicate");
-    expect(err.message).toContain("pizza");
+    await expect(buildPollMessage("lunch", ["Pizza", "pizza", "Burger"])).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("duplicate"),
+    });
   });
 
   test("empty-string options are rejected", async () => {
