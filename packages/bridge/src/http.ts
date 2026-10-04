@@ -32,6 +32,7 @@ import {
   setChatPinned,
 } from "./store/chats.ts";
 import { getContact, listContacts, setAlias } from "./store/contacts.ts";
+import { exportMessages } from "./store/export.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
 import { requestPairingCode } from "./pairing-code.ts";
 import {
@@ -2529,6 +2530,43 @@ export async function createHttpServer(
           sendJson(res, 200, { ok: true });
           return;
         }
+        if (path === "/api/export" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+          const format = (params.get("format") ?? "jsonl") as "jsonl" | "md" | "txt";
+          const chatJid = params.get("chat_jid") ?? undefined;
+          const unreadOnly = params.get("unread") === "true";
+          const text = exportMessages(opts.store, { chatJid, unreadOnly, format });
+          const mime = format === "jsonl" ? "application/x-ndjson" : "text/plain; charset=utf-8";
+          res.writeHead(200, { "content-type": mime });
+          res.end(text);
+          return;
+        }
+        if (path === "/api/read-bulk" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const input = JSON.parse(body.toString("utf8")) as { chat_jids?: unknown };
+          const jids = Array.isArray(input.chat_jids)
+            ? (input.chat_jids as unknown[]).filter((jid): jid is string => typeof jid === "string")
+            : [];
+          const clear = opts.store.db.prepare(
+            "UPDATE messages SET is_unread = 0 WHERE chat_jid = ?",
+          );
+          for (const jid of jids) {
+            clear.run(jid);
+          }
+          sendJson(res, 200, { cleared: jids.length });
+          return;
+        }
         if (path.startsWith("/api/contacts/") && req.method === "GET") {
           if (opts.store === undefined) {
             sendJson(res, 501, {
@@ -2536,15 +2574,49 @@ export async function createHttpServer(
             });
             return;
           }
-          const contact = getContact(
-            opts.store,
-            decodeURIComponent(path.slice("/api/contacts/".length)),
-          );
+          const jid = decodeURIComponent(path.slice("/api/contacts/".length));
+          const contact = getContact(opts.store, jid);
           if (contact === undefined) {
             sendJson(res, 404, { error: { code: "NOT_FOUND", message: "contact not found" } });
             return;
           }
-          sendJson(res, 200, { contact });
+          // T87-B: with_photo=true resolves the avatar via the engine
+          const withPhoto =
+            new URL(req.url ?? "/", "http://localhost").searchParams.get("with_photo") === "true";
+          if (!withPhoto) {
+            sendJson(res, 200, { contact });
+            return;
+          }
+          const socket = handle.socket;
+          let hasPhoto = false;
+          let pictureUrl: string | undefined;
+          if (socket !== undefined && socket !== null) {
+            try {
+              const engine = socket as unknown as {
+                profilePictureUrl?: (jid: string, type?: string) => Promise<string>;
+              };
+              const fn = engine.profilePictureUrl;
+              console.error("T87B-DEBUG3: fn type", typeof fn);
+              if (typeof fn !== "function") {
+                throw new Error("engine lacks profilePictureUrl");
+              }
+              const url = await fn.call(socket, jid, "preview");
+              console.error("T87B-DEBUG4: url", url);
+              if (typeof url === "string" && url.length > 0) {
+                hasPhoto = true;
+                pictureUrl = url;
+              }
+            } catch {
+              // no photo — defaults stand
+            }
+          }
+          sendJson(res, 200, {
+            contact: {
+              ...contact,
+              hasPhoto,
+              ...(pictureUrl !== undefined ? { pictureUrl } : {}),
+            },
+          });
           return;
         }
         if (path === "/api/picture-url" && req.method === "POST") {

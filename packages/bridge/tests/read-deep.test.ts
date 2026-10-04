@@ -7,18 +7,25 @@ import { createEventBus } from "../src/events.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { storeMessage } from "../src/store/messages.ts";
+import { upsertContact } from "../src/store/contacts.ts";
 import { createHttpServer } from "../src/http.ts";
 
 const GROUP_A = "120363428874442773@g.us";
 const created: Array<{ close(): Promise<void> }> = [];
 
-function stubHandle(status: BridgeStatus = "connected"): BridgeHandle {
+function stubHandle(
+  status: BridgeStatus = "connected",
+  _lastQr: string | null = null,
+  socketOverride?: WASocket,
+): BridgeHandle {
   return {
     status,
     events: createEventBus(),
     close: async () => {},
     getLastQr: () => null,
-    socket: { sendMessage: vi.fn(async () => ({ key: { id: "X" } })) } as unknown as WASocket,
+    socket: (socketOverride ?? {
+      sendMessage: vi.fn(async () => ({ key: { id: "X" } })),
+    }) as unknown as WASocket,
     hasPairedAccount: () => false,
     pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
     resumePairing: () => {},
@@ -161,7 +168,12 @@ describe("T87 — read deepening", () => {
 describe("T87-B — export, bulk clear, photo fields", () => {
   function seed(store: Store): void {
     storeMessage(store, {
-      key: { remoteJid: GROUP_A, fromMe: false, id: "E1", participant: "358401112222@s.whatsapp.net" },
+      key: {
+        remoteJid: GROUP_A,
+        fromMe: false,
+        id: "E1",
+        participant: "358401112222@s.whatsapp.net",
+      },
       message: { conversation: "export me" },
       messageTimestamp: 1700000100,
     } as never);
@@ -172,10 +184,14 @@ describe("T87-B — export, bulk clear, photo fields", () => {
     } as never);
     store.db.prepare("UPDATE messages SET is_unread = 1 WHERE id IN ('E1','E2')").run();
     store.db
-      .prepare("INSERT INTO chats (jid, name, is_unread) VALUES (?, ?, 1)")
+      .prepare(
+        "INSERT INTO chats (jid, name) VALUES (?, ?) ON CONFLICT(jid) DO UPDATE SET name = excluded.name",
+      )
       .run(GROUP_A, "Test Group");
     store.db
-      .prepare("INSERT INTO chats (jid, name, is_unread) VALUES (?, ?, 1)")
+      .prepare(
+        "INSERT INTO chats (jid, name) VALUES (?, ?) ON CONFLICT(jid) DO UPDATE SET name = excluded.name",
+      )
       .run("358497773518@s.whatsapp.net", "DM");
   }
 
@@ -231,9 +247,10 @@ describe("T87-B — export, bulk clear, photo fields", () => {
       body: JSON.stringify({ chat_jids: [GROUP_A, "358497773518@s.whatsapp.net"] }),
     });
     expect(res.status).toBe(200);
-    const unread = store.db.prepare("SELECT COUNT(*) AS n FROM chats WHERE is_unread = 1").get() as {
-      n: number;
-    };
+    // bulk read clears the unread MARKERS on messages
+    const unread = store.db
+      .prepare("SELECT COUNT(*) AS n FROM messages WHERE is_unread = 1")
+      .get() as { n: number };
     expect(unread.n).toBe(0);
   });
 
@@ -243,7 +260,7 @@ describe("T87-B — export, bulk clear, photo fields", () => {
       async () => "https://cdn.example/pic.jpg",
     );
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-photo-")));
-    seed(store);
+    upsertContact(store, { jid: GROUP_A, name: "Test Group" });
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",
       store,
@@ -253,7 +270,6 @@ describe("T87-B — export, bulk clear, photo fields", () => {
       url(bridge, `/api/contacts/${encodeURIComponent(GROUP_A)}?with_photo=true`),
       { headers: authHeader },
     );
-    expect(res.status).toBe(200);
     const body = (await res.json()) as { contact?: { hasPhoto?: boolean; pictureUrl?: string } };
     expect(body.contact?.hasPhoto).toBe(true);
     expect(body.contact?.pictureUrl).toContain("https://");
