@@ -42,6 +42,9 @@ export function createEventRecorder(dir: string | undefined): EventRecorder {
   return {
     active: true,
     record(eventName, payload) {
+      if (eventName === "creds.update") {
+        return;
+      }
       const safe = eventName.replace(/[^a-zA-Z0-9._-]/g, "_");
       appendFileSync(join(dir, `${safe}.jsonl`), `${JSON.stringify(scrub(payload, 0))}\n`);
     },
