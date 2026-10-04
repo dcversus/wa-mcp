@@ -987,6 +987,84 @@ test("T79 line47 — a stale socket (queries never answered) is torn down and re
   await handle.close();
 });
 
+test("T93 — inbound activity is liveness: unanswered probes do NOT force reconnect", async () => {
+  vi.useFakeTimers();
+  process.env.WA_STALENESS_MS = "100";
+  const stale = fakeSocket();
+  (stale as { query?: unknown }).query = vi.fn(() => new Promise<never>(() => {}));
+  // drain leftover Once impls from earlier tests, then seed: first call = the
+  // stale socket, any further connect() = a fresh catch-all socket
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+  mockMakeWASocket.mockReturnValueOnce(stale as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  // RED today: the watchdog ignores traffic — a healthy connection with a
+  // hanging probe is torn down every ~3 misses anyway (live: 52 firings)
+  for (let t = 0; t < 550; t += 50) {
+    await vi.advanceTimersByTimeAsync(50);
+    stale.emit("messages.upsert", { messages: [], type: "notify" });
+  }
+  expect(stale.end).not.toHaveBeenCalled();
+  expect(mockMakeWASocket.mock.calls).toHaveLength(1);
+  delete process.env.WA_STALENESS_MS;
+  vi.useRealTimers();
+  await handle.close();
+});
+
+test("T93 — the staleness probe is the engine's own keepalive iq (node arg + ping child)", async () => {
+  vi.useFakeTimers();
+  process.env.WA_STALENESS_MS = "100";
+  const stale = fakeSocket();
+  const query = vi.fn(() => Promise.resolve());
+  (stale as { query?: unknown }).query = query;
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+  mockMakeWASocket.mockReturnValueOnce(stale as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  await vi.advanceTimersByTimeAsync(350);
+  // the fork's keepAlive (socket.js:530) passes the NODE directly —
+  // {tag:"iq", attrs:{to:S_WHATSAPP_NET,type:"get",xmlns:"w:p"}, content:[ping]}.
+  // RED today: we wrap it in {json:{...}} (tag undefined) and drop the ping child,
+  // so WhatsApp never answers and every probe counts as a miss
+  const probes = query.mock.calls.map((call) => call[0]) as Array<{
+    tag?: string;
+    attrs?: { to?: string };
+    content?: unknown;
+  }>;
+  expect(probes.length).toBeGreaterThanOrEqual(2);
+  for (const probe of probes) {
+    expect(probe.tag).toBe("iq");
+    expect(probe.attrs?.to).toBe("@s.whatsapp.net");
+    expect(probe.content).toEqual([{ tag: "ping", attrs: {} }]);
+  }
+  delete process.env.WA_STALENESS_MS;
+  vi.useRealTimers();
+  await handle.close();
+});
+
+test("T93 — forced staleness teardown accounts the disconnect BEFORE detaching", async () => {
+  vi.useFakeTimers();
+  process.env.WA_STALENESS_MS = "100";
+  const stale = fakeSocket();
+  (stale as { query?: unknown }).query = vi.fn(() => new Promise<never>(() => {}));
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+  mockMakeWASocket.mockReturnValueOnce(stale as unknown as WASocket);
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+  await vi.advanceTimersByTimeAsync(500);
+  expect(stale.end).toHaveBeenCalledTimes(1);
+  // RED today: removeAllListeners runs before end(), so the close event has no
+  // listener — health reported reconnects:0 / lastDisconnectAt:null through a
+  // 27-socket churn storm
+  const quality = handle.connectionQuality();
+  expect(quality.reconnects).toBe(1);
+  expect(quality.lastDisconnectAt).not.toBeNull();
+  expect(mockMakeWASocket.mock.calls).toHaveLength(2);
+  delete process.env.WA_STALENESS_MS;
+  vi.useRealTimers();
+  await handle.close();
+});
+
 test("T80 line44 — syncFullHistory applies only on FRESH creds (pairing-time)", async () => {
   currentCreds.account = { id: "123", lid: "456" };
   const sock = fakeSocket();
