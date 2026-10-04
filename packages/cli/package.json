@@ -1,6 +1,6 @@
 {
   "name": "@wa-mcp/cli",
-  "version": "0.10.0",
+  "version": "0.9.0",
   "private": true,
   "bin": {
     "wa-mcp": "./dist/bin.mjs"
