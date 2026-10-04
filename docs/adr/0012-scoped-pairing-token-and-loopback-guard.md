@@ -89,6 +89,7 @@ bootstrap path: /health hid the pairing token and the exchange refused
 paired mode (e2e: `missing or invalid bearer token` on #/chats).
 
 **Threat model (analysis agreed, with one honest refinement):**
+
 - CR1's attacker was a local process. A SAME-user process can already read
   `~/.wa-mcp/token` (0600) — the ui-token exchange added zero capability
   for it. REFUTED for same-user.
