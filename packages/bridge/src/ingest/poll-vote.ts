@@ -47,6 +47,7 @@ export function decryptInboundPollVote(
       pollUpdateMessageKey: {
         participant: message.key.participant ?? null,
         remoteJid: message.key.remoteJid ?? null,
+        fromMe: message.key.fromMe === true,
       },
       vote: { selectedOptions: vote.selectedOptions ?? [] },
       senderTimestampMs:

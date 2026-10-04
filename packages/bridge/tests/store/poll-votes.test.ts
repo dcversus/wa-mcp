@@ -67,7 +67,10 @@ test("unmatched hashes and voterless updates are skipped, never half-stored", ()
 });
 
 describe("T94-D-M1 — a vote update REPLACES the voter's selection", () => {
-  function voteFixture(): { store: ReturnType<typeof openStore>; hash: (label: string) => Uint8Array } {
+  function voteFixture(): {
+    store: ReturnType<typeof openStore>;
+    hash: (label: string) => Uint8Array;
+  } {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m1-")));
     store.db
       .prepare("INSERT INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, ?, ?, ?)")
@@ -121,6 +124,10 @@ describe("T94-D-M1 — a vote update REPLACES the voter's selection", () => {
 
   test("own DM votes (fromMe key, no participant) attribute to me", () => {
     const { store, hash } = voteFixture();
+    // the DM chat carries its own poll options
+    store.db
+      .prepare("INSERT INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, ?, ?, ?)")
+      .run("358497773518@s.whatsapp.net", "POLL1", 0, "Pizza");
     storePollVotes(store, "358497773518@s.whatsapp.net", "POLL1", [
       {
         // RED today: participant ?? remoteJid attributes the vote to the
@@ -130,9 +137,9 @@ describe("T94-D-M1 — a vote update REPLACES the voter's selection", () => {
         senderTimestampMs: 1_760_000_000_000,
       },
     ]);
-    const rows = store.db
-      .prepare("SELECT voter_jid FROM poll_votes")
-      .all() as Array<{ voter_jid: string }>;
+    const rows = store.db.prepare("SELECT voter_jid FROM poll_votes").all() as Array<{
+      voter_jid: string;
+    }>;
     expect(rows[0]?.voter_jid).toBe("me");
     store.close();
   });

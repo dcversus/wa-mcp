@@ -68,7 +68,8 @@ function updateTargetContent(
     .run(content, chatJid, targetId);
 }
 
-function applyReaction(
+/** T94-D-M1: exported for the store contract test — one reaction per sender. */
+export function applyReaction(
   store: Store,
   chatJid: string,
   targetId: string,
@@ -89,9 +90,14 @@ function applyReaction(
       .run(chatJid, targetId, author);
     return;
   }
+  // T94-D-M1: WhatsApp allows ONE reaction per sender per message — the old
+  // emoji row must go or counts inflate when the sender changes their mind
+  store.db
+    .prepare("DELETE FROM reactions WHERE chat_jid = ? AND message_id = ? AND sender_jid = ?")
+    .run(chatJid, targetId, author);
   store.db
     .prepare(
-      "INSERT OR REPLACE INTO reactions (chat_jid, message_id, emoji, sender_jid, created_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO reactions (chat_jid, message_id, emoji, sender_jid, created_at) VALUES (?, ?, ?, ?, ?)",
     )
     .run(chatJid, targetId, emote, author, new Date().toISOString());
 }
@@ -146,8 +152,9 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
     return false;
   }
   if (extracted.reaction !== null && extracted.reactionTargetId !== null) {
+    // T94-D-M1: own reactions key as "me" in DMs AND groups (one identity)
     const reactionAuthor =
-      message.key.participant ?? (message.key.fromMe === true ? "me" : chatJid);
+      message.key.fromMe === true ? "me" : (message.key.participant ?? chatJid);
     applyReaction(store, chatJid, extracted.reactionTargetId, extracted.reaction, reactionAuthor);
     return false;
   }

@@ -6,7 +6,12 @@ import type { Store } from "./schema.ts";
  * PollVoteMessage (selectedOptions = sha256 bytes of the chosen option
  * labels), and the vote timestamp. */
 export interface PollVoteUpdate {
-  pollUpdateMessageKey?: { participant?: string | null; remoteJid?: string | null };
+  pollUpdateMessageKey?: {
+    participant?: string | null;
+    remoteJid?: string | null;
+    /** T94-D-M1: own votes (no participant in DMs) attribute to "me" */
+    fromMe?: boolean;
+  };
   vote?: { selectedOptions?: Array<Uint8Array | Buffer> };
   senderTimestampMs?: number;
 }
@@ -31,15 +36,21 @@ export function storePollVotes(
     digest: createHash("sha256").update(label).digest(),
   }));
   const insert = store.db.prepare(
-    "INSERT OR REPLACE INTO poll_votes (chat_jid, message_id, voter_jid, option_idx, voted_at) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO poll_votes (chat_jid, message_id, voter_jid, option_idx, voted_at) VALUES (?, ?, ?, ?, ?)",
+  );
+  // T94-D-M1: each update carries the voter's FULL current selection — the
+  // previous rows go first, and an empty selection is a retraction
+  const deleteVoter = store.db.prepare(
+    "DELETE FROM poll_votes WHERE chat_jid = ? AND message_id = ? AND voter_jid = ?",
   );
   let stored = 0;
   for (const update of updates) {
-    const voter =
-      update.pollUpdateMessageKey?.participant ?? update.pollUpdateMessageKey?.remoteJid;
+    const key = update.pollUpdateMessageKey;
+    const voter = key?.fromMe === true ? "me" : (key?.participant ?? key?.remoteJid);
     if (typeof voter !== "string" || voter.length === 0) {
       continue;
     }
+    deleteVoter.run(chatJid, pollMessageId, voter);
     const votedAt = new Date(update.senderTimestampMs ?? Date.now()).toISOString();
     for (const selected of update.vote?.selectedOptions ?? []) {
       const bytes = Buffer.from(selected);
