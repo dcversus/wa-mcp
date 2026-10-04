@@ -9,6 +9,7 @@ import { openStore } from "../src/store/schema.ts";
 import { addLabel, assignChatLabel, listLabels, chatLabels } from "../src/store/labels.ts";
 import { setAlias, getAlias } from "../src/store/contacts.ts";
 import { createHttpServer } from "../src/http.ts";
+import { createTranscriptionEngine } from "../src/media/transcribe.ts";
 import { autoDownloadRules, shouldAutoDownload } from "../src/store/autodl.ts";
 
 function url(bridge: { port: number }, path: string): string {
@@ -142,5 +143,103 @@ describe("T89 line135 — auto-download rules", () => {
     const verdict = shouldAutoDownload("1@s.whatsapp.net", tmpdir(), rules);
     expect(verdict.ok).toBe(false);
     expect(verdict.reason).toContain("low disk");
+  });
+});
+
+describe("T89-C — line157 join requests, line159 ephemeral, line162 reject call", () => {
+  function groupSocket() {
+    const socket = {
+      groupRequestParticipantsList: vi.fn(async () => [
+        { id: "358400000009@s.whatsapp.net", requested_at: "2026-01-01" },
+      ]),
+      groupRequestParticipantsUpdate: vi.fn(async () => ["358400000009@s.whatsapp.net"]),
+      groupToggleEphemeral: vi.fn(async () => undefined),
+      sendMessage: vi.fn(async () => ({ key: { id: "X" } })),
+      ev: createEventBus(),
+    };
+    return socket;
+  }
+
+  function groupHandle(socket: Record<string, unknown>): BridgeHandle {
+    const base = stubHandle("connected");
+    return { ...base, socket: socket as unknown as WASocket };
+  }
+
+  test("line157 — GET lists join requests; POST approve/reject routes through the engine", async () => {
+    const socket = groupSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-jreq-")));
+    const bridge = await createHttpServer(groupHandle(socket), { token: "test-token", store });
+    created.push({ close: bridge.close });
+    const list = await fetch(url(bridge, `/api/groups/${encodeURIComponent(GROUP_A)}/requests`), {
+      headers: authHeader,
+    });
+    expect(list.status).toBe(200);
+    expect(
+      (socket.groupRequestParticipantsList as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+    ).toBe(GROUP_A);
+    const post = await fetch(url(bridge, `/api/groups/${encodeURIComponent(GROUP_A)}/requests`), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ participants: ["358400000009@s.whatsapp.net"], action: "approve" }),
+    });
+    expect(post.status).toBe(200);
+    expect(
+      (socket.groupRequestParticipantsUpdate as ReturnType<typeof vi.fn>).mock.calls[0],
+    ).toEqual([GROUP_A, ["358400000009@s.whatsapp.net"], "approve"]);
+  });
+
+  test("line159 — POST ephemeral routes to groupToggleEphemeral with the duration", async () => {
+    const socket = groupSocket();
+    const bridge = await createHttpServer(groupHandle(socket), { token: "test-token" });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, `/api/groups/${encodeURIComponent(GROUP_A)}/ephemeral`), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ duration: 604800 }),
+    });
+    expect(res.status).toBe(200);
+    expect(
+      (socket.groupToggleEphemeral as ReturnType<typeof vi.fn>).mock.calls[0],
+    ).toEqual([GROUP_A, 604800]);
+  });
+
+  test("line162 — POST reject-call routes to the engine rejectCall", async () => {
+    const socket = groupSocket();
+    (socket as { rejectCall?: unknown }).rejectCall = vi.fn(async () => undefined);
+    const bridge = await createHttpServer(groupHandle(socket), { token: "test-token" });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, "/api/calls/reject"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ call_id: "CALL1", call_from: "358497773518@s.whatsapp.net" }),
+    });
+    expect(res.status).toBe(200);
+    expect((socket.rejectCall as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([
+      "CALL1",
+      "358497773518@s.whatsapp.net",
+    ]);
+  });
+});
+
+describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () => {
+  test("line150 — extension allowlist: disallowed extension is a structured error", async () => {
+    const rules = autoDownloadRules({ WA_ALLOWED_EXTENSIONS: "jpg,png" });
+    expect(shouldAutoDownload("1@s.whatsapp.net", tmpdir(), rules, "notes.exe")).toEqual({
+      ok: false,
+      reason: expect.stringContaining("extension"),
+    });
+    expect(
+      shouldAutoDownload("1@s.whatsapp.net", tmpdir(), rules, "pic.jpg").ok,
+    ).toBe(true);
+  });
+
+  test("line148 — mlx engine spawns WA_MLX_BIN and maps errors to UNAVAILABLE", async () => {
+    const { MlxTranscriptionEngine } = await import("../../src/media/transcribe.ts");
+    const missing = new MlxTranscriptionEngine({ binPath: "/nonexistent/mlx" });
+    await expect(missing.transcribe(Buffer.from("x"), "audio/ogg")).rejects.toHaveProperty(
+      "code",
+      "FFMPEG_UNAVAILABLE",
+    );
+    void createTranscriptionEngine;
   });
 });
