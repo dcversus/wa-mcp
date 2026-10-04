@@ -338,6 +338,15 @@ function validationError(res: ServerResponse, message: string): void {
   sendJson(res, 400, { error: { code: "VALIDATION_ERROR", message } });
 }
 
+/** T94-F Runtime-M1: when the caller names a chat, the media row must belong
+ * to it — an id alone must not be replayable across chat contexts. */
+function mediaChatMismatch(rowChatJid: string | null | undefined, claimed: unknown): boolean {
+  if (typeof claimed !== "string" || claimed.length === 0) {
+    return false;
+  }
+  return rowChatJid !== claimed;
+}
+
 /** T94-C2: the ONE send-policy gate — restrict rules + send budget — shared
  * by every secondary send path (tts, voice, newsletter, batch forward).
  * Returns the refusal to send, or null when the send may proceed. */
@@ -2365,6 +2374,17 @@ export async function createHttpServer(
               sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
               return;
             }
+            // T94-F Runtime-M1: chat-scoped when the caller names one
+            let viewChat: unknown;
+            try {
+              viewChat = JSON.parse(body.toString("utf8"))?.chat_jid;
+            } catch {
+              viewChat = undefined;
+            }
+            if (mediaChatMismatch(original.key.remoteJid, viewChat)) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+              return;
+            }
             const row = store.db
               .prepare("SELECT media_path, media_type FROM messages WHERE id = ?")
               .get(messageId) as
@@ -2410,6 +2430,17 @@ export async function createHttpServer(
             const socket = handle.socket;
             const original =
               opts.store !== undefined ? fetchMessageFromStore(opts.store, messageId) : null;
+            // T94-F Runtime-M1: chat-scoped when the caller names one
+            let downloadChat: unknown;
+            try {
+              downloadChat = JSON.parse(body.toString("utf8"))?.chat_jid;
+            } catch {
+              downloadChat = undefined;
+            }
+            if (mediaChatMismatch(original?.key.remoteJid, downloadChat)) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+              return;
+            }
             if (
               socket === undefined ||
               socket === null ||

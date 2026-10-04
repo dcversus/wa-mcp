@@ -1730,14 +1730,24 @@ export const TOOLS: ToolDef[] = [
     inputSchema: {
       type: "object",
       required: ["message_id"],
-      properties: { message_id: { type: "string" } },
+      properties: {
+        message_id: { type: "string" },
+        chat_jid: {
+          type: "string",
+          description: "Chat the message lives in (verified against the stored row)",
+        },
+      },
     },
     handler: async (toolCtx, args) => {
       const messageId = requireString(args, "message_id");
+      const chatJid = optionalString(args, "chat_jid");
       const payload = (await bridgeFetch(
         toolCtx,
         `/api/media/${encodeURIComponent(messageId)}/download`,
-        { method: "POST", body: JSON.stringify({}) },
+        {
+          method: "POST",
+          body: JSON.stringify(chatJid !== undefined ? { chat_jid: chatJid } : {}),
+        },
       )) as { path?: string; downloaded?: boolean; error?: { code: string; message: string } };
       if (payload.path === undefined) {
         return {
