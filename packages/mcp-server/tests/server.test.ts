@@ -750,7 +750,12 @@ test("T94-A — the serialized tools/list carries complete hint coverage", async
   // burns the T56 anti-abuse budget — deliberately NOT read-only
   expect(byName.get("get_pairing_code")?.annotations?.readOnlyHint).toBeUndefined();
 
-  const DESTRUCTIVE = ["bulk_clear", "label_remove", "newsletter_unfollow", "label_assign"] as const;
+  const DESTRUCTIVE = [
+    "bulk_clear",
+    "label_remove",
+    "newsletter_unfollow",
+    "label_assign",
+  ] as const;
   for (const name of DESTRUCTIVE) {
     const annotations = byName.get(name)?.annotations;
     if (annotations?.destructiveHint !== true) {
