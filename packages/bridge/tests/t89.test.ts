@@ -217,10 +217,9 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
       body: JSON.stringify({ call_id: "CALL1", call_from: "358497773518@s.whatsapp.net" }),
     });
     expect(res.status).toBe(200);
-    expect((socket.rejectCall as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([
-      "CALL1",
-      "358497773518@s.whatsapp.net",
-    ]);
+    expect(
+      (socket as unknown as { rejectCall: ReturnType<typeof vi.fn> }).rejectCall.mock.calls[0],
+    ).toEqual(["CALL1", "358497773518@s.whatsapp.net"]);
   });
 });
 
@@ -236,7 +235,7 @@ describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () 
 
   test("line148 — mlx engine spawns WA_MLX_BIN and maps errors to UNAVAILABLE", async () => {
     const { MlxTranscriptionEngine } = await import("../src/media/transcribe.ts");
-    const missing = new MlxTranscriptionEngine({ binPath: "/nonexistent/mlx" });
+    const missing = new MlxTranscriptionEngine("/nonexistent/mlx");
     await expect(missing.transcribe(Buffer.from("x"), "audio/ogg")).rejects.toHaveProperty(
       "code",
       "FFMPEG_UNAVAILABLE",
