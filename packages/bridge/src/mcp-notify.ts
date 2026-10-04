@@ -63,3 +63,21 @@ export function toMcpNotifications(
   }
   return out;
 }
+
+export function createToolsChangedWatcher(registry: () => string[]): () => McpNotification[] {
+  let last = registry().slice().sort().join(",");
+  return () => {
+    const current = registry().slice().sort().join(",");
+    if (current === last) {
+      return [];
+    }
+    last = current;
+    return [
+      {
+        jsonrpc: "2.0",
+        method: "notifications/tools/list_changed",
+        params: {},
+      },
+    ];
+  };
+}

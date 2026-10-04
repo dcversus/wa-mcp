@@ -57,7 +57,7 @@ import {
   subscriptionDir,
 } from "./subscriptions.ts";
 import { openInbox } from "./inbox.ts";
-import { toMcpNotifications } from "./mcp-notify.ts";
+import { toMcpNotifications, createToolsChangedWatcher } from "./mcp-notify.ts";
 import { randomUUID as sessionIdGen } from "node:crypto";
 import {
   ValidationError,
@@ -1408,6 +1408,7 @@ export async function createHttpServer(
 
   let selfPort = 0;
   const mcpSessions = new Map<string, McpSession>();
+  const toolsChanged = createToolsChangedWatcher(() => TOOLS.map((tool) => tool.name));
   const serveMcp = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
     let parsed: unknown;
     try {
@@ -2482,6 +2483,13 @@ export async function createHttpServer(
                 res.write(`data: ${JSON.stringify(notification)}\n\n`);
               }
             }
+            if (event.type === "connection.update") {
+              for (const notification of toolsChanged()) {
+                if (shouldForward(session, notification)) {
+                  res.write(`data: ${JSON.stringify(notification)}\n\n`);
+                }
+              }
+            }
           });
           req.on("close", () => {
             unsubscribeMcp();
@@ -2498,6 +2506,11 @@ export async function createHttpServer(
           const unsubscribeNotify = handle.events.subscribe((event) => {
             for (const notification of toMcpNotifications(event)) {
               res.write(`data: ${JSON.stringify(notification)}\n\n`);
+            }
+            if (event.type === "connection.update") {
+              for (const notification of toolsChanged()) {
+                res.write(`data: ${JSON.stringify(notification)}\n\n`);
+              }
             }
           });
           req.on("close", () => {

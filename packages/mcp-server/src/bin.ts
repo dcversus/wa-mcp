@@ -114,7 +114,12 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
     process.exitCode = 1;
     return;
   }
-  const ctx: ServerContext = { tools: TOOLS, bridgeUrl: config.bridgeUrl, token: config.token, fetchFn: fetch };
+  const ctx: ServerContext = {
+    tools: TOOLS,
+    bridgeUrl: config.bridgeUrl,
+    token: config.token,
+    fetchFn: fetch,
+  };
   const rl = createInterface({ input: process.stdin });
   await handleStream(
     rl,
