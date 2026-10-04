@@ -38,3 +38,17 @@ test("installSkills is idempotent", () => {
   installSkills({ home, sourceDir: repoSkillDir() });
   expect(existsSync(join(home, ".claude", "skills", "wa-mcp", "SKILL.md"))).toBe(true);
 });
+
+test("T101-A — install mirrors skills to the data dir and the pi skill dir", () => {
+  const home = mkdtempSync(join(tmpdir(), "wa-mcp-t101-home-"));
+  const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t101-data-"));
+  const result = installSkills({ home, sourceDir: repoSkillDir(), dataDir });
+  // GOAL L247: skills live in ~/.wa-mcp/skills/ AND the platform skill dir
+  expect(existsSync(join(dataDir, "skills", "wa-mcp", "SKILL.md"))).toBe(true);
+  expect(existsSync(join(home, ".claude", "skills", "wa-mcp", "SKILL.md"))).toBe(true);
+  expect(existsSync(join(home, ".pi", "skills", "wa-mcp", "SKILL.md"))).toBe(true);
+  expect(result.mirrored).toEqual([
+    join(dataDir, "skills", "wa-mcp"),
+    join(home, ".pi", "skills", "wa-mcp"),
+  ]);
+});
