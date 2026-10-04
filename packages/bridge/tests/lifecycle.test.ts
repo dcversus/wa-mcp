@@ -1790,7 +1790,8 @@ test("T94-F M8 — close() drains the save chain before returning", async () => 
   mockMakeWASocket.mockReset();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
   const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
-  // the connect-time save is queued and BLOCKED on the gate
+  // logout queues a creds save through the chain — gated mid-write
+  await handle.logout();
   await new Promise((resolve) => setTimeout(resolve, 40));
   let closed = false;
   const closing = handle.close().then(() => {

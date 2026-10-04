@@ -947,6 +947,9 @@ export async function startBridge(
     close: async () => {
       closed = true;
       reconnectPending = false;
+      // T94-F M8 (CODEX): shutdown awaits close() then exits — the save
+      // chain must drain or a creds write is cut mid-flight
+      await saveChain.catch(() => undefined);
       if (reconnectTimer !== null) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
