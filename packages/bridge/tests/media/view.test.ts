@@ -9,7 +9,10 @@ function fakeFfmpeg(frames: number, exitCode = 0) {
   const calls: Array<{ file: string; args: string[] }> = [];
   const spawn = ((file: string, args: string[]) => {
     calls.push({ file, args });
-    const proc = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
+    const proc = new EventEmitter() as EventEmitter & {
+      stdout: EventEmitter;
+      stderr: EventEmitter;
+    };
     proc.stdout = new EventEmitter();
     proc.stderr = new EventEmitter();
     queueMicrotask(() => {
@@ -31,7 +34,9 @@ describe("T90 line142 — viewMedia", () => {
     const result = await viewMedia({ path, mime: "image/jpeg" }, {});
     expect(result?.mime).toBe("image/jpeg");
     expect(result?.frames).toHaveLength(1);
-    expect(Buffer.from(result?.frames[0]?.data_base64 ?? "", "base64").toString()).toBe("jpeg-bytes");
+    expect(Buffer.from(result?.frames[0]?.data_base64 ?? "", "base64").toString()).toBe(
+      "jpeg-bytes",
+    );
   });
 
   test("oversized image is a structured PAYLOAD_TOO_LARGE", async () => {

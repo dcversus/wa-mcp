@@ -38,22 +38,19 @@ export class OpenAITtsEngine implements TtsEngine {
 
   async synthesize(text: string): Promise<TtsResult> {
     const fetchFn = this.config.fetchFn ?? fetch;
-    const response = await fetchFn(
-      `${this.config.baseUrl.replace(/\/$/, "")}/audio/speech`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${this.config.apiKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.config.model ?? "tts-1",
-          voice: this.config.voice ?? "alloy",
-          input: text,
-          response_format: "opus",
-        }),
+    const response = await fetchFn(`${this.config.baseUrl.replace(/\/$/, "")}/audio/speech`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.config.apiKey}`,
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        model: this.config.model ?? "tts-1",
+        voice: this.config.voice ?? "alloy",
+        input: text,
+        response_format: "opus",
+      }),
+    });
     if (!response.ok) {
       throw new Error(`openai tts failed: ${response.status}`);
     }

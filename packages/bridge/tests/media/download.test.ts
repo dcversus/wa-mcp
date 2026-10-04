@@ -27,7 +27,9 @@ function stubHandle(status: BridgeStatus = "connected", socket?: WASocket): Brid
     events: createEventBus(),
     close: async () => {},
     getLastQr: () => null,
-    socket: (socket ?? { sendMessage: vi.fn(async () => ({ key: { id: "X" } })) }) as unknown as WASocket,
+    socket: (socket ?? {
+      sendMessage: vi.fn(async () => ({ key: { id: "X" } })),
+    }) as unknown as WASocket,
     hasPairedAccount: () => false,
     pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
     resumePairing: () => {},
@@ -224,9 +226,9 @@ describe("T90 line141 — forced download returns the local path + updates the D
     expect(res.status).toBe(200);
     const body = (await res.json()) as { path: string };
     expect(existsSync(body.path)).toBe(true);
-    const row = store.db
-      .prepare("SELECT media_path FROM messages WHERE id = 'DL1'")
-      .get() as { media_path: string };
+    const row = store.db.prepare("SELECT media_path FROM messages WHERE id = 'DL1'").get() as {
+      media_path: string;
+    };
     expect(row.media_path).toBe(body.path);
     // idempotent: second call returns the stored path without re-downloading
     const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
@@ -236,7 +238,9 @@ describe("T90 line141 — forced download returns the local path + updates the D
       body: JSON.stringify({}),
     });
     expect(again.status).toBe(200);
-    expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
+    expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+      before,
+    );
   });
 });
 
@@ -265,9 +269,9 @@ test("T90 line141 — POST /api/media/:id/download forces download + updates the
   expect(res.status).toBe(200);
   const body = (await res.json()) as { path: string };
   expect(existsSync(body.path)).toBe(true);
-  const row = store.db
-    .prepare("SELECT media_path FROM messages WHERE id = 'DL1'")
-    .get() as { media_path: string };
+  const row = store.db.prepare("SELECT media_path FROM messages WHERE id = 'DL1'").get() as {
+    media_path: string;
+  };
   expect(row.media_path).toBe(body.path);
   // idempotent: already-downloaded rows return the stored path, no re-download
   const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
