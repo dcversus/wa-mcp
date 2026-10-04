@@ -6,7 +6,8 @@
     "wa-mcp": "./dist/bin.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "type": "module",
   "exports": {
