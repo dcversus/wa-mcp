@@ -345,6 +345,16 @@ export async function startBridge(
   const connect = (): void => {
     contactsWarmDone = false;
     stripPairingPollution();
+    // T94-F Runtime-M5: an explicit logout must not auto-connect on the next
+    // boot — fresh pairing (or an explicit resume) is required
+    if ((state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut === true) {
+      status = "logged-out";
+      opts.logger?.warn(
+        {},
+        "logged-out marker present — refusing auto-connect; call resume to pair fresh",
+      );
+      return;
+    }
     if (state.creds.account !== undefined) {
       // a completed pairing resets the budget; these connects are handshake
       // continuations (515 restart step), never fresh registrations
@@ -835,7 +845,15 @@ export async function startBridge(
     }),
     resumePairing: () => {
       pairingUsed = 0;
-      if (status === "pairing-blocked") {
+      // T94-F Runtime-M5: an explicit resume clears a persisted logout —
+      // the operator asked for a fresh pairing
+      if ((state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut === true) {
+        delete (state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut;
+        void queueSave().catch((err: unknown) => {
+          opts.logger?.warn({ err }, "failed to clear the logged-out marker");
+        });
+      }
+      if (status === "pairing-blocked" || status === "logged-out") {
         status = "connecting";
       }
       // T76 H1: same single-flight discipline as the reconnect path — end
@@ -899,6 +917,10 @@ export async function startBridge(
       closed = true;
       status = "logged-out";
       (state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut = true;
+      // T94-F Runtime-M5: the marker MUST survive restart — persist it
+      void queueSave().catch((err: unknown) => {
+        opts.logger?.warn({ err }, "failed to persist the logged-out marker");
+      });
       const current = socket;
       if (current !== null && current !== undefined) {
         for (const name of EVENT_NAMES) {

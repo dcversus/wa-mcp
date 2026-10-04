@@ -1720,8 +1720,9 @@ describe("T94-F M5 — logout survives restart", () => {
     // RUNTIME review M5: the marker lived only in memory — a restart
     // reconnected with the dead session
     await vi.waitFor(() => expect(mockSaveCreds).toHaveBeenCalled());
-    const saved = mockSaveCreds.mock.calls.at(-1)?.[0] as { waMcpLoggedOut?: boolean };
-    expect(saved?.waMcpLoggedOut).toBe(true);
+    // saveCreds serializes the auth-state creds object (captured by
+    // reference in the mock) — the marker must be on it
+    expect((currentCreds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut).toBe(true);
   });
 
   test("boot with a persisted marker refuses auto-connect until resume", async () => {
