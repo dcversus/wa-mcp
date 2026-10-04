@@ -29,6 +29,7 @@ vi.mock("baileys", () => ({
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
 import { EVENT_NAMES, type WaEvent } from "../src/events.ts";
+import { storeMessage } from "../src/store/messages.ts";
 import { openStore } from "../src/store/schema.ts";
 import { addAutoreplyRule } from "../src/store/autoreply.ts";
 import { listChats, listMessages } from "../src/store/queries.ts";
@@ -1139,4 +1140,52 @@ test("T89-B GAP1 — warmup pulls group participants into contacts at open", asy
   const rows = store.db.prepare("SELECT COUNT(*) AS n FROM contacts").get() as { n: number };
   expect(rows.n).toBeGreaterThanOrEqual(4);
   store.close();
+});
+
+describe("T93 live-found — fetchHistory cursor uses the real schema", () => {
+  test("fetchHistory reads the oldest row (is_from_me) and passes it to the engine fetcher", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fh-")));
+    storeMessage(store, {
+      key: {
+        remoteJid: "351930017568@s.whatsapp.net",
+        fromMe: true,
+        id: "OLDEST-1",
+        participant: "358497773518@s.whatsapp.net",
+      },
+      message: { conversation: "first" },
+      messageTimestamp: 1_700_000_000,
+      pushName: "tester",
+    });
+    storeMessage(store, {
+      key: {
+        remoteJid: "351930017568@s.whatsapp.net",
+        fromMe: false,
+        id: "NEWER-2",
+        participant: "351930017568@s.whatsapp.net",
+      },
+      message: { conversation: "second" },
+      messageTimestamp: 1_700_000_100,
+      pushName: "v",
+    });
+    const { latest, handle } = await startArranged({ store });
+    const calls: Array<[number, { remoteJid: string; fromMe: boolean; id: string }, number]> =
+      [];
+    (latest() as unknown as { fetchMessageHistory: unknown }).fetchMessageHistory = async (
+      count: number,
+      key: { remoteJid: string; fromMe: boolean; id: string },
+      tsMs: number,
+    ) => {
+      calls.push([count, key, tsMs]);
+      return "REQ-1";
+    };
+    const result = await handle.fetchHistory("351930017568@s.whatsapp.net", 25);
+    expect(result.requested).toBe(true);
+    expect(result.request_id).toBe("REQ-1");
+    expect(calls.length).toBe(1);
+    expect(calls[0]?.[1]).toEqual({
+      remoteJid: "351930017568@s.whatsapp.net",
+      fromMe: true,
+      id: "OLDEST-1",
+    });
+  });
 });

@@ -652,9 +652,9 @@ export async function startBridge(
       }
       const oldest = opts.store?.db
         .prepare(
-          "SELECT id, from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp ASC LIMIT 1",
+          "SELECT id, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp ASC LIMIT 1",
         )
-        .get(chatJid) as { id: string; from_me: number; timestamp: string } | undefined;
+        .get(chatJid) as { id: string; is_from_me: number; timestamp: string } | undefined;
       const fetcher = (
         current as unknown as {
           fetchMessageHistory?: (
@@ -679,7 +679,7 @@ export async function startBridge(
       const oldestTs = new Date(oldest.timestamp).getTime();
       const requestId = await fetcher(
         count,
-        { remoteJid: chatJid, fromMe: oldest.from_me === 1, id: oldest.id },
+        { remoteJid: chatJid, fromMe: oldest.is_from_me === 1, id: oldest.id },
         oldestTs,
       );
       return { requested: true, request_id: String(requestId ?? "") };
