@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
@@ -21,7 +21,11 @@ const POSIX_PERMS = process.platform !== "win32";
 const GROUP_A = "120363428874442773@g.us";
 const created: Array<{ close(): Promise<void> }> = [];
 
-function stubHandle(status: BridgeStatus = "connected", socket?: WASocket): BridgeHandle {
+function stubHandle(
+  status: BridgeStatus = "connected",
+  _lastQr: string | null = null,
+  socket?: WASocket,
+): BridgeHandle {
   return {
     status,
     events: createEventBus(),
@@ -231,16 +235,18 @@ describe("T90 line141 — forced download returns the local path + updates the D
     };
     expect(row.media_path).toBe(body.path);
     // idempotent: second call returns the stored path without re-downloading
-    const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
+    const before = (socket as unknown as { downloadMediaMessage: ReturnType<typeof vi.fn> })
+      .downloadMediaMessage.mock.calls.length;
     const again = await fetch(url(bridge, "/api/media/DL1/download"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
       body: JSON.stringify({}),
     });
     expect(again.status).toBe(200);
-    expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
-      before,
-    );
+    expect(
+      (socket as unknown as { downloadMediaMessage: ReturnType<typeof vi.fn> }).downloadMediaMessage
+        .mock.calls.length,
+    ).toBe(before);
   });
 });
 
@@ -274,12 +280,16 @@ test("T90 line141 — POST /api/media/:id/download forces download + updates the
   };
   expect(row.media_path).toBe(body.path);
   // idempotent: already-downloaded rows return the stored path, no re-download
-  const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
+  const before = (socket as unknown as { downloadMediaMessage: ReturnType<typeof vi.fn> })
+    .downloadMediaMessage.mock.calls.length;
   const again = await fetch(url(bridge, "/api/media/DL1/download"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },
     body: JSON.stringify({}),
   });
   expect(again.status).toBe(200);
-  expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
+  expect(
+    (socket as unknown as { downloadMediaMessage: ReturnType<typeof vi.fn> }).downloadMediaMessage
+      .mock.calls.length,
+  ).toBe(before);
 });
