@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
@@ -6,7 +6,7 @@ import { proto } from "baileys";
 import type { WAMessage } from "baileys";
 import { openStore } from "../../src/store/schema.ts";
 import { storeMessage, upsertChatMeta } from "../../src/store/messages.ts";
-import { listMessages } from "../../src/store/queries.ts";
+import { listMessages, listChats } from "../../src/store/queries.ts";
 import {
   addSendRule,
   evaluateSendRules,
@@ -378,4 +378,28 @@ test("T94-F M4 — a chat row with a NULL timestamp still updates from messages"
   } finally {
     store.close();
   }
+});
+
+describe("T94-F M9 — manual-unread is readable; backups run", () => {
+  test("a manually-unread chat shows unread even with zero unread messages", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m9-")));
+    try {
+      store.db
+        .prepare("INSERT INTO chats (jid, name, manual_unread) VALUES (?, ?, 1)")
+        .run("358497773518@s.whatsapp.net", "Manual");
+      // RUNTIME review M9: chats.manual_unread was WRITE-ONLY — listChats
+      // and getUnreadCounts ignored it
+      const chats = listChats(store);
+      const manual = chats.find((chat) => chat.jid === "358497773518@s.whatsapp.net");
+      expect(manual?.unreadCount ?? 0).toBeGreaterThan(0);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("bin.ts wires the nightly backup", () => {
+    const source = readFileSync(new URL("../src/bin.ts", import.meta.url), "utf8");
+    expect(source).toContain("runBackup(");
+    expect(source).toContain("backups");
+  });
 });
