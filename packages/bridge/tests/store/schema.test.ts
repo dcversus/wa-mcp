@@ -140,7 +140,7 @@ test("migrations records schema versions 1 through 3", () => {
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
     expect(rows.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
@@ -155,7 +155,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(15);
+    expect(versions).toHaveLength(16);
   } finally {
     second.close();
   }
@@ -250,7 +250,9 @@ test("T94-D-M3 — the FTS update trigger fires only on content changes", () => 
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fts-m3-")));
   try {
     const triggers = store.db
-      .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'messages_fts%'")
+      .prepare(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'messages_fts%'",
+      )
       .all() as Array<{ name: string; sql: string }>;
     const update = triggers.find((trigger) => trigger.name === "messages_fts_update");
     expect(update).toBeDefined();

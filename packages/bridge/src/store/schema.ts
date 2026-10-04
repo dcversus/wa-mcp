@@ -127,7 +127,7 @@ CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
   INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
   VALUES (new.content, new.chat_jid, new.id, new.timestamp);
 END;
-CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE OF content ON messages BEGIN
   DELETE FROM messages_fts WHERE message_id = old.id AND chat_jid = old.chat_jid;
   INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
   VALUES (new.content, new.chat_jid, new.id, new.timestamp);
@@ -246,6 +246,18 @@ const MIGRATION_V15 = `
 ALTER TABLE scheduled_messages ADD COLUMN last_error TEXT;
 `;
 
+// T94-D-M3 (CODEX): the unscoped AFTER UPDATE trigger ran its unindexed FTS
+// delete-scan on every row update — markChatRead's per-row UPDATE was
+// O(rows x FTS size) on the event loop. Only content changes need a resync.
+const MIGRATION_V16 = `
+DROP TRIGGER IF EXISTS messages_fts_update;
+CREATE TRIGGER messages_fts_update AFTER UPDATE OF content ON messages BEGIN
+  DELETE FROM messages_fts WHERE message_id = old.id AND chat_jid = old.chat_jid;
+  INSERT INTO messages_fts (content, chat_jid, message_id, timestamp)
+  VALUES (new.content, new.chat_jid, new.id, new.timestamp);
+END;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -262,6 +274,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 13, sql: MIGRATION_V13 },
   { version: 14, sql: MIGRATION_V14 },
   { version: 15, sql: MIGRATION_V15 },
+  { version: 16, sql: MIGRATION_V16 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
