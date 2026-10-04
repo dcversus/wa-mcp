@@ -3262,7 +3262,7 @@ describe("T86 — fetch-history + catch-up digest", () => {
         .prepare(
           "SELECT id, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp ASC LIMIT 1",
         )
-        .get(chatJid) as { id: string; from_me: number; timestamp: string };
+        .get(chatJid) as { id: string; is_from_me: number; timestamp: string };
       const request_id = await fetcher(
         count,
         { remoteJid: chatJid, fromMe: oldest.is_from_me === 1, id: oldest.id },
