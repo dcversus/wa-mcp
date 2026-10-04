@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 47 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 51 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -751,6 +751,65 @@ Clear the unread markers on multiple chats at once.
 
 - `chat_jids` (array, required)
 - required: `chat_jids`
+
+### label_add
+
+Create a label (name + color) in the daemon's label registry.
+
+```json
+{
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string" },
+    "color": { "type": "string", "description": "Hex color, default #000000" }
+  }
+}
+```
+
+- `name` (string, required)
+- `color` (string, optional) — Hex color, default #000000
+- required: `name`
+
+### label_list
+
+List labels — all registry labels, or (with chat_jid) the labels carried by one chat.
+
+```json
+{
+  "type": "object",
+  "properties": { "chat_jid": { "type": "string", "description": "Scope to one chat's labels" } }
+}
+```
+
+- `chat_jid` (string, optional) — Scope to one chat's labels
+
+### label_assign
+
+Attach a label to a chat.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "label_id"],
+  "properties": { "chat_jid": { "type": "string" }, "label_id": { "type": "number" } }
+}
+```
+
+- `chat_jid` (string, required)
+- `label_id` (number, required)
+- required: `chat_jid`, `label_id`
+
+### label_remove
+
+Delete a label from the registry (and every chat carrying it).
+
+```json
+{ "type": "object", "required": ["id"], "properties": { "id": { "type": "number" } } }
+```
+
+- `id` (number, required)
+- required: `id`
 
 ### get_contact
 
