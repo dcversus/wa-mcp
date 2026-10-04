@@ -372,3 +372,13 @@ no checkbox is claimed without evidence.
 - SSE event: /events stream live-verified in prior phases (dogfood events-feed; SSE safe-set tests); live inbound ingestion proven (Vasilisa replies ingested live, E2E round 1 + T100 session).
 - Transcription: transcribe_message live-verified on Vasilisa voice note (E2E round 1: mock engine PASS + manual download_media saved her .ogg).
 - Nightly cadence: cron/nightly job itself NOT scheduled (owner's environment choice) — the SMOKE COMPONENTS all live-verified; nightly wrapper = disposition BLOCKED-owner (needs owner's schedule preference; components green).
+
+### Phase 1 disposition map (2026-10-04T22:01:42Z)
+
+- L219 (service defs launchd/systemd/TaskScheduler): implementable → T103 queued (files + install wiring + tests + launchctl live verify).
+- L178 (incoming feed JSONL enable_feed/feed_status): FOLDED into Phase 2 N2 (inbox files are the superset — same JSONL surface, bounded, subscribed). Avoid building two parallel feeds.
+- L333 (MCP notifications/message stream): Phase 2 N1 closes it (declared capability already live from T99; stream + subscribe pending).
+- L29/L41 (branch protection, device name on phone): owner-gated stays (GitHub Pro; pairing budget).
+- L238/L239/L260/L308/L309 (registry/directories/changesets/CI-billing/commitlint): publish-deferred + CI billing owner-gated stays.
+- Remaining out-of-scope 51 + na-engine 2: dispositions already anchored per line.
+- Post-T102/T103 Phase 1 state: all non-owner-gated, non-out-of-scope boxes closed.
