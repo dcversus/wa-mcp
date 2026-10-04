@@ -1668,3 +1668,43 @@ describe("T94-D-H4codex — autoreply guards", () => {
     }
   });
 });
+
+test("T94-D-M10 — group senders canonicalize from LID to PN at ingest", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m10-")));
+  const CHAT = "120363428874442773@g.us";
+  const PN = "358497773518@s.whatsapp.net";
+  const sock = fakeSocket();
+  (sock as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+    key: { id: "X", fromMe: true },
+  }));
+  // the engine's lid mapping resolves the participant LID to the PN
+  (sock as { signalRepository?: unknown }).signalRepository = {
+    lidMapping: { getPNForLID: async () => PN },
+  };
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { store });
+  sock.emit("messages.upsert", {
+    type: "notify",
+    messages: [
+      {
+        key: {
+          remoteJid: CHAT,
+          fromMe: false,
+          id: "M10MSG",
+          participant: "358400000055@lid",
+        },
+        message: { conversation: "from a lid-era member" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  // CODEX M10: one person under two identities — sender_jid kept the @lid
+  // while contacts/aliases/digests use the PN
+  const row = store.db
+    .prepare("SELECT sender_jid FROM messages WHERE id = 'M10MSG'")
+    .get() as { sender_jid: string | null };
+  expect(row.sender_jid).toBe(PN);
+  store.close();
+});
