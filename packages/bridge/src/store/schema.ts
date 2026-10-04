@@ -221,6 +221,20 @@ const MIGRATION_V12 = `
 ALTER TABLE messages ADD COLUMN edited INTEGER NOT NULL DEFAULT 0;
 `;
 
+const MIGRATION_V13 = `
+CREATE TABLE IF NOT EXISTS labels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_labels (
+  chat_jid TEXT NOT NULL,
+  label_id INTEGER NOT NULL REFERENCES labels(id),
+  PRIMARY KEY (chat_jid, label_id)
+);
+ALTER TABLE chats ADD COLUMN manual_unread INTEGER NOT NULL DEFAULT 0;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -234,6 +248,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 10, sql: MIGRATION_V10 },
   { version: 11, sql: MIGRATION_V11 },
   { version: 12, sql: MIGRATION_V12 },
+  { version: 13, sql: MIGRATION_V13 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

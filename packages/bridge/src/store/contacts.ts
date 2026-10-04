@@ -102,8 +102,13 @@ export function setAlias(store: Store, jid: string, alias: string): void {
 }
 
 export function getAlias(store: Store, alias: string): { jid: string } | null {
-  const row = store.db.prepare("SELECT jid FROM aliases WHERE alias = ?").get(alias) as
-    | { jid: string }
-    | undefined;
-  return row === undefined ? null : { jid: row.jid };
+  // T89 line131: case-insensitive INCLUDING non-ASCII (Cyrillic) — SQLite's
+  // LOWER() folds ASCII only, so compare with JS toLowerCase over the set.
+  const needle = alias.toLowerCase();
+  const rows = store.db.prepare("SELECT alias, jid FROM aliases").all() as Array<{
+    alias: string;
+    jid: string;
+  }>;
+  const hit = rows.find((row) => row.alias.toLowerCase() === needle);
+  return hit === undefined ? null : { jid: hit.jid };
 }
