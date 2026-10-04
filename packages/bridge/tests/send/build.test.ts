@@ -6,6 +6,7 @@ import {
   buildContactMessage,
   buildEditMessage,
   buildForwardMessage,
+  buildLinkPreviewMessage,
   buildListMessage,
   buildLocationMessage,
   buildMediaMessage,
@@ -224,7 +225,9 @@ describe("T90 line74 — link preview builder", () => {
     const ext = msg.extendedTextMessage;
     expect(ext?.text).toBe("look at https://example.com/x");
     expect(ext?.matchedText).toBe("https://example.com/x");
-    expect(ext?.canonicalUrl).toBe("https://example.com/x");
+    // canonicalUrl is legacy — the compiled proto strips it (fork extContent
+    // also omits it); matchedText is the field the engine keeps
+    expect(ext?.matchedText).toBe("https://example.com/x");
   });
 
   test("title/description passthrough when provided", async () => {
