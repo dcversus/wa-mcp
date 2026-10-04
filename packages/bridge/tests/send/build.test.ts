@@ -163,17 +163,18 @@ test("buttons and lists build proto shells for business-account delivery", async
 
 describe("T84 line99 — poll validation", () => {
   test("fewer than two options is rejected", async () => {
-    const err = await buildPollMessage("lunch", ["Pizza"]).catch((e: unknown) => e as SendError);
-    expect(err).toBeInstanceOf(SendError);
-    expect(err.code).toBe("VALIDATION_ERROR");
-    expect(err.message).toContain("at least 2");
+    await expect(buildPollMessage("lunch", ["Pizza"])).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("at least 2"),
+    });
   });
 
   test("more than twelve options is rejected", async () => {
     const options = Array.from({ length: 13 }, (_, i) => `opt ${i}`);
-    const err = await buildPollMessage("lunch", options).catch((e: unknown) => e as SendError);
-    expect(err.code).toBe("VALIDATION_ERROR");
-    expect(err.message).toContain("at most 12");
+    await expect(buildPollMessage("lunch", options)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("at most 12"),
+    });
   });
 
   test("duplicate options (case-insensitive) are rejected", async () => {
