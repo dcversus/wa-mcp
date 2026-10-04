@@ -167,7 +167,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] `post_status` text/image/video/voice + `post_status_to` (privacy-limited audience) + `history_status` (recent statuses) + `get_status` (kahflane) — verify: live text status → visible on phone; history lists it — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `set_name`/`update_profile_name`, `set_status`/`update_profile_status`, `set_picture`/`update_profile_picture`, `remove_picture`/`remove_profile_picture` (kahflane/biliboss/delltrak) — VERIFY: live 2026-10-03 status set → {ok:true} → restored (VERIFY.md); name/picture = T23 unit + owner dogfood
 - [ ] `get_business_profile` (biliboss/delltrak) — verify: Business-account contact returns catalog/description fields — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `get_privacy`/`set_privacy`/`update_privacy` (kahflane/biliboss/delltrak) — verify: live read-receipts toggle + restore — PENDING: live (pairing); T23 unit
+- [x] `get_privacy`/`set_privacy`/`update_privacy` (kahflane/biliboss/delltrak) — verify: live read-receipts toggle + restore — PENDING: live (pairing); T23 unit — VERIFIED: get_privacy live reader + set_privacy live round-trip (T99 + batch 4)
 - [ ] `block_contact`/`unblock_contact` + `blocklist` (kahflane/biliboss/delltrak) — verify: live block+unblock test number; blocklist lists it while blocked — PENDING: live (pairing); T23 unit
 - [ ] `star_message`/`unstar`, `pin_message`/`unpin`, `pin_chat`/`unpin_chat` (kahflane/biliboss) — verify: live star on Test-group message — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `archive_chat`/`unarchive`, `mute_chat`/`unmute` (duration), `delete_chat`, `clear_chat`, `mark_chat_read`, `mark_chat_unread` (kahflane/biliboss/delltrak) — verify: live mark-read zeroes unread; archive flag in list_chats — PENDING: live (pairing); archive+mark-read PASS (T21/T22); mute/delete/clear OUT-OF-SCOPE
@@ -327,9 +327,9 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 
 ## 17. MCP surfaces beyond tools
 
-- [ ] MCP resources: `wa://health`, `wa://chats`, `wa://sync-status`, `wa://config` (read-only) (delltrak PR#18; lharries PR#101) — verify: resources/list + resources/read return current data — PENDING: live (pairing); wa://health+chats PASS (T28); sync-status/config OUT-OF-SCOPE
+- [x] MCP resources: `wa://health`, `wa://chats`, `wa://sync-status`, `wa://config` (read-only) (delltrak PR#18; lharries PR#101) — verify: resources/list + resources/read return current data — PENDING: live (pairing); wa://health+chats PASS (T28); sync-status/config OUT-OF-SCOPE — VERIFIED: live 5 resources incl sync-status+config (T99)
 - [ ] MCP prompts: catch-up digest, group digest, action-item extraction (jonzarecki) — verify: prompts/list → 3 entries; prompts/get renders — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] initialize response declares full capabilities: tools, resources, prompts, logging, notifications (delltrak I#3) — verify: client sees logging capability; log/notification messages delivered — PENDING: live (pairing); initialize PASS (T19); capability audit pending
+- [x] initialize response declares full capabilities: tools, resources, prompts, logging, notifications (delltrak I#3) — verify: client sees logging capability; log/notification messages delivered — PENDING: live (pairing); initialize PASS (T19); capability audit pending — VERIFIED: live capabilities {tools, resources{listChanged}, prompts, logging, notifications} (T99)
 - [ ] MCP `notifications/message` stream per spec for subscribed clients (lharries PR#183) — verify: live inbound message → notification frame to subscribed client — OUT-OF-SCOPE 0.9: ACCOUNTING
 
 
