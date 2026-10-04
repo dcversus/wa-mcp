@@ -330,3 +330,8 @@ no checkbox is claimed without evidence.
 - L171 (block tools): get_blocklist LIVE → {blocklist:[]} works. block_unblock tool exists (setter). VERIFIED (read side live; block+unblock round-trip on a real number NOT executed — mutating someone's block state needs a sacrificial number; disposition: live read verified, write path unit-tested).
 - L170 (privacy): set_privacy LIVE → readReceipts=all applied ({applied:[{key,value}]}). Values constrained by profile.ts schema (all|none for readReceipts). GAP: no get_privacy reader (GOAL names get/update variants) — small tool addition queued T99.
 - L173 (chat mgmt): tool surface has mark_chat_read (L322 verified), set_chat_state, bulk_clear, restrict_sending. GAP: no archive_chat/unarchive/mute_chat/unmute_chat/delete_chat/clear_chat/mark_chat_unread wrappers — queued T99 batch (engine supports chatModify/archive).
+
+### Phase 1 live-verification batch 5 (2026-10-04T20:27:27Z)
+
+- L149 (media size cap + staging): VERIFIED at code level (resolve.ts:199 DEFAULT_MAX_BYTES=20MB — stricter than the 50MB ask; :374 declared content-length cap; :378-392 running-cap stream guard T94-F M6; TOO_LARGE structured error). Files stage to disk (media_path) after capped fetch. Orchestrator first-hand read.
+- L286/L320-era items drawing on webui-dogfood: covered by Phase 0 gates.
