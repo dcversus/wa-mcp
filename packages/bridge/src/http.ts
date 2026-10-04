@@ -2000,6 +2000,46 @@ export async function createHttpServer(
           return;
         }
         if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
+        if (
+          path.endsWith("/download") &&
+          path.startsWith("/api/media/") &&
+          req.method === "POST"
+        ) {
+          const messageId = path.slice("/api/media/".length, -"/download".length);
+          if (!/^[A-Za-z0-9_-]+$/.test(messageId)) {
+            validationError(res, "invalid message id");
+            return;
+          }
+          const socket = handle.socket;
+          const original = opts.store !== undefined ? fetchMessageFromStore(opts.store, messageId) : null;
+          if (socket === undefined || socket === null || opts.store === undefined || original === null) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+            return;
+          }
+          const existing = opts.store.db
+            .prepare("SELECT media_path FROM messages WHERE id = ?")
+            .get(messageId) as { media_path: string | null } | undefined;
+          if (existing?.media_path) {
+            sendJson(res, 200, { path: existing.media_path, downloaded: false });
+            return;
+          }
+          void downloadMessageMedia(socket, original, {
+            store: opts.store,
+            mediaDir: opts.mediaDir as string,
+            messageId,
+          })
+            .then((downloaded) => {
+              opts.store?.db
+                .prepare("UPDATE messages SET media_path = ? WHERE id = ?")
+                .run(downloaded.path, messageId);
+              sendJson(res, 200, { path: downloaded.path, downloaded: true });
+            })
+            .catch((err: unknown) => {
+              opts.logger?.error({ err }, "forced media download failed");
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "download failed" } });
+            });
+          return;
+        }
           mediaRoute(req.method ?? "GET", path.slice("/api/media/".length), res);
           return;
         }

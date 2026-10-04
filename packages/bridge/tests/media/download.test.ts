@@ -1,13 +1,48 @@
-import { mkdtempSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test, vi } from "vite-plus/test";
-import type { WAMessage, WASocket } from "baileys";
+import { afterEach, describe, expect, test, vi } from "vite-plus/test";
+import { createEventBus } from "../../src/events.ts";
+import type { BridgeHandle, BridgeStatus } from "../../src/lifecycle.ts";
+import { createHttpServer } from "../../src/http.ts";
 import { downloadMessageMedia } from "../../src/media/download.ts";
+import type { WAMessage, WASocket } from "baileys";
 import { storeMessage } from "../../src/store/messages.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 
+afterEach(async () => {
+  for (const handle of created.splice(0)) {
+    await handle.close();
+  }
+});
+
 const POSIX_PERMS = process.platform !== "win32";
+
+const GROUP_A = "120363428874442773@g.us";
+const created: Array<{ close(): Promise<void> }> = [];
+
+function stubHandle(status: BridgeStatus = "connected", socket?: WASocket): BridgeHandle {
+  return {
+    status,
+    events: createEventBus(),
+    close: async () => {},
+    getLastQr: () => null,
+    socket: (socket ?? { sendMessage: vi.fn(async () => ({ key: { id: "X" } })) }) as unknown as WASocket,
+    hasPairedAccount: () => false,
+    pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
+    resumePairing: () => {},
+    connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+    contactsWarm: () => false,
+    fetchHistory: async () => ({ requested: true, request_id: "" }),
+    logout: async () => {},
+  };
+}
+
+function url(bridge: { port: number }, path: string): string {
+  return `http://127.0.0.1:${bridge.port}${path}`;
+}
+
+const authHeader = { authorization: "Bearer test-token" };
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
@@ -161,4 +196,86 @@ test("a message without media reports EMPTY", async () => {
       messageId: "TXT1",
     }),
   ).rejects.toMatchObject({ code: "EMPTY" });
+});
+
+describe("T90 line141 — forced download returns the local path + updates the DB", () => {
+  test("download → file exists, path returned, DB media_path updated", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-dl-")));
+    const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-dl-media-"));
+    const socket = {
+      downloadMediaMessage: vi.fn(async () => Buffer.from("media-bytes")),
+    } as unknown as WASocket;
+    storeMessage(store, {
+      key: { remoteJid: GROUP_A, fromMe: false, id: "DL1" },
+      message: { imageMessage: { mimetype: "image/jpeg" } },
+      messageTimestamp: 1000,
+    } as never);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      mediaDir,
+    });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, "/api/media/DL1/download"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { path: string };
+    expect(existsSync(body.path)).toBe(true);
+    const row = store.db
+      .prepare("SELECT media_path FROM messages WHERE id = 'DL1'")
+      .get() as { media_path: string };
+    expect(row.media_path).toBe(body.path);
+    // idempotent: second call returns the stored path without re-downloading
+    const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
+    const again = await fetch(url(bridge, "/api/media/DL1/download"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(again.status).toBe(200);
+    expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
+  });
+});
+
+test("T90 line141 — POST /api/media/:id/download forces download + updates the DB", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-dltool-")));
+  const mediaDir = mkdtempSync(join(tmpdir(), "wa-mcp-dltool-media-"));
+  const socket = {
+    downloadMediaMessage: vi.fn(async () => Buffer.from("media-bytes")),
+  } as unknown as WASocket;
+  storeMessage(store, {
+    key: { remoteJid: GROUP_A, fromMe: false, id: "DL1" },
+    message: { imageMessage: { mimetype: "image/jpeg" } },
+    messageTimestamp: 1000,
+  } as never);
+  const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    token: "test-token",
+    store,
+    mediaDir,
+  });
+  created.push({ close: bridge.close });
+  const res = await fetch(url(bridge, "/api/media/DL1/download"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { path: string };
+  expect(existsSync(body.path)).toBe(true);
+  const row = store.db
+    .prepare("SELECT media_path FROM messages WHERE id = 'DL1'")
+    .get() as { media_path: string };
+  expect(row.media_path).toBe(body.path);
+  // idempotent: already-downloaded rows return the stored path, no re-download
+  const before = (socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length;
+  const again = await fetch(url(bridge, "/api/media/DL1/download"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(again.status).toBe(200);
+  expect((socket.downloadMediaMessage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(before);
 });
