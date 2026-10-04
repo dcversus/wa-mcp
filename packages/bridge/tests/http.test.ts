@@ -3465,3 +3465,82 @@ describe("T90 — status/link/buttons/list send kinds", () => {
     expect(listRelay?.[2].messageId).toBeTruthy();
   });
 });
+
+describe("T93-B — /api/digest (digest_group data source)", () => {
+  test("digest aggregates counts, top participants, questions and media since a date", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-digest-")));
+    openedStores.push(store);
+    const handle = stubHandle("connected");
+    const bridge = await createHttpServer(handle, { token: "test-token", store });
+    created.push(bridge);
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+      )
+      .run("M1", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-05-01T10:00:00Z", "hello", null);
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+      )
+      .run("M2", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-05-01T10:05:00Z", null, "image");
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+      )
+      .run("M3", GROUP_A, "358400000002@s.whatsapp.net", "Bob", "2026-05-01T10:07:00Z", "when is the release?", null);
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
+      )
+      .run("OLD", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-04-01T10:00:00Z", "before the window", null);
+    store.db
+      .prepare("INSERT INTO chats (jid, name) VALUES (?, ?)")
+      .run(GROUP_A, "Test Group");
+
+    const res = await fetch(
+      url(
+        bridge,
+        `/api/digest?chat_jid=${encodeURIComponent(GROUP_A)}&since=${encodeURIComponent("2026-05-01T00:00:00Z")}`,
+      ),
+      { headers: authHeader },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      chat_jid: string;
+      name: string | null;
+      message_count: number;
+      media_count: number;
+      top_participants: Array<{ participant: string; name: string | null; count: number }>;
+      questions: Array<{ sender: string; excerpt: string; at: string }>;
+    };
+    expect(body.chat_jid).toBe(GROUP_A);
+    expect(body.name).toBe("Test Group");
+    expect(body.message_count).toBe(3); // OLD is outside the window
+    expect(body.media_count).toBe(1);
+    expect(body.top_participants[0]).toEqual({
+      participant: "358400000001@s.whatsapp.net",
+      name: "Ada",
+      count: 2,
+    });
+    expect(body.questions).toHaveLength(1);
+    expect(body.questions[0]?.sender).toBe("358400000002@s.whatsapp.net");
+    expect(body.questions[0]?.excerpt).toContain("release");
+  });
+
+  test("digest without chat_jid or since is a validation error", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-digest2-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected"), {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    const missing = await fetch(url(bridge, "/api/digest"), { headers: authHeader });
+    expect(missing.status).toBe(400);
+    const noSince = await fetch(
+      url(bridge, `/api/digest?chat_jid=${encodeURIComponent(GROUP_A)}`),
+      { headers: authHeader },
+    );
+    expect(noSince.status).toBe(400);
+  });
+});

@@ -45,6 +45,9 @@ test("the registry exposes the full launch set", () => {
     "list_messages",
     "search_messages",
     "get_message_context",
+    "catch_up",
+    "digest_group",
+    "fetch_history",
     "send_media",
     "get_chat",
     "send_reaction",
@@ -288,6 +291,78 @@ test("T92-B — combining two variants is rejected", async () => {
     ),
   ).rejects.toThrow("only one");
   expect(calls).toHaveLength(0);
+});
+
+test("T93-B — catch_up hits GET /api/catch-up with since", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/catch-up?since=2026-05-01T00:00:00Z": { activeChats: [], questions: [] },
+  });
+  const tool = toolByName("catch_up");
+  if (!tool) throw new Error("catch_up missing");
+  await tool.handler({ ...ctx, fetchFn }, { since: "2026-05-01T00:00:00Z" });
+  expect(calls[0]?.url).toBe(
+    "http://bridge.test:8080/api/catch-up?since=2026-05-01T00%3A00%3A00Z",
+  );
+  expect(calls[0]?.method).toBe("GET");
+});
+
+test("T93-B — digest_group hits GET /api/digest with chat_jid and since", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/digest": { message_count: 3 } });
+  const tool = toolByName("digest_group");
+  if (!tool) throw new Error("digest_group missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "120363428874442773@g.us", since: "2026-05-01T00:00:00Z" },
+  );
+  expect(calls[0]?.method).toBe("GET");
+  const parsed = new URL(calls[0]?.url ?? "");
+  expect(parsed.pathname).toBe("/api/digest");
+  expect(parsed.searchParams.get("chat_jid")).toBe("120363428874442773@g.us");
+  expect(parsed.searchParams.get("since")).toBe("2026-05-01T00:00:00Z");
+});
+
+test("T93-B — fetch_history posts chat_jid and optional count", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/fetch-history": { requested: true, request_id: "R1" },
+  });
+  const tool = toolByName("fetch_history");
+  if (!tool) throw new Error("fetch_history missing");
+  const result = await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518@s.whatsapp.net", count: 50 },
+  );
+  expect(calls[0]?.method).toBe("POST");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "358497773518@s.whatsapp.net",
+    count: 50,
+  });
+  expect(firstText(result)).toContain("R1");
+  // count omitted — the bridge defaults to 25
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518@s.whatsapp.net" },
+  );
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({
+    chat_jid: "358497773518@s.whatsapp.net",
+  });
+});
+
+test("T93-B — search_messages takes query (q stays a legacy alias)", async () => {
+  const tool = toolByName("search_messages");
+  if (!tool) throw new Error("search_messages missing");
+  const props = (tool.inputSchema.properties ?? {}) as Record<string, unknown>;
+  expect(props.query).toBeDefined();
+  const required = (tool.inputSchema.required ?? []) as string[];
+  expect(required).toContain("query");
+  const { fetchFn, calls } = mockFetch({ "/api/search": { results: [] } });
+  await tool.handler({ ...ctx, fetchFn }, { query: "release plan" });
+  const parsed = new URL(calls[0]?.url ?? "");
+  expect(parsed.pathname).toBe("/api/search");
+  expect(parsed.searchParams.get("q")).toBe("release plan");
+  // legacy q still reaches the bridge
+  await tool.handler({ ...ctx, fetchFn }, { q: "legacy" });
+  const legacy = new URL(calls[1]?.url ?? "");
+  expect(legacy.searchParams.get("q")).toBe("legacy");
 });
 
 test("list_chats fetches the chat list and returns json text", async () => {
