@@ -1,6 +1,6 @@
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test, vi } from "vite-plus/test";
 import { main } from "../src/bin.ts";
 
@@ -72,6 +72,7 @@ test("T103 — install --service writes the plist into the user LaunchAgents dir
 test("T103 — uninstall --service --remove unloads and removes the plist", async () => {
   const home = tmpHome();
   const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
+  mkdirSync(dirname(plistPath), { recursive: true });
   writeFileSync(plistPath, "<plist/>");
   const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   try {

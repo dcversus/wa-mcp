@@ -1,0 +1,14 @@
+[Unit]
+Description=wa-mcp bridge
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /opt/wa-mcp/packages/bridge/dist/bin.mjs --data-dir /opt/wa-mcp/data --port 8080
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/wa-mcp/data/bridge.log
+StandardError=append:/opt/wa-mcp/data/bridge.log
+
+[Install]
+WantedBy=default.target

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -160,6 +160,137 @@ export function purgeDataDir(
   }
   rmSync(dataDir, { recursive: true, force: true });
   return { purged: true, message: `removed ${dataDir}` };
+}
+
+export interface ServiceRenderDeps {
+  nodePath: string;
+  bridgeBin: string;
+  dataDir: string;
+  port: string;
+}
+
+export function renderLaunchdPlist(deps: ServiceRenderDeps): string {
+  const logPath = `${deps.dataDir}/bridge.log`;
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0">',
+    "<dict>",
+    "  <key>Label</key>",
+    "  <string>com.wa-mcp.bridge</string>",
+    "  <key>ProgramArguments</key>",
+    "  <array>",
+    `    <string>${deps.nodePath}</string>`,
+    `    <string>${deps.bridgeBin}</string>`,
+    "    <string>--data-dir</string>",
+    `    <string>${deps.dataDir}</string>`,
+    "    <string>--port</string>",
+    `    <string>${deps.port}</string>`,
+    "  </array>",
+    "  <key>KeepAlive</key>",
+    "  <true/>",
+    "  <key>RunAtLoad</key>",
+    "  <true/>",
+    "  <key>StandardOutPath</key>",
+    `  <string>${logPath}</string>`,
+    "  <key>StandardErrorPath</key>",
+    `  <string>${logPath}</string>`,
+    "</dict>",
+    "</plist>",
+    "",
+  ].join("\n");
+}
+
+export function renderSystemdUnit(deps: ServiceRenderDeps): string {
+  const logPath = `${deps.dataDir}/bridge.log`;
+  return [
+    "[Unit]",
+    "Description=wa-mcp bridge",
+    "After=network-online.target",
+    "",
+    "[Service]",
+    "Type=simple",
+    `ExecStart=${deps.nodePath} ${deps.bridgeBin} --data-dir ${deps.dataDir} --port ${deps.port}`,
+    "Restart=always",
+    "RestartSec=5",
+    `StandardOutput=append:${logPath}`,
+    `StandardError=append:${logPath}`,
+    "",
+    "[Install]",
+    "WantedBy=default.target",
+    "",
+  ].join("\n");
+}
+
+export function serviceInstallDir(home: string): string {
+  if (process.platform === "linux") {
+    return join(home, ".config", "systemd", "user");
+  }
+  return join(home, "Library", "LaunchAgents");
+}
+
+export function serviceFileName(): string {
+  return process.platform === "linux" ? "wa-mcp.service" : "com.wa-mcp.bridge.plist";
+}
+
+export interface ServiceInstallResult {
+  path: string;
+  loadCommand: string;
+  loaded: boolean;
+}
+
+export function installService(deps: {
+  home: string;
+  nodePath: string;
+  bridgeBin: string;
+  dataDir: string;
+  port: string;
+  loadFn?: (cmd: string, args: string[]) => void;
+}): ServiceInstallResult {
+  const targetDir = serviceInstallDir(deps.home);
+  mkdirSync(targetDir, { recursive: true });
+  const path = join(targetDir, serviceFileName());
+  const content = process.platform === "linux" ? renderSystemdUnit(deps) : renderLaunchdPlist(deps);
+  writeFileSync(path, content, { mode: 0o600 });
+  const isLinux = process.platform === "linux";
+  const loadCommand = isLinux
+    ? "systemctl --user enable --now wa-mcp.service"
+    : `launchctl load ${path}`;
+  if (process.env.WA_CLI_NO_SERVICE_LOAD === "1") {
+    return { path, loadCommand, loaded: false };
+  }
+  if (!isLinux) {
+    try {
+      const loadFn = deps.loadFn ?? execFileSync;
+      loadFn("launchctl", ["load", path]);
+    } catch {
+      console.log(`launchctl load failed - run manually: ${loadCommand}`);
+    }
+  }
+  return { path, loadCommand, loaded: !isLinux };
+}
+
+export function uninstallService(deps: {
+  home: string;
+  unloadFn?: (cmd: string, args: string[]) => void;
+}): ServiceInstallResult {
+  const path = join(serviceInstallDir(deps.home), serviceFileName());
+  const unloadCommand =
+    process.platform === "linux"
+      ? "systemctl --user disable --now wa-mcp.service"
+      : `launchctl unload ${path}`;
+  if (process.env.WA_CLI_NO_SERVICE_LOAD !== "1" && process.platform !== "linux") {
+    try {
+      const unloadFn = deps.unloadFn ?? execFileSync;
+      unloadFn("launchctl", ["unload", path]);
+    } catch {
+      console.log("launchctl unload skipped (not loaded or unavailable)");
+    }
+  }
+  if (existsSync(path)) {
+    rmSync(path, { force: true });
+  }
+  return { path, loadCommand: unloadCommand, loaded: false };
 }
 
 export function buildUpdateReport(version: string): string {

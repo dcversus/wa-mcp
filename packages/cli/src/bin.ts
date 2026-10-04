@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
+import { installService, uninstallService } from "./service.ts";
 import {
   buildUpdateReport,
   followLog,
@@ -39,6 +40,20 @@ export async function main(argv: string[]): Promise<void> {
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+  if (command === "install" && flags.service !== undefined) {
+    const result = installService({
+      home,
+      nodePath: process.execPath,
+      bridgeBin: BRIDGE_BIN,
+      dataDir,
+      port: flags.port ?? "8080",
+    });
+    console.log(`wrote ${result.path}`);
+    console.log(
+      result.loaded ? `loaded: ${result.loadCommand}` : `enable with: ${result.loadCommand}`,
+    );
+    return;
+  }
   if (command === "install") {
     const token = flags.token ?? readToken(dataDir) ?? "";
     const spec = {
@@ -62,9 +77,17 @@ export async function main(argv: string[]): Promise<void> {
         failures += 1;
       }
     }
+    const skills = installSkills({ home, sourceDir: SKILLS_SOURCE, dataDir });
+    console.log(`skills installed: ${skills.skillDir}`);
     if (failures > 0) {
       process.exitCode = 1;
     }
+    return;
+  }
+  if (command === "uninstall" && flags.service !== undefined) {
+    const result = uninstallService({ home });
+    console.log(`unloaded: ${result.loadCommand}`);
+    console.log(`removed: ${result.path}`);
     return;
   }
   if (command === "import") {
@@ -249,7 +272,7 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--service [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
 }
 

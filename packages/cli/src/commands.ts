@@ -11,8 +11,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
     if (arg.startsWith("--")) {
-      const value = argv[index + 1];
-      flags[arg.slice(2)] = value ?? "";
+      const next = argv[index + 1];
+      if (next === undefined || next.startsWith("--")) {
+        flags[arg.slice(2)] = "";
+        continue;
+      }
+      flags[arg.slice(2)] = next;
       index += 1;
     } else if (command === undefined) {
       command = arg;

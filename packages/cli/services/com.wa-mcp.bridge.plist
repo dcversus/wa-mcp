@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wa-mcp.bridge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/opt/wa-mcp/packages/bridge/dist/bin.mjs</string>
+    <string>--data-dir</string>
+    <string>/opt/wa-mcp/data</string>
+    <string>--port</string>
+    <string>8080</string>
+  </array>
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/opt/wa-mcp/data/bridge.log</string>
+  <key>StandardErrorPath</key>
+  <string>/opt/wa-mcp/data/bridge.log</string>
+</dict>
+</plist>
