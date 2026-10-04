@@ -29,6 +29,7 @@ function stubHandle(
     hasPairedAccount: () => false,
     pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
     resumePairing: () => {},
+    contactsWarm: () => false,
     connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
     logout: async () => {},
     fetchHistory: async () => ({ requested: true, request_id: "" }),
