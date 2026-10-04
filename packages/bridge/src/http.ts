@@ -162,7 +162,10 @@ const UI_RATE = { capacity: 240, refillPerMinute: 240 };
 const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   "/api/qr",
   "/api/pairing-code",
-  "/api/pair/resume",
+  // T94-E H3 (RUNTIME review): /api/pair/resume LEFT this surface — the
+  // public pairing token could drop the session, reset the anti-abuse
+  // budget and stack sockets. Resume now needs the account token (the UI
+  // holds it after the first pairing).
   "/api/ui-token",
 ]);
 const API_PATHS = new Set([
