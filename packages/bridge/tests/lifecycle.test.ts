@@ -1708,3 +1708,42 @@ test("T94-D-M10 — group senders canonicalize from LID to PN at ingest", async 
   expect(row.sender_jid).toBe(PN);
   store.close();
 });
+
+describe("T94-F M5 — logout survives restart", () => {
+  test("logout persists the logged-out marker", async () => {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReset();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+    mockSaveCreds.mockClear();
+    await handle.logout();
+    // RUNTIME review M5: the marker lived only in memory — a restart
+    // reconnected with the dead session
+    await vi.waitFor(() => expect(mockSaveCreds).toHaveBeenCalled());
+    const saved = mockSaveCreds.mock.calls.at(-1)?.[0] as { waMcpLoggedOut?: boolean };
+    expect(saved?.waMcpLoggedOut).toBe(true);
+  });
+
+  test("boot with a persisted marker refuses auto-connect until resume", async () => {
+    Object.assign(currentCreds, {
+      account: { id: "123" },
+      me: { id: "358497773518@s.whatsapp.net" },
+      waMcpLoggedOut: true,
+    });
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReset();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
+    // RED today: boot connected anyway — the marker was never checked
+    expect(mockMakeWASocket).not.toHaveBeenCalled();
+    expect(handle.status).toBe("logged-out");
+    // resume clears the marker and pairs fresh
+    handle.resumePairing();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(mockMakeWASocket).toHaveBeenCalled();
+    expect(
+      (mockAuthState.mock.results.at(-1)?.value as { state: { creds: Record<string, unknown> } })
+        ?.state?.creds?.waMcpLoggedOut,
+    ).toBeUndefined();
+  });
+});
