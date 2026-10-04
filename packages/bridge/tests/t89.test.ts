@@ -206,7 +206,9 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
 
   test("line162 — POST reject-call routes to the engine rejectCall", async () => {
     const socket = groupSocket();
-    (socket as { rejectCall?: unknown }).rejectCall = vi.fn(async () => undefined);
+    (socket as unknown as { rejectCall: ReturnType<typeof vi.fn> }).rejectCall = vi.fn(
+      async () => undefined,
+    );
     const bridge = await createHttpServer(groupHandle(socket), { token: "test-token" });
     created.push({ close: bridge.close });
     const res = await fetch(url(bridge, "/api/calls/reject"), {
