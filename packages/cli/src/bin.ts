@@ -113,7 +113,7 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   if (command === "skills" && positionals[0] === "install") {
-    const result = installSkills({ home, sourceDir: SKILLS_SOURCE });
+    const result = installSkills({ home, sourceDir: SKILLS_SOURCE, dataDir });
     console.log(`skills installed: ${result.skillDir}`);
     console.log(`command: ${result.commandFile}`);
     return;

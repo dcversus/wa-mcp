@@ -4,11 +4,13 @@ import { join } from "node:path";
 export interface InstallSkillsOptions {
   home: string;
   sourceDir: string;
+  dataDir?: string;
 }
 
 export interface InstallSkillsResult {
   skillDir: string;
   commandFile: string;
+  mirrored: string[];
 }
 
 const COMMAND_MD = `---
@@ -22,10 +24,21 @@ export function installSkills(options: InstallSkillsOptions): InstallSkillsResul
   const skillTarget = join(options.home, ".claude", "skills", "wa-mcp");
   mkdirSync(skillTarget, { recursive: true });
   cpSync(options.sourceDir, skillTarget, { recursive: true });
+  const mirrored: string[] = [];
+  if (options.dataDir !== undefined) {
+    const dataMirror = join(options.dataDir, "skills", "wa-mcp");
+    mkdirSync(dataMirror, { recursive: true });
+    cpSync(options.sourceDir, dataMirror, { recursive: true });
+    mirrored.push(dataMirror);
+  }
+  const piMirror = join(options.home, ".pi", "skills", "wa-mcp");
+  mkdirSync(piMirror, { recursive: true });
+  cpSync(options.sourceDir, piMirror, { recursive: true });
+  mirrored.push(piMirror);
   const commandsDir = join(options.home, ".claude", "commands");
   mkdirSync(commandsDir, { recursive: true });
   const commandFile = join(commandsDir, "wa-mcp.md");
   writeFileSync(commandFile, COMMAND_MD);
   void existsSync;
-  return { skillDir: skillTarget, commandFile };
+  return { skillDir: skillTarget, commandFile, mirrored };
 }
