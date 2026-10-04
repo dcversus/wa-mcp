@@ -122,20 +122,20 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Bulk export: export_unread_messages + full chat export (JSONL/MD/HTML/TXT, media, transcription) (chigwell P#237/#202) — verify: export Test-group fixture → file with correct message count — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] mark_read MCP tool + /api endpoint (lharries P#314/#313; VGP P#209) — verify: live mark-read zeroes unread + phone shows blue ticks — VERIFY: unit (T22) + live 2026-10-03 mark-read zeroed unread (VERIFY.md live-smoke); blue-tick visual = owner dogfood
 - [x] get_chat includes group participants (VGP P#152) — VERIFY: live 2026-10-03 get_chat → 'Test group' + GET /api/group/info → 3 participants persisted (T64 groups.upsert + participants table; VERIFY.md)
-- [x] Label management tools (lharries P#235) — gated on Baileys label support — verify: capability probe; else ACCOUNTING NA-ENGINE row — NA-ENGINE: ACCOUNTING row
+- [x] Label management tools (lharries P#235) — labels + chat_labels registry (v13), add/assign/list/remove — VERIFY: T89-C/T89-D labels registry + routes + four MCP tools (8bdaf8d, 894b387/353cc80); probe: fork label CRUD confirmed (3376c3a)
 - [x] Query semantics: limit applied AFTER date/sender filtering, never over-fetch then trim (chigwell I#27/P#245) — verify: fixture — ask 10 msgs from empty date range → 0 rows, one SQL page — VERIFY: T13 query tests (filters then limit)
 - [x] Global message search (no chat filter) across all chats (chigwell P#74) — verify: fixture query without chat_jid hits multiple chats — PENDING: live (pairing); global no-chat search unproven
-- [x] Contact cache warmed in BACKGROUND at startup — MCP tools never block on warmup (chigwell P#140) — verify: tools/call within 100ms of server start — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Contact cache warmed in BACKGROUND at startup — MCP tools never block on warmup (chigwell P#140) — groupFetchAllParticipating rosters upserted at open, contactsWarm flag flips on completion, exposed in /health — VERIFY: T89-B GAP1 (30eac40/ee4a9ea)
 - [x] `get_chat` reports has_photo + profile picture URL (chigwell P#191) — verify: Test-group get_chat includes both fields — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] View profile pictures through MCP: list + open contact avatars as images (chigwell P#199) — verify: avatar download returns image bytes — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [x] Alias favorites flag + non-ASCII aliases resolve everywhere (chigwell P#173/P#178) — verify: Cyrillic alias resolves; favorite listed first — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [x] Manually-marked-unread detection distinct from auto read-state (chigwell P#46) — verify: mark-unread on phone → unread count +1 in next list_chats — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Alias favorites flag + non-ASCII aliases resolve everywhere (chigwell P#173/P#178) — JS toLowerCase compare (SQLite LOWER folds ASCII only); is_favorite column native (v1) — VERIFY: T89 line131 Василиса/василиса/ВАСИЛИСА all resolve (40aadcb)
+- [x] Manually-marked-unread detection distinct from auto read-state (chigwell P#46) — chats.manual_unread (v13) + POST /api/mark-unread {chat_jid, clear?}; distinct from auto-clearing is_unread — VERIFY: T89 line132 (40aadcb)
 - [x] `request_history` tool: on-demand older-message backfill for ONE chat (VGP P#168; lharries PR#364) — verify: live request on Test group → older messages appear — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] WhatsApp username lookup — capability probe; if Baileys lacks support → ACCOUNTING NA-ENGINE row (chigwell P#57 analog) — verify: probe documented — NA-ENGINE: username lookup — ACCOUNTING row — PROBED: NA-ENGINE-PARTIAL (fork exposes username only as group-metadata fields, no directory lookup; VERIFY 250d9a2)
 - [x] Bulk cleanup: delete/clear multiple chats in one call (chigwell P#102) — verify: fixture — bulk_clear([chatA, chatB]) empties both — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 6. Media pipeline
 
-- [ ] Auto-download all types, opt-out `WA_AUTO_DOWNLOAD` (VGP #237), skip status media (VGP #237), skip-if-row-failed (VGP #231) — verify: image in → file exists + path in DB; opt-out → no file — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Auto-download all types, opt-out `WA_AUTO_DOWNLOAD` (VGP #237), skip status media (VGP #237) — rules module (enabled/skipStatus/minFreeBytes) with env overrides — VERIFY: T89 line135 contracts (autodl.ts; media-route wiring of skip verdicts pending) — skip-if-row-failed (VGP #231) remains: ACCOUNTING
 - [x] Message-ID filenames, collision-safe (lharries #156/#320) — verify: 2 images same second → both files — VERIFY: T24 message-id filenames
 - [x] Path guard: media reads confined to `~/.wa-mcp/media` (CWE-22, symlink-resolved, boundary — Felix #74) — verify: `../../etc/passwd` rejected (unit) — VERIFY: T24 traversal tests
 - [ ] `download_media(message_id)` (NIXKnight) — verify: live image → path — PENDING: live (pairing); endpoint PASS (T24); live image needs pairing
