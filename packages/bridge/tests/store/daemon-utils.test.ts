@@ -274,3 +274,78 @@ describe("T94-D-M6 — scheduler timezone normalization", () => {
     }
   });
 });
+
+describe("T94-F M3 — transient scheduled failures retry, bounded", () => {
+  test("RATE_LIMITED keeps the row pending with the attempt recorded", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m3r-")));
+    try {
+      scheduleMessage(store, {
+        chatJid: "358497773518@s.whatsapp.net",
+        payload: "retry me",
+        sendAt: new Date(Date.now() - 1000).toISOString(),
+      });
+      await processDue(store, new Date(), async () => {
+        throw new Error("RATE_LIMITED: sending too fast");
+      });
+      const row = store.db
+        .prepare("SELECT status, attempts, last_error FROM scheduled_messages")
+        .get() as { status: string; attempts: number; last_error?: string | null };
+      // RUNTIME review M3: a transient refusal must not kill the message
+      expect(row.status).toBe("pending");
+      expect(row.attempts).toBe(1);
+      expect(row.last_error ?? "").toContain("RATE_LIMITED");
+    } finally {
+      store.close();
+    }
+  });
+
+  test("after the attempt bound the row fails permanently", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m3r2-")));
+    try {
+      scheduleMessage(store, {
+        chatJid: "358497773518@s.whatsapp.net",
+        payload: "never lands",
+        sendAt: new Date(Date.now() - 1000).toISOString(),
+      });
+      const failing = async () => {
+        throw new Error("RATE_LIMITED: sending too fast");
+      };
+      for (let i = 0; i < 5; i += 1) {
+        await processDue(store, new Date(), failing);
+      }
+      const row = store.db
+        .prepare("SELECT status, attempts FROM scheduled_messages")
+        .get() as { status: string; attempts: number };
+      expect(row.status).toBe("pending");
+      expect(row.attempts).toBe(5);
+      await processDue(store, new Date(), failing);
+      const done = store.db
+        .prepare("SELECT status, attempts FROM scheduled_messages")
+        .get() as { status: string; attempts: number };
+      expect(done.status).toBe("failed");
+      expect(done.attempts).toBe(5);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("permanent refusals fail immediately (no retry)", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m3r3-")));
+    try {
+      scheduleMessage(store, {
+        chatJid: "358497773518@s.whatsapp.net",
+        payload: "blocked",
+        sendAt: new Date(Date.now() - 1000).toISOString(),
+      });
+      await processDue(store, new Date(), async () => {
+        throw new Error("SEND_BLOCKED: blocked by rule #1");
+      });
+      const row = store.db
+        .prepare("SELECT status FROM scheduled_messages")
+        .get() as { status: string };
+      expect(row.status).toBe("failed");
+    } finally {
+      store.close();
+    }
+  });
+});
