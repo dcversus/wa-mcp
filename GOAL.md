@@ -131,7 +131,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Alias favorites flag + non-ASCII aliases resolve everywhere (chigwell P#173/P#178) — verify: Cyrillic alias resolves; favorite listed first — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Manually-marked-unread detection distinct from auto read-state (chigwell P#46) — verify: mark-unread on phone → unread count +1 in next list_chats — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `request_history` tool: on-demand older-message backfill for ONE chat (VGP P#168; lharries PR#364) — verify: live request on Test group → older messages appear — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] WhatsApp username lookup — capability probe; if Baileys lacks support → ACCOUNTING NA-ENGINE row (chigwell P#57 analog) — verify: probe documented — NA-ENGINE: username lookup — ACCOUNTING row
+- [ ] WhatsApp username lookup — capability probe; if Baileys lacks support → ACCOUNTING NA-ENGINE row (chigwell P#57 analog) — verify: probe documented — NA-ENGINE: username lookup — ACCOUNTING row — PROBED: NA-ENGINE-PARTIAL (fork exposes username only as group-metadata fields, no directory lookup; VERIFY 250d9a2)
 - [x] Bulk cleanup: delete/clear multiple chats in one call (chigwell P#102) — verify: fixture — bulk_clear([chatA, chatB]) empties both — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 6. Media pipeline
 
