@@ -50,13 +50,23 @@ export async function processDue(
       const messageId = await send(row.chat_jid, parsed);
       markScheduled(store, row.id, "sent", messageId);
     } catch (err) {
-      markScheduled(
-        store,
-        row.id,
-        "failed",
-        undefined,
-        err instanceof Error ? err.message : String(err),
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      // T94-F Runtime-M3: transient states (rate limit, disconnected bridge,
+      // engine send failure) RETRY on a later tick — bounded, then permanent
+      const retryable =
+        message.startsWith("RATE_LIMITED") ||
+        message.includes("bridge not connected") ||
+        message.startsWith("SEND_FAILED");
+      const attempts = (row as { attempts?: number }).attempts ?? 0;
+      if (retryable && attempts < 5) {
+        store.db
+          .prepare(
+            "UPDATE scheduled_messages SET attempts = attempts + 1, last_error = ? WHERE id = ?",
+          )
+          .run(message, row.id);
+        continue;
+      }
+      markScheduled(store, row.id, "failed", undefined, message);
     }
   }
 }

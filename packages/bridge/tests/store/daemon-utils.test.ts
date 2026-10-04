@@ -313,15 +313,17 @@ describe("T94-F M3 — transient scheduled failures retry, bounded", () => {
       for (let i = 0; i < 5; i += 1) {
         await processDue(store, new Date(), failing);
       }
-      const row = store.db
-        .prepare("SELECT status, attempts FROM scheduled_messages")
-        .get() as { status: string; attempts: number };
+      const row = store.db.prepare("SELECT status, attempts FROM scheduled_messages").get() as {
+        status: string;
+        attempts: number;
+      };
       expect(row.status).toBe("pending");
       expect(row.attempts).toBe(5);
       await processDue(store, new Date(), failing);
-      const done = store.db
-        .prepare("SELECT status, attempts FROM scheduled_messages")
-        .get() as { status: string; attempts: number };
+      const done = store.db.prepare("SELECT status, attempts FROM scheduled_messages").get() as {
+        status: string;
+        attempts: number;
+      };
       expect(done.status).toBe("failed");
       expect(done.attempts).toBe(5);
     } finally {
@@ -340,9 +342,9 @@ describe("T94-F M3 — transient scheduled failures retry, bounded", () => {
       await processDue(store, new Date(), async () => {
         throw new Error("SEND_BLOCKED: blocked by rule #1");
       });
-      const row = store.db
-        .prepare("SELECT status FROM scheduled_messages")
-        .get() as { status: string };
+      const row = store.db.prepare("SELECT status FROM scheduled_messages").get() as {
+        status: string;
+      };
       expect(row.status).toBe("failed");
     } finally {
       store.close();
