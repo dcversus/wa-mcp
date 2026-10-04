@@ -442,13 +442,15 @@ export async function createHttpServer(
         validationError(res, "invalid query parameters");
         return;
       }
+      const limitValue = limit.value;
+      const offsetValue = offset.value;
       const messages = listMessages(store, {
         chatJid: params.get("chat_jid") ?? undefined,
         sender: params.get("sender") ?? undefined,
         after: after.value,
         before: before.value,
-        limit: limit.value,
-        offset: offset.value,
+        limit: limitValue,
+        offset: offsetValue,
       });
       // T87 line121: truncation metadata for capped pages
       let total = 0;
@@ -459,19 +461,16 @@ export async function createHttpServer(
           after: after.value,
           before: before.value,
         });
-      } catch (err: unknown) {
-        console.error("T87-DEBUG:", err);
-        throw err;
       }
       const returned = messages.length;
-      const truncated = offset.value + returned < total;
+      const truncated = offsetValue + returned < total;
       sendJson(res, 200, {
         messages,
         meta: {
           truncated,
           total,
           returned,
-          nextOffset: truncated ? offset.value + returned : offset.value,
+          nextOffset: truncated ? offsetValue + returned : offsetValue,
         },
       });
       return;
