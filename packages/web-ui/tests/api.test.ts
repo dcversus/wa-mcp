@@ -73,7 +73,8 @@ test("a 401 triggers the unauthorized callback", async () => {
       redirected = true;
     },
   });
-  await client.getChats();
+  // C1 contract update: the callback still fires, then the call rejects
+  await expect(client.getChats()).rejects.toMatchObject({ name: "ApiError", status: 401 });
   expect(redirected).toBe(true);
 });
 
@@ -141,10 +142,10 @@ describe("task-51 client surface", () => {
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
-  test("search hits /api/search with the query", async () => {
+  test("search hits /api/search with the q param", async () => {
     const { client, calls } = recordingClient();
     await client.search("pizza", 5);
-    expect(calls[0]?.path).toBe("/api/search?query=pizza&limit=5");
+    expect(calls[0]?.path).toBe("/api/search?q=pizza&limit=5");
   });
 
   test("contacts lists with optional query", async () => {
@@ -283,7 +284,12 @@ test("C1 — a 429/500 error body throws a structured ApiError, not the payload"
     { error: { code: "RATE_LIMITED", message: "rate limit exceeded" } },
     429,
   );
-  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  const client = createApiClient({
+    baseUrl: "http://bridge:8080",
+    token: "tok",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
   await expect(client.getChats()).rejects.toMatchObject({
     name: "ApiError",
     status: 429,
@@ -294,7 +300,12 @@ test("C1 — a 429/500 error body throws a structured ApiError, not the payload"
 test("C1 — a non-JSON error page throws a structured ApiError", async () => {
   const fetchFn = (async () =>
     new Response("<html>502 Bad Gateway</html>", { status: 502 })) as unknown as typeof fetch;
-  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  const client = createApiClient({
+    baseUrl: "http://bridge:8080",
+    token: "tok",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
   await expect(client.getChats()).rejects.toMatchObject({
     name: "ApiError",
     status: 502,
@@ -303,7 +314,12 @@ test("C1 — a non-JSON error page throws a structured ApiError", async () => {
 
 test("C1 — search sends the bridge's q param (query was silently ignored)", async () => {
   const { fetchFn, calls } = mockFetch({ results: [] });
-  const client = createApiClient({ baseUrl: "http://bridge:8080", token: "tok", fetchFn });
+  const client = createApiClient({
+    baseUrl: "http://bridge:8080",
+    token: "tok",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
   await client.search("pizza", 5);
   expect(calls[0]?.url).toBe("http://bridge:8080/api/search?q=pizza&limit=5");
 });

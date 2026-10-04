@@ -110,6 +110,8 @@ export interface HttpServerOptions {
    * /health publishes it; it authorizes /api/qr, /api/pairing-code and
    * /api/pair/resume ONLY — never account data. */
   pairingToken?: string;
+  /** T93-C2: the credential minted for the web UI — own rate bucket */
+  uiToken?: string;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -137,6 +139,14 @@ const DEFAULT_RATE = { capacity: 60, refillPerMinute: 60 };
  * (a poll every 500ms from one IP survives 10 tabs) without letting it eat
  * the API bucket. */
 const HEALTH_RATE = { capacity: 120, refillPerMinute: 120 };
+
+/** T93-C2: the web UI polls chats/messages/health every few seconds per tab.
+ * It mints its own credential at /api/ui-token; requests presenting it ride
+ * THIS bucket, so open UI tabs can never starve the per-IP API bucket that
+ * agent clients share (and vice versa). Same anti-abuse posture as the
+ * health bucket: generous transport, no engine risk (sends stay guarded by
+ * the T82 send-guard). */
+const UI_RATE = { capacity: 240, refillPerMinute: 240 };
 
 /** ADR 0012: the pairing surface serves one flow — the pairing page polls
  * /health and /api/qr alternately at ~3s. T75: it rides the same generous
@@ -351,10 +361,13 @@ export async function createHttpServer(
   const startedAt = Date.now();
   // per-boot pairing token: opts wins (bin), otherwise self-generated
   const pairingToken = opts.pairingToken ?? randomBytes(24).toString("hex");
+  // T93-C2: a distinct UI credential — full API surface, own rate bucket
+  const uiToken = opts.uiToken ?? randomBytes(24).toString("hex");
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
   const checkHealthRate = createRateLimiter(HEALTH_RATE.capacity, HEALTH_RATE.refillPerMinute);
+  const checkUiRate = createRateLimiter(UI_RATE.capacity, UI_RATE.refillPerMinute);
   const serveQr = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (handle.pairingBudget().blocked) {
       sendJson(res, 429, {
@@ -1949,12 +1962,19 @@ export async function createHttpServer(
     // open web UI would otherwise starve API probes and agent clients. /events
     // gets no bucket at all: a 429 makes EventSource reconnect on a tight
     // loop, re-burning the very bucket it was refused from.
+    const bearer =
+      typeof req.headers.authorization === "string" &&
+      req.headers.authorization.startsWith("Bearer ")
+        ? req.headers.authorization.slice("Bearer ".length)
+        : null;
     const gate =
       path === "/health" || PAIRING_SURFACE.has(path)
         ? checkHealthRate(ip, now())
         : path === "/events"
           ? null
-          : checkRate(ip, now());
+          : bearer !== null && tokenMatches(bearer, uiToken)
+            ? checkUiRate(ip, now())
+            : checkRate(ip, now());
     if (gate !== null && !gate.ok) {
       sendJson(
         res,
@@ -2085,7 +2105,11 @@ export async function createHttpServer(
     // token via GET /api/ui-token (loopback Host + same-origin enforced above).
     const pairingTokenAuthorized =
       presented !== null && tokenMatches(presented, pairingToken) && PAIRING_SURFACE.has(path);
-    if (!pairingTokenAuthorized && (presented === null || !tokenMatches(presented, opts.token))) {
+    if (
+      !pairingTokenAuthorized &&
+      (presented === null ||
+        (!tokenMatches(presented, opts.token) && !tokenMatches(presented, uiToken)))
+    ) {
       sendJson(res, 401, {
         error: { code: "UNAUTHORIZED", message: "missing or invalid bearer token" },
       });
@@ -3286,7 +3310,7 @@ export async function createHttpServer(
           // ADR 0012: one-time exchange so the loopback web UI can hold the real
           // token. Double-gated: the loopback Host + same-origin guard above,
           // and the scoped pairing token itself.
-          sendJson(res, 200, { token: opts.token });
+          sendJson(res, 200, { token: uiToken });
           return;
         }
         if (

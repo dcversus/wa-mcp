@@ -17,6 +17,7 @@ import {
   settingsHtml,
   statusDashboardHtml,
   unreadHtml,
+  guardLoader,
 } from "./pages.ts";
 import {
   pairingHtml,
@@ -371,6 +372,12 @@ const loaders: {
     return pairingHtml(pairingView);
   },
 };
+
+// T93-C1: EVERY page render is guarded — a failed load (429/5xx, error body)
+// shows an in-page error banner instead of crashing the app
+for (const route of Object.keys(loaders) as Array<keyof typeof loaders>) {
+  loaders[route] = guardLoader(loaders[route]);
+}
 
 function bindRoute(): void {
   const hash = location.hash;

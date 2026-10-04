@@ -341,3 +341,24 @@ export function chatErrorHtml(message: string): string {
 export function bridgeDownBanner(bridgeUrl: string): string {
   return `<div id="bridge-down" role="alert">bridge unreachable at ${escapeHtml(bridgeUrl)} — is the daemon running?</div>`;
 }
+
+/** T93-C1: a visible, escaped failure surface — a failed page load shows a
+ * banner instead of crashing the render pipeline or rendering a blank page. */
+export function errorBannerHtml(message: string): string {
+  return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)}</div>`;
+}
+
+/** T93-C1: wrap any page loader so an ApiError (or any throw) renders the
+ * banner instead of bubbling into the global render-failure screen. */
+export function guardLoader(
+  loader: (params: Record<string, string>) => Promise<string>,
+): (params: Record<string, string>) => Promise<string> {
+  return async (params) => {
+    try {
+      return await loader(params);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return errorBannerHtml(`could not load this page: ${message}`);
+    }
+  };
+}

@@ -121,6 +121,20 @@ async function evalInPage(expression) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// T93-C3: mirrors web-ui/src/preflight.ts retryUntil — poll instead of a
+// fixed sleep so a slow first render / daemon blip doesn't fail the run
+const retryUntil = async (check, { attempts, delayMs }) => {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await check()) {
+      return true;
+    }
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+  return false;
+};
+
 const target = await browser("Target.createTarget", { url: "about:blank" });
 const attach = await browser("Target.attachToTarget", {
   targetId: target.result.targetId,
@@ -143,18 +157,26 @@ await cdp("Runtime.enable");
 await cdp("Page.enable");
 await cdp("Network.enable");
 await cdp("Page.navigate", { url: `${bridgeUrl}/#/chats` });
-await sleep(2500);
 
 const failures = [];
 
-// 1. chats page renders with the expected structure
-const chatsHtml = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
-if (!chatsHtml.includes("chats-page")) {
-  failures.push(`#/chats did not render: ${chatsHtml.slice(0, 120)}`);
+// 1. chats page renders with the expected structure (retried — C3)
+const rendered = await retryUntil(
+  async () => {
+    const html = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
+    return typeof html === "string" && html.includes("chats-page");
+  },
+  { attempts: 12, delayMs: 500 },
+);
+if (!rendered) {
+  const chatsHtml = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
+  failures.push(`#/chats did not render: ${String(chatsHtml).slice(0, 120)}`);
 }
 
-// send leg only proves something on a CONNECTED daemon
-const health = await evalInPage(`fetch("${bridgeUrl}/health").then((r) => r.json())`);
+// send leg only proves something on a CONNECTED daemon (health retried — C3)
+const health = await evalInPage(
+  `(async () => { for (let i = 0; i < 5; i++) { try { const r = await fetch("${bridgeUrl}/health"); if (r.ok) return await r.json(); } catch {} await new Promise((res) => setTimeout(res, 400)); } return null; })()`,
+);
 const connected = health?.connected === true;
 if (!connected) {
   console.log("send leg skipped: daemon not connected (pair first) — structural checks only");

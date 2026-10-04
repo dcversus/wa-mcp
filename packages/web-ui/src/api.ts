@@ -43,6 +43,19 @@ export interface ApiClient {
   setProfileName(name: string): Promise<unknown>;
 }
 
+/** T93-C1: error bodies are data, not payloads — every non-OK response
+ * surfaces as a structured ApiError so render code never receives an
+ * error object shaped like a success body. */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export function createApiClient(opts: ApiClientOptions): ApiClient {
   const fetchFn = opts.fetchFn ?? fetch;
   const call = async (path: string, init?: RequestInit & { json?: unknown }): Promise<Response> => {
@@ -73,7 +86,25 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
   };
   const jsonCall = async <T>(path: string, init?: RequestInit & { json?: unknown }): Promise<T> => {
     const response = await call(path, init);
-    return (await response.json()) as T;
+    const raw = await response.text();
+    let parsed: unknown;
+    try {
+      parsed = raw.length > 0 ? JSON.parse(raw) : null;
+    } catch {
+      // an HTML error page (502/504 from a proxy) is not a success body
+      throw new ApiError(response.status, `bridge returned non-JSON (${response.status})`);
+    }
+    if (!response.ok) {
+      const message =
+        parsed !== null &&
+        typeof parsed === "object" &&
+        "error" in parsed &&
+        (parsed as { error?: { message?: unknown } }).error?.message !== undefined
+          ? String((parsed as { error: { message: unknown } }).error.message)
+          : `bridge returned ${response.status}`;
+      throw new ApiError(response.status, message);
+    }
+    return parsed as T;
   };
   const post = <T>(path: string, json: unknown): Promise<T> =>
     jsonCall<T>(path, { method: "POST", json });
@@ -96,7 +127,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     pairingCode: (phone) => post("/api/pairing-code", { phone }),
     resumePairing: () => post("/api/pair/resume", {}),
     search: (query, limit) => {
-      const params = new URLSearchParams({ query });
+      // T93-C1: the bridge reads ?q= — the old ?query= was silently ignored
+      const params = new URLSearchParams({ q: query });
       if (limit !== undefined) {
         params.set("limit", String(limit));
       }

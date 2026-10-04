@@ -3576,9 +3576,18 @@ describe("T93-B — /api/digest (digest_group data source)", () => {
 });
 
 describe("T93-C2 — the UI token rides its own rate bucket", () => {
+  function pairingTokenOfLocal(bridge: Awaited<ReturnType<typeof startServer>>): Promise<string> {
+    return (async () => {
+      const health = (await (await fetch(url(bridge, "/health"))).json()) as {
+        pairingToken: string;
+      };
+      return health.pairingToken;
+    })();
+  }
+
   test("ui-token mints a distinct credential that authorizes the read API", async () => {
     const bridge = await startServer();
-    const pairing = await pairingTokenOf(bridge);
+    const pairing = await pairingTokenOfLocal(bridge);
     const res = await fetch(url(bridge, "/api/ui-token"), {
       headers: { authorization: `Bearer ${pairing}` },
     });
@@ -3596,7 +3605,7 @@ describe("T93-C2 — the UI token rides its own rate bucket", () => {
 
   test("exhausting the API bucket with the daemon token leaves the UI bucket intact", async () => {
     const bridge = await startServer({ rateLimit: { capacity: 1, refillPerMinute: 1 } });
-    const pairing = await pairingTokenOf(bridge);
+    const pairing = await pairingTokenOfLocal(bridge);
     const minted = await fetch(url(bridge, "/api/ui-token"), {
       headers: { authorization: `Bearer ${pairing}` },
     });
