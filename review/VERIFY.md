@@ -418,3 +418,9 @@ no checkbox is claimed without evidence.
 - /api/mcp-notify: SSE stream, auth via the shared bearer gate (401 verified), heartbeat pattern from /events.
 - LIVE: 4 JSON-RPC frames captured on the real daemon during an own-send (wa://unread seen verbatim).
 - Suite 891/891 (85 files), check clean, pushed.
+
+### Phase 2 T109 CLOSED — MCP session subscriptions (2026-10-04T23:48:10Z)
+
+- McpSession {subscriptions} on ServerContext; resources/subscribe + resources/unsubscribe (unknown uri → -32602 ParamError, idempotent delete); capability now resources.subscribe:true; shouldForward exported (resources/updated only for subscribed uris; notifications/message + tools/list_changed always pass; anything else false).
+- server.test.ts:37 stale subscribe:false assertion updated in-commit per spec.
+- Suite 895/895 (86 files), check clean, pushed.
