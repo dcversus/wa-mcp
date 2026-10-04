@@ -51,7 +51,9 @@ export interface ResolveOptions {
  * v6). DNS is resolved BEFORE any fetch; the guard runs again per redirect. */
 function isBlockedAddress(address: string): boolean {
   const value = address.toLowerCase();
-  if (value.includes(".")) {
+  // T94-E H1: pure dotted quads only — IPv4-EMBEDDED v6 (e.g.
+  // ::ffff:127.0.0.1) contains dots too and must reach the v6 path
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) {
     const parts = value.split(".").map((part) => Number(part));
     if (
       parts.length !== 4 ||
@@ -78,7 +80,39 @@ function isBlockedAddress(address: string): boolean {
   if (big === 0n) return true; // ::
   if (big >> 120n === 0xfcn) return true; // fc00::/7
   if (big >> 118n === 0x3fan) return true; // fe80::/10
+  // T94-E H1 (RUNTIME review): IPv4-embedded v6 must be judged by the
+  // EMBEDDED v4 — ::ffff:10.0.0.1, 64:ff9b::/96 and 2002::/16 all smuggle
+  // private v4 targets past a pure-v6 prefix check
+  const embedded = embeddedV4(big);
+  if (embedded !== null) {
+    return isBlockedAddress(embedded);
+  }
   return false;
+}
+
+/** extracts the IPv4 address embedded in an IPv4-mapped (::ffff:0:0/96),
+ * NAT64 (64:ff9b::/96) or 6to4 (2002::/16) address; null when none. */
+function embeddedV4(big: bigint): string | null {
+  const low32 = (shift: bigint) =>
+    [
+      (big >> (shift + 24n)) & 0xffn,
+      (big >> (shift + 16n)) & 0xffn,
+      (big >> (shift + 8n)) & 0xffn,
+      big & 0xffn,
+    ].join(".");
+  // ::ffff:0:0/96 — 80 zero bits, ffff at bits 32-48, v4 in the low 32
+  if (big >> 32n === 0xffffn) {
+    return low32(0n);
+  }
+  // 64:ff9b::/96 — prefix groups 0-1 plus four zero groups, v4 in the low 32
+  if (big >> 32n === 0x64ff9bn << 64n) {
+    return low32(0n);
+  }
+  // 2002::/16 — prefix g0 (top 16 bits), v4 = groups 1-2 (bits 80-112)
+  if (big >> 112n === 0x2002n) {
+    return low32(80n);
+  }
+  return null;
 }
 
 function ipv6ToBigInt(value: string): bigint {
@@ -86,9 +120,23 @@ function ipv6ToBigInt(value: string): bigint {
   const zoneless = parsed.split("%")[0] ?? parsed;
   const sections = zoneless.split("::");
   if (sections.length > 2) throw new Error("bad v6");
-  const head = sections[0] === "" ? [] : (sections[0]?.split(":") ?? []);
+  // T94-E H1: a trailing dotted-quad (::ffff:127.0.0.1) is ONE split group —
+  // expand it to its two hex groups or the parse silently truncates
+  const dotted = (group: string): string | string[] => {
+    const parts = group.split(".");
+    if (parts.length === 4 && parts.every((part) => /^\d+$/.test(part) && Number(part) <= 255)) {
+      const [a, b, c, d] = parts.map(Number) as [number, number, number, number];
+      return [(((a << 8) | b) >>> 0).toString(16), (((c << 8) | d) >>> 0).toString(16)];
+    }
+    return group;
+  };
+  const head = sections[0] === "" ? [] : (sections[0]?.split(":").map(dotted).flat() ?? []);
   const tail =
-    sections.length === 2 ? (sections[1] === "" ? [] : (sections[1]?.split(":") ?? [])) : [];
+    sections.length === 2
+      ? sections[1] === ""
+        ? []
+        : (sections[1]?.split(":").map(dotted).flat() ?? [])
+      : [];
   const fill = 8 - head.length - tail.length;
   if (sections.length === 1 && head.length !== 8) throw new Error("bad v6");
   if (fill < 0) throw new Error("bad v6");
