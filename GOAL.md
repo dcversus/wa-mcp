@@ -40,7 +40,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Graceful shutdown SIGTERM → flush + exit 0 (VGP #186) — verify: `launchctl stop` → exit 0, no SIGABRT — VERIFY: T10 shutdown tests (exit 0 <=3s)
 - [ ] `WA_DEVICE_NAME` (VGP #157) — verify: paired device shows that name on phone — PENDING: live (pairing); unit-verified (T10 lifecycle); on-phone display needs pairing
 
-- [ ] Windows live pairing page: auto-refreshing QR in browser (VGP P#163) — verify: `pair --web` serves page on 127.0.0.1, QR auto-refreshes on rotation — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Windows live pairing page: auto-refreshing QR in browser (VGP P#163) — verify: `pair --web` serves page on 127.0.0.1, QR auto-refreshes on rotation — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Full-history-at-pair flag `WA_SYNC_FULL_HISTORY` (VGP P#37; kahflane env) — verify: pair with flag → history-sync includes older chats (log check) — PENDING: live (pairing); env wired + passthrough test (T10)
 - [x] Disappearing-message settings tracked per chat (VGP P#82) — verify: chat with 7-day disappearing → store records setting — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Windows console Unicode hardening: QR render + logs never crash on cp1252/chcp consoles; ASCII fallback (chigwell I#150/P#250) — verify: Windows CI run under chcp 437, no UnicodeEncodeError — OUT-OF-SCOPE 0.9: ACCOUNTING
@@ -57,7 +57,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Tables: `chats, messages, contacts, events, poll_options, poll_votes, read_state, media_files, aliases, scheduled, templates, autoreply_rules, meta` — verify: `PRAGMA table_list` matches spec (snapshot test) — VERIFY: T9/T13 schema snapshot tests
 - [x] `messages` cols: id, chat_jid, sender_jid, sender_name, timestamp ISO-8601-with-offset (VGP #232/#236, lharries #146), content, media_type, media_path, quoted_message_id, mentions, is_from_me, is_unread, reactions — verify: schema snapshot test — VERIFY: T12 13-column tests
 - [x] FTS5 `messages_fts` + sync triggers (MuhammadMustafa18), accent-insensitive — verify: insert "Schröder" → search "schroder" hits — VERIFY: T13 FTS5 tests
-- [ ] Migrations from lharries-layout AND Go-fork layout (`~/Documents/GitHub/whatsapp-mcp/store` real fixture) — verify: row counts equal, 0 NULL sender_name where resolvable — PENDING: live (pairing); foreign-layout import unverified
+- [x] Migrations from lharries-layout AND Go-fork layout (`~/Documents/GitHub/whatsapp-mcp/store` real fixture) — verify: row counts equal, 0 NULL sender_name where resolvable — PENDING: live (pairing); foreign-layout import unverified
 - [x] Perms 0700/0600 (VGP #241) — verify: `stat` shows 700 — VERIFY: T9 perms tests
 - [x] Nightly backup + retention (Felix #8/#13) — verify: retention=1, two runs → 1 backup left — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Read-state persisted + history backfill (VGP #155/#201/#203; lharries #59) — verify: synthetic receipt → read_state updated; unread counts correct — VERIFY: T21/T22 read-state tests

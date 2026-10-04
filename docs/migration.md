@@ -45,14 +45,14 @@ chat_jid, timestamp (epoch seconds), from_me, sender, content)`.
 
 ### Field mapping
 
-| source field | ours |
-| --- | --- |
-| jid / chat_id | chats.jid |
-| name | chats.name |
-| messages[].id | messages.id |
-| timestamp ISO / epoch-s | messages.timestamp (ISO-8601) |
+| source field                          | ours                             |
+| ------------------------------------- | -------------------------------- |
+| jid / chat_id                         | chats.jid                        |
+| name                                  | chats.name                       |
+| messages[].id                         | messages.id                      |
+| timestamp ISO / epoch-s               | messages.timestamp (ISO-8601)    |
 | sender ("me"→NULL) / sender + from_me | messages.sender_jid + is_from_me |
-| text / content | messages.content |
-| full source row | messages.raw |
+| text / content                        | messages.content                 |
+| full source row                       | messages.raw                     |
 
 Idempotent (`INSERT OR IGNORE`); media is referenced, not copied.
