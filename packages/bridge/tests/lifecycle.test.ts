@@ -1385,3 +1385,40 @@ describe("T93 live-found — fetchHistory cursor uses the real schema", () => {
     });
   });
 });
+
+test("T94-C2f — the autoreply send rides the send budget", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autoreply-guard-")));
+  addAutoreplyRule(store, { match: "hello", reply: "hi from the daemon" });
+  const sock = fakeSocket();
+  (sock as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+    key: { id: "AUTO2", fromMe: true },
+  }));
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  // the guard is already over budget — the autoreply must NOT go out
+  const record = vi.fn();
+  const guard = {
+    check: () => ({ ok: false as const, code: "DAILY_CAP_EXCEEDED" as const, cap: 1 }),
+    record,
+  };
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+    store,
+    sendGuard: guard as unknown as import("../src/send/send.ts").SendGuard,
+  });
+  sock.emit("messages.upsert", {
+    messages: [
+      {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN1" },
+        message: { conversation: "hello" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  // RED today: autoreply never consults a guard — the reply fires anyway
+  expect(
+    (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage,
+  ).not.toHaveBeenCalled();
+  await handle.close();
+  store.close();
+});

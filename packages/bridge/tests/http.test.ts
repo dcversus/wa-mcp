@@ -3628,3 +3628,159 @@ describe("T93-C2 — the UI token rides its own rate bucket", () => {
     }
   });
 });
+
+describe("T94-C2 — the send-safety gates cannot be bypassed", () => {
+  function c2Store(): Store {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-c2-")));
+    openedStores.push(store);
+    return store;
+  }
+
+  test("(a) an alias cannot bypass a block rule on the resolved jid", async () => {
+    const store = c2Store();
+    const TARGET = "358400000042@s.whatsapp.net";
+    store.db.prepare("INSERT INTO contacts (jid, name) VALUES (?, ?)").run(TARGET, "Mom");
+    setAlias(store, TARGET, "mom");
+    addSendRule(store, { target: TARGET, mode: "block" });
+    const socket = makeFakeSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(bridge);
+    // RED today: the rules run on the RAW string ("mom") before resolution —
+    // the rule on the resolved jid never matches and the send goes out
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "mom", text: "hi" }),
+    });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("SEND_BLOCKED");
+    expect(socket.sendMessage).not.toHaveBeenCalled();
+  });
+
+  test("(a2) a rule written as an alias still blocks the resolved jid", async () => {
+    const store = c2Store();
+    const TARGET = "358400000043@s.whatsapp.net";
+    store.db.prepare("INSERT INTO contacts (jid, name) VALUES (?, ?)").run(TARGET, "Mom");
+    setAlias(store, TARGET, "mom");
+    addSendRule(store, { target: "mom", mode: "block" });
+    const socket = makeFakeSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(bridge);
+    // RED today: the raw string IS the jid, the alias-form rule never matches
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: TARGET, text: "hi" }),
+    });
+    expect(res.status).toBe(403);
+    expect(socket.sendMessage).not.toHaveBeenCalled();
+  });
+
+  test("(b) batch forward rides the guard and persists forwarded rows", async () => {
+    const store = c2Store();
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, is_from_me) VALUES (?, ?, ?, ?, ?, 0)",
+      )
+      .run("SRC1", "358497773518@s.whatsapp.net", "358497773518@s.whatsapp.net", "2026-01-01T00:00:00Z", "forward me");
+    const socket = makeFakeSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 }),
+    });
+    created.push(bridge);
+    const body = { kind: "forward", ids: ["SRC1"], chat_jid: "358400000099@s.whatsapp.net" };
+    const first = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(first.status).toBe(200);
+    // the forwarded row must be persisted (sendViaSocket never got a store)
+    const stored = store.db
+      .prepare("SELECT COUNT(*) AS n FROM messages WHERE chat_jid = '358400000099@s.whatsapp.net'")
+      .get() as { n: number };
+    expect(stored.n).toBe(1);
+    // and the second batch must hit the daily cap
+    const second = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(second.status).toBe(429);
+    const err = (await second.json()) as { error: { code: string } };
+    expect(err.error.code).toBe("DAILY_CAP_EXCEEDED");
+  });
+
+  test("(d) the tts send leg consumes the guard", async () => {
+    process.env.WA_TTS_ALLOW_MOCK = "1";
+    const store = c2Store();
+    const socket = makeFakeSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 }),
+      mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-c2-media-")),
+    });
+    created.push(bridge);
+    const body = { text: "speak", chat_jid: "358400000099@s.whatsapp.net" };
+    const first = await fetch(url(bridge, "/api/tts"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(first.status).toBe(200);
+    // RED today: the tts leg never consults the guard
+    const second = await fetch(url(bridge, "/api/tts"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(second.status).toBe(429);
+    delete process.env.WA_TTS_ALLOW_MOCK;
+  });
+
+  test("(e) newsletter send consumes the guard", async () => {
+    const store = c2Store();
+    const socket = makeFakeSocket();
+    (socket as { newsletterFollow?: unknown }).newsletterFollow = vi.fn(async () => undefined);
+    (socket as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+      key: { id: "NL1" },
+    }));
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 }),
+    });
+    created.push(bridge);
+    await fetch(url(bridge, "/api/newsletters/follow"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "1234@newsletter" }),
+    });
+    const body = { jid: "1234@newsletter", text: "bulletin" };
+    const first = await fetch(url(bridge, "/api/newsletters/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(first.status).toBe(200);
+    // RED today: newsletter sends skip the guard entirely
+    const second = await fetch(url(bridge, "/api/newsletters/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(second.status).toBe(429);
+  });
+});
