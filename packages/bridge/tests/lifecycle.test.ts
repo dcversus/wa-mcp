@@ -1702,9 +1702,9 @@ test("T94-D-M10 — group senders canonicalize from LID to PN at ingest", async 
   await new Promise((resolve) => setTimeout(resolve, 60));
   // CODEX M10: one person under two identities — sender_jid kept the @lid
   // while contacts/aliases/digests use the PN
-  const row = store.db
-    .prepare("SELECT sender_jid FROM messages WHERE id = 'M10MSG'")
-    .get() as { sender_jid: string | null };
+  const row = store.db.prepare("SELECT sender_jid FROM messages WHERE id = 'M10MSG'").get() as {
+    sender_jid: string | null;
+  };
   expect(row.sender_jid).toBe(PN);
   store.close();
 });

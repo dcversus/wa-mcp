@@ -562,6 +562,17 @@ export async function startBridge(
                   remoteJid = await canonicalChatJid(socket, remoteJid);
                   message.key.remoteJid = remoteJid;
                 }
+                // T94-D-M10 (CODEX): key.participant becomes sender_jid,
+                // reaction authors and poll voters — one person must not
+                // exist under two identities
+                const participant = message.key.participant;
+                if (
+                  participant !== undefined &&
+                  participant !== null &&
+                  participant.endsWith("@lid")
+                ) {
+                  message.key.participant = await canonicalChatJid(socket, participant);
+                }
                 storeMessage(opts.store, message);
                 // T94-C-H1: the pinned fork's poll-vote decrypt block is
                 // commented out (process-message.js:576-624) — replicate its
