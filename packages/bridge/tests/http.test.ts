@@ -62,6 +62,7 @@ function makeFakeSocket(): WASocket {
       message,
     };
   });
+  const relayMessage = vi.fn(async () => "RELAYED1");
   const readMessages = vi.fn(async () => {});
   const sendPresenceUpdate = vi.fn(async () => {});
   const requestPairingCode = vi.fn(async () => "ABCD1234");
@@ -73,6 +74,7 @@ function makeFakeSocket(): WASocket {
   const fetchBlocklist = vi.fn(async () => ["999@s.whatsapp.net"]);
   return {
     sendMessage,
+    relayMessage,
     readMessages,
     sendPresenceUpdate,
     requestPairingCode,
@@ -3352,8 +3354,21 @@ describe("T90 — status/link/buttons/list send kinds", () => {
     return { socket, bridge };
   }
 
+  async function secondBridge() {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-send-t90b-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(bridge);
+    return { socket, bridge };
+  }
+
   test("line77 — status-text sends to status@broadcast with the text", async () => {
-    const { socket, bridge } = sendBridge();
+    const { socket, bridge } = await sendBridge();
     const res = await fetch(url(bridge, "/api/send"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -3366,25 +3381,45 @@ describe("T90 — status/link/buttons/list send kinds", () => {
   });
 
   test("line74 — link_preview kind builds extendedText with matchedText", async () => {
-    const { socket, bridge } = sendBridge();
+    const { socket, bridge } = await sendBridge();
     const res = await fetch(url(bridge, "/api/send"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
       body: JSON.stringify({
         kind: "link_preview",
+        chat_jid: "358497773518@s.whatsapp.net",
         text: "look",
         url: "https://example.com/x",
       }),
     });
     expect(res.status).toBe(200);
+    // engine truth: the fork's generateWAMessageContent text branch merges a
+    // WAUrlInfo linkPreview into extendedTextMessage — a raw extendedTextMessage
+    // proto falls to prepareWAMessageMedia and throws Invalid media type
     const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-      extendedTextMessage?: { matchedText?: string; canonicalUrl?: string };
+      text?: string;
+      linkPreview?: { "matched-text"?: string };
     };
-    expect(call?.extendedTextMessage?.matchedText).toBe("https://example.com/x");
+    expect(call?.text).toBe("look");
+    expect(call?.linkPreview?.["matched-text"]).toBe("https://example.com/x");
+  });
+
+  test("line74 — link_preview without a url is a validation error", async () => {
+    const { bridge } = await sendBridge();
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "link_preview",
+        chat_jid: "358497773518@s.whatsapp.net",
+        text: "look",
+      }),
+    });
+    expect(res.status).toBe(400);
   });
 
   test("line80 — buttons kind builds buttonsMessage; list kind builds listMessage", async () => {
-    const { socket: s1, bridge: b1 } = sendBridge();
+    const { socket: s1, bridge: b1 } = await sendBridge();
     const buttons = await fetch(url(b1, "/api/send"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -3399,20 +3434,14 @@ describe("T90 — status/link/buttons/list send kinds", () => {
       }),
     });
     expect(buttons.status).toBe(200);
-    const buttonCall = (s1.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-      buttonsMessage?: { buttons?: unknown[] };
-    };
-    expect(buttonCall.buttonsMessage).toBeDefined();
+    // engine truth: sendMessage rejects raw protos (prepareWAMessageMedia →
+    // "Invalid media type") — interactive protos go out via relayMessage
+    const buttonRelay = (s1.relayMessage as ReturnType<typeof vi.fn>).mock.calls[0] as
+      | [string, { buttonsMessage?: unknown }, { messageId?: string }]
+      | undefined;
+    expect(buttonRelay?.[1].buttonsMessage).toBeDefined();
 
-    const s2 = makeFakeSocket();
-    const store2 = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-send-t90b-")));
-    openedStores.push(store2);
-    const b2 = await createHttpServer(stubHandle("connected", null, s2), {
-      token: "test-token",
-      store: store2,
-      sendGuard: new SendGuard(store2, { minIntervalMs: 0, dailyCap: 100 }),
-    });
-    created.push(b2);
+    const { socket: s2, bridge: b2 } = await secondBridge();
     const list = await fetch(url(b2, "/api/send"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -3420,13 +3449,19 @@ describe("T90 — status/link/buttons/list send kinds", () => {
         kind: "list",
         chat_jid: "358497773518@s.whatsapp.net",
         text: "menu",
-        items: [{ title: "Pizza", row_id: "r1" }],
+        sections: [
+          {
+            title: "Food",
+            rows: [{ title: "Pizza", row_id: "r1" }],
+          },
+        ],
       }),
     });
     expect(list.status).toBe(200);
-    const listCall = (s2.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
-      listMessage?: unknown;
-    };
-    expect(listCall.listMessage).toBeDefined();
+    const listRelay = (s2.relayMessage as ReturnType<typeof vi.fn>).mock.calls[0] as
+      | [string, { listMessage?: unknown }, { messageId?: string }]
+      | undefined;
+    expect(listRelay?.[1].listMessage).toBeDefined();
+    expect(listRelay?.[2].messageId).toBeTruthy();
   });
 });

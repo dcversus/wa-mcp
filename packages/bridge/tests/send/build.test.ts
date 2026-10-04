@@ -12,6 +12,7 @@ import {
   buildMediaMessage,
   buildPollMessage,
   buildReactionMessage,
+  buildStatusTextMessage,
   buildTextMessage,
   BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY,
   type MediaKind,
@@ -221,7 +222,10 @@ describe("T85 line95 — album container (engine truth: fork albumMessage)", () 
 
 describe("T90 line74 — link preview builder", () => {
   test("text + url builds extendedTextMessage with matchedText + canonicalUrl", async () => {
-    const msg = await buildLinkPreviewMessage({ text: "look at https://example.com/x", url: "https://example.com/x" });
+    const msg = await buildLinkPreviewMessage({
+      text: "look at https://example.com/x",
+      url: "https://example.com/x",
+    });
     const ext = msg.extendedTextMessage;
     expect(ext?.text).toBe("look at https://example.com/x");
     expect(ext?.matchedText).toBe("https://example.com/x");

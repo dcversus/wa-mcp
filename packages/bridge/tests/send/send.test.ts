@@ -246,3 +246,52 @@ describe("T84 line101 — engine errors map to structured WA_RATE_LIMITED", () =
     expect(mapWaError(new Error("boom")).code).toBe("SEND_FAILED");
   });
 });
+
+test("T92 line80 — sendProtoViaSocket relays raw protos with an engine-generated id", async () => {
+  const relayMessage = vi.fn(async () => "RELAYED2");
+  const sock = {
+    user: { id: "358497773518@s.whatsapp.net" },
+    relayMessage,
+  } as unknown as WASocket;
+  const { sendProtoViaSocket } = (await import("../../src/send/send.ts")) as {
+    sendProtoViaSocket: (
+      socket: WASocket,
+      jid: string,
+      message: unknown,
+      opts?: { store?: Store },
+    ) => Promise<{ messageId: string; chatJid: string }>;
+  };
+  const store = freshStore();
+  const result = await sendProtoViaSocket(
+    sock,
+    "+358 497 773 518",
+    { listMessage: { title: "menu" } },
+    { store },
+  );
+  expect(result.chatJid).toBe("358497773518@s.whatsapp.net");
+  expect(result.messageId).toBeTruthy();
+  expect(relayMessage).toHaveBeenCalledTimes(1);
+  const [jid, message, relayOpts] = (relayMessage as ReturnType<typeof vi.fn>).mock.calls[0] as [
+    string,
+    { listMessage?: unknown },
+    { messageId?: string },
+  ];
+  expect(jid).toBe("358497773518@s.whatsapp.net");
+  expect(message.listMessage).toBeDefined();
+  expect(relayOpts.messageId).toBe(result.messageId);
+  const row = store.db.prepare("SELECT * FROM messages").get() as Record<string, unknown>;
+  expect(row.is_from_me).toBe(1);
+  expect(row.chat_jid).toBe("358497773518@s.whatsapp.net");
+});
+
+test("T92 line80 — sendProtoViaSocket honors WA_SENDS_DISABLED", async () => {
+  process.env.WA_SENDS_DISABLED = "1";
+  const relayMessage = vi.fn(async () => "RELAYED3");
+  const sock = { user: { id: "X" }, relayMessage } as unknown as WASocket;
+  const { sendProtoViaSocket } = (await import("../../src/send/send.ts")) as {
+    sendProtoViaSocket: (socket: WASocket, jid: string, message: unknown) => Promise<unknown>;
+  };
+  await expect(
+    sendProtoViaSocket(sock, "358497773518@s.whatsapp.net", {}),
+  ).rejects.toMatchObject({ code: "SENDS_DISABLED" });
+});
