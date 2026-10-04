@@ -210,3 +210,4 @@ no checkbox is claimed without evidence.
 - §16 T93-C UI crash guard — PASS — RED cac5597 + GREEN a18f685 (guarded page renders, ui-token off the API rate bucket, e2e preflight); webui-e2e to re-run on deploy below.
 - §6 T93-D auto-download on ingest — PASS — RED d1a182d + GREEN b29b84d (autodl rules wired into messages.upsert; live inbound voice message had empty media_path pre-fix).
 - §5 fetchHistory cursor — PASS — LIVE: POST /api/fetch-history responded (was 500 'no such column: from_me'); fix + real-store integration test by orchestrator.
+- §4 scheduler E2E — PASS — LIVE 2026-10-04T14:01Z: scheduled id=2 send_at 13:59:59Z → fired on the tick → status='sent', sent_message_id=3EB078A0D27C14C41CDC26 = store row 'E2E scheduler fired ✓'; cancel path verified (id=1 → cancelled).
