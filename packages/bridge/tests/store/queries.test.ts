@@ -614,3 +614,43 @@ describe("T80 line62 — backup + retention", () => {
     expect(existsSync(join(backups, runs[0] ?? "", "media", "x.txt"))).toBe(true);
   });
 });
+
+test("T97b — limit applies AFTER date/sender filtering, never pre-filter truncated", () => {
+  const store = makeStore();
+  try {
+    const OTHER = "358400000002@s.whatsapp.net";
+    const CHAT_B = "120363428874442773@g.us";
+    // chat A: 3 from the module SENDER + 2 from OTHER, all inside the window
+    storeMessage(store, message("S1", GROUP_A, 1000, "s-old"));
+    storeMessage(store, message("S2", GROUP_A, 2000, "s-mid"));
+    storeMessage(store, message("S3", GROUP_A, 3000, "s-new"));
+    storeMessage(
+      store,
+      message("O1", GROUP_A, 2500, "o-new", {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "O1", participant: OTHER },
+      }),
+    );
+    storeMessage(
+      store,
+      message("O2", GROUP_A, 1500, "o-old", {
+        key: { remoteJid: GROUP_A, fromMe: false, id: "O2", participant: OTHER },
+      }),
+    );
+    // same sender in ANOTHER chat — must not leak into the window
+    storeMessage(store, message("B1", CHAT_B, 5000, "b-other-chat"));
+
+    // window covers all of chat A; limit 2 must take the 2 NEWEST rows of
+    // the FILTERED set (S3, S2) — not the newest 2 of chat A truncated to
+    // the filter (which would yield only S3)
+    const rows = listMessages(store, {
+      chatJid: GROUP_A,
+      sender: SENDER,
+      after: new Date(500 * 1000),
+      before: new Date(4000 * 1000),
+      limit: 2,
+    });
+    expect(rows.map((row) => row.id)).toEqual(["S3", "S2"]);
+  } finally {
+    store.close();
+  }
+});
