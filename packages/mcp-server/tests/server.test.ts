@@ -468,3 +468,46 @@ describe("T88-B — export/bulk MCP tools", () => {
     expect(JSON.parse(String(log[0]?.init.body))).toEqual({ chat_jids: ["1@g.us", "2@g.us"] });
   });
 });
+
+describe("T89-B GAP2 — label MCP tools", () => {
+  test("tools/list includes the four label tools", async () => {
+    const response = await handleRpcLine(makeRequest(60, "tools/list", {}), ctx);
+    const names = (resultOf(response).tools as Array<{ name: string }>).map((t) => t.name);
+    for (const expected of ["label_add", "label_list", "label_assign", "label_remove"]) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  test("label_add posts name+color; label_list GETs; label_assign PUTs; label_remove DELETEs", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      const payload =
+        log.length === 2 ? { labels: [{ id: 1, name: "Work", color: "#ff0000" }] } : { ok: true };
+      return new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const toolCtx = { ...ctx, fetchFn };
+    await handleRpcLine(
+      makeRequest(61, "tools/call", { name: "label_add", arguments: { name: "Work", color: "#ff0000" } }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/labels");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ name: "Work", color: "#ff0000" });
+    await handleRpcLine(makeRequest(62, "tools/call", { name: "label_list", arguments: {} }), toolCtx);
+    expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/labels");
+    await handleRpcLine(
+      makeRequest(63, "tools/call", {
+        name: "label_assign",
+        arguments: { chat_jid: "1@g.us", label_id: 1 },
+      }),
+      toolCtx,
+    );
+    expect(log[2]?.init.method).toBe("PUT");
+    expect(JSON.parse(String(log[2]?.init.body))).toEqual({ chat_jid: "1@g.us", label_id: 1 });
+    await handleRpcLine(
+      makeRequest(64, "tools/call", { name: "label_remove", arguments: { id: 1 } }),
+      toolCtx,
+    );
+    expect(log[3]?.init.method).toBe("DELETE");
+  });
+});
