@@ -11,7 +11,9 @@ export type MediaErrorCode =
   | "FETCH_FAILED"
   | "EMPTY"
   | "SSRF_BLOCKED"
-  | "FFMPEG_UNAVAILABLE";
+  | "FFMPEG_UNAVAILABLE"
+  | "PAYLOAD_TOO_LARGE"
+  | "VALIDATION_ERROR";
 
 export type LookupAddresses = Array<{ address: string; family: number }>;
 export type LookupFn = (hostname: string, options: { all: true }) => Promise<LookupAddresses>;
