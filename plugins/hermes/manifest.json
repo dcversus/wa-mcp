@@ -1,0 +1,8 @@
+{
+  "name": "wa-mcp",
+  "target": "hermes",
+  "version": "0.10.0",
+  "description": "WhatsApp bridge registration for hermes",
+  "config_path": "~/.hermes/config.yaml",
+  "config_format": "YAML - mcp_servers: wa-mcp: {command, args, env}"
+}

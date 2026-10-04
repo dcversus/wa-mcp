@@ -1,0 +1,8 @@
+{
+  "name": "wa-mcp",
+  "target": "pi",
+  "version": "0.10.0",
+  "description": "WhatsApp bridge registration for pi",
+  "config_path": "~/.pi/mcp/wa-mcp.json",
+  "config_format": "JSON - single-server spec {command, args, env}"
+}

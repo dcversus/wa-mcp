@@ -1,0 +1,8 @@
+{
+  "name": "wa-mcp",
+  "target": "cursor",
+  "version": "0.10.0",
+  "description": "WhatsApp bridge registration for cursor",
+  "config_path": "~/.cursor/mcp.json",
+  "config_format": "JSON - mcpServers.wa-mcp {command, args, env}"
+}
