@@ -1771,9 +1771,7 @@ test("T94-F M5codex — history sync leaves no phantom @lid chat rows", async ()
   await new Promise((resolve) => setTimeout(resolve, 80));
   // CODEX M5: markHistorySynced re-created the @lid chat row the merge
   // removes — phantom empty chats next to the canonical PN rows
-  const phantom = store.db
-    .prepare("SELECT jid FROM chats WHERE jid = ?")
-    .get(LID);
+  const phantom = store.db.prepare("SELECT jid FROM chats WHERE jid = ?").get(LID);
   expect(phantom).toBeUndefined();
   const canonical = store.db.prepare("SELECT name FROM chats WHERE jid = ?").get(PN) as {
     name: string;

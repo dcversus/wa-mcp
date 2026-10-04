@@ -698,6 +698,13 @@ export async function startBridge(
               const store = opts.store;
               // pre-resolve LID→PN remotes (async) BEFORE the sync transaction
               const lidToPn = new Map<string, string>();
+              // T94-F M5codex: chat ids resolve too — not just message jids
+              for (const chat of history.chats ?? []) {
+                const chatId = chat.id;
+                if (typeof chatId === "string" && chatId.endsWith("@lid") && !lidToPn.has(chatId)) {
+                  lidToPn.set(chatId, await canonicalChatJid(socket, chatId));
+                }
+              }
               for (const message of history.messages ?? []) {
                 const remoteJid = message.key.remoteJid;
                 if (
@@ -719,11 +726,14 @@ export async function startBridge(
                     : chat.id;
                   upsertChatMeta(store, { id: canonical, name: chat.name });
                 }
+                // T94-F M5codex: the synced-mark list canonicalizes TOO — the
+                // raw @lid ids re-created phantom chat rows the merge removes
                 markHistorySynced(
                   store,
                   (history.chats ?? [])
                     .map((chat) => chat.id)
-                    .filter((id): id is string => typeof id === "string"),
+                    .filter((id): id is string => typeof id === "string")
+                    .map((id) => (id.endsWith("@lid") ? (lidToPn.get(id) ?? id) : id)),
                 );
                 let stored = 0;
                 for (const message of history.messages ?? []) {
