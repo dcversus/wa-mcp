@@ -140,6 +140,9 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
       return false;
     }
     updateTargetContent(store, chatJid, extracted.editedMessageId, extracted.editedText);
+    store.db
+      .prepare("UPDATE messages SET edited = 1 WHERE chat_jid = ? AND id = ?")
+      .run(chatJid, extracted.editedMessageId);
     return false;
   }
   if (extracted.reaction !== null && extracted.reactionTargetId !== null) {

@@ -516,3 +516,33 @@ export function fetchMessageFromStore(
     pushName: asString(row.sender_name) ?? undefined,
   } as WAMessage;
 }
+
+/** T87 line121: total rows matching a message filter (for truncation meta). */
+export function countMessages(
+  store: Store,
+  opts: { chatJid?: string; sender?: string; after?: Date; before?: Date } = {},
+): number {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (opts.chatJid !== undefined) {
+    conditions.push("chat_jid = ?");
+    params.push(opts.chatJid);
+  }
+  if (opts.sender !== undefined) {
+    conditions.push("sender_jid = ?");
+    params.push(opts.sender);
+  }
+  if (opts.after !== undefined) {
+    conditions.push("timestamp >= ?");
+    params.push(opts.after.toISOString());
+  }
+  if (opts.before !== undefined) {
+    conditions.push("timestamp < ?");
+    params.push(opts.before.toISOString());
+  }
+  const where = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+  const row = store.db.prepare(`SELECT COUNT(*) AS n FROM messages${where}`).get(...params) as {
+    n: number;
+  };
+  return row.n;
+}

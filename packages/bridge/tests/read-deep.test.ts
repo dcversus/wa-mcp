@@ -109,9 +109,10 @@ describe("T87 — read deepening", () => {
       storeMessage(store, {
         key: { remoteJid: GROUP_A, fromMe: false, id: "FF1", participant: "358401112222@s.whatsapp.net" },
         message: {
-          conversation: "check @358400000001@s.whatsapp.net",
-          extendedTextMessage: { text: "check @358400000001@s.whatsapp.net" },
-          mentions: ["358400000001@s.whatsapp.net"],
+          extendedTextMessage: {
+            text: "check @358400000001@s.whatsapp.net",
+            contextInfo: { mentionedJid: ["358400000001@s.whatsapp.net"] },
+          },
         },
         messageTimestamp: 1000,
       } as never);

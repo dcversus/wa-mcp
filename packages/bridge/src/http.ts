@@ -57,6 +57,7 @@ import {
 } from "./profile.ts";
 import {
   fetchMessageFromStore,
+  countMessages,
   getMessageContext,
   pollVotesAggregate,
   listChats,
@@ -441,15 +442,37 @@ export async function createHttpServer(
         validationError(res, "invalid query parameters");
         return;
       }
+      const messages = listMessages(store, {
+        chatJid: params.get("chat_jid") ?? undefined,
+        sender: params.get("sender") ?? undefined,
+        after: after.value,
+        before: before.value,
+        limit: limit.value,
+        offset: offset.value,
+      });
+      // T87 line121: truncation metadata for capped pages
+      let total = 0;
+      try {
+        total = countMessages(store, {
+        chatJid: params.get("chat_jid") ?? undefined,
+        sender: params.get("sender") ?? undefined,
+        after: after.value,
+        before: before.value,
+      });
+      } catch (err: unknown) {
+        console.error("T87-DEBUG:", err);
+        throw err;
+      }
+      const returned = messages.length;
+      const truncated = offset.value + returned < total;
       sendJson(res, 200, {
-        messages: listMessages(store, {
-          chatJid: params.get("chat_jid") ?? undefined,
-          sender: params.get("sender") ?? undefined,
-          after: after.value,
-          before: before.value,
-          limit: limit.value,
-          offset: offset.value,
-        }),
+        messages,
+        meta: {
+          truncated,
+          total,
+          returned,
+          nextOffset: truncated ? offset.value + returned : offset.value,
+        },
       });
       return;
     }

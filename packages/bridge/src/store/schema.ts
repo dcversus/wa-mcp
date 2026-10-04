@@ -217,6 +217,10 @@ CREATE TABLE IF NOT EXISTS scheduled_messages (
 );
 `;
 
+const MIGRATION_V12 = `
+ALTER TABLE messages ADD COLUMN edited INTEGER NOT NULL DEFAULT 0;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -229,6 +233,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 9, sql: MIGRATION_V9 },
   { version: 10, sql: MIGRATION_V10 },
   { version: 11, sql: MIGRATION_V11 },
+  { version: 12, sql: MIGRATION_V12 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
