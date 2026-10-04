@@ -62,6 +62,8 @@ export interface BridgeHandle {
   resumePairing(): void;
   /** T79 line49: connection-quality counters for /health. */
   connectionQuality(): { reconnects: number; lastDisconnectAt: number | null };
+  /** T84 line92: explicit logout — teardown + logged-out marker, no reconnection. */
+  logout(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -578,6 +580,25 @@ export async function startBridge(
       reconnects,
       lastDisconnectAt,
     }),
+    logout: async () => {
+      // T84 line92: creds are KEPT but the session is marked logged-out —
+      // closed=true stops every auto-reconnect path from here on.
+      closed = true;
+      status = "logged-out";
+      (state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut = true;
+      const current = socket;
+      if (current !== null && current !== undefined) {
+        for (const name of EVENT_NAMES) {
+          current.ev.removeAllListeners(name);
+        }
+        try {
+          await current.logout?.();
+        } catch (err: unknown) {
+          opts.logger?.warn({ err }, "engine logout failed — session still torn down");
+        }
+        void current.end(new Error("logout"));
+      }
+    },
     close: async () => {
       closed = true;
       reconnectPending = false;

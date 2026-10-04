@@ -151,8 +151,7 @@ export function mapWaError(err: unknown): {
     return {
       code: "WA_RATE_LIMITED",
       message,
-      retryAfterSeconds:
-        retryMatch !== null ? Number(retryMatch[1]) : banned ? 3600 : undefined,
+      retryAfterSeconds: retryMatch !== null ? Number(retryMatch[1]) : banned ? 3600 : undefined,
       hint: banned
         ? "the account is temporarily banned — wait before sending again"
         : "WhatsApp is rate-limiting this account — slow down or wait for the retry window",

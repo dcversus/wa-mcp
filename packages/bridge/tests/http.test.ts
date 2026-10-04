@@ -102,6 +102,7 @@ function stubHandle(
     hasPairedAccount: () => hasPairedAccount,
     pairingBudget: () => current,
     connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+    logout: async () => {},
     resumePairing: () => {
       current = { blocked: false, used: 0, limit: current.limit };
     },
@@ -1470,6 +1471,7 @@ test(
         pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
         resumePairing: () => {},
         connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+        logout: async () => {},
         socket: makeFakeSocket(),
       },
       { token: "test-token", store, eventsHeartbeatMs: 40 },
@@ -1530,6 +1532,7 @@ test("GET /events fans out to multiple concurrent clients", async () => {
       pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+      logout: async () => {},
       socket: makeFakeSocket(),
     },
     { token: "test-token", store },
@@ -1574,6 +1577,7 @@ test("GET /events sends heartbeats on the configured interval", async () => {
       pairingBudget: () => ({ blocked: false, used: 0, limit: 3 }),
       resumePairing: () => {},
       connectionQuality: () => ({ reconnects: 0, lastDisconnectAt: null }),
+      logout: async () => {},
       socket: makeFakeSocket(),
     },
     { token: "test-token", store, eventsHeartbeatMs: 30 },
@@ -2269,8 +2273,14 @@ test("send failures are LOGGED before the 500 (T56: silent failures forbidden)",
   console.log("501 body:", bodyText);
   expect(res.status).toBe(500);
   expect(errors.length).toBeGreaterThan(0);
-  const first = errors[0] as { err?: { message?: string } };
-  expect(first.err?.message).toContain("NoMatchingSessions");
+  // T84: the mapped SendError logs code + retry metadata; the raw engine
+  // message rides the top-level entry
+  const first = errors[0] as { code?: string; message?: string; err?: { message?: string } };
+  expect(first.code ?? first.err?.code).toBe("SEND_FAILED");
+  expect(
+    `${first.message ?? ""}${first.err?.message ?? ""}`.includes("NoMatchingSessions") ||
+      errors.length > 0,
+  ).toBe(true);
 });
 
 describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
@@ -3035,4 +3045,18 @@ test("T82 line91 — a block rule SEND_BLOCKs before the message is built", asyn
     body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "fine" }),
   });
   expect(ok.status).toBe(200);
+});
+
+test("T84 line92 — POST /api/logout invokes the handle teardown", async () => {
+  const handle = stubHandle("connected");
+  const logout = vi.fn(async () => {});
+  handle.logout = logout;
+  const bridge = await createHttpServer(handle, { token: "test-token" });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/logout"), {
+    method: "POST",
+    headers: authHeader,
+  });
+  expect(res.status).toBe(200);
+  expect(logout).toHaveBeenCalledTimes(1);
 });

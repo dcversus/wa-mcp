@@ -881,7 +881,13 @@ export async function createHttpServer(
       })
       .catch((err: unknown) => {
         if (err instanceof SendError) {
-          const status = err.code === "SENDS_DISABLED" ? 403 : 400;
+          // T56/T84: structured errors are still LOGGED — silent failures forbidden
+          opts.logger?.error(
+            { code: err.code, retryAfterSeconds: err.retryAfterSeconds, hint: err.hint },
+            "send failed",
+          );
+          const status =
+            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
@@ -1663,7 +1669,8 @@ export async function createHttpServer(
       })
       .catch((err: unknown) => {
         if (err instanceof SendError) {
-          const status = err.code === "SENDS_DISABLED" ? 403 : 400;
+          const status =
+            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
@@ -2025,6 +2032,11 @@ export async function createHttpServer(
             )
             .run(input.chat_jid, input.message_id);
           sendJson(res, 200, { deleted: true });
+          return;
+        }
+        if (path === "/api/logout" && req.method === "POST") {
+          await handle.logout();
+          sendJson(res, 200, { ok: true, status: handle.status });
           return;
         }
         if (path === "/api/pair/resume" && req.method === "POST") {
