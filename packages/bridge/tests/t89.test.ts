@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import type { WASocket } from "baileys";
 import { createEventBus } from "../src/events.ts";
 import type { BridgeHandle, BridgeStatus } from "../src/lifecycle.ts";

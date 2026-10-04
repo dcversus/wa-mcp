@@ -1,4 +1,9 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { MediaError } from "./resolve.ts";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Store } from "../store/schema.ts";
 
 export interface TranscriptionResult {
@@ -20,7 +25,7 @@ export class MockTranscriptionEngine implements TranscriptionEngine {
   }
 }
 
-export const SUPPORTED_TRANSCRIPTION_ENGINES = ["mock", "openai"] as const;
+export const SUPPORTED_TRANSCRIPTION_ENGINES = ["mock", "openai", "mlx"] as const;
 
 export interface TranscribeCallOptions {
   fileName?: string;
@@ -88,9 +93,65 @@ export class OpenAITranscriptionEngine implements TranscriptionEngine {
   }
 }
 
+export class MlxTranscriptionEngine implements TranscriptionEngine {
+  constructor(
+    private readonly binPath: string,
+    private readonly spawnFn: typeof import("node:child_process").spawn = spawn,
+  ) {}
+
+  async transcribe(buffer: Buffer, mime: string): Promise<TranscriptionResult> {
+    const dir = mkdtempSync(join(tmpdir(), "wa-mcp-mlx-"));
+    const input = join(dir, "input.ogg");
+    const output = join(dir, "out.json");
+    writeFileSync(input, buffer);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let child: ReturnType<typeof this.spawnFn>;
+        try {
+          child = this.spawnFn(this.binPath, [input, "--output-json", output]);
+        } catch (err: unknown) {
+          reject(
+            new MediaError(
+              "FFMPEG_UNAVAILABLE",
+              `mlx binary not runnable at ${this.binPath}: ${String(err)}`,
+            ),
+          );
+          return;
+        }
+        child.on("error", (err: NodeJS.ErrnoException) =>
+          reject(
+            new MediaError(
+              "FFMPEG_UNAVAILABLE",
+              `mlx binary not runnable at ${this.binPath}: ${err.message}`,
+            ),
+          ),
+        );
+        child.on("close", (code) => {
+          if (code !== 0) {
+            reject(new MediaError("FFMPEG_UNAVAILABLE", `mlx exited ${code}`));
+            return;
+          }
+          resolve();
+        });
+      });
+      const parsed = JSON.parse(readFileSync(output, "utf8")) as {
+        text?: string;
+        language?: string;
+      };
+      return { text: parsed.text ?? "", language: parsed.language };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+}
+
 export function createTranscriptionEngine(engine: string): TranscriptionEngine {
   if (engine === "mock") {
     return new MockTranscriptionEngine();
+  }
+  if (engine === "mlx") {
+    const binPath = process.env.WA_MLX_BIN ?? "mlx_whisper";
+    return new MlxTranscriptionEngine(binPath);
   }
   if (engine === "openai") {
     return new OpenAITranscriptionEngine({

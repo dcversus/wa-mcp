@@ -2287,6 +2287,96 @@ export async function createHttpServer(
           });
           return;
         }
+        if (
+          path.startsWith("/api/groups/") &&
+          path.endsWith("/requests") &&
+          req.method === "GET"
+        ) {
+          const groupJid = decodeURIComponent(
+            path.slice("/api/groups/".length, -"/requests".length),
+          );
+          const engine = handle.socket as unknown as {
+            groupRequestParticipantsList?: (jid: string) => Promise<unknown>;
+          };
+          if (typeof engine.groupRequestParticipantsList !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" } });
+            return;
+          }
+          sendJson(res, 200, { requests: await engine.groupRequestParticipantsList(groupJid) });
+          return;
+        }
+        if (
+          path.startsWith("/api/groups/") &&
+          path.endsWith("/requests") &&
+          req.method === "POST"
+        ) {
+          const groupJid = decodeURIComponent(
+            path.slice("/api/groups/".length, -"/requests".length),
+          );
+          const input = JSON.parse(body.toString("utf8")) as {
+            participants?: unknown;
+            action?: unknown;
+          };
+          const participants = Array.isArray(input.participants)
+            ? (input.participants as unknown[]).filter((p): p is string => typeof p === "string")
+            : [];
+          const action = input.action === "reject" ? "reject" : "approve";
+          const engine = handle.socket as unknown as {
+            groupRequestParticipantsUpdate?: (
+              jid: string,
+              participants: string[],
+              action: "approve" | "reject",
+            ) => Promise<unknown>;
+          };
+          if (typeof engine.groupRequestParticipantsUpdate !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks join-request API" } });
+            return;
+          }
+          sendJson(res, 200, {
+            updated: await engine.groupRequestParticipantsUpdate(groupJid, participants, action),
+          });
+          return;
+        }
+        if (path.startsWith("/api/groups/") && path.endsWith("/ephemeral") && req.method === "POST") {
+          const groupJid = decodeURIComponent(
+            path.slice("/api/groups/".length, -"/ephemeral".length),
+          );
+          const input = JSON.parse(body.toString("utf8")) as { duration?: unknown };
+          if (typeof input.duration !== "number" || !Number.isFinite(input.duration)) {
+            validationError(res, "duration must be a number (seconds, 0 disables)");
+            return;
+          }
+          const engine = handle.socket as unknown as {
+            groupToggleEphemeral?: (jid: string, expiration: number) => Promise<void>;
+          };
+          if (typeof engine.groupToggleEphemeral !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks ephemeral API" } });
+            return;
+          }
+          await engine.groupToggleEphemeral(groupJid, input.duration);
+          sendJson(res, 200, { chat_jid: groupJid, ephemeral_duration: input.duration });
+          return;
+        }
+        if (path === "/api/calls/reject" && req.method === "POST") {
+          const input = JSON.parse(body.toString("utf8")) as {
+            call_id?: unknown;
+            call_from?: unknown;
+          };
+          if (typeof input.call_id !== "string" || typeof input.call_from !== "string") {
+            validationError(res, "call_id and call_from are required");
+            return;
+          }
+          const socket = handle.socket as unknown as {
+            rejectCall?: (callId: string, callFrom: string) => Promise<void>;
+          };
+          if (typeof socket.rejectCall !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks rejectCall" } });
+            return;
+          }
+          await socket.rejectCall(input.call_id, input.call_from);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
         if (path === "/api/mark-unread" && req.method === "POST") {
           if (opts.store === undefined) {
             sendJson(res, 501, {
