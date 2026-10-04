@@ -30,7 +30,15 @@ test("initialize returns protocol version, capabilities and server info", async 
   );
   const result = resultOf(response);
   expect(typeof result.protocolVersion).toBe("string");
-  expect(result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
+  // T99: honest capability declarations — resources/listChanged is declared
+  // per dispatch; subscribe stays false until the notifications phase
+  expect(result.capabilities).toEqual({
+    tools: {},
+    resources: { subscribe: false, listChanged: true },
+    prompts: {},
+    logging: {},
+    notifications: {},
+  });
   expect(result.serverInfo).toEqual(SERVER_INFO);
   expect(SERVER_INFO.name).toBe("wa-mcp");
   expect(typeof SERVER_INFO.version).toBe("string");
