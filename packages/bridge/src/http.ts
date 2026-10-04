@@ -2596,13 +2596,11 @@ export async function createHttpServer(
                 profilePictureUrl?: (jid: string, type?: string) => Promise<string>;
               };
               const fn = engine.profilePictureUrl;
-              console.error("T87B-DEBUG3: fn type", typeof fn);
               if (typeof fn !== "function") {
                 throw new Error("engine lacks profilePictureUrl");
               }
               const url = await fn.call(socket, jid, "preview");
-              console.error("T87B-DEBUG4: url", url);
-              if (typeof url === "string" && url.length > 0) {
+                        if (typeof url === "string" && url.length > 0) {
                 hasPhoto = true;
                 pictureUrl = url;
               }
