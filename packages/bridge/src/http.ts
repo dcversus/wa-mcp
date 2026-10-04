@@ -2000,6 +2000,51 @@ export async function createHttpServer(
           return;
         }
         if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {
+          if (path.endsWith("/view") && path.startsWith("/api/media/") && req.method === "POST") {
+            const messageId = path.slice("/api/media/".length, -"/view".length);
+            if (!/^[A-Za-z0-9_-]+$/.test(messageId)) {
+              validationError(res, "invalid message id");
+              return;
+            }
+            const original =
+              opts.store !== undefined ? fetchMessageFromStore(opts.store, messageId) : null;
+            const socketOk = handle.socket !== undefined && handle.socket !== null;
+            if (!socketOk || original === null) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+              return;
+            }
+            const row = opts.store.db
+              .prepare("SELECT media_path, media_type FROM messages WHERE id = ?")
+              .get(messageId) as
+              | { media_path: string | null; media_type: string | null }
+              | undefined;
+            void (async () => {
+              let path: string;
+              let mime: string;
+              if (row?.media_path) {
+                path = row.media_path;
+                mime = row.media_type === "image" ? "image/jpeg" : "video/mp4";
+              } else {
+                const downloaded = await downloadMessageMedia(handle.socket as never, original, {
+                  store: opts.store,
+                  mediaDir: opts.mediaDir ?? ".",
+                  messageId,
+                });
+                path = downloaded.path;
+                mime = downloaded.mime;
+              }
+              const result = await viewMedia({ path, mime }, { spawnFn: opts.spawnFn });
+              sendJson(res, 200, result);
+            })().catch((err: unknown) => {
+              if (err instanceof MediaError) {
+                const status = err.code === "PAYLOAD_TOO_LARGE" ? 413 : 422;
+                sendJson(res, status, { error: { code: err.code, message: err.message } });
+                return;
+              }
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "view failed" } });
+            });
+            return;
+          }
           if (
             path.endsWith("/download") &&
             path.startsWith("/api/media/") &&

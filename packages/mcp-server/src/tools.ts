@@ -1218,6 +1218,139 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "download_media",
+    description:
+      "Force-download a media message (if not already stored) and return the local file path.",
+    inputSchema: {
+      type: "object",
+      required: ["message_id"],
+      properties: { message_id: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const messageId = requireString(args, "message_id");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/media/${encodeURIComponent(messageId)}/download`,
+        { method: "POST", body: JSON.stringify({}) },
+      )) as { path?: string; downloaded?: boolean; error?: { code: string; message: string } };
+      if (payload.path === undefined) {
+        return {
+          content: [
+            { type: "text", text: `NOT_FOUND: ${payload.error?.message ?? "message not found"}` },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: payload.downloaded
+              ? `downloaded to ${payload.path}`
+              : `already stored at ${payload.path}`,
+          },
+        ],
+      };
+    },
+  },
+  {
+    name: "view_media",
+    description:
+      "Return media content to the model: images as base64 (size-capped), videos sampled to <=8 frames via ffmpeg.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id"],
+      properties: {
+        chat_jid: { type: "string" },
+        message_id: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const messageId = requireString(args, "message_id");
+      let payload: {
+        mime?: string;
+        frames?: Array<{ data_base64: string }>;
+        error?: { code: string; message: string };
+      };
+      try {
+        payload = (await bridgeFetch(toolCtx, `/api/media/${encodeURIComponent(messageId)}/view`, {
+          method: "POST",
+          body: JSON.stringify({ chat_jid: chatJid, message_id: messageId }),
+        })) as typeof payload;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }] };
+      }
+      if (payload.frames === undefined) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `${payload.error?.code ?? "NOT_FOUND"}: ${payload.error?.message ?? "view failed"}`,
+            },
+          ],
+        };
+      }
+      const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
+        { type: "text", text: `${payload.mime} (${payload.frames.length} frame(s))` },
+      ];
+      for (const frame of payload.frames) {
+        content.push({ type: "image", data: frame.data_base64, mimeType: payload.mime });
+      }
+      return { content };
+    },
+  },
+  {
+    name: "transcribe_voice",
+    description:
+      "Transcribe a voice note. Engines: WA_TRANSCRIBE_ENGINE=mock (default) | openai (any OpenAI-compatible endpoint). Live engines only with owner go-ahead.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "message_id"],
+      properties: {
+        chat_jid: { type: "string" },
+        message_id: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const messageId = requireString(args, "message_id");
+      let payload: {
+        text?: string;
+        engine?: string;
+        cached?: boolean;
+        error?: { code: string; message: string };
+      };
+      try {
+        payload = (await bridgeFetch(toolCtx, "/api/transcribe", {
+          method: "POST",
+          body: JSON.stringify({ chat_jid: chatJid, message_id: messageId }),
+        })) as typeof payload;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }] };
+      }
+      if (payload.text === undefined) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `${payload.error?.code ?? "TRANSCRIBE_FAILED"}: ${payload.error?.message ?? "failed"}`,
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `[${payload.engine ?? "?"}${payload.cached ? ", cached" : ""}] ${payload.text}`,
+          },
+        ],
+      };
+    },
+  },
+  {
     name: "get_contact",
     description: "Get one contact's detail by JID (name, pushname, business name, phone).",
     inputSchema: {
