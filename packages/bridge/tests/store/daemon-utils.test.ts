@@ -194,3 +194,26 @@ describe("T84-B — line93 autoreply store + line98 scheduled media", () => {
     }
   });
 });
+
+test("T94-D-H3 — processDue marks failed rows with the structured reason", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-due-reason-")));
+  try {
+    scheduleMessage(store, {
+      chatJid: "358497773518@s.whatsapp.net",
+      payload: "blocked text",
+      sendAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    await processDue(store, new Date(), async () => {
+      throw new Error("SEND_BLOCKED: sending to X is blocked by rule #1 (X)");
+    });
+    // CODEX H3: a refusal reason must survive on the row — "failed" alone
+    // hides whether it was the rules, the budget or the engine
+    const row = store.db
+      .prepare("SELECT status, last_error FROM scheduled_messages")
+      .get() as { status: string; last_error?: string | null };
+    expect(row.status).toBe("failed");
+    expect(row.last_error ?? "").toContain("SEND_BLOCKED");
+  } finally {
+    store.close();
+  }
+});

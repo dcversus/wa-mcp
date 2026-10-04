@@ -1,8 +1,13 @@
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vite-plus/test";
-import { buildConfig, ensureMediaDir, ensureToken, redactPhone } from "../src/bin.ts";
+import { describe, expect, test, vi } from "vite-plus/test";
+import type { WASocket } from "baileys";
+import { buildConfig, createScheduledSender, ensureMediaDir, ensureToken, redactPhone } from "../src/bin.ts";
+import { addSendRule } from "../src/store/send-rules.ts";
+import { setAlias } from "../src/store/contacts.ts";
+import { openStore } from "../src/store/schema.ts";
+import { SendGuard } from "../src/send/safety.ts";
 
 const POSIX_PERMS = process.platform !== "win32";
 
@@ -109,4 +114,57 @@ test("T94-C-H5 — the daemon hands startBridge the mediaDir (auto-download live
   expect(start).toBeGreaterThan(-1);
   const block = source.slice(start, source.indexOf("});", start));
   expect(block).toContain("mediaDir: config.mediaDir");
+});
+
+describe("T94-D-H3 — the scheduler send gate (CODEX H3)", () => {
+  const TARGET = "358400000042@s.whatsapp.net";
+
+  function senderFixture(dailyCap = 100) {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-schedgate-")));
+    const sendMessage = vi.fn(async () => ({ key: { id: "SCHED1", fromMe: true } }));
+    const socket = { sendMessage } as unknown as WASocket;
+    const sendGuard = new SendGuard(store, { minIntervalMs: 0, dailyCap });
+    const sender = createScheduledSender({ store, sendGuard, socket, mediaDir: tmpdir() });
+    return { store, sendMessage, sendGuard, sender };
+  }
+
+  test("a blocked target refuses with the structured reason", async () => {
+    const { store, sendMessage, sender } = senderFixture();
+    addSendRule(store, { target: TARGET, mode: "block" });
+    // RED today: the scheduler called sendViaSocket directly — no rules
+    await expect(sender(TARGET, "hi")).rejects.toThrow("SEND_BLOCKED");
+    expect(sendMessage).not.toHaveBeenCalled();
+    store.close();
+  });
+
+  test("targets canonicalize before the rules run (alias/phone cannot dodge)", async () => {
+    const { store, sendMessage, sender } = senderFixture();
+    store.db.prepare("INSERT INTO contacts (jid, name) VALUES (?, ?)").run(TARGET, "Mom");
+    setAlias(store, TARGET, "mom");
+    addSendRule(store, { target: TARGET, mode: "block" });
+    // RED today: the raw alias string never matched the rule
+    await expect(sender("mom", "hi")).rejects.toThrow("SEND_BLOCKED");
+    expect(sendMessage).not.toHaveBeenCalled();
+    store.close();
+  });
+
+  test("the daily budget is consumed and enforced", async () => {
+    const { store, sendGuard, sender } = senderFixture(1);
+    await sender(TARGET, "one");
+    // RED today: scheduled sends never drew from the budget
+    await expect(sender(TARGET, "two")).rejects.toThrow("DAILY_CAP_EXCEEDED");
+    store.close();
+  });
+
+  test("happy path sends to the canonical jid", async () => {
+    const { store, sendMessage, sender } = senderFixture();
+    const id = await sender("+358 497 773 518", "hello");
+    expect(id).toBe("SCHED1");
+    const call = (sendMessage as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      unknown,
+    ];
+    expect(call[0]).toBe("358497773518@s.whatsapp.net");
+    store.close();
+  });
 });
