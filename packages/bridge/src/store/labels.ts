@@ -16,7 +16,9 @@ export function addLabel(store: Store, label: { name: string; color: string }): 
 }
 
 export function listLabels(store: Store): LabelRow[] {
-  return store.db.prepare("SELECT id, name, color FROM labels ORDER BY id").all() as LabelRow[];
+  return store.db
+    .prepare("SELECT id, name, color FROM labels ORDER BY id")
+    .all() as unknown as LabelRow[];
 }
 
 export function assignChatLabel(store: Store, chatJid: string, labelId: number): void {
@@ -30,5 +32,5 @@ export function chatLabels(store: Store, chatJid: string): LabelRow[] {
     .prepare(
       "SELECT l.id, l.name, l.color FROM labels l JOIN chat_labels c ON c.label_id = l.id WHERE c.chat_jid = ? ORDER BY l.id",
     )
-    .all(chatJid) as LabelRow[];
+    .all(chatJid) as unknown as LabelRow[];
 }

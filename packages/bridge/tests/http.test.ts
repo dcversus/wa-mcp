@@ -220,6 +220,7 @@ test("health leaks no other data", async () => {
     [
       "channel",
       "connected",
+      "contactsWarm",
       "lastDisconnectAt",
       "loggedIn",
       "pairingAttempts",
