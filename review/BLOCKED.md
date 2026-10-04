@@ -140,3 +140,8 @@ then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'
 - Budget hit 3/3 at ~22:50 while owner was reading the token instructions — the QR pool burned registrations before any scan (the token-gated pairing page wasted the scan window). PAIRING_BLOCKED state active; daemon holding, no further registrations.
 - T53 dispatched: pairing page renders QR by default, zero console steps; /api/qr + /api/pairing-code + /api/pair/resume unauthenticated on loopback (token gates account data, not the public pairing surface — same trust model as web.whatsapp.com).
 - NEXT WINDOW: cron job 8daaf563422c fires 2026-10-03 09:00 EEST — asks owner, resumes ONE registration only on his explicit go. WhatsApp linking options (engine+research truth): QR scan, phone-number pairing code — no other consumer options exist.
+
+## 2026-10-04 14:59 — Billing blocker persists (fresh evidence)
+- Run 37200516247 (push cc8b9ed6 docs commit): build/security/check all "not started — account payments have failed or spending limit needs to be increased". Every push since 10:14 UTC same.
+- Local compensating gates ALL green at this commit: vp check 0 errors, vp test 726/726 (72 files), vp run accounting:check OK (1029), docs:build exit 0, doc-coverage 58/58.
+- Owner action unchanged: Settings → Billing & plans → fix payment / raise spending limit. After restore: re-run ci workflow on main and link the green run in VERIFY.
