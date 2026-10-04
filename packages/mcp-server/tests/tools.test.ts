@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { TOOLS, toolByName, type ToolContext, type ToolResult } from "../src/tools.ts";
 
 function firstText(result: ToolResult): string {
@@ -808,4 +808,65 @@ test("T62: delete_message tool POSTs /api/delete with the bearer token", async (
     message_id: "TARGET1",
   });
   expect(firstText(result)).toContain("deleted");
+});
+
+describe("T94-C1 — export tools read raw text (NDJSON/MD/TXT), not JSON", () => {
+  function textFetch(payload: string, status = 200): { fetchFn: typeof fetch } {
+    const fetchFn = (async () =>
+      new Response(payload, {
+        status,
+        headers: { "content-type": "application/x-ndjson" },
+      })) as unknown as typeof fetch;
+    return { fetchFn };
+  }
+
+  test("export_chat passes multi-line NDJSON through unmodified", async () => {
+    const ndjson = '{"id":"M1","content":"hello"}\n{"id":"M2","content":"hi"}\n';
+    const { fetchFn } = textFetch(ndjson);
+    const tool = toolByName("export_chat");
+    if (!tool) throw new Error("export_chat missing");
+    const result = await tool.handler(
+      { ...ctx, fetchFn },
+      { chat_jid: "358497773518@s.whatsapp.net", format: "jsonl" },
+    );
+    // RED today: bridgeFetch JSON-parses the NDJSON and throws
+    // "Unexpected token …" / double-encodes whatever survives
+    expect(firstText(result)).toBe(ndjson);
+  });
+
+  test("export_unread_messages passes markdown through unmodified", async () => {
+    const markdown = "# Unread\n\n- **Ada:** hello\n";
+    const { fetchFn } = textFetch(markdown);
+    const tool = toolByName("export_unread_messages");
+    if (!tool) throw new Error("export_unread_messages missing");
+    const result = await tool.handler({ ...ctx, fetchFn }, { format: "md" });
+    expect(firstText(result)).toBe(markdown);
+  });
+
+  test("oversized exports are cut WITH a truncation marker", async () => {
+    const big = `${"x".repeat(6000)}\n`;
+    const { fetchFn } = textFetch(big);
+    const tool = toolByName("export_chat");
+    if (!tool) throw new Error("export_chat missing");
+    const result = await tool.handler(
+      { ...ctx, fetchFn },
+      { chat_jid: "a@s.whatsapp.net", format: "txt" },
+    );
+    const text = firstText(result);
+    expect(text.length).toBeLessThan(6000);
+    expect(text).toContain("truncated");
+  });
+
+  test("error bodies still surface as failures", async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "no such chat" } }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      })) as unknown as typeof fetch;
+    const tool = toolByName("export_chat");
+    if (!tool) throw new Error("export_chat missing");
+    await expect(
+      tool.handler({ ...ctx, fetchFn }, { chat_jid: "gone@s.whatsapp.net" }),
+    ).rejects.toThrow("no such chat");
+  });
 });
