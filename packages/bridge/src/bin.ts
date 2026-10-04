@@ -141,6 +141,21 @@ export function createScheduledSender(deps: {
   };
 }
 
+/** T94-F Runtime-M4 (RUNTIME review): Node >= 15 TERMINATES on an
+ * unhandled rejection — one stray promise must never kill the daemon.
+ * Log loudly, keep serving. */
+export function installRejectionGuard(
+  target: NodeJS.Process,
+  logger: { error: (...args: unknown[]) => void },
+): void {
+  target.on("unhandledRejection", (reason) => {
+    logger.error(
+      { err: reason instanceof Error ? { message: reason.message, stack: reason.stack } : reason },
+      "unhandled rejection contained — daemon continues",
+    );
+  });
+}
+
 export async function main(
   cli: { dataDir?: string; port?: string; uiDir?: string } = {},
   env: NodeJS.ProcessEnv = process.env,
@@ -157,6 +172,7 @@ export async function main(
     config.uiDir = cli.uiDir;
   }
   const logger = pino({ level: env.WA_LOG_LEVEL ?? "info" }, pino.destination({ fd: 2 }));
+  installRejectionGuard(process, logger);
   let lock;
   try {
     lock = acquireLock(config.dataDir);
@@ -208,9 +224,16 @@ export async function main(
         socket: handle.socket,
         mediaDir: config.mediaDir,
       }),
-    ).finally(() => {
-      schedulerBusy = false;
-    });
+    )
+      .catch((err: unknown) => {
+        logger.error(
+          { err: err instanceof Error ? err.message : String(err) },
+          "scheduler tick failed",
+        );
+      })
+      .finally(() => {
+        schedulerBusy = false;
+      });
   }, 30_000);
   schedulerTimer.unref();
 

@@ -185,10 +185,7 @@ describe("T94-F M4 — the daemon survives stray rejections", () => {
       on: vi.fn(),
     } as unknown as NodeJS.Process;
     installRejectionGuard(fakeProcess, { error: (...a: unknown[]) => logged.push(a) });
-    expect(fakeProcess.on).toHaveBeenCalledWith(
-      "unhandledRejection",
-      expect.any(Function),
-    );
+    expect(fakeProcess.on).toHaveBeenCalledWith("unhandledRejection", expect.any(Function));
     const handler = (fakeProcess.on as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as (
       reason: unknown,
     ) => void;
