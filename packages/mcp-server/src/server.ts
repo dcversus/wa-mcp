@@ -19,11 +19,16 @@ export interface JsonRpcResponse {
   error?: JsonRpcError;
 }
 
+export interface McpSession {
+  subscriptions: Set<string>;
+}
+
 export interface ServerContext {
   tools: ToolDef[];
   bridgeUrl: string;
   token: string;
   fetchFn?: typeof fetch;
+  session?: McpSession;
 }
 
 export interface WaResource {
@@ -215,7 +220,7 @@ export async function handleRpcMessage(
           protocolVersion: PROTOCOL_VERSION,
           capabilities: {
             tools: {},
-            resources: { subscribe: false, listChanged: true },
+            resources: { subscribe: true, listChanged: true },
             prompts: {},
             logging: {},
             notifications: {},
@@ -332,6 +337,19 @@ export async function handleRpcMessage(
         );
       case "resources/list":
         return { resources: WA_RESOURCES };
+      case "resources/subscribe":
+      case "resources/unsubscribe": {
+        const params = request.params as { uri?: unknown } | undefined;
+        const uri = typeof params?.uri === "string" ? params.uri : undefined;
+        if (uri === undefined) {
+          throw new ParamError("uri is required");
+        }
+        if (!WA_RESOURCES.some((resource) => resource.uri === uri)) {
+          throw new ParamError(`unknown resource: ${uri}`);
+        }
+        ctx.session?.subscriptions[request.method === "resources/subscribe" ? "add" : "delete"](uri);
+        return {};
+      }
       case "resources/read": {
         const params = request.params as { uri?: unknown } | undefined;
         const uri = typeof params?.uri === "string" ? params.uri : undefined;
@@ -387,3 +405,20 @@ export { toolByName };
 import { TOOLS } from "./tools.ts";
 export { TOOLS };
 export type { ToolContext, ToolDef };
+
+export interface ForwardableNotification {
+  jsonrpc: "2.0";
+  method: string;
+  params: Record<string, unknown>;
+}
+
+export function shouldForward(session: McpSession | undefined, notification: ForwardableNotification): boolean {
+  if (notification.method === "notifications/message" || notification.method === "notifications/tools/list_changed") {
+    return true;
+  }
+  if (notification.method === "notifications/resources/updated") {
+    const uri = notification.params.uri;
+    return typeof uri === "string" && (session?.subscriptions.has(uri) ?? false);
+  }
+  return false;
+}

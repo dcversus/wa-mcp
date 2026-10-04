@@ -34,7 +34,7 @@ test("initialize returns protocol version, capabilities and server info", async 
   // per dispatch; subscribe stays false until the notifications phase
   expect(result.capabilities).toEqual({
     tools: {},
-    resources: { subscribe: false, listChanged: true },
+    resources: { subscribe: true, listChanged: true },
     prompts: {},
     logging: {},
     notifications: {},
