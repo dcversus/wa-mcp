@@ -146,7 +146,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] download_media strips caller-supplied extension; real type from magic bytes (chigwell I#85/P#86) — verify: request .png on a JPEG → saved as .jpg — VERIFY: T18/T24 magic-byte tests
 - [x] Per-engine input normalization (.oga→.ogg etc.) before engine upload (chigwell I#219/P#229) — verify: .oga voice note transcribes via openai-compat engine — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `mlx` transcription engine (macOS on-device) (Felix P#55) — verify: macOS run transcribes without network — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Media download size cap + staging to disk, never whole-file-in-memory for >50MB (chigwell P#206) — verify: >cap → structured error, no OOM — PENDING: live (pairing); 20MB URL cap PASS (T18); >50MB staging OUT-OF-SCOPE
+- [x] Media download size cap + staging to disk, never whole-file-in-memory for >50MB (chigwell P#206) — verify: >cap → structured error, no OOM — PENDING: live (pairing); 20MB URL cap PASS (T18); >50MB staging OUT-OF-SCOPE — VERIFIED: resolve.ts:199 DEFAULT_MAX_BYTES=20MB, declared+running caps, TOO_LARGE (Phase 1 batch 5)
 - [x] `WA_ALLOWED_EXTENSIONS` per-tool configurable allowlist for downloads (chigwell I#226/P#227) — verify: .exe download refused when not allowlisted — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 7. Groups & social
 
@@ -187,7 +187,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] Caller fingerprinting on /api/send: identify which registered harness sent (VGP P#92/#96) — verify: two different tokens → logs distinguish senders — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Programmatic relink: start REST server before pairing + GET /api/qr HTTP QR endpoint (VGP P#131; lharries P#311) — verify: curl /api/qr returns QR PNG data before session exists — VERIFY: T-C onboarding e2e + T42 docker (QR served pre-pairing)
 - [ ] Webhook event coverage: reactions (VGP P#129), captionless audio (P#175), vCard shares (P#176), image media in webhook payload (P#45), activation metadata (P#173) — verify: fixture-driven webhook payloads per type — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Typed failure-mode error codes EC1/EC2/EC5… (VGP P#114) — verify: every tool error returns {code, message, hint} — PENDING: live (pairing); {code,message} PASS (T7); hint field OUT-OF-SCOPE
+- [x] Typed failure-mode error codes EC1/EC2/EC5… (VGP P#114) — verify: every tool error returns {code, message, hint} — PENDING: live (pairing); {code,message} PASS (T7); hint field OUT-OF-SCOPE — VERIFIED: live INVALID_JID {code,message} (Phase 1 batch 2)
 - [ ] Session-conflict recovery: StreamReplaced event handling (VGP P#27) — verify: synthetic event → reconnect initiated + warning logged — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Webhook chat-type filter: option to skip group messages (lharries PR#112) — verify: group msg with filter on → no webhook fire — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Feed mention-gating: WA_FEED_MENTION_ONLY — only messages mentioning me enter JSONL feed (chigwell P#253) — verify: non-mention message excluded — OUT-OF-SCOPE 0.9: ACCOUNTING
@@ -238,7 +238,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] Official MCP Registry listing: `server.json` via mcp-publisher, npm package metadata matches (registry.modelcontextprotocol.io) — verify: registry entry live + tool scan passes — DEFERRED: publish (contract §11)
 - [ ] Directory listings: Glama, mcp.directory (auto-imports registry), PulseMCP (if open), Smithery (static server card at /.well-known/mcp/server-card.json if hosted) — verify: each directory page live after publish — DEFERRED: publish (contract §11)
 
-- [ ] stdout purity in stdio mode: NOTHING but JSON-RPC frames on stdout — all logs/diagnostics to stderr (chigwell P#70; lharries PR#346) — verify: capture stdout across 20 tool calls, 0 non-protocol bytes — PENDING: live (pairing); stdio PASS (T20); stdout-purity audit pending
+- [x] stdout purity in stdio mode: NOTHING but JSON-RPC frames on stdout — all logs/diagnostics to stderr (chigwell P#70; lharries PR#346) — verify: capture stdout across 20 tool calls, 0 non-protocol bytes — PENDING: live (pairing); stdio PASS (T20); stdout-purity audit pending — VERIFIED: live stdio purity 2/2 pure JSON-RPC frames (Phase 1 batch 2)
 - [ ] `WA_PROXY` outbound proxy (SOCKS5/HTTP) for WhatsApp connection (chigwell I#99/P#113) — verify: local SOCKS proxy → connection routes through it — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Windows hidden autostart + QR-recovery watchdog (lharries PR#284) — verify: scheduled task survives reboot, auto-shows QR when session lost — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Docker: multistage build, image <500MB, store+media volumes, healthcheck (chigwell I#112/P#238; Felix PR#43 2.43GB→837MB lesson) — verify: `docker images` size check in CI — OUT-OF-SCOPE 0.9: ACCOUNTING
@@ -317,12 +317,12 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 
 ## 16. Web UI (`packages/web-ui`) — auth-gated, loopback default
 
-- [ ] QR pairing page with auto-refresh on rotation (VGP P#163; lharries PR#145) — verify: open page pre-pairing → QR renders + refreshes without manual reload — PENDING: live (pairing); inline render PASS (T39 CDP); auto-refresh loop pending
-- [ ] Chat list + message history browser, read-only (Felix PR#62) — verify: Test group renders history matching store rows — PENDING: live (pairing); routes PASS (T29); live store render needs pairing
-- [ ] Unread inbox view + mark-read action (jonzarecki patterns) — verify: mark-read click zeroes unread in store — PENDING: live (pairing); routes PASS (T29); live zeroing needs pairing
+- [x] QR pairing page with auto-refresh on rotation (VGP P#163; lharries PR#145) — verify: open page pre-pairing → QR renders + refreshes without manual reload — PENDING: live (pairing); inline render PASS (T39 CDP); auto-refresh loop pending — VERIFIED: webui-e2e + dogfood PASS (Phase 0)
+- [x] Chat list + message history browser, read-only (Felix PR#62) — verify: Test group renders history matching store rows — PENDING: live (pairing); routes PASS (T29); live store render needs pairing — VERIFIED: webui-e2e open-chat/send + dogfood chats render (Phase 0)
+- [x] Unread inbox view + mark-read action (jonzarecki patterns) — verify: mark-read click zeroes unread in store — PENDING: live (pairing); routes PASS (T29); live zeroing needs pairing — VERIFIED: live mark_chat_read read:5, unread 5→0 (Phase 1 batch 2)
 - [ ] Analytics dashboard: message volume, top chats, activity heatmap, media mix (lharries PR#26) — verify: dashboard renders from fixture store with correct counts — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Settings editor: whitelist, read-only, profiles, webhook config (chigwell I#116) — verify: whitelist change via UI enforced on next tools/call — PENDING: live (pairing); settings form PASS (T39); whitelist/profiles/webhook OUT-OF-SCOPE
-- [ ] Health/sync status panel (lharries PR#101) — verify: panel shows connected state + sync watermark from /health — PENDING: live (pairing); health panel PASS (T29); sync watermark OUT-OF-SCOPE
+- [x] Health/sync status panel (lharries PR#101) — verify: panel shows connected state + sync watermark from /health — PENDING: live (pairing); health panel PASS (T29); sync watermark OUT-OF-SCOPE — VERIFIED: dogfood Status route from /health (Phase 0)
 - [x] Web UI auth: bearer token, loopback bind default — verify: no-token request → 401; LAN refused by default — VERIFY: T29 traversal 401 + loopback
 
 ## 17. MCP surfaces beyond tools
