@@ -24,6 +24,15 @@ Send a WhatsApp message: plain text, link card, status broadcast, buttons or a l
       "description": "Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)"
     },
     "text": { "type": "string", "description": "Message text" },
+    "reply_to_message_id": {
+      "type": "string",
+      "description": "Quote this message id (the reply renders with quoted context)"
+    },
+    "mentions": {
+      "type": "array",
+      "description": "JIDs to @-mention (rendered as mentions, not plain text)",
+      "items": { "type": "string" }
+    },
     "link_preview": {
       "type": "boolean",
       "description": "Send text as a link card — the bridge forces an engine link preview; pair with url or embed a URL in text"
@@ -127,6 +136,8 @@ Send a WhatsApp message: plain text, link card, status broadcast, buttons or a l
 
 - `chat_jid` (string, optional) — Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)
 - `text` (string, required) — Message text
+- `reply_to_message_id` (string, optional) — Quote this message id (the reply renders with quoted context)
+- `mentions` (array, optional) — JIDs to @-mention (rendered as mentions, not plain text)
 - `link_preview` (boolean, optional) — Send text as a link card — the bridge forces an engine link preview; pair with url or embed a URL in text
 - `url` (string, optional) — URL to preview when link_preview is true (defaults to the first URL in text)
 - `status_broadcast` (boolean, optional) — Post the text to your status (status@broadcast) instead of a chat — chat_jid not required
@@ -147,12 +158,14 @@ List WhatsApp chats with unread counts and last-message previews.
   "type": "object",
   "properties": {
     "limit": { "type": "number", "description": "Max chats to return (1-200, default 50)" },
+    "offset": { "type": "number", "description": "Skip this many chats (pagination)" },
     "archived": { "type": "boolean", "description": "Show archived chats instead" }
   }
 }
 ```
 
 - `limit` (number, optional) — Max chats to return (1-200, default 50)
+- `offset` (number, optional) — Skip this many chats (pagination)
 - `archived` (boolean, optional) — Show archived chats instead
 
 ### list_messages
@@ -166,6 +179,10 @@ List messages of one chat, newest first.
   "properties": {
     "chat_jid": { "type": "string" },
     "limit": { "type": "number" },
+    "offset": {
+      "type": "number",
+      "description": "Skip this many rows (pagination; meta.nextOffset)"
+    },
     "after": { "type": "string", "description": "ISO instant" },
     "before": { "type": "string", "description": "ISO instant" }
   }
@@ -174,6 +191,7 @@ List messages of one chat, newest first.
 
 - `chat_jid` (string, required)
 - `limit` (number, optional)
+- `offset` (number, optional) — Skip this many rows (pagination; meta.nextOffset)
 - `after` (string, optional) — ISO instant
 - `before` (string, optional) — ISO instant
 - required: `chat_jid`

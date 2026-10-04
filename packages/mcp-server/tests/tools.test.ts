@@ -524,7 +524,10 @@ test("T94-D-H1claude — reply_to_message_id and mentions reach the bridge body"
 
 test("T94-D-H4claude — list_messages and list_chats pass offset through", async () => {
   const { fetchFn, calls } = mockFetch({
-    "/api/messages?chat_jid=a%40s.whatsapp.net&limit=25&offset=40": { messages: [], meta: { nextOffset: 65 } },
+    "/api/messages?chat_jid=a%40s.whatsapp.net&limit=25&offset=40": {
+      messages: [],
+      meta: { nextOffset: 65 },
+    },
     "/api/chats?limit=50&offset=25": { chats: [] },
   });
   const messages = toolByName("list_messages");

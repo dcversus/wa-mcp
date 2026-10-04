@@ -247,6 +247,15 @@ export const TOOLS: ToolDef[] = [
             "Recipient: phone number, group JID, or any chat JID (required unless status_broadcast is true)",
         },
         text: { type: "string", description: "Message text" },
+        reply_to_message_id: {
+          type: "string",
+          description: "Quote this message id (the reply renders with quoted context)",
+        },
+        mentions: {
+          type: "array",
+          description: "JIDs to @-mention (rendered as mentions, not plain text)",
+          items: { type: "string" },
+        },
         link_preview: {
           type: "boolean",
           description:
@@ -499,6 +508,13 @@ export const TOOLS: ToolDef[] = [
           };
         } else {
           body = { chat_jid: chatJid, text: requireString(args, "text") };
+          // T94-D-H1claude: quoted context + @-mentions (bridge-validated)
+          if (typeof args.reply_to_message_id === "string" && args.reply_to_message_id.length > 0) {
+            body.reply_to_message_id = args.reply_to_message_id;
+          }
+          if (Array.isArray(args.mentions)) {
+            body.mentions = (args.mentions as unknown[]).filter((jid) => typeof jid === "string");
+          }
         }
       }
       const payload = (await bridgeFetch(toolCtx, "/api/send", {
@@ -517,15 +533,17 @@ export const TOOLS: ToolDef[] = [
       type: "object",
       properties: {
         limit: { type: "number", description: "Max chats to return (1-200, default 50)" },
+        offset: { type: "number", description: "Skip this many chats (pagination)" },
         archived: { type: "boolean", description: "Show archived chats instead" },
       },
     },
     handler: async (toolCtx, args) => {
       const limit = optionalNumber(args, "limit");
+      const offset = optionalNumber(args, "offset");
       const archived = args.archived === true ? "true" : undefined;
       const payload = (await bridgeFetch(
         toolCtx,
-        `/api/chats${query({ limit, archived })}`,
+        `/api/chats${query({ limit, offset, archived })}`,
       )) as Record<string, unknown>;
       return textResult(payload);
     },
@@ -539,6 +557,10 @@ export const TOOLS: ToolDef[] = [
       properties: {
         chat_jid: { type: "string" },
         limit: { type: "number" },
+        offset: {
+          type: "number",
+          description: "Skip this many rows (pagination; meta.nextOffset)",
+        },
         after: { type: "string", description: "ISO instant" },
         before: { type: "string", description: "ISO instant" },
       },
@@ -546,11 +568,12 @@ export const TOOLS: ToolDef[] = [
     handler: async (toolCtx, args) => {
       const chatJid = requireString(args, "chat_jid");
       const limit = optionalNumber(args, "limit");
+      const offset = optionalNumber(args, "offset");
       const after = typeof args.after === "string" ? args.after : undefined;
       const before = typeof args.before === "string" ? args.before : undefined;
       const payload = (await bridgeFetch(
         toolCtx,
-        `/api/messages${query({ chat_jid: chatJid, limit, after, before })}`,
+        `/api/messages${query({ chat_jid: chatJid, limit, offset, after, before })}`,
       )) as Record<string, unknown>;
       return textResult(payload);
     },
