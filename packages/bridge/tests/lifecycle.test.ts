@@ -5,26 +5,34 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import pino from "pino";
 
-vi.mock("baileys", () => ({
-  makeWASocket: vi.fn(),
-  useMultiFileAuthState: vi.fn(),
-  initAuthCreds: vi.fn(() => ({ advSecretKey: "fresh", registrationId: 1 })),
-  jidDecode: (jid: string) => {
-    const [userPart = "", server = ""] = jid.split("@");
-    const [pureUser, device] = userPart.split(":");
-    return { user: pureUser, server, device };
-  },
-  jidEncode: (user: string, server: string, device?: string) =>
-    device !== undefined ? `${user}:${device}@${server}` : `${user}@${server}`,
-  proto: {
-    Message: {
-      ProtocolMessage: {
-        Type: { REVOKE: 0, MESSAGE_EDIT: 14, EPHEMERAL_SETTING: 3, STATUS_MENTION_MESSAGE: 4 },
+vi.mock("baileys", async (importActual) => {
+  // T94-C-H1: the poll-vote decrypt orchestration uses the fork's REAL
+  // crypto primitives — only the connection surface is mocked here
+  const actual = await importActual<typeof import("baileys")>();
+  return {
+    decryptPollVote: actual.decryptPollVote,
+    getKeyAuthor: actual.getKeyAuthor,
+    jidNormalizedUser: actual.jidNormalizedUser,
+    makeWASocket: vi.fn(),
+    useMultiFileAuthState: vi.fn(),
+    initAuthCreds: vi.fn(() => ({ advSecretKey: "fresh", registrationId: 1 })),
+    jidDecode: (jid: string) => {
+      const [userPart = "", server = ""] = jid.split("@");
+      const [pureUser, device] = userPart.split(":");
+      return { user: pureUser, server, device };
+    },
+    jidEncode: (user: string, server: string, device?: string) =>
+      device !== undefined ? `${user}:${device}@${server}` : `${user}@${server}`,
+    proto: {
+      Message: {
+        ProtocolMessage: {
+          Type: { REVOKE: 0, MESSAGE_EDIT: 14, EPHEMERAL_SETTING: 3, STATUS_MENTION_MESSAGE: 4 },
+        },
       },
     },
-  },
-  DisconnectReason: { loggedOut: 401, restartRequired: 515, connectionClosed: 428 },
-}));
+    DisconnectReason: { loggedOut: 401, restartRequired: 515, connectionClosed: 428 },
+  };
+});
 
 import { DisconnectReason, makeWASocket, useMultiFileAuthState } from "baileys";
 import type { AuthenticationState, UserFacingSocketConfig, WASocket } from "baileys";
@@ -35,6 +43,42 @@ import { addAutoreplyRule } from "../src/store/autoreply.ts";
 import { listChats, listMessages } from "../src/store/queries.ts";
 import type { WAMessage } from "baileys";
 import { startBridge, type BridgeLogger, type StartBridgeOptions } from "../src/lifecycle.ts";
+import { createCipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+
+function encryptPollVote(
+  pollEncKey: Uint8Array,
+  pollMsgId: string,
+  pollCreatorJid: string,
+  voterJid: string,
+  selectedSha256: Uint8Array,
+): { encPayload: Uint8Array; encIv: Uint8Array } {
+  const toBinary = (txt: string) => Buffer.from(txt);
+  const sign = Buffer.concat([
+    toBinary(pollMsgId),
+    toBinary(pollCreatorJid),
+    toBinary(voterJid),
+    toBinary("Poll Vote"),
+    new Uint8Array([1]),
+  ]);
+  const hmac = (data: Buffer | Uint8Array, key: Buffer | Uint8Array) =>
+    createHmac("sha256", key).update(data).digest();
+  const key0 = hmac(pollEncKey, Buffer.alloc(32));
+  const decKey = hmac(sign, key0);
+  const aad = toBinary(`${pollMsgId}\u0000${voterJid}`);
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", decKey, iv);
+  const plaintext = Buffer.concat([
+    Buffer.from([0x0a, selectedSha256.length]), // proto: field 1 (selectedOptions), LEN
+    selectedSha256,
+  ]);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  return {
+    encPayload: new Uint8Array(Buffer.concat([ciphertext, cipher.getAuthTag()])),
+    encIv: new Uint8Array(iv),
+  };
+}
+
+
 
 // handles started per test; afterEach closes them so no real reconnect
 // timer outlives its test and fires inside a later one
@@ -1420,5 +1464,71 @@ test("T94-C2f — the autoreply send rides the send budget", async () => {
     (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage,
   ).not.toHaveBeenCalled();
   await handle.close();
+  store.close();
+});
+
+
+test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-pollvote-")));
+  const CHAT = "120363428874442773@g.us";
+  const POLL_ID = "POLLMSG1";
+  const secret = randomBytes(32);
+  // the poll creation message, exactly as ingest writes it into raw
+  store.db
+    .prepare(
+      "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, media_type, media_path, is_from_me, raw) VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?)",
+    )
+    .run(
+      POLL_ID,
+      CHAT,
+      "358497773518@s.whatsapp.net",
+      "2026-01-01T00:00:00Z",
+      "Lunch?",
+      null,
+      JSON.stringify({
+        pollCreationMessage: { name: "Lunch?", options: [{ optionName: "Pizza" }, { optionName: "Salad" }] },
+        messageContextInfo: { messageSecret: Array.from(secret) },
+      }),
+    );
+  store.db
+    .prepare("INSERT INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, ?, ?, ?)")
+    .run(CHAT, POLL_ID, 0, "Pizza");
+  store.db
+    .prepare("INSERT INTO poll_options (chat_jid, message_id, idx, label) VALUES (?, ?, ?, ?)")
+    .run(CHAT, POLL_ID, 1, "Salad");
+
+  const sock = fakeSocket();
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { store });
+
+  const voter = "358400000077@s.whatsapp.net";
+  const creatorJid = "358497773518@s.whatsapp.net";
+  const selected = createHash("sha256").update("Pizza").digest();
+  const vote = encryptPollVote(secret, POLL_ID, creatorJid, voter, selected);
+  sock.emit("messages.upsert", {
+    messages: [
+      {
+        key: { remoteJid: CHAT, fromMe: false, id: "VOTE1", participant: voter },
+        message: {
+          pollUpdateMessage: {
+            pollCreationMessageKey: { remoteJid: CHAT, id: POLL_ID, fromMe: true },
+            vote,
+            senderTimestampMs: 1_760_000_000_000,
+          },
+        },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  // RED today: the fork's decrypt block is commented out and our ingest
+  // never decrypts — poll_votes stays empty in production
+  const votes = store.db
+    .prepare("SELECT voter_jid, option_idx FROM poll_votes WHERE chat_jid = ? AND message_id = ?")
+    .all(CHAT, POLL_ID) as Array<{ voter_jid: string; option_idx: number }>;
+  expect(votes).toHaveLength(1);
+  expect(votes[0]?.voter_jid).toBe(voter);
+  expect(votes[0]?.option_idx).toBe(0);
   store.close();
 });
