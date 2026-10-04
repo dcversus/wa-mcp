@@ -89,16 +89,16 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Templates: `create_template`/`list_templates`/`render_template` ({{var}}) + `send_template` (kahflane) — verify: render with vars → expected string — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `send_event` calendar event card (kahflane) — verify: live send → event card renders — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `restrict_sending` per-target send blocklist rules (kahflane wa_restrict_sending) — verify: rule blocks send to Test group → structured refusal — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `logout` tool: unpair current device session (kahflane wa_logout) — verify: logout → /health loggedIn=false; re-pair cycle works — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Autoreply rules `autoreply_set`/`autoreply_add_rule`/`autoreply_list_rules`/`autoreply_remove_rule` (kahflane; lharries #67 as opt-in only, default OFF) — verify: rule ping→pong; phone sends "ping" → "pong" received; default state = off — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `logout` tool: unpair current device session (kahflane wa_logout) — verify: logout → /health loggedIn=false; re-pair cycle works — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Autoreply rules `autoreply_set`/`autoreply_add_rule`/`autoreply_list_rules`/`autoreply_remove_rule` (kahflane; lharries #67 as opt-in only, default OFF) — verify: rule ping→pong; phone sends "ping" → "pong" received; default state = off — OUT-OF-SCOPE 0.9: ACCOUNTING
 
 - [ ] `send_album`: 2-10 media as one grouped album (chigwell P#127) — verify: live 3-image album arrives grouped on phone — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `forward_message` batch mode + album grouping preserved (chigwell P#129) — verify: forward album → arrives as album — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Forwarded messages preserve original sender attribution (chigwell P#182) — verify: forwarded row keeps original sender_name — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `schedule_message` supports media payloads, not just text (chigwell P#205) — verify: schedule image +2s → media fires — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Poll validation: ≥2 options, ≤12, unique, non-empty (chigwell P#240) — verify: 1-option poll → structured validation error — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Send-to-number resolves the JID the number is REGISTERED under (LID-aware lookup) (VGP P#259) — verify: send to LID-registered contact number → delivered — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] WhatsApp rate-limit / ban-risk errors surfaced as structured error with retryAfter seconds + actionable hint (chigwell P#204 FloodWait pattern) — verify: synthetic 429 → {code: RATE_LIMITED, retryAfter: N} — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `schedule_message` supports media payloads, not just text (chigwell P#205) — verify: schedule image +2s → media fires — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Poll validation: ≥2 options, ≤12, unique, non-empty (chigwell P#240) — verify: 1-option poll → structured validation error — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Send-to-number resolves the JID the number is REGISTERED under (LID-aware lookup) (VGP P#259) — verify: send to LID-registered contact number → delivered — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] WhatsApp rate-limit / ban-risk errors surfaced as structured error with retryAfter seconds + actionable hint (chigwell P#204 FloodWait pattern) — verify: synthetic 429 → {code: RATE_LIMITED, retryAfter: N} — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 5. Read path
 
 - [x] `list_chats`: pagination, unread counts, last_message preview, archived flag, JID-prefix filter (MuhammadMustafa18), name fallback chain pushname→business→phone, never own number for DMs (VGP #261/#260/#262) — verify: fixture store → real names — VERIFY: T13/T14 fixture tests
