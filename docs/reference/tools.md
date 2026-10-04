@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 54 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 58 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -857,6 +857,59 @@ Transcribe a voice note. Engines: WA_TRANSCRIBE_ENGINE=mock (default) | openai (
 - `chat_jid` (string, required)
 - `message_id` (string, required)
 - required: `chat_jid`, `message_id`
+
+### newsletter_follow
+
+Follow a WhatsApp newsletter channel.
+
+```json
+{
+  "type": "object",
+  "required": ["jid"],
+  "properties": { "jid": { "type": "string", "description": "Newsletter JID" } }
+}
+```
+
+- `jid` (string, required) — Newsletter JID
+- required: `jid`
+
+### newsletter_unfollow
+
+Unfollow a WhatsApp newsletter channel.
+
+```json
+{ "type": "object", "required": ["jid"], "properties": { "jid": { "type": "string" } } }
+```
+
+- `jid` (string, required)
+- required: `jid`
+
+### newsletter_send
+
+Send a text bulletin to a newsletter channel you own.
+
+```json
+{
+  "type": "object",
+  "required": ["jid", "text"],
+  "properties": {
+    "jid": { "type": "string", "description": "Newsletter JID" },
+    "text": { "type": "string" }
+  }
+}
+```
+
+- `jid` (string, required) — Newsletter JID
+- `text` (string, required)
+- required: `jid`, `text`
+
+### newsletter_list
+
+List followed newsletters from the daemon registry.
+
+```json
+{ "type": "object", "properties": {} }
+```
 
 ### get_contact
 

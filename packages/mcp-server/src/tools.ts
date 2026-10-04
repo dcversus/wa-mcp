@@ -1357,6 +1357,72 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "newsletter_follow",
+    description: "Follow a WhatsApp newsletter channel.",
+    inputSchema: {
+      type: "object",
+      required: ["jid"],
+      properties: { jid: { type: "string", description: "Newsletter JID" } },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      await bridgeFetch(toolCtx, "/api/newsletters/follow", {
+        method: "POST",
+        body: JSON.stringify({ jid }),
+      });
+      return { content: [{ type: "text", text: `followed ${jid}` }] };
+    },
+  },
+  {
+    name: "newsletter_unfollow",
+    description: "Unfollow a WhatsApp newsletter channel.",
+    inputSchema: {
+      type: "object",
+      required: ["jid"],
+      properties: { jid: { type: "string" } },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      await bridgeFetch(toolCtx, "/api/newsletters/unfollow", {
+        method: "POST",
+        body: JSON.stringify({ jid }),
+      });
+      return { content: [{ type: "text", text: `unfollowed ${jid}` }] };
+    },
+  },
+  {
+    name: "newsletter_send",
+    description: "Send a text bulletin to a newsletter channel you own.",
+    inputSchema: {
+      type: "object",
+      required: ["jid", "text"],
+      properties: {
+        jid: { type: "string", description: "Newsletter JID" },
+        text: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      const text = requireString(args, "text");
+      const payload = (await bridgeFetch(toolCtx, "/api/newsletters/send", {
+        method: "POST",
+        body: JSON.stringify({ jid, text }),
+      })) as { message_id?: string };
+      return {
+        content: [{ type: "text", text: `newsletter sent: ${payload.message_id ?? "unknown id"}` }],
+      };
+    },
+  },
+  {
+    name: "newsletter_list",
+    description: "List followed newsletters from the daemon registry.",
+    inputSchema: { type: "object", properties: {} },
+    handler: async (toolCtx) => {
+      const payload = (await bridgeFetch(toolCtx, "/api/newsletters")) as { newsletters?: unknown };
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
+    },
+  },
+  {
     name: "get_contact",
     description: "Get one contact's detail by JID (name, pushname, business name, phone).",
     inputSchema: {

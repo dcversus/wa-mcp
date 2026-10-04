@@ -301,9 +301,6 @@ describe("T89-D — newsletters follow/unfollow/send/list", () => {
     expect(res.status).toBe(200);
     const sendCalls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
     // sendViaSocket passes (jid, content, opts) — assert the first two
-    expect(sendCalls[0]?.slice(0, 2)).toEqual([
-      "1234@newsletter",
-      { text: "bulletin" },
-    ]);
+    expect(sendCalls[0]?.slice(0, 2)).toEqual(["1234@newsletter", { text: "bulletin" }]);
   });
 });

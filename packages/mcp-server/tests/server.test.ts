@@ -638,3 +638,76 @@ describe("T90-B — media pipeline MCP tools", () => {
     expect(content[0]?.text).toContain("NOT_FOUND");
   });
 });
+
+describe("T89-D — newsletter MCP tools", () => {
+  test("tools/list includes the four newsletter tools", async () => {
+    const response = await handleRpcLine(makeRequest(80, "tools/list", {}), ctx);
+    const names = (resultOf(response).tools as Array<{ name: string }>).map((t) => t.name);
+    for (const expected of [
+      "newsletter_follow",
+      "newsletter_unfollow",
+      "newsletter_send",
+      "newsletter_list",
+    ]) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  test("newsletter_follow/unfollow hit their routes", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const toolCtx = { ...ctx, fetchFn };
+    await handleRpcLine(
+      makeRequest(81, "tools/call", {
+        name: "newsletter_follow",
+        arguments: { jid: "1234@newsletter" },
+      }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/newsletters/follow");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ jid: "1234@newsletter" });
+    await handleRpcLine(
+      makeRequest(82, "tools/call", {
+        name: "newsletter_unfollow",
+        arguments: { jid: "1234@newsletter" },
+      }),
+      toolCtx,
+    );
+    expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/newsletters/unfollow");
+  });
+
+  test("newsletter_send posts jid+text; newsletter_list GETs", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ message_id: "NL1" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const toolCtx = { ...ctx, fetchFn };
+    await handleRpcLine(
+      makeRequest(83, "tools/call", {
+        name: "newsletter_send",
+        arguments: { jid: "1234@newsletter", text: "bulletin" },
+      }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/newsletters/send");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+      jid: "1234@newsletter",
+      text: "bulletin",
+    });
+    await handleRpcLine(
+      makeRequest(84, "tools/call", { name: "newsletter_list", arguments: {} }),
+      toolCtx,
+    );
+    expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/newsletters");
+  });
+});

@@ -2365,7 +2365,9 @@ export async function createHttpServer(
         }
         if (path === "/api/newsletters" && req.method === "GET") {
           if (opts.store === undefined) {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
             return;
           }
           const rows = opts.store.db
@@ -2385,7 +2387,9 @@ export async function createHttpServer(
             newsletterFollow?: (jid: string) => Promise<void>;
           };
           if (typeof engine.newsletterFollow !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" },
+            });
             return;
           }
           await engine.newsletterFollow(jid);
@@ -2406,7 +2410,9 @@ export async function createHttpServer(
             newsletterUnfollow?: (jid: string) => Promise<void>;
           };
           if (typeof engine.newsletterUnfollow !== "function") {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "engine lacks newsletter API" },
+            });
             return;
           }
           await engine.newsletterUnfollow(jid);
@@ -2425,7 +2431,9 @@ export async function createHttpServer(
           }
           const socket = handle.socket;
           if (socket === undefined || socket === null) {
-            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+            });
             return;
           }
           const result = await sendViaSocket(socket, input.jid, {
