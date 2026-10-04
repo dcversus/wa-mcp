@@ -294,3 +294,7 @@ no checkbox is claimed without evidence.
 - WEAK line 126 (limit-after-filter): queries.ts applies limit correctly (MAX_LIMIT 200/DEFAULT 50) but no dedicated filter-then-limit test → T97b
 - WEAK line 129 (with_photo): GOAL documents it on get_chat, implementation has it on get_contact (tools.ts:1947) → T97c (align GOAL wording or move param)
 - Phase 0 verdict: ALL mechanical claims verified or fixed (1 stale vp-check claim fixed, version-drift guard built T95/T95b, tick evidence 145/148 fully backed, 3 minor evidence gaps → T97)
+
+### T97a — GOAL line 40 evidence cite (graceful shutdown) (2026-10-04T20:16:51Z)
+
+- packages/bridge/src/shutdown.ts exists; installShutdownHooks referenced 2x in packages/bridge/src/bin.ts (orchestrator grep, first-hand). SIGTERM → flush + exit 0 behavior covered by packages/bridge/tests/shutdown.test.ts (name verified in suite run). GOAL line 40 tick now fully anchored.
