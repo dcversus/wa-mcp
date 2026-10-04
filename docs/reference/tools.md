@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 44 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 47 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -705,15 +705,70 @@ List scheduled messages, optionally by status (pending|sent|failed|cancelled).
 
 - `status` (string, optional)
 
+### export_chat
+
+Export one chat's messages as jsonl, markdown or plain text (media referenced by type only).
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid"],
+  "properties": {
+    "chat_jid": { "type": "string" },
+    "format": { "type": "string", "enum": ["jsonl", "md", "txt"] }
+  }
+}
+```
+
+- `chat_jid` (string, required)
+- `format` (string, optional)
+- required: `chat_jid`
+
+### export_unread_messages
+
+Export every unread message across chats as JSONL with chat attribution.
+
+```json
+{
+  "type": "object",
+  "properties": { "format": { "type": "string", "enum": ["jsonl", "md", "txt"] } }
+}
+```
+
+- `format` (string, optional)
+
+### bulk_clear
+
+Clear the unread markers on multiple chats at once.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jids"],
+  "properties": { "chat_jids": { "type": "array", "items": { "type": "string" } } }
+}
+```
+
+- `chat_jids` (array, required)
+- required: `chat_jids`
+
 ### get_contact
 
 Get one contact's detail by JID (name, pushname, business name, phone).
 
 ```json
-{ "type": "object", "required": ["jid"], "properties": { "jid": { "type": "string" } } }
+{
+  "type": "object",
+  "required": ["jid"],
+  "properties": {
+    "jid": { "type": "string" },
+    "with_photo": { "type": "boolean", "description": "Resolve the avatar URL too" }
+  }
+}
 ```
 
 - `jid` (string, required)
+- `with_photo` (boolean, optional) — Resolve the avatar URL too
 - required: `jid`
 
 ### get_picture_url

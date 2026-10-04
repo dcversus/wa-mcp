@@ -1090,16 +1090,80 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "export_chat",
+    description:
+      "Export one chat's messages as jsonl, markdown or plain text (media referenced by type only).",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string" },
+        format: { type: "string", enum: ["jsonl", "md", "txt"] },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const format = typeof args.format === "string" ? args.format : "jsonl";
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/export?chat_jid=${encodeURIComponent(chatJid)}&format=${encodeURIComponent(format)}`,
+      )) as unknown;
+      return { content: [{ type: "text", text: JSON.stringify(payload).slice(0, 4000) }] };
+    },
+  },
+  {
+    name: "export_unread_messages",
+    description: "Export every unread message across chats as JSONL with chat attribution.",
+    inputSchema: {
+      type: "object",
+      properties: { format: { type: "string", enum: ["jsonl", "md", "txt"] } },
+    },
+    handler: async (toolCtx, args) => {
+      const format = typeof args.format === "string" ? args.format : "jsonl";
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/export?unread=true&format=${encodeURIComponent(format)}`,
+      )) as unknown;
+      return { content: [{ type: "text", text: JSON.stringify(payload).slice(0, 4000) }] };
+    },
+  },
+  {
+    name: "bulk_clear",
+    description: "Clear the unread markers on multiple chats at once.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jids"],
+      properties: {
+        chat_jids: { type: "array", items: { type: "string" } },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJids = Array.isArray(args.chat_jids) ? args.chat_jids : [];
+      await bridgeFetch(toolCtx, "/api/read-bulk", {
+        method: "POST",
+        body: JSON.stringify({ chat_jids: chatJids }),
+      });
+      return { content: [{ type: "text", text: `cleared ${chatJids.length} chats` }] };
+    },
+  },
+  {
     name: "get_contact",
     description: "Get one contact's detail by JID (name, pushname, business name, phone).",
     inputSchema: {
       type: "object",
       required: ["jid"],
-      properties: { jid: { type: "string" } },
+      properties: {
+        jid: { type: "string" },
+        with_photo: { type: "boolean", description: "Resolve the avatar URL too" },
+      },
     },
     handler: async (toolCtx, args) => {
+      const withPhoto = args.with_photo === true ? "?with_photo=true" : "";
       const jid = requireString(args, "jid");
-      const payload = (await bridgeFetch(toolCtx, `/api/contacts/${encodeURIComponent(jid)}`)) as {
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/contacts/${encodeURIComponent(jid)}${withPhoto}`,
+      )) as {
         contact?: unknown;
         error?: { code: string; message: string };
       };
