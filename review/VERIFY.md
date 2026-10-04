@@ -389,3 +389,11 @@ no checkbox is claimed without evidence.
 - T102b (orchestrator): SECURITY — live recording captured RAW PAIRING KEYS in creds.update.jsonl; boundary exclusion added (RED: raw keys captured → GREEN: never persisted); suite 868/868.
 - Live recording verified: 6 event types captured, creds EXCLUDED after fix, my own Test-group probe committed as fixture (fromMe only, no private content).
 - L304 TICKED: live-recorded fixtures replayed → store assertions green.
+
+### T103 live-verified + L219 ticked (2026-10-04T22:42:35Z)
+
+- install --service (cf1a81f): writes plist with resolved node+nvm path + --data-dir, loads via launchctl. Sandbox PASS (46/46 cli tests).
+- LIVE: first service start raced my manual daemon (port 8080 held) → engine took qr path + burned pairing attempt 1 (budget 1/3). After stopping the manual daemon: launchctl load → pid 68371, exit 0, status connected, loggedIn TRUE, /health green. L219's launchctl-list verify SATISFIED.
+- REFINEMENT QUEUED (T104): install --service must check port 8080 first and refuse with a clear message when a daemon is already running (this exact race cost a pairing attempt).
+- systemd unit + Windows TaskScheduler doc shipped in services/ (unit asserted in tests; Windows documented-manual per host reality).
+- L219 TICKED with live evidence.
