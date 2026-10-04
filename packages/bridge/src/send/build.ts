@@ -1,4 +1,5 @@
 import { proto } from "baileys";
+import { SendError } from "./send.ts";
 import {
   extractUrlFromText,
   generateForwardMessageContent,
@@ -147,6 +148,27 @@ export async function buildPollMessage(
   options: string[],
   selectableCount?: number,
 ): Promise<proto.IMessage> {
+  // T84 line99: WhatsApp poll rules — 2..12 options, unique per case, non-empty
+  if (options.length < 2) {
+    throw new SendError("VALIDATION_ERROR", "a poll needs at least 2 options");
+  }
+  if (options.length > 12) {
+    throw new SendError("VALIDATION_ERROR", "a poll allows at most 12 options");
+  }
+  if (options.some((option) => option.trim().length === 0)) {
+    throw new SendError("VALIDATION_ERROR", "poll options must be non-empty");
+  }
+  const seen = new Set<string>();
+  for (const option of options) {
+    const key = option.toLowerCase();
+    if (seen.has(key)) {
+      throw new SendError(
+        "VALIDATION_ERROR",
+        `duplicate poll option (case-insensitive): ${option}`,
+      );
+    }
+    seen.add(key);
+  }
   return generateWAMessageContent(
     {
       poll: { name, values: options, selectableCount: selectableCount ?? options.length - 1 },

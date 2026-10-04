@@ -14,7 +14,7 @@ import {
   BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY,
   type MediaKind,
 } from "../../src/send/build.ts";
-import { SendError } from "../../src/send/safety.ts";
+import { SendError } from "../../src/send/send.ts";
 
 test("plain text builds a conversation content", async () => {
   const content = await buildTextMessage({ text: "hello" });
