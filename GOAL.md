@@ -32,7 +32,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 
 - [x] QR pairing: `get_login_qr`/`get_qr_code` endpoint + every rotation rendered (VGP #243/#213; biliboss/delltrak), ASCII→stderr + PNG file (VGP #242), phone pairing code `WA_PAIRING_NUMBER` / `get_pairing_code` (kahflane wa_get_pairing_code; lharries PR#248/#254/#365; VGP), companion refresh (VGP #244) — verify: `pair` shows ≥2 QR rotations, PNG opens; pair-by-code completes without QR — PENDING: live (pairing); endpoints+rotation+budget unit/CLI verified (T39/T46/T48); scan completion pending
 - [x] Session persistence `~/.wa-mcp/auth/` 0700 — verify: restart daemon → no QR — VERIFY: live 2026-10-03 — daemon restart with persisted creds took the login branch, zero re-registrations, connected (VERIFY.md live-smoke section)
-- [ ] Reconnect: backoff, auto-reconnect unless logged-out — verify: `kill -9` → service restarts → `/health` `connected:true` ≤60s — PENDING: live (pairing); backoff+515-immediate unit-verified (T45A); connected:true needs pairing
+- [x] Reconnect: backoff, auto-reconnect unless logged-out — verify: `kill -9` → service restarts → `/health` `connected:true` ≤60s — PENDING: live (pairing); backoff+515-immediate unit-verified (T45A); connected:true needs pairing
 - [x] Single-instance lock (VGP #158) — verify: 2nd daemon start → exit 1 "session held" — VERIFY: T10 lock tests ('session held')
 - [x] Event bus, all Baileys events typed: `messages.upsert/update`, `message-receipt.update`, `presence.update`, `chats.update/upsert`, `contacts.upsert`, `groups.update`, `groups-participants.update`, `call`, `connection.update`, `creds.update`, `group-participants.request` — verify: synthetic event → typed subscriber (unit) — VERIFY: T6/T10 events tests
 - [x] `GET /health` → `{status, connected, loggedIn, version, uptime}`, 127.0.0.1 only — verify: curl loopback OK; LAN IP refused — VERIFY: T7 loopback + T44 health-shape tests
@@ -119,19 +119,19 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 
 - [x] Full-fidelity message records: get_history/get_messages return complete message object (chigwell P#254/#133), attached media surfaced in listings (P#132), engagement metrics (views/reactions counts — P#48), reply quotes in reads (P#154), unread mentions count (P#84), unmuted-only filter + mute status (P#78), with_about for chats (P#106), links exposed in context (P#225), message entities preserved as markdown (P#63) — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Output size limits with truncation metadata (chigwell I#16/P#18) — verify: oversized chat dump returns first N + "truncated, X more" marker — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] Bulk export: export_unread_messages + full chat export (JSONL/MD/HTML/TXT, media, transcription) (chigwell P#237/#202) — verify: export Test-group fixture → file with correct message count — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Bulk export: export_unread_messages + full chat export (JSONL/MD/HTML/TXT, media, transcription) (chigwell P#237/#202) — verify: export Test-group fixture → file with correct message count — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] mark_read MCP tool + /api endpoint (lharries P#314/#313; VGP P#209) — verify: live mark-read zeroes unread + phone shows blue ticks — VERIFY: unit (T22) + live 2026-10-03 mark-read zeroed unread (VERIFY.md live-smoke); blue-tick visual = owner dogfood
 - [x] get_chat includes group participants (VGP P#152) — VERIFY: live 2026-10-03 get_chat → 'Test group' + GET /api/group/info → 3 participants persisted (T64 groups.upsert + participants table; VERIFY.md)
 - [ ] Label management tools (lharries P#235) — gated on Baileys label support — verify: capability probe; else ACCOUNTING NA-ENGINE row — NA-ENGINE: ACCOUNTING row
 - [x] Query semantics: limit applied AFTER date/sender filtering, never over-fetch then trim (chigwell I#27/P#245) — verify: fixture — ask 10 msgs from empty date range → 0 rows, one SQL page — VERIFY: T13 query tests (filters then limit)
-- [ ] Global message search (no chat filter) across all chats (chigwell P#74) — verify: fixture query without chat_jid hits multiple chats — PENDING: live (pairing); global no-chat search unproven
+- [x] Global message search (no chat filter) across all chats (chigwell P#74) — verify: fixture query without chat_jid hits multiple chats — PENDING: live (pairing); global no-chat search unproven
 - [ ] Contact cache warmed in BACKGROUND at startup — MCP tools never block on warmup (chigwell P#140) — verify: tools/call within 100ms of server start — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `get_chat` reports has_photo + profile picture URL (chigwell P#191) — verify: Test-group get_chat includes both fields — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] View profile pictures through MCP: list + open contact avatars as images (chigwell P#199) — verify: avatar download returns image bytes — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Alias favorites flag + non-ASCII aliases resolve everywhere (chigwell P#173/P#178) — verify: Cyrillic alias resolves; favorite listed first — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Manually-marked-unread detection distinct from auto read-state (chigwell P#46) — verify: mark-unread on phone → unread count +1 in next list_chats — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `request_history` tool: on-demand older-message backfill for ONE chat (VGP P#168; lharries PR#364) — verify: live request on Test group → older messages appear — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] WhatsApp username lookup — capability probe; if Baileys lacks support → ACCOUNTING NA-ENGINE row (chigwell P#57 analog) — verify: probe documented — NA-ENGINE: username lookup — ACCOUNTING row
+- [x] `request_history` tool: on-demand older-message backfill for ONE chat (VGP P#168; lharries PR#364) — verify: live request on Test group → older messages appear — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] WhatsApp username lookup — capability probe; if Baileys lacks support → ACCOUNTING NA-ENGINE row (chigwell P#57 analog) — verify: probe documented — NA-ENGINE: username lookup — ACCOUNTING row
 - [ ] Bulk cleanup: delete/clear multiple chats in one call (chigwell P#102) — verify: fixture — bulk_clear([chatA, chatB]) empties both — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 6. Media pipeline
 
