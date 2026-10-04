@@ -1015,7 +1015,7 @@ test("T93 — the staleness probe is the engine's own keepalive iq (node arg + p
   vi.useFakeTimers();
   process.env.WA_STALENESS_MS = "100";
   const stale = fakeSocket();
-  const query = vi.fn(() => Promise.resolve());
+  const query = vi.fn((_node: unknown) => Promise.resolve());
   (stale as { query?: unknown }).query = query;
   mockMakeWASocket.mockReset();
   mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
@@ -1246,8 +1246,7 @@ describe("T93 live-found — fetchHistory cursor uses the real schema", () => {
       pushName: "v",
     });
     const { latest, handle } = await startArranged({ store });
-    const calls: Array<[number, { remoteJid: string; fromMe: boolean; id: string }, number]> =
-      [];
+    const calls: Array<[number, { remoteJid: string; fromMe: boolean; id: string }, number]> = [];
     (latest() as unknown as { fetchMessageHistory: unknown }).fetchMessageHistory = async (
       count: number,
       key: { remoteJid: string; fromMe: boolean; id: string },

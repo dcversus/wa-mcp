@@ -121,6 +121,9 @@ export async function startBridge(
   // runs a FULL resync, and swallow the duplicate spam.
   let stalenessTimer: NodeJS.Timeout | null = null;
   let staleMisses = 0;
+  // T93: any ev event is proof of a live wire — the watchdog only probes
+  // (and only ever tears down) when the transport has been fully silent
+  let lastInboundAt = 0;
   let appStateRecoveryAt = 0;
   const baseLogger = opts.logger;
   const conflictAwareLogger: BridgeLogger | undefined =
@@ -284,6 +287,7 @@ export async function startBridge(
       clearInterval(stalenessTimer);
     }
     staleMisses = 0;
+    lastInboundAt = Date.now();
     const stalenessMs = Number(process.env.WA_STALENESS_MS ?? 30_000);
     if (stalenessMs > 0) {
       stalenessTimer = setInterval(() => {
@@ -294,8 +298,21 @@ export async function startBridge(
         if (typeof current.query !== "function") {
           return;
         }
-        if (staleMisses >= 3) {
+        // T93 engine-truth fix: inbound traffic IS liveness. The live daemon
+        // tore down HEALTHY connections every ~90s because every probe
+        // "timed out" — messages were flowing the whole time.
+        if (Date.now() - lastInboundAt < stalenessMs) {
           staleMisses = 0;
+          return;
+        }
+        if (staleMisses >= 3) {
+          // T93: accounting runs BEFORE the listeners are detached — the
+          // close event has no listener left after the forced teardown, and
+          // the old order left /health reporting reconnects:0 through a
+          // full churn storm.
+          staleMisses = 0;
+          reconnects += 1;
+          lastDisconnectAt = Date.now();
           opts.logger?.warn({}, "STALENESS: keepalive queries unanswered — forcing reconnect");
           for (const name of EVENT_NAMES) {
             current.ev.removeAllListeners(name);
@@ -305,8 +322,13 @@ export async function startBridge(
           return;
         }
         staleMisses += 1;
+        // T93: the probe must be the engine's OWN keepalive iq — the fork
+        // passes the NODE directly (not {json:...}) with a w:p ping child
+        // (Socket/socket.js:530-558); the old wrapper never got answered.
         void (current.query as (q: unknown) => Promise<unknown>)({
-          json: { tag: "iq", attrs: { type: "get", xmlns: "w:p", to: "@s.whatsapp.net" } },
+          tag: "iq",
+          attrs: { to: "@s.whatsapp.net", type: "get", xmlns: "w:p" },
+          content: [{ tag: "ping", attrs: {} }],
         })
           .then(() => {
             staleMisses = 0;
@@ -317,6 +339,7 @@ export async function startBridge(
     }
     for (const name of EVENT_NAMES) {
       socket.ev.on(name, async (payload) => {
+        lastInboundAt = Date.now();
         if (name === "connection.update") {
           const update = payload as ConnectionUpdate;
           status = deriveStatus(status, update);
