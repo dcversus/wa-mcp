@@ -291,7 +291,7 @@ test("T92 line80 — sendProtoViaSocket honors WA_SENDS_DISABLED", async () => {
   const { sendProtoViaSocket } = (await import("../../src/send/send.ts")) as {
     sendProtoViaSocket: (socket: WASocket, jid: string, message: unknown) => Promise<unknown>;
   };
-  await expect(
-    sendProtoViaSocket(sock, "358497773518@s.whatsapp.net", {}),
-  ).rejects.toMatchObject({ code: "SENDS_DISABLED" });
+  await expect(sendProtoViaSocket(sock, "358497773518@s.whatsapp.net", {})).rejects.toMatchObject({
+    code: "SENDS_DISABLED",
+  });
 });

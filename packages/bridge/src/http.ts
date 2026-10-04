@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { AnyMessageContent, WAMessage } from "baileys";
+import type { AnyMessageContent, proto, WAMessage } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
@@ -81,7 +81,8 @@ import { createTranscriptionEngine, saveTranscript, getTranscript } from "./medi
 import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import { buildVcard } from "./send/build.ts";
-import { resolveRecipient, SendError, sendViaSocket } from "./send/send.ts";
+import { buildButtonsMessage, buildListMessage } from "./send/build.ts";
+import { resolveRecipient, SendError, sendProtoViaSocket, sendViaSocket } from "./send/send.ts";
 import type { SendGuard } from "./send/safety.ts";
 
 export interface HttpServerOptions {
@@ -588,8 +589,15 @@ export async function createHttpServer(
       poll_name?: unknown;
       options?: unknown;
       selectable_count?: unknown;
+      url?: unknown;
+      buttons?: unknown;
+      sections?: unknown;
     };
-    if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+    // T90 line77: status broadcasts need no recipient — status@broadcast is implied
+    if (
+      input.kind !== "status-text" &&
+      (typeof input.chat_jid !== "string" || input.chat_jid.length === 0)
+    ) {
       validationError(res, "chat_jid is required");
       return;
     }
@@ -600,11 +608,16 @@ export async function createHttpServer(
       validationError(res, "media requires an image, video, audio, document or sticker kind");
       return;
     }
-    let chatJid: string = input.chat_jid;
+    let chatJid: string =
+      input.kind === "status-text" ? "status@broadcast" : (input.chat_jid as string);
     const kind = typeof input.kind === "string" ? input.kind : "text";
     let mediaToSave: ResolvedMedia | null = null;
     let quotedForWire: WAMessage | undefined;
-    let builder: () => Promise<AnyMessageContent>;
+    let builder: (() => Promise<AnyMessageContent>) | null = null;
+    // T92: raw-interactive kinds (buttons/list) build protos for the relay path —
+    // sendMessage rejects raw protos (engine truth: Invalid media type)
+    let protoBuilder: (() => proto.IMessage) | null = null;
+    let broadcastStatus = false;
     switch (kind) {
       case "text": {
         if (typeof input.text !== "string" || input.text.length === 0) {
@@ -677,6 +690,109 @@ export async function createHttpServer(
         const text: string = input.text;
         builder = () =>
           Promise.resolve({ edit: { remoteJid: chatJid, id: messageId, fromMe: true }, text });
+        break;
+      }
+      case "status-text": {
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        builder = () => Promise.resolve({ text: input.text } as AnyMessageContent);
+        broadcastStatus = true;
+        break;
+      }
+      case "link_preview": {
+        // T92 engine truth: the fork's text branch merges a WAUrlInfo linkPreview
+        // into extendedTextMessage — a raw extendedTextMessage proto would fall
+        // through to prepareWAMessageMedia and throw Invalid media type
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        if (typeof input.url !== "string" || input.url.length === 0) {
+          validationError(res, "url is required");
+          return;
+        }
+        const text: string = input.text;
+        const url: string = input.url;
+        builder = () =>
+          Promise.resolve({
+            text,
+            linkPreview: { "canonical-url": url, "matched-text": url, title: "" },
+          } as AnyMessageContent);
+        break;
+      }
+      case "buttons": {
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        if (!Array.isArray(input.buttons) || input.buttons.length === 0) {
+          validationError(res, "buttons must be a non-empty array");
+          return;
+        }
+        const text: string = input.text;
+        const buttons = (input.buttons as unknown[])
+          .map((button) => {
+            if (typeof button === "string") {
+              return button;
+            }
+            if (typeof button === "object" && button !== null && "title" in button) {
+              const title = (button as { title?: unknown }).title;
+              if (typeof title === "string") {
+                return title;
+              }
+            }
+            return null;
+          })
+          .filter((label): label is string => label !== null);
+        if (buttons.length === 0) {
+          validationError(res, "buttons entries must carry a title");
+          return;
+        }
+        const footer: string | undefined =
+          typeof input.caption === "string" ? input.caption : undefined;
+        protoBuilder = () => buildButtonsMessage(text, buttons, footer);
+        break;
+      }
+      case "list": {
+        if (typeof input.text !== "string" || input.text.length === 0) {
+          validationError(res, "text is required");
+          return;
+        }
+        const rawSections = input.sections;
+        if (!Array.isArray(rawSections) || rawSections.length === 0) {
+          validationError(res, "sections must be a non-empty array");
+          return;
+        }
+        const text: string = input.text;
+        const sections = (rawSections as unknown[]).map((section) => {
+          const s = section as { title?: unknown; rows?: unknown };
+          const rows = (Array.isArray(s.rows) ? s.rows : []).map((row) => {
+            const r = row as {
+              title?: unknown;
+              row_id?: unknown;
+              rowId?: unknown;
+              description?: unknown;
+            };
+            const rowId: string =
+              typeof r.row_id === "string" ? r.row_id : typeof r.rowId === "string" ? r.rowId : "";
+            return {
+              title: typeof r.title === "string" ? r.title : "",
+              rowId,
+              description: typeof r.description === "string" ? r.description : undefined,
+            };
+          });
+          return {
+            title: typeof s.title === "string" ? s.title : "",
+            rows,
+          };
+        });
+        if (sections.every((section) => section.rows.length === 0)) {
+          validationError(res, "sections must contain at least one row");
+          return;
+        }
+        protoBuilder = () => buildListMessage(text, text, sections);
         break;
       }
       case "forward": {
@@ -934,9 +1050,39 @@ export async function createHttpServer(
       }
       return;
     }
-    void builder()
+    if (protoBuilder !== null) {
+      const buildProto = protoBuilder;
+      void (async () => {
+        const result = await sendProtoViaSocket(socket, chatJid, buildProto(), {
+          store: opts.store,
+          quoted: quotedForWire,
+        });
+        opts.sendGuard?.record(Date.now());
+        sendJson(res, 200, { message_id: result.messageId });
+      })().catch((err: unknown) => {
+        if (err instanceof SendError) {
+          opts.logger?.error({ code: err.code, message: err.message }, "send failed");
+          const status =
+            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
+          sendJson(res, status, { error: { code: err.code, message: err.message } });
+          return;
+        }
+        sendJson(res, 500, { error: { code: "INTERNAL", message: "send failed" } });
+      });
+      return;
+    }
+    const contentBuilder = builder;
+    if (contentBuilder === null) {
+      // unreachable — every non-relay kind branch assigns a builder
+      validationError(res, `unknown send kind: ${kind}`);
+      return;
+    }
+    void contentBuilder()
       .then((content) =>
-        sendViaSocket(socket, chatJid, content, { ...opts, quoted: quotedForWire }),
+        sendViaSocket(socket, broadcastStatus ? "status@broadcast" : chatJid, content, {
+          ...opts,
+          quoted: quotedForWire,
+        }),
       )
       .then(async (result) => {
         const saved: ResolvedMedia | null = mediaToSave;

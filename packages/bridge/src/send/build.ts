@@ -230,6 +230,12 @@ export interface ListSectionInput {
   rows: Array<{ title: string; rowId: string; description?: string }>;
 }
 
+export async function buildStatusTextMessage(text: string): Promise<proto.IMessage> {
+  // status text is a plain conversation proto — the engine sends it as { text }
+  // to status@broadcast; this shell exists for proto-level contracts (T15/T90)
+  return { conversation: text };
+}
+
 export function buildButtonsMessage(
   contentText: string,
   buttonLabels: string[],

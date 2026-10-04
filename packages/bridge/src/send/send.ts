@@ -1,4 +1,4 @@
-import { jidDecode, jidEncode, proto } from "baileys";
+import { generateWAMessageFromContent, jidDecode, jidEncode, proto } from "baileys";
 import type { AnyMessageContent, WASocket, WAMessage } from "baileys";
 import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { getAlias } from "../store/contacts.ts";
@@ -211,4 +211,50 @@ export async function sendViaSocket(
     storeMessage(opts.store, outbound);
   }
   return { messageId, chatJid: jid };
+}
+
+// T92 engine truth: socket.sendMessage rejects raw protos — generateWAMessageContent
+// falls through to prepareWAMessageMedia which throws "Invalid media type" for any
+// content without an AnyMessageContent key (buttonsMessage/listMessage included).
+// Interactive protos ride generateWAMessageFromContent + relayMessage instead —
+// the fork's relay path maps listMessage/buttonsResponseMessage natively.
+export async function sendProtoViaSocket(
+  socket: WASocket,
+  chatJid: string,
+  message: proto.IMessage,
+  opts: SendOptions = {},
+): Promise<SendResult> {
+  if (process.env.WA_SENDS_DISABLED === "1") {
+    throw new SendError("SENDS_DISABLED", "sending is disabled by WA_SENDS_DISABLED");
+  }
+  if (!isValidRecipientJid(chatJid)) {
+    throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
+  }
+  const jid = normalizeJid(chatJid);
+  if (jid === null) {
+    throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
+  }
+  const wireJid = await resolveLidJid(socket, jid);
+  try {
+    const full = generateWAMessageFromContent(wireJid, proto.Message.fromObject(message), {
+      userJid: socket.user?.id ?? "",
+      quoted: opts.quoted,
+    });
+    const messageId = full.key.id ?? "";
+    await socket.relayMessage(wireJid, full.message ?? {}, { messageId });
+    if (opts.store !== undefined) {
+      const outbound = {
+        ...full,
+        key: { ...full.key, remoteJid: jid, fromMe: true },
+      } as WAMessage;
+      storeMessage(opts.store, outbound);
+    }
+    return { messageId, chatJid: jid };
+  } catch (err: unknown) {
+    if (err instanceof SendError) {
+      throw err;
+    }
+    const mapped = mapWaError(err);
+    throw new SendError(mapped.code, mapped.message, mapped.retryAfterSeconds, mapped.hint);
+  }
 }
