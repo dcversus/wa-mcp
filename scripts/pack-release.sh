@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+release_version="0.9.0"
 expected_version=$(node -p "require('./packages/cli/package.json').version")
+if [ "$expected_version" != "$release_version" ]; then
+  echo "version drift: contract is ${release_version} but packages/cli/package.json is ${expected_version}" >&2
+  exit 1
+fi
 pnpm run -r build >/dev/null
 cd packages/cli
 pnpm pack --pack-destination ../.. >/dev/null
