@@ -157,3 +157,105 @@ describe("T87 — read deepening", () => {
     }
   });
 });
+
+describe("T87-B — export, bulk clear, photo fields", () => {
+  function seed(store: Store): void {
+    storeMessage(store, {
+      key: { remoteJid: GROUP_A, fromMe: false, id: "E1", participant: "358401112222@s.whatsapp.net" },
+      message: { conversation: "export me" },
+      messageTimestamp: 1700000100,
+    } as never);
+    storeMessage(store, {
+      key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "E2" },
+      message: { conversation: "unread dm" },
+      messageTimestamp: 1700000200,
+    } as never);
+    store.db.prepare("UPDATE messages SET is_unread = 1 WHERE id IN ('E1','E2')").run();
+    store.db
+      .prepare("INSERT INTO chats (jid, name, is_unread) VALUES (?, ?, 1)")
+      .run(GROUP_A, "Test Group");
+    store.db
+      .prepare("INSERT INTO chats (jid, name, is_unread) VALUES (?, ?, 1)")
+      .run("358497773518@s.whatsapp.net", "DM");
+  }
+
+  test("line122 — export_chat JSONL/MD/TXT", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-exp-")));
+    seed(store);
+    const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
+    created.push({ close: bridge.close });
+    for (const [fmt, marker] of [
+      ["jsonl", '"text":"export me"'],
+      ["md", "## 2023-11-14"],
+      ["txt", "export me"],
+    ] as const) {
+      const res = await fetch(
+        url(bridge, `/api/export?chat_jid=${encodeURIComponent(GROUP_A)}&format=${fmt}`),
+        { headers: authHeader },
+      );
+      expect(res.status).toBe(200);
+      const text = await res.text();
+      expect(text).toContain(marker);
+    }
+    const jsonl = await fetch(
+      url(bridge, `/api/export?chat_jid=${encodeURIComponent(GROUP_A)}&format=jsonl`),
+      { headers: authHeader },
+    );
+    const first = JSON.parse((await jsonl.text()).split("\n")[0] ?? "{}") as { text: string };
+    expect(first.text).toBe("export me");
+  });
+
+  test("line122 — export_unread_messages exports only unread with chat attribution", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-expu-")));
+    seed(store);
+    const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, "/api/export?unread=true&format=jsonl"), {
+      headers: authHeader,
+    });
+    expect(res.status).toBe(200);
+    const lines = (await res.text()).split("\n").filter((l) => l.length > 0);
+    expect(lines).toHaveLength(2);
+    const first = JSON.parse(lines[0] ?? "{}") as { chatJid?: string };
+    expect(first.chatJid).toBe(GROUP_A);
+  });
+
+  test("line130 — bulk read clears multiple chats", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-bulk-")));
+    seed(store);
+    const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, "/api/read-bulk"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jids: [GROUP_A, "358497773518@s.whatsapp.net"] }),
+    });
+    expect(res.status).toBe(200);
+    const unread = store.db.prepare("SELECT COUNT(*) AS n FROM chats WHERE is_unread = 1").get() as {
+      n: number;
+    };
+    expect(unread.n).toBe(0);
+  });
+
+  test("line108/109 — get_chat detail carries hasPhoto + pictureUrl when available", async () => {
+    const socket = stubHandle().socket;
+    (socket as { profilePictureUrl?: unknown }).profilePictureUrl = vi.fn(
+      async () => "https://cdn.example/pic.jpg",
+    );
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-photo-")));
+    seed(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+    });
+    created.push({ close: bridge.close });
+    const res = await fetch(
+      url(bridge, `/api/contacts/${encodeURIComponent(GROUP_A)}?with_photo=true`),
+      { headers: authHeader },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { contact?: { hasPhoto?: boolean; pictureUrl?: string } };
+    expect(body.contact?.hasPhoto).toBe(true);
+    expect(body.contact?.pictureUrl).toContain("https://");
+  });
+});
