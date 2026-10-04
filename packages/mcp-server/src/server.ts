@@ -347,7 +347,9 @@ export async function handleRpcMessage(
         if (!WA_RESOURCES.some((resource) => resource.uri === uri)) {
           throw new ParamError(`unknown resource: ${uri}`);
         }
-        ctx.session?.subscriptions[request.method === "resources/subscribe" ? "add" : "delete"](uri);
+        ctx.session?.subscriptions[request.method === "resources/subscribe" ? "add" : "delete"](
+          uri,
+        );
         return {};
       }
       case "resources/read": {
@@ -412,8 +414,14 @@ export interface ForwardableNotification {
   params: Record<string, unknown>;
 }
 
-export function shouldForward(session: McpSession | undefined, notification: ForwardableNotification): boolean {
-  if (notification.method === "notifications/message" || notification.method === "notifications/tools/list_changed") {
+export function shouldForward(
+  session: McpSession | undefined,
+  notification: ForwardableNotification,
+): boolean {
+  if (
+    notification.method === "notifications/message" ||
+    notification.method === "notifications/tools/list_changed"
+  ) {
     return true;
   }
   if (notification.method === "notifications/resources/updated") {

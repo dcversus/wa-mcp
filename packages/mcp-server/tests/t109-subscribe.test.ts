@@ -17,7 +17,9 @@ async function init(session?: ServerContext["session"]): Promise<Record<string, 
 
 test("initialize advertises resources.subscribe === true", async () => {
   const result = await init();
-  const capabilities = result.capabilities as { resources: { subscribe: boolean; listChanged: boolean } };
+  const capabilities = result.capabilities as {
+    resources: { subscribe: boolean; listChanged: boolean };
+  };
   expect(capabilities.resources.subscribe).toBe(true);
   expect(capabilities.resources.listChanged).toBe(true);
 });
@@ -55,10 +57,22 @@ test("resources/unsubscribe removes; idempotent", async () => {
 
 test("shouldForward passes resources/updated only for subscribed uris; always passes notifications/message and tools/list_changed", () => {
   const session = { subscriptions: new Set<string>(["wa://unread"]) };
-  const updated = { jsonrpc: "2.0" as const, method: "notifications/resources/updated", params: { uri: "wa://unread" } };
-  const other = { jsonrpc: "2.0" as const, method: "notifications/resources/updated", params: { uri: "wa://chats" } };
+  const updated = {
+    jsonrpc: "2.0" as const,
+    method: "notifications/resources/updated",
+    params: { uri: "wa://unread" },
+  };
+  const other = {
+    jsonrpc: "2.0" as const,
+    method: "notifications/resources/updated",
+    params: { uri: "wa://chats" },
+  };
   const message = { jsonrpc: "2.0" as const, method: "notifications/message", params: {} };
-  const toolsChanged = { jsonrpc: "2.0" as const, method: "notifications/tools/list_changed", params: {} };
+  const toolsChanged = {
+    jsonrpc: "2.0" as const,
+    method: "notifications/tools/list_changed",
+    params: {},
+  };
   expect(shouldForward(session, updated)).toBe(true);
   expect(shouldForward(session, other)).toBe(false);
   expect(shouldForward(session, message)).toBe(true);

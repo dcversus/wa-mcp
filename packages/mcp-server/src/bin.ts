@@ -2,7 +2,12 @@
 import { realpathSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
-import { handleRpcLine, type JsonRpcResponse, type ServerContext } from "./server.ts";
+import {
+  handleRpcLine,
+  shouldForward,
+  type JsonRpcResponse,
+  type ServerContext,
+} from "./server.ts";
 import { TOOLS } from "./tools.ts";
 
 export interface McpConfig {
@@ -34,6 +39,8 @@ export async function handleStream(
   write: (line: string) => void,
   ctx: ServerContext,
 ): Promise<void> {
+  let pump: Promise<void> | null = null;
+  ctx.session = { subscriptions: new Set<string>() };
   for await (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length === 0) {
@@ -43,6 +50,60 @@ export async function handleStream(
     if (response !== null) {
       write(JSON.stringify(response));
     }
+    if (
+      pump === null &&
+      ctx.session !== undefined &&
+      ctx.session.subscriptions.size > 0 &&
+      ctx.fetchFn !== undefined
+    ) {
+      pump = pumpNotifications(ctx, write);
+    }
+  }
+}
+
+async function pumpNotifications(ctx: ServerContext, write: (line: string) => void): Promise<void> {
+  const controller = new AbortController();
+  try {
+    const res = await ctx.fetchFn(`${ctx.bridgeUrl}/api/mcp-notify`, {
+      headers: { authorization: "Bearer " + ctx.token },
+      signal: controller.signal,
+    });
+    if (res.body === null) {
+      return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        break;
+      }
+      buffered += decoder.decode(chunk.value, { stream: true });
+      const frames = buffered.split("\n\n");
+      buffered = frames.pop() ?? "";
+      for (const frame of frames) {
+        for (const dataLine of frame.split("\n")) {
+          if (!dataLine.startsWith("data: ")) {
+            continue;
+          }
+          try {
+            const notification = JSON.parse(dataLine.slice(6)) as {
+              jsonrpc: "2.0";
+              method: string;
+              params: Record<string, unknown>;
+            };
+            if (shouldForward(ctx.session, notification)) {
+              write(JSON.stringify(notification));
+            }
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  } catch {
+    return;
   }
 }
 

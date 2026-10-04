@@ -58,6 +58,7 @@ import {
 } from "./subscriptions.ts";
 import { openInbox } from "./inbox.ts";
 import { toMcpNotifications } from "./mcp-notify.ts";
+import { randomUUID as sessionIdGen } from "node:crypto";
 import {
   ValidationError,
   blockUnblock,
@@ -88,7 +89,13 @@ import { downloadMessageMedia } from "./media/download.ts";
 import { viewMedia } from "./media/view.ts";
 import { createTranscriptionEngine, saveTranscript, getTranscript } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
-import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
+import {
+  TOOLS,
+  handleRpcMessage,
+  shouldForward,
+  type ServerContext,
+  type McpSession,
+} from "@wa-mcp/mcp-server";
 import { buildVcard } from "./send/build.ts";
 import { buildButtonsMessage, buildListMessage } from "./send/build.ts";
 import {
@@ -1400,6 +1407,7 @@ export async function createHttpServer(
   };
 
   let selfPort = 0;
+  const mcpSessions = new Map<string, McpSession>();
   const serveMcp = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
     let parsed: unknown;
     try {
@@ -1413,6 +1421,12 @@ export async function createHttpServer(
       return;
     }
     const selfUrl = `http://${opts.host ?? "127.0.0.1"}:${selfPort}`;
+    const sessionHeader = Array.isArray(req.headers["mcp-session-id"])
+      ? (req.headers["mcp-session-id"][0] as string)
+      : (req.headers["mcp-session-id"] as string | undefined);
+    const existingSession =
+      sessionHeader !== undefined ? mcpSessions.get(sessionHeader) : undefined;
+    const session = existingSession ?? { subscriptions: new Set<string>() };
     const ctx: ServerContext = {
       tools: TOOLS,
       bridgeUrl: selfUrl,
@@ -1421,9 +1435,21 @@ export async function createHttpServer(
       // media urls (send route) with its own SSRF guard — the RPC layer
       // never resolves DNS itself
       fetchFn: opts.fetchFn,
+      session,
     };
+    const isInitialize =
+      parsed !== null &&
+      typeof parsed === "object" &&
+      (parsed as { method?: unknown }).method === "initialize";
+    const sessionId = isInitialize ? sessionIdGen() : sessionHeader;
+    if (sessionId !== undefined) {
+      mcpSessions.set(sessionId, session);
+    }
     void handleRpcMessage(parsed, ctx).then(
       (response) => {
+        if (sessionId !== undefined) {
+          res.setHeader("Mcp-Session-Id", sessionId);
+        }
         sendJson(res, 200, response ?? {});
       },
       (err: unknown) => {
@@ -2429,8 +2455,37 @@ export async function createHttpServer(
           void serveSend(req, res, body);
           return;
         }
-        if (path === "/mcp") {
+        if (path === "/mcp" && req.method === "POST") {
           serveMcp(req, res, body);
+          return;
+        }
+        if (path === "/mcp" && req.method === "GET") {
+          const sessionHeader = Array.isArray(req.headers["mcp-session-id"])
+            ? (req.headers["mcp-session-id"][0] as string)
+            : (req.headers["mcp-session-id"] as string | undefined);
+          const session = sessionHeader !== undefined ? mcpSessions.get(sessionHeader) : undefined;
+          if (session === undefined) {
+            sendJson(res, 404, {
+              error: { code: "SESSION_NOT_FOUND", message: "unknown Mcp-Session-Id" },
+            });
+            return;
+          }
+          res.writeHead(200, {
+            "content-type": "text/event-stream",
+            "cache-control": "no-cache",
+            connection: "keep-alive",
+          });
+          res.write(": connected\n\n");
+          const unsubscribeMcp = handle.events.subscribe((event) => {
+            for (const notification of toMcpNotifications(event)) {
+              if (shouldForward(session, notification)) {
+                res.write(`data: ${JSON.stringify(notification)}\n\n`);
+              }
+            }
+          });
+          req.on("close", () => {
+            unsubscribeMcp();
+          });
           return;
         }
         if (path === "/api/mcp-notify" && req.method === "GET") {

@@ -1132,7 +1132,7 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
   expect(body.id).toBe(1);
   expect(body.result.capabilities).toEqual({
     tools: {},
-    resources: { subscribe: false, listChanged: true },
+    resources: { subscribe: true, listChanged: true },
     prompts: {},
     logging: {},
     notifications: {},
