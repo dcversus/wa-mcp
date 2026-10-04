@@ -524,3 +524,113 @@ describe("T89-B GAP2 — label MCP tools", () => {
     expect(log[3]?.init.method).toBe("DELETE");
   });
 });
+
+describe("T90-B — media pipeline MCP tools", () => {
+  test("tools/list includes download_media, view_media, transcribe_voice", async () => {
+    const response = await handleRpcLine(makeRequest(70, "tools/list", {}), ctx);
+    const names = (resultOf(response).tools as Array<{ name: string }>).map((t) => t.name);
+    for (const expected of ["download_media", "view_media", "transcribe_voice"]) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  test("download_media POSTs the download route", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ path: "/data/media/DL1.jpg", downloaded: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(71, "tools/call", { name: "download_media", arguments: { message_id: "DL1" } }),
+      { ...ctx, fetchFn },
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/media/DL1/download");
+    expect(log[0]?.init.method).toBe("POST");
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("/data/media/DL1.jpg");
+  });
+
+  test("view_media posts the view verb and surfaces frames", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(
+        JSON.stringify({
+          mime: "image/jpeg",
+          frames: [{ data_base64: Buffer.from("frame").toString("base64") }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(72, "tools/call", {
+        name: "view_media",
+        arguments: { chat_jid: "1@g.us", message_id: "V1" },
+      }),
+      { ...ctx, fetchFn },
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/media/V1/view");
+    expect(log[0]?.init.method).toBe("POST");
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("image/jpeg");
+  });
+
+  test("view_media oversized surfaces PAYLOAD_TOO_LARGE", async () => {
+    const fetchFn = (async () =>
+      new Response(
+        JSON.stringify({ error: { code: "PAYLOAD_TOO_LARGE", message: "over the cap" } }),
+        { status: 413, headers: { "content-type": "application/json" } },
+      )) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(73, "tools/call", {
+        name: "view_media",
+        arguments: { chat_jid: "1@g.us", message_id: "BIG" },
+      }),
+      { ...ctx, fetchFn },
+    );
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("PAYLOAD_TOO_LARGE");
+  });
+
+  test("transcribe_voice posts the transcription route and returns the text", async () => {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ text: "transcribed words", engine: "mock" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(74, "tools/call", {
+        name: "transcribe_voice",
+        arguments: { chat_jid: "1@g.us", message_id: "T1" },
+      }),
+      { ...ctx, fetchFn },
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/transcribe");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ chat_jid: "1@g.us", message_id: "T1" });
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("transcribed words");
+  });
+
+  test("transcribe_voice surfaces structured errors from the bridge", async () => {
+    const fetchFn = (async () =>
+      new Response(
+        JSON.stringify({ error: { code: "NOT_FOUND", message: "message has no media" } }),
+        { status: 404, headers: { "content-type": "application/json" } },
+      )) as unknown as typeof fetch;
+    const response = await handleRpcLine(
+      makeRequest(75, "tools/call", {
+        name: "transcribe_voice",
+        arguments: { chat_jid: "1@g.us", message_id: "NOPE" },
+      }),
+      { ...ctx, fetchFn },
+    );
+    const content = resultOf(response).content as Array<{ type: string; text: string }>;
+    expect(content[0]?.text).toContain("NOT_FOUND");
+  });
+});
