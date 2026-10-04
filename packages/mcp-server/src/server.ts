@@ -35,6 +35,19 @@ export interface WaResource {
 
 export const WA_RESOURCES: WaResource[] = [
   {
+    uri: "wa://sync-status",
+    name: "Sync status",
+    description: "Live connection and sync state (connected, loggedIn, reconnects, contactsWarm)",
+    mimeType: "application/json",
+  },
+  {
+    uri: "wa://config",
+    name: "Configuration",
+    description:
+      "Non-secret server configuration (bridge URL, version, transport) — never the token",
+    mimeType: "application/json",
+  },
+  {
     uri: "wa://chats",
     name: "Chats",
     description: "WhatsApp chat list with unread counts and previews",
@@ -61,18 +74,29 @@ function resourcePath(uri: string): string | null {
   if (uri === "wa://unread") {
     return "/api/unread";
   }
-  if (uri === "wa://health") {
+  if (uri === "wa://health" || uri === "wa://sync-status") {
     return "/health";
   }
   return null;
 }
 
 async function readResource(toolCtx: ToolContext, uri: string): Promise<Record<string, unknown>> {
-  const path = resourcePath(uri);
-  if (path === null) {
-    throw new ParamError(`unknown resource: ${uri}`);
+  let payload: Record<string, unknown>;
+  if (uri === "wa://config") {
+    payload = {
+      bridge_url: toolCtx.bridgeUrl,
+      version: SERVER_INFO.version,
+      transport: "http",
+      auth: "bearer token (redacted)",
+      tools: TOOLS.length,
+    };
+  } else {
+    const path = resourcePath(uri);
+    if (path === null) {
+      throw new ParamError(`unknown resource: ${uri}`);
+    }
+    payload = (await bridgeFetchResource(toolCtx, path)) as Record<string, unknown>;
   }
-  const payload = (await bridgeFetchResource(toolCtx, path)) as Record<string, unknown>;
   return {
     contents: [{ uri, mimeType: "application/json", text: JSON.stringify(payload) }],
   };
@@ -354,5 +378,6 @@ export async function handleRpcLine(
 }
 
 export { toolByName };
-export { TOOLS } from "./tools.ts";
+import { TOOLS } from "./tools.ts";
+export { TOOLS };
 export type { ToolContext, ToolDef };

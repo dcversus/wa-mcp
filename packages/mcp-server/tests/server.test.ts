@@ -223,6 +223,8 @@ test("resources/list exposes the wa resources", async () => {
   const response = await handleRpcLine(makeRequest(10, "resources/list"), ctx);
   const resources = resultOf(response).resources as Array<{ uri: string; name: string }>;
   expect(resources.map((resource) => resource.uri)).toEqual([
+    "wa://sync-status",
+    "wa://config",
     "wa://chats",
     "wa://unread",
     "wa://health",
@@ -808,4 +810,37 @@ test("T94-D-H5claude — param errors stay protocol errors", async () => {
     ctx,
   );
   expect(response?.error?.code).toBe(-32602);
+});
+
+test("T99 — resources expose wa://sync-status and wa://config (no token)", async () => {
+  const listResponse = await handleRpcLine(makeRequest(970, "resources/list"), ctx);
+  const resources = resultOf(listResponse).resources as Array<{ uri: string; name: string }>;
+  const uris = resources.map((resource) => resource.uri);
+  expect(uris).toContain("wa://sync-status");
+  expect(uris).toContain("wa://config");
+
+  const healthFetch = (async (url: string | URL) => {
+    if (String(url).endsWith("/health")) {
+      return new Response(JSON.stringify({ connected: true, loggedIn: true }), { status: 200 });
+    }
+    throw new Error(`unexpected url ${url}`);
+  }) as unknown as typeof fetch;
+  const readSync = await handleRpcLine(
+    makeRequest(971, "resources/read", { uri: "wa://sync-status" }),
+    { ...ctx, fetchFn: healthFetch },
+  );
+  const sync = JSON.parse(
+    (resultOf(readSync).contents as Array<{ text: string }>)[0]?.text ?? "{}",
+  ) as { connected?: boolean };
+  expect(sync.connected).toBe(true);
+
+  const readConfig = await handleRpcLine(
+    makeRequest(972, "resources/read", { uri: "wa://config" }),
+    ctx,
+  );
+  const configText = (resultOf(readConfig).contents as Array<{ text: string }>)[0]?.text ?? "";
+  expect(configText).toContain(ctx.bridgeUrl);
+  expect(configText).toContain('"version":"0.9.0"');
+  // the token must NEVER appear in the config resource
+  expect(configText).not.toContain(ctx.token);
 });
