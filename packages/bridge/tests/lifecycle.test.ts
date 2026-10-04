@@ -958,9 +958,8 @@ test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
     } as unknown as BridgeLogger,
   });
   // the fork logs LTHash 409 conflicts through the INJECTED logger
-  const injected = (
-    (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger }).logger
-  );
+  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger })
+    .logger;
   injected?.warn({ collection: "regular" }, "conflict in processing state");
   injected?.warn({ collection: "regular" }, "conflict in processing state");
   const recoveries = warns.filter((entry) => entry.includes("APP-STATE-RECOVERY"));
@@ -1032,9 +1031,8 @@ test("T80-FIX — the conflict-aware logger preserves the pino prototype surface
   const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
     logger: base as unknown as BridgeLogger,
   });
-  const injected = (
-    (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger }).logger
-  );
+  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger })
+    .logger;
   expect(typeof injected?.child).toBe("function");
   expect(() => injected?.child({}).warn({}, "via child")).not.toThrow();
   // interception still fires on conflict
@@ -1098,9 +1096,10 @@ test("T84-B line93 — an autoreply rule answers an inbound hello once per coold
   });
   await new Promise((resolve) => setTimeout(resolve, 50));
   const sendCalls = (
-    (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage.mock.calls.filter(
-    (call) => (call[1] as { text?: string }).text === "hi from the daemon",
-  );
+    (sock as unknown as { sendMessage: ReturnType<typeof vi.fn> }).sendMessage.mock.calls as Array<
+      [unknown, { text?: string }]
+    >
+  ).filter((call) => call[1]?.text === "hi from the daemon");
   expect(sendCalls).toHaveLength(1);
   store.close();
 });
