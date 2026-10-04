@@ -121,6 +121,164 @@ test("send_message posts to the bridge with the bearer token", async () => {
   expect(firstText(result)).toContain("M9");
 });
 
+test("T92-B — send_message schema exposes the variant params", () => {
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  const props = (tool.inputSchema.properties ?? {}) as Record<string, { description?: string }>;
+  for (const name of ["link_preview", "url", "status_broadcast", "buttons", "interactive", "list"]) {
+    expect(props[name], `missing property: ${name}`).toBeDefined();
+  }
+  // Business-account caveat must ride the interactive param descriptions
+  expect(props.buttons?.description).toContain("Business");
+  expect(props.interactive?.description).toContain("Business");
+  expect(props.list?.description).toContain("Business");
+});
+
+test("T92-B — link_preview + url posts the bridge link_preview kind", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "LP1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "look",
+      link_preview: true,
+      url: "https://example.com/x",
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "link_preview",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "look",
+    url: "https://example.com/x",
+  });
+});
+
+test("T92-B — link_preview without url extracts the first URL from text", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "LP2" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518@s.whatsapp.net", text: "see https://example.com/y now", link_preview: true },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "link_preview",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "see https://example.com/y now",
+    url: "https://example.com/y",
+  });
+});
+
+test("T92-B — link_preview with no resolvable URL errors", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "LP3" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await expect(
+    tool.handler(
+      { ...ctx, fetchFn },
+      { chat_jid: "358497773518@s.whatsapp.net", text: "no link here", link_preview: true },
+    ),
+  ).rejects.toThrow("url");
+  expect(calls).toHaveLength(0);
+});
+
+test("T92-B — status_broadcast posts the status-text kind without chat_jid", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "SB1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler({ ...ctx, fetchFn }, { text: "day one", status_broadcast: true });
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ kind: "status-text", text: "day one" });
+});
+
+test("T92-B — buttons posts the bridge buttons kind with labels", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "BT1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "pick",
+      buttons: [{ label: "Yes" }, { label: "No" }],
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "buttons",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "pick",
+    buttons: ["Yes", "No"],
+  });
+});
+
+test("T92-B — interactive folds title/description/footer into the buttons kind", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "IN1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      interactive: {
+        title: "Appointment",
+        description: "Confirm your slot",
+        footer: "Reply within 24h",
+        buttons: [{ label: "Confirm" }, { label: "Reschedule" }],
+      },
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "buttons",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "Appointment\nConfirm your slot",
+    caption: "Reply within 24h",
+    buttons: ["Confirm", "Reschedule"],
+  });
+});
+
+test("T92-B — list posts the bridge list kind with row ids", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "LS1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      list: {
+        title: "Menu",
+        description: "Pick a section",
+        sections: [
+          { title: "Food", rows: [{ title: "Pizza", description: "Large" }] },
+          { title: "Drinks", rows: [{ title: "Water" }] },
+        ],
+      },
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "list",
+    chat_jid: "358497773518@s.whatsapp.net",
+    text: "Menu\nPick a section",
+    sections: [
+      { title: "Food", rows: [{ title: "Pizza", row_id: "r0-0", description: "Large" }] },
+      { title: "Drinks", rows: [{ title: "Water", row_id: "r1-0" }] },
+    ],
+  });
+});
+
+test("T92-B — combining two variants is rejected", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "X1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await expect(
+    tool.handler(
+      { ...ctx, fetchFn },
+      { chat_jid: "a@s.whatsapp.net", text: "x", status_broadcast: true, link_preview: true },
+    ),
+  ).rejects.toThrow("only one");
+  expect(calls).toHaveLength(0);
+});
+
 test("list_chats fetches the chat list and returns json text", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chats?limit=50": { chats: [{ jid: "a@g.us" }] } });
   const tool = toolByName("list_chats");
