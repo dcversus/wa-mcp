@@ -14,6 +14,9 @@ import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
 import { evaluateAutoreply } from "./store/autoreply.ts";
 import { evaluateSendRules } from "./store/send-rules.ts";
 import { markHistorySynced } from "./store/meta.ts";
+import { fetchMessageFromStore } from "./store/queries.ts";
+import { autoDownloadRules, shouldAutoDownload } from "./store/autodl.ts";
+import { downloadMessageMedia } from "./media/download.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
 import type { WAMessage } from "baileys";
@@ -36,6 +39,8 @@ export interface StartBridgeOptions {
   qrPngPath?: string;
   /** when attached, live messages + history sync persist (GOAL §3 ingest) */
   store?: Store;
+  /** when attached with a store, inbound media auto-downloads here (T93-D) */
+  mediaDir?: string;
   /** consecutive registrations without a completed pairing before the daemon
    * stops minting new ones (WhatsApp anti-abuse: every attempt resets the
    * server-side cooldown, so endless retries deepen the lockout). */
@@ -124,6 +129,106 @@ export async function startBridge(
   // T93: any ev event is proof of a live wire — the watchdog only probes
   // (and only ever tears down) when the transport has been fully silent
   let lastInboundAt = 0;
+  // T93-D: auto-download rules are process-env static — read once per start
+  const autodlRules = autoDownloadRules(process.env);
+  let mediaBackfillDone = false;
+
+  /** T93-D: fire-and-forget media download for one stored message. Never
+   * blocks ingest; failures log a warning and leave media_path null (the
+   * start backfill and POST /api/media/:id/download can retry later). */
+  const downloadAndLink = (message: WAMessage, messageId: string): void => {
+    if (opts.store === undefined || opts.mediaDir === undefined) {
+      return;
+    }
+    const store = opts.store;
+    const mediaDir = opts.mediaDir;
+    void downloadMessageMedia(socket, message, { store, mediaDir, messageId })
+      .then((downloaded) => {
+        store.db
+          .prepare("UPDATE messages SET media_path = ? WHERE id = ?")
+          .run(downloaded.path, messageId);
+      })
+      .catch((err: unknown) => {
+        opts.logger?.warn({ err, messageId }, "auto-download failed");
+      });
+  };
+
+  const maybeAutoDownload = (message: WAMessage, chatJid: string | null | undefined): void => {
+    if (opts.store === undefined || opts.mediaDir === undefined) {
+      return;
+    }
+    if (chatJid === null || chatJid === undefined) {
+      return;
+    }
+    const content = message.message;
+    const mediaPart =
+      content?.imageMessage ??
+      content?.videoMessage ??
+      content?.audioMessage ??
+      content?.documentMessage ??
+      content?.stickerMessage;
+    if (mediaPart === undefined) {
+      return;
+    }
+    const fileName = (mediaPart as { fileName?: unknown }).fileName;
+    const verdict = shouldAutoDownload(
+      chatJid,
+      opts.mediaDir,
+      autodlRules,
+      typeof fileName === "string" ? fileName : undefined,
+    );
+    if (!verdict.ok) {
+      return;
+    }
+    const messageId = message.key.id ?? "";
+    if (messageId.length === 0) {
+      return;
+    }
+    downloadAndLink(message, messageId);
+  };
+
+  /** T93-D: bounded backfill at daemon start — the latest 50 media messages
+   * that still have a null path (ingest races, earlier crashes, downtime). */
+  const backfillPendingMedia = (): void => {
+    if (mediaBackfillDone || opts.store === undefined || opts.mediaDir === undefined) {
+      return;
+    }
+    mediaBackfillDone = true;
+    const store = opts.store;
+    const rows = store.db
+      .prepare(
+        "SELECT id FROM messages WHERE media_type IS NOT NULL AND media_path IS NULL ORDER BY timestamp DESC LIMIT 50",
+      )
+      .all() as Array<{ id: string }>;
+    for (const row of rows) {
+      const original = fetchMessageFromStore(store, row.id);
+      if (original === null) {
+        continue;
+      }
+      const chatJid = original.key.remoteJid ?? null;
+      const content = original.message;
+      const mediaPart =
+        content?.imageMessage ??
+        content?.videoMessage ??
+        content?.audioMessage ??
+        content?.documentMessage ??
+        content?.stickerMessage;
+      if (mediaPart === undefined || chatJid === null) {
+        continue;
+      }
+      const fileName = (mediaPart as { fileName?: unknown }).fileName;
+      const verdict = shouldAutoDownload(
+        chatJid,
+        opts.mediaDir,
+        autodlRules,
+        typeof fileName === "string" ? fileName : undefined,
+      );
+      if (!verdict.ok) {
+        continue;
+      }
+      downloadAndLink(original, row.id);
+    }
+  };
   let appStateRecoveryAt = 0;
   const baseLogger = opts.logger;
   const conflictAwareLogger: BridgeLogger | undefined =
@@ -280,6 +385,7 @@ export async function startBridge(
         }
       },
     });
+    backfillPendingMedia();
     // T79 line47: staleness watchdog — a query that never resolves means
     // the transport is a silent corpse; after the miss threshold, tear the
     // socket down and reconnect immediately (515-style single-flight).
@@ -447,6 +553,9 @@ export async function startBridge(
                 message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
               }
               storeMessage(opts.store, message);
+              // T93-D: media rides the auto-download rules — fire-and-forget,
+              // never blocks ingest, row linked on success
+              maybeAutoDownload(message, remoteJid);
               // T84-B line93: inbound non-own texts may trigger an autoreply —
               // gated by WA_SENDS_DISABLED and the T82 restrict rules, with a
               // per-chat cooldown inside evaluateAutoreply

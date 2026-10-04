@@ -49,9 +49,11 @@ const { downloadMock } = vi.hoisted(() => ({ downloadMock: vi.fn() }));
 vi.mock("../src/media/download.ts", () => ({
   downloadMessageMedia: (...args: unknown[]) => downloadMock(...args),
 }));
-downloadMock.mockImplementation(
-  async () => ({ path: "/tmp/wa-media/dl.jpg", mime: "image/jpeg", size: 4 }),
-);
+downloadMock.mockImplementation(async () => ({
+  path: "/tmp/wa-media/dl.jpg",
+  mime: "image/jpeg",
+  size: 4,
+}));
 
 const mockMakeWASocket = vi.mocked(makeWASocket);
 const mockAuthState = vi.mocked(useMultiFileAuthState);
@@ -1170,7 +1172,8 @@ describe("T93-D — auto-download on ingest", () => {
         "2026-01-01T00:00:00Z",
         null,
         "image",
-        JSON.stringify(mediaMessage("BF1", "358497773518@s.whatsapp.net")),
+        // ingest writes the bare IMessage proto into raw (storeMessage:205)
+        JSON.stringify({ imageMessage: { mimetype: "image/jpeg" } }),
       );
     const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
     await vi.waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
