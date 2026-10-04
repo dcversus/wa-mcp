@@ -295,3 +295,22 @@ test("T92 line80 — sendProtoViaSocket honors WA_SENDS_DISABLED", async () => {
     code: "SENDS_DISABLED",
   });
 });
+
+describe("T94-C2b — resolveRecipient canonicalizes recipient forms", () => {
+  test("+phone form resolves to the canonical @s.whatsapp.net jid (rule-bypass fix)", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-res-")));
+    const resolution = resolveRecipient(store, "+351930017568");
+    expect(resolution.ok).toBe(true);
+    if (resolution.ok) {
+      expect(resolution.jid).toBe("351930017568@s.whatsapp.net");
+    }
+  });
+  test("bare phone form resolves to the canonical jid", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-res2-")));
+    const resolution = resolveRecipient(store, "351930017568");
+    expect(resolution.ok).toBe(true);
+    if (resolution.ok) {
+      expect(resolution.jid).toBe("351930017568@s.whatsapp.net");
+    }
+  });
+});

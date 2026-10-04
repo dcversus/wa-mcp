@@ -107,8 +107,9 @@ export type RecipientResolution =
  * resolves to its mapped jid; anything else fails with INVALID_JID plus the
  * closest real alias as a suggestion (nothing is sent). */
 export function resolveRecipient(store: Store, chatJid: string): RecipientResolution {
-  if (isValidRecipientJid(chatJid)) {
-    return { ok: true, jid: chatJid };
+  const canonical = normalizeJid(chatJid);
+  if (canonical !== null && isValidRecipientJid(canonical)) {
+    return { ok: true, jid: canonical };
   }
   const alias = getAlias(store, chatJid);
   if (alias !== null) {

@@ -82,7 +82,13 @@ import { MockTtsEngine } from "./media/tts.ts";
 import { TOOLS, handleRpcMessage, type ServerContext } from "@wa-mcp/mcp-server";
 import { buildVcard } from "./send/build.ts";
 import { buildButtonsMessage, buildListMessage } from "./send/build.ts";
-import { resolveRecipient, SendError, sendProtoViaSocket, sendViaSocket } from "./send/send.ts";
+import {
+  canonicalChatJid,
+  resolveRecipient,
+  SendError,
+  sendProtoViaSocket,
+  sendViaSocket,
+} from "./send/send.ts";
 import type { SendGuard } from "./send/safety.ts";
 
 export interface HttpServerOptions {
@@ -595,7 +601,11 @@ export async function createHttpServer(
     }
   };
 
-  const serveSend = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
+  const serveSend = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    body: Buffer,
+  ): Promise<void> => {
     // T82 line91: per-target blocklist rules gate every send
     let parsedSend: unknown;
     try {
@@ -1120,11 +1130,32 @@ export async function createHttpServer(
         // the aliases table is best-effort here — rules on the jid itself
         // already evaluated below
       }
-      for (const candidate of candidates) {
-        const refusal = sendPolicyRefusal(opts.store, undefined, candidate, Date.now());
-        if (refusal !== null) {
-          sendJson(res, refusal.status, refusal.payload);
-          return;
+      const liveSocket = handle.socket;
+      const refuseIfBlocked = (extra?: string): boolean => {
+        const checks = extra === undefined ? [...candidates] : [...candidates, extra];
+        for (const candidate of checks) {
+          const refusal = sendPolicyRefusal(opts.store, undefined, candidate, Date.now());
+          if (refusal !== null) {
+            sendJson(res, refusal.status, refusal.payload);
+            return true;
+          }
+        }
+        return false;
+      };
+      if (refuseIfBlocked()) {
+        return;
+      }
+      if (liveSocket !== undefined && liveSocket !== null && chatJid.includes("@lid")) {
+        try {
+          const canonical = await canonicalChatJid(liveSocket as never, chatJid);
+          if (canonical !== chatJid) {
+            candidates.add(canonical);
+            if (refuseIfBlocked()) {
+              return;
+            }
+          }
+        } catch {
+          // canonicalization is best-effort — the raw forms already evaluated
         }
       }
     }
@@ -2249,7 +2280,7 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/send") {
-          serveSend(req, res, body);
+          void serveSend(req, res, body);
           return;
         }
         if (path === "/mcp") {
