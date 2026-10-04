@@ -3975,3 +3975,18 @@ describe("T94-F M1 — media lookups scope by chat when the caller provides one"
     expect(wrong.status).toBe(404);
   });
 });
+
+test("T94-F M2 — tokenless floods do not burn the account token's API bucket", async () => {
+  // RUNTIME review M2: the rate gate keyed by IP alone — on loopback every
+  // client shares 127.0.0.1, so an unauthenticated flood (401s) starved
+  // legitimate token traffic
+  const bridge = await startServer({ rateLimit: { capacity: 2, refillPerMinute: 2 } });
+  for (let i = 0; i < 3; i += 1) {
+    await fetch(url(bridge, "/api/chats"));
+  }
+  const legit = await fetch(url(bridge, "/api/chats"), {
+    headers: { authorization: "Bearer test-token" },
+  });
+  // RED today: 429 — the anon flood consumed the shared per-IP bucket
+  expect(legit.status).toBe(200);
+});
