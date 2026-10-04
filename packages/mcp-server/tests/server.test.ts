@@ -7,6 +7,11 @@ import {
 } from "../src/server.ts";
 import { TOOLS } from "../src/tools.ts";
 
+interface RecordedRequest {
+  url: string;
+  init: RequestInit & { body?: string };
+}
+
 const ctx = { tools: TOOLS, bridgeUrl: "http://127.0.0.1:8080", token: "secret" };
 
 function makeRequest(id: number | string, method: string, params?: unknown): string {
@@ -255,13 +260,9 @@ test("resources/read fetches each resource over the bridge api", async () => {
 });
 
 describe("T82-B — daemon utility tools", () => {
-  function recordingCtx(
-    log: Array<{ url: string; init: RequestInit }>,
-    status = 200,
-    payload: unknown = {},
-  ) {
+  function recordingCtx(log: RecordedRequest[], status = 200, payload: unknown = {}) {
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       return new Response(JSON.stringify(payload), {
         status,
         headers: { "content-type": "application/json" },
@@ -288,7 +289,7 @@ describe("T82-B — daemon utility tools", () => {
   });
 
   test("restrict_sending add posts to /api/send-rules", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     await handleRpcLine(
       makeRequest(21, "tools/call", {
         name: "restrict_sending",
@@ -297,17 +298,17 @@ describe("T82-B — daemon utility tools", () => {
       recordingCtx(log),
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/send-rules");
-    expect(JSON.parse(String(log[0]?.init.body ?? "{}"))).toEqual({
+    expect(JSON.parse(log[0]?.init.body ?? "{}")).toEqual({
       target: "*@g.us",
       mode: "block",
     });
   });
 
   test("send_template fetches the body, renders locally, sends", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     let call = 0;
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      const entry = { url: String(url), init: init ?? {} };
+      const entry = { url: String(url), init: init as RequestInit & { body?: string } };
       log.push(entry);
       call += 1;
       const payload =
@@ -332,18 +333,18 @@ describe("T82-B — daemon utility tools", () => {
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/templates");
     expect(log[1]?.url).toBe("http://127.0.0.1:8080/api/send");
-    const sent = JSON.parse(String(log[1]?.init.body));
+    const sent = JSON.parse(log[1]?.init.body ?? "{}");
     expect(sent.text).toBe("hi Vasilisa!");
     const content = resultOf(response).content as Array<{ type: string; text: string }>;
     expect(content[0]?.text).toContain("M9");
   });
 
   test("send_template with missing vars returns VALIDATION_ERROR and sends nothing", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     let call = 0;
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
       call += 1;
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       const payload =
         call === 1 ? { templates: [{ name: "greeting", body: "hi {{name}}, {{event}}!" }] } : {};
       return new Response(JSON.stringify(payload), {
@@ -369,7 +370,7 @@ describe("T82-B — daemon utility tools", () => {
   });
 
   test("schedule_message posts to /api/scheduled; cancel_scheduled deletes", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     await handleRpcLine(
       makeRequest(23, "tools/call", {
         name: "schedule_message",
@@ -382,7 +383,7 @@ describe("T82-B — daemon utility tools", () => {
       recordingCtx(log),
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/scheduled");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+    expect(JSON.parse(log[0]?.init.body ?? "{}")).toEqual({
       chat_jid: "358497773518@s.whatsapp.net",
       text: "standup",
       send_at: "2026-10-04T09:00:00Z",
@@ -422,9 +423,9 @@ describe("T86 — MCP prompts capability", () => {
 
 describe("T88-B — export/bulk MCP tools", () => {
   function rec() {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -472,7 +473,7 @@ describe("T88-B — export/bulk MCP tools", () => {
       toolCtx,
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/read-bulk");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ chat_jids: ["1@g.us", "2@g.us"] });
+    expect(JSON.parse(log[0]?.init.body ?? "{}")).toEqual({ chat_jids: ["1@g.us", "2@g.us"] });
   });
 });
 
@@ -486,9 +487,9 @@ describe("T89-B GAP2 — label MCP tools", () => {
   });
 
   test("label_add posts name+color; label_list GETs; label_assign PUTs; label_remove DELETEs", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       const payload =
         log.length === 2 ? { labels: [{ id: 1, name: "Work", color: "#ff0000" }] } : { ok: true };
       return new Response(JSON.stringify(payload), {
@@ -505,7 +506,7 @@ describe("T89-B GAP2 — label MCP tools", () => {
       toolCtx,
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/labels");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ name: "Work", color: "#ff0000" });
+    expect(JSON.parse(log[0]?.init.body ?? "{}")).toEqual({ name: "Work", color: "#ff0000" });
     await handleRpcLine(
       makeRequest(62, "tools/call", { name: "label_list", arguments: {} }),
       toolCtx,
@@ -519,7 +520,7 @@ describe("T89-B GAP2 — label MCP tools", () => {
       toolCtx,
     );
     expect(log[2]?.init.method).toBe("PUT");
-    expect(JSON.parse(String(log[2]?.init.body))).toEqual({ chat_jid: "1@g.us", label_id: 1 });
+    expect(JSON.parse(log[2]?.init.body ?? "{}")).toEqual({ chat_jid: "1@g.us", label_id: 1 });
     await handleRpcLine(
       makeRequest(64, "tools/call", { name: "label_remove", arguments: { id: 1 } }),
       toolCtx,
@@ -538,9 +539,9 @@ describe("T90-B — media pipeline MCP tools", () => {
   });
 
   test("download_media POSTs the download route", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       return new Response(JSON.stringify({ path: "/data/media/DL1.jpg", downloaded: true }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -557,9 +558,9 @@ describe("T90-B — media pipeline MCP tools", () => {
   });
 
   test("view_media posts the view verb and surfaces frames", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       return new Response(
         JSON.stringify({
           mime: "image/jpeg",
@@ -599,9 +600,9 @@ describe("T90-B — media pipeline MCP tools", () => {
   });
 
   test("transcribe_voice posts the transcription route and returns the text", async () => {
-    const log: Array<{ url: string; init: RequestInit }> = [];
+    const log: RecordedRequest[] = [];
     const fetchFn = (async (url: string | URL, init?: RequestInit) => {
-      log.push({ url: String(url), init: init ?? {} });
+      log.push({ url: String(url), init: init as RequestInit & { body?: string } });
       return new Response(JSON.stringify({ text: "transcribed words", engine: "mock" }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -615,7 +616,7 @@ describe("T90-B — media pipeline MCP tools", () => {
       { ...ctx, fetchFn },
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/transcribe");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ chat_jid: "1@g.us", message_id: "T1" });
+    expect(JSON.parse(log[0]?.init.body ?? "{}")).toEqual({ chat_jid: "1@g.us", message_id: "T1" });
     const content = resultOf(response).content as Array<{ type: string; text: string }>;
     expect(content[0]?.text).toContain("transcribed words");
   });
