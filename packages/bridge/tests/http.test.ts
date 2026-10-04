@@ -3887,3 +3887,29 @@ describe("T94-E CR1 — the tokenless chain is closed once paired", () => {
     expect(exchange.status).toBe(200);
   });
 });
+
+test("T94-E H3 — /api/pair/resume requires the account token, not the public pairing token", async () => {
+  const bridge = await startServer({ pairingToken: "pair-tok" });
+  // RUNTIME review H3: the public pairing token could drop the session,
+  // reset the anti-abuse budget and stack sockets — resume is not a
+  // pairing-window operation
+  const withPairing = await fetch(url(bridge, "/api/pair/resume"), {
+    method: "POST",
+    headers: { authorization: "Bearer pair-tok", "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(withPairing.status).toBe(401);
+  const withNothing = await fetch(url(bridge, "/api/pair/resume"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(withNothing.status).toBe(401);
+  // the owner (account token) can still resume
+  const withAccount = await fetch(url(bridge, "/api/pair/resume"), {
+    method: "POST",
+    headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(withAccount.status).toBe(200);
+});
