@@ -157,7 +157,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] `group_join_requests` list + `group_join_decision` approve/reject + `group_handle_request` (kahflane/biliboss) — verify: synthetic request → handled (unit) — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `group_update_subject`, `group_update_description`, `group_update_settings`/`group_setting` (announcement/admin-only/edit-subject perms), `group_add_mode` (kahflane/biliboss/delltrak) — verify: live subject change + restore — VERIFY: T26 settings (unit) + live probe
 - [x] `group_ephemeral`/`group_toggle_ephemeral` + `disappearing_chat` per-chat timer + `default_disappearing` global (kahflane; VGP P#82) — verify: live set 24h timer → phone shows disappearing — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `group_member_label` set/clear (kahflane) — gated on Baileys support — verify: capability probe, else ACCOUNTING NA-ENGINE row — NA-ENGINE: ACCOUNTING row
+- [ ] `group_member_label` set/clear (kahflane) — gated on Baileys support — verify: capability probe, else ACCOUNTING NA-ENGINE row — NA-ENGINE: ACCOUNTING row — PROBED: NA-ENGINE-PARTIAL (fork emits group.member-tag.update inbound only; no set API; chat-level labels landed in T89)
 - [x] `newsletter_follow`/`newsletter_unfollow`/`newsletter_send` (biliboss/delltrak) — gated on Baileys support; else ACCOUNTING row N/A — verify: capability probe — NA-ENGINE: ACCOUNTING row
 - [x] `reject_call` (biliboss/kahflane/delltrak) — verify: synthetic call event → reject called (mock) — OUT-OF-SCOPE 0.9: ACCOUNTING
 
