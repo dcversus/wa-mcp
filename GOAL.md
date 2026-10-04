@@ -301,7 +301,7 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 ## 14. Tests & CI
 
 - [x] Unit: shared utils (JID, alias, instants, path guard, whitelist), store (migrations ×3 layouts, FTS triggers, read-state), event bus, send-safety — verify: `vp test` green; coverage bridge+server ≥80%, shared ≥90% — VERIFY: T41 coverage gates (bridge 82.89 / mcp 88.36 / shared 97.77) + 390 tests
-- [ ] Integration: recorded Baileys event fixtures (message/poll/receipt/group/presence/undecryptable from live session) replayed → store assertions — verify: suite green offline — PENDING: live (pairing); synthetic replay PASS (unit); live-recorded fixtures pending
+- [x] Integration: recorded Baileys event fixtures (message/poll/receipt/group/presence/undecryptable from live session) replayed → store assertions — verify: suite green offline — PENDING: live (pairing); synthetic replay PASS (unit); live-recorded fixtures pending — VERIFIED: live-recorded fixtures (T102 5fd6186 + T102b creds exclusion) replay through ingest pipeline green
 - [x] MCP conformance: initialize → tools/list (count+annotations) → tools/call per tool (mock bridge) — verify: scripted client green — VERIFY: T19/T20/T28 scripted-client probes
 - [x] CLI tests: install/uninstall/doctor vs temp `$HOME` sandbox — verify: green on macOS + Linux CI — VERIFY: T30 sandbox (macOS + CI pre-billing)
 - [x] Live smoke (nightly opt-in, cached session artifact): Test-group send/read-back, SSE event, transcription — verify: nightly green — PENDING: live (pairing); needs paired session — VERIFIED: all smoke components live this session (send/read-back, SSE ingestion, transcription); nightly wrapper owner-gated (schedule preference)

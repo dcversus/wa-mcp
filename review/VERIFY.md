@@ -382,3 +382,10 @@ no checkbox is claimed without evidence.
 - L238/L239/L260/L308/L309 (registry/directories/changesets/CI-billing/commitlint): publish-deferred + CI billing owner-gated stays.
 - Remaining out-of-scope 51 + na-engine 2: dispositions already anchored per line.
 - Post-T102/T103 Phase 1 state: all non-owner-gated, non-out-of-scope boxes closed.
+
+### T102 closed + L304 ticked (2026-10-04T22:19:23Z)
+
+- T102 (zai 5fd6186): WA_RECORD_EVENTS recorder + fixtures dir + replay harness (fixtures-replay.test.ts re-drives storeMessage — real ingest path, visible SKIP when empty).
+- T102b (orchestrator): SECURITY — live recording captured RAW PAIRING KEYS in creds.update.jsonl; boundary exclusion added (RED: raw keys captured → GREEN: never persisted); suite 868/868.
+- Live recording verified: 6 event types captured, creds EXCLUDED after fix, my own Test-group probe committed as fixture (fromMe only, no private content).
+- L304 TICKED: live-recorded fixtures replayed → store assertions green.
