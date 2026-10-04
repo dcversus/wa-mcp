@@ -2182,11 +2182,13 @@ describe("T53 pairing token", () => {
       headers: { authorization: `Bearer ${pairingToken}` },
     });
     expect(qr.status).not.toBe(401);
+    // T94-E H3 contract change: resume needs the ACCOUNT token now — the
+    // public pairing token must not drop sessions or reset the budget
     const resume = await fetch(url(bridge, "/api/pair/resume"), {
       method: "POST",
       headers: { authorization: `Bearer ${pairingToken}` },
     });
-    expect(resume.status).toBe(200);
+    expect(resume.status).toBe(401);
   });
 
   test("pairingToken is scoped: no account reads, no destructive/config mutations (T73 C1)", async () => {
@@ -2721,11 +2723,12 @@ describe("T73 C1 — scoped pairing token + Host/Origin validation", () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(qr.status).not.toBe(401);
+    // T94-E H3 contract change: the pairing token no longer opens resume
     const resume = await fetch(url(bridge, "/api/pair/resume"), {
       method: "POST",
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(resume.status).toBe(200);
+    expect(resume.status).toBe(401);
   });
 
   test("GET /api/ui-token exchanges the scoped token for the real one on localhost", async () => {
