@@ -3916,3 +3916,62 @@ test("T94-E H3 — /api/pair/resume requires the account token, not the public p
   });
   expect(withAccount.status).toBe(200);
 });
+
+describe("T94-F M1 — media lookups scope by chat when the caller provides one", () => {
+  async function mediaFixture(): Promise<{ bridge: BridgeHttp; store: Store; file: string }> {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m1scope-")));
+    openedStores.push(store);
+    const file = join(mkdtempSync(join(tmpdir(), "wa-mcp-m1f-")), "pic.jpg");
+    writeFileSync(file, Buffer.from("jpeg-bytes"));
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, media_type, media_path, is_from_me) VALUES ('MSG1', '358400000001@s.whatsapp.net', '358400000077@s.whatsapp.net', '2026-01-01T00:00:00Z', NULL, 'image', ?, 0)",
+      )
+      .run(file);
+    const socket = makeFakeSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      mediaDir: mkdtempSync(join(tmpdir(), "wa-mcp-m1d-")),
+    });
+    created.push(bridge);
+    return { bridge, store, file };
+  }
+
+  test("view refuses a chat-b replay of a chat-a message", async () => {
+    const { bridge } = await mediaFixture();
+    // RUNTIME review M1: id-only lookup let any chat context read any media
+    const wrong = await fetch(url(bridge, "/api/media/MSG1/view"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358400000009@s.whatsapp.net" }),
+    });
+    expect(wrong.status).toBe(404);
+  });
+
+  test("view with the matching chat (or none) still works", async () => {
+    const { bridge } = await mediaFixture();
+    const right = await fetch(url(bridge, "/api/media/MSG1/view"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358400000001@s.whatsapp.net" }),
+    });
+    expect(right.status).toBe(200);
+    const absent = await fetch(url(bridge, "/api/media/MSG1/view"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(absent.status).toBe(200);
+  });
+
+  test("download refuses a chat-b replay too", async () => {
+    const { bridge } = await mediaFixture();
+    const wrong = await fetch(url(bridge, "/api/media/MSG1/download"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358400000009@s.whatsapp.net" }),
+    });
+    expect(wrong.status).toBe(404);
+  });
+});
