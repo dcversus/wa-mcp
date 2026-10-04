@@ -1748,3 +1748,36 @@ describe("T94-F M5 — logout survives restart", () => {
     ).toBeUndefined();
   });
 });
+
+test("T94-F M5codex — history sync leaves no phantom @lid chat rows", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m5lid-")));
+  const CHAT = "120363428874442773@g.us";
+  const PN = "358497773518@s.whatsapp.net";
+  const LID = "358400000055@lid";
+  const sock = fakeSocket();
+  (sock as { signalRepository?: unknown }).signalRepository = {
+    lidMapping: { getPNForLID: async () => PN },
+  };
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  await trackedStart("/tmp/wa-mcp-test-auth", { store });
+  sock.emit("messaging-history.set", {
+    chats: [
+      { id: LID, name: "Lid Row" },
+      { id: CHAT, name: "Real Group" },
+    ],
+    messages: [],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  // CODEX M5: markHistorySynced re-created the @lid chat row the merge
+  // removes — phantom empty chats next to the canonical PN rows
+  const phantom = store.db
+    .prepare("SELECT jid FROM chats WHERE jid = ?")
+    .get(LID);
+  expect(phantom).toBeUndefined();
+  const canonical = store.db.prepare("SELECT name FROM chats WHERE jid = ?").get(PN) as {
+    name: string;
+  };
+  expect(canonical.name).toBe("Lid Row");
+  store.close();
+});
