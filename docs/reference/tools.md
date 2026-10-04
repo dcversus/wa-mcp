@@ -327,13 +327,21 @@ Send an image, video, audio, document or sticker. Media comes from base64, a bri
 
 ### get_chat
 
-Get one chat's summary (name, unread count, last message).
+Get one chat's summary (name, unread count, last message). with_photo resolves the profile picture URL.
 
 ```json
-{ "type": "object", "required": ["chat_jid"], "properties": { "chat_jid": { "type": "string" } } }
+{
+  "type": "object",
+  "required": ["chat_jid"],
+  "properties": {
+    "chat_jid": { "type": "string" },
+    "with_photo": { "type": "boolean", "description": "Resolve the chat's profile picture URL too" }
+  }
+}
 ```
 
 - `chat_jid` (string, required)
+- `with_photo` (boolean, optional) — Resolve the chat's profile picture URL too
 - required: `chat_jid`
 
 ### get_group_info
@@ -1040,11 +1048,18 @@ Force-download a media message (if not already stored) and return the local file
 {
   "type": "object",
   "required": ["message_id"],
-  "properties": { "message_id": { "type": "string" } }
+  "properties": {
+    "message_id": { "type": "string" },
+    "chat_jid": {
+      "type": "string",
+      "description": "Chat the message lives in (verified against the stored row)"
+    }
+  }
 }
 ```
 
 - `message_id` (string, required)
+- `chat_jid` (string, optional) — Chat the message lives in (verified against the stored row)
 - required: `message_id`
 
 ### view_media

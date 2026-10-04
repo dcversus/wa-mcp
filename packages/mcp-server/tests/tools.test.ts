@@ -604,8 +604,9 @@ test("T97c — get_chat with_photo merges the profile picture URL", async () => 
     { ...ctx, fetchFn },
     { chat_jid: "358497773518@s.whatsapp.net", with_photo: true },
   );
-  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/picture-url?jid=358497773518%40s.whatsapp.net");
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/picture-url");
   expect(calls[1]?.method).toBe("POST");
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ jid: "358497773518@s.whatsapp.net" });
   const parsed = JSON.parse(firstText(result)) as { pictureUrl?: string };
   expect(parsed.pictureUrl).toBe("https://pps.example/v.jpg");
   // default: no photo lookup

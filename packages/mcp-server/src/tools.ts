@@ -761,14 +761,22 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "get_chat",
-    description: "Get one chat's summary (name, unread count, last message).",
+    description:
+      "Get one chat's summary (name, unread count, last message). with_photo resolves the profile picture URL.",
     inputSchema: {
       type: "object",
       required: ["chat_jid"],
-      properties: { chat_jid: { type: "string" } },
+      properties: {
+        chat_jid: { type: "string" },
+        with_photo: {
+          type: "boolean",
+          description: "Resolve the chat's profile picture URL too",
+        },
+      },
     },
     handler: async (toolCtx, args) => {
       const chatJid = requireString(args, "chat_jid");
+      const withPhoto = args.with_photo === true;
       const payload = (await bridgeFetch(toolCtx, "/api/chats?limit=200")) as {
         chats?: Array<{ jid: string }>;
       };
@@ -778,18 +786,32 @@ export const TOOLS: ToolDef[] = [
       }
       // T94-D-H3claude (GOAL 124): group chats expose their roster — the
       // live group meta carries participants + admin flags
+      // T97c (GOAL 129 / chigwell P#191): with_photo resolves the avatar via
+      // the existing /api/picture-url route — best-effort, null when absent
+      const base: Record<string, unknown> = { chat };
       if (chatJid.endsWith("@g.us")) {
         try {
           const meta = (await bridgeFetch(
             toolCtx,
             `/api/group/info?jid=${encodeURIComponent(chatJid)}`,
           )) as { participants?: Array<{ id: string; admin?: string | null }> };
-          return textResult({ chat, participants: meta.participants ?? [] });
+          base.participants = meta.participants ?? [];
         } catch {
           // meta is best-effort — the chat summary still returns
         }
       }
-      return textResult({ chat });
+      if (withPhoto) {
+        try {
+          const photo = (await bridgeFetch(toolCtx, "/api/picture-url", {
+            method: "POST",
+            body: JSON.stringify({ jid: chatJid }),
+          })) as { url?: string };
+          base.pictureUrl = photo.url ?? null;
+        } catch {
+          base.pictureUrl = null;
+        }
+      }
+      return textResult(base);
     },
   },
   {
