@@ -4165,3 +4165,74 @@ describe("T99 chatModify — POST /api/chat/modify", () => {
     expect(noChat.status).toBe(400);
   });
 });
+
+describe("T100 — group chatModify carries the sender participant", () => {
+  const GROUP = "120363428874442773@g.us";
+
+  async function groupFixture(
+    chatModifyImpl: (mod: unknown, jid: string) => Promise<void>,
+  ): Promise<{ socket: WASocket; bridge: BridgeHttp }> {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t100-")));
+    openedStores.push(store);
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, is_from_me) VALUES (?, ?, ?, ?, ?, 0)",
+      )
+      .run("G1", GROUP, "358400000077@s.whatsapp.net", "2026-01-01T00:00:00Z", "from Ada");
+    const socket = makeFakeSocket();
+    (socket as { chatModify?: unknown }).chatModify = vi.fn(chatModifyImpl);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    return { socket, bridge };
+  }
+
+  function archive(bridge: BridgeHttp) {
+    return fetch(url(bridge, "/api/chat/modify"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: GROUP, action: "archive" }),
+    });
+  }
+
+  test("group archive succeeds once lastMessages carry the sender participant", async () => {
+    // the mock emulates the fork's validation (chat-utils.js:397-399):
+    // group + !fromMe + no participant -> Boom 400
+    const { socket, bridge } = await groupFixture(async (mod) => {
+      const patch = mod as {
+        lastMessages?: Array<{
+          key?: { remoteJid?: string; fromMe?: boolean; participant?: string };
+        }>;
+      };
+      for (const m of patch.lastMessages ?? []) {
+        if (m.key?.remoteJid?.endsWith("@g.us") && m.key.fromMe !== true && !m.key.participant) {
+          throw new Error("Expected not from me message to have participant");
+        }
+      }
+      return undefined;
+    });
+    const res = await archive(bridge);
+    // RED today: the route's lastMessages have no participant -> the mock
+    // (like the live engine) rejects -> raw MODIFY_FAILED surfaces
+    expect(res.status).toBe(200);
+    const call = (socket.chatModify as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      { lastMessages?: Array<{ key?: { participant?: string } }> },
+      string,
+    ];
+    expect(call[0].lastMessages?.[0]?.key?.participant).toBe("358400000077@s.whatsapp.net");
+  });
+
+  test("genuine engine failures map to structured GROUP_CHAT_MODIFY_FAILED", async () => {
+    const { bridge } = await groupFixture(async () => {
+      throw new Error("Expected not from me message to have participant");
+    });
+    const res = await archive(bridge);
+    // RED today: raw MODIFY_FAILED with no hint
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: { code: string; message: string; hint?: string } };
+    expect(body.error.code).toBe("GROUP_CHAT_MODIFY_FAILED");
+    expect(body.error.message).toContain("participant");
+  });
+});
