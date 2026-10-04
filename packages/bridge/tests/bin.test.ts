@@ -171,3 +171,34 @@ describe("T94-D-H3 — the scheduler send gate (CODEX H3)", () => {
     store.close();
   });
 });
+
+describe("T94-F M4 — the daemon survives stray rejections", () => {
+  test("installRejectionGuard registers a handler that logs instead of throwing", async () => {
+    const { installRejectionGuard } = (await import("../src/bin.ts")) as {
+      installRejectionGuard: (
+        target: NodeJS.Process,
+        logger: { error: (...a: unknown[]) => void },
+      ) => void;
+    };
+    const logged: unknown[] = [];
+    const fakeProcess = {
+      on: vi.fn(),
+    } as unknown as NodeJS.Process;
+    installRejectionGuard(fakeProcess, { error: (...a: unknown[]) => logged.push(a) });
+    expect(fakeProcess.on).toHaveBeenCalledWith(
+      "unhandledRejection",
+      expect.any(Function),
+    );
+    const handler = (fakeProcess.on as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as (
+      reason: unknown,
+    ) => void;
+    expect(() => handler(new Error("stray"))).not.toThrow();
+    expect(logged.length).toBeGreaterThan(0);
+  });
+
+  test("the scheduler tick's processDue promise carries a .catch", () => {
+    const source = readFileSync(new URL("../src/bin.ts", import.meta.url), "utf8");
+    const tick = source.slice(source.indexOf("void processDue("), source.indexOf("}, 30_000)"));
+    expect(tick).toContain(".catch(");
+  });
+});
