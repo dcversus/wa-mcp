@@ -1540,3 +1540,27 @@ test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes
   expect(votes[0]?.option_idx).toBe(0);
   store.close();
 });
+
+describe("T94-C-H2 — live-crash regression: null media part + contained handler errors", () => {
+  test("a message with explicit-null media fields never crashes the daemon (null guard)", async () => {
+    const { latest, handle } = await startArranged({ store: undefined });
+    const sock = latest();
+    expect(() => {
+      sock.emit("messages.upsert", {
+        messages: [
+          {
+            key: {
+              remoteJid: "351930017568@s.whatsapp.net",
+              fromMe: false,
+              id: "NULLMEDIA-1",
+            },
+            message: { imageMessage: null },
+            messageTimestamp: 1_700_000_000,
+          } as never,
+        ],
+        type: "notify",
+      });
+    }).not.toThrow();
+    expect(handle.status).not.toBe("closed");
+  });
+});

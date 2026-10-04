@@ -170,7 +170,7 @@ export async function startBridge(
       content?.audioMessage ??
       content?.documentMessage ??
       content?.stickerMessage;
-    if (mediaPart === undefined) {
+    if (mediaPart == null) {
       return;
     }
     const fileName = (mediaPart as { fileName?: unknown }).fileName;
@@ -447,341 +447,345 @@ export async function startBridge(
       stalenessTimer.unref();
     }
     for (const name of EVENT_NAMES) {
-      socket.ev.on(name, async (payload) => {
-        lastInboundAt = Date.now();
-        if (name === "connection.update") {
-          const update = payload as ConnectionUpdate;
-          status = deriveStatus(status, update);
-          // T79 line49/50: quality counters + consecutive-failure streak
-          if (update.connection === "close" && !closed) {
-            reconnects += 1;
-            lastDisconnectAt = Date.now();
-            failureStreak += 1;
-            const threshold = Number(process.env.WA_RECONNECT_ALERT_N ?? 5);
-            if (failureStreak >= threshold && !alertFired) {
-              alertFired = true;
-              opts.logger?.warn(
-                { streak: failureStreak, threshold },
-                `RECONNECT-ALERT: ${failureStreak} consecutive disconnects without a successful open`,
-              );
+      socket.ev.on(name, (payload) => {
+        void (async () => {
+          lastInboundAt = Date.now();
+          if (name === "connection.update") {
+            const update = payload as ConnectionUpdate;
+            status = deriveStatus(status, update);
+            // T79 line49/50: quality counters + consecutive-failure streak
+            if (update.connection === "close" && !closed) {
+              reconnects += 1;
+              lastDisconnectAt = Date.now();
+              failureStreak += 1;
+              const threshold = Number(process.env.WA_RECONNECT_ALERT_N ?? 5);
+              if (failureStreak >= threshold && !alertFired) {
+                alertFired = true;
+                opts.logger?.warn(
+                  { streak: failureStreak, threshold },
+                  `RECONNECT-ALERT: ${failureStreak} consecutive disconnects without a successful open`,
+                );
+              }
             }
-          }
-          if (update.connection === "open") {
-            failureStreak = 0;
-            alertFired = false;
-            // T89-B GAP1: background contact warmup — pull group rosters into
-            // the contacts store so lookups never block on a cold table.
-            if (opts.store !== undefined && !contactsWarmDone) {
-              void (async () => {
-                try {
-                  const engine = socket as unknown as {
-                    groupFetchAllParticipating?: () => Promise<
-                      Record<string, { participants?: Array<{ id?: string }> }>
-                    >;
-                  };
-                  if (typeof engine.groupFetchAllParticipating !== "function") {
-                    contactsWarmDone = true;
-                    return;
-                  }
-                  const groups = await engine.groupFetchAllParticipating();
-                  for (const group of Object.values(groups ?? {})) {
-                    for (const participant of group.participants ?? []) {
-                      if (typeof participant.id === "string" && participant.id.length > 0) {
-                        upsertContact(opts.store!, { jid: participant.id });
+            if (update.connection === "open") {
+              failureStreak = 0;
+              alertFired = false;
+              // T89-B GAP1: background contact warmup — pull group rosters into
+              // the contacts store so lookups never block on a cold table.
+              if (opts.store !== undefined && !contactsWarmDone) {
+                void (async () => {
+                  try {
+                    const engine = socket as unknown as {
+                      groupFetchAllParticipating?: () => Promise<
+                        Record<string, { participants?: Array<{ id?: string }> }>
+                      >;
+                    };
+                    if (typeof engine.groupFetchAllParticipating !== "function") {
+                      contactsWarmDone = true;
+                      return;
+                    }
+                    const groups = await engine.groupFetchAllParticipating();
+                    for (const group of Object.values(groups ?? {})) {
+                      for (const participant of group.participants ?? []) {
+                        if (typeof participant.id === "string" && participant.id.length > 0) {
+                          upsertContact(opts.store!, { jid: participant.id });
+                        }
                       }
                     }
+                    contactsWarmDone = true;
+                  } catch (err: unknown) {
+                    opts.logger?.warn({ err }, "contact warmup failed");
+                    contactsWarmDone = false;
                   }
-                  contactsWarmDone = true;
-                } catch (err: unknown) {
-                  opts.logger?.warn({ err }, "contact warmup failed");
-                  contactsWarmDone = false;
-                }
-              })();
+                })();
+              }
             }
-          }
-          if (status === "connected") {
-            reconnectAttempt = 0;
-          }
-          if (status === "reconnecting" || status === "logged-out") {
-            const code = closeCode(update);
-            if (code === DisconnectReason.restartRequired) {
-              // 515 is the paired handshake step after pair-success, not a
-              // failure: reconnect IMMEDIATELY with the same creds or WhatsApp
-              // removes the brand-new device (401 device_removed).
-              if (!reconnectPending && !closed) {
-                reconnectPending = true;
-                reconnectAttempt = 0;
-                void queueSave().then(() => {
-                  if (closed) {
-                    return;
-                  }
-                  reconnectPending = false;
-                  connect();
-                });
-              }
-            } else if (status === "logged-out") {
-              if (!reconnectPending && !closed) {
-                reconnectPending = true;
-                wipeCreds();
-                reconnectAttempt = 0;
-                void queueSave().then(() => {
-                  if (closed) {
-                    return;
-                  }
-                  reconnectPending = false;
-                  scheduleReconnect();
-                });
-              }
-            } else {
-              scheduleReconnect();
+            if (status === "connected") {
+              reconnectAttempt = 0;
             }
-          }
-          const qr = update.qr;
-          if (qr !== undefined) {
-            lastQr = qr;
-            process.stderr.write(renderQrAscii(qr));
-            void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
-              opts.logger?.warn({ err }, "failed to persist qr png");
-            });
-          }
-        }
-        if (name === "messages.upsert") {
-          // live inbound traffic: notify (real-time) and append (post-reconnect
-          // backlog) both persist; media_path stays null until download
-          const upsert = payload as { messages?: WAMessage[] };
-          if (opts.store !== undefined) {
-            for (const message of upsert.messages ?? []) {
-              const remoteJid: string | null | undefined = message.key.remoteJid;
-              if (remoteJid !== undefined && remoteJid !== null && remoteJid.endsWith("@lid")) {
-                message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
-              }
-              storeMessage(opts.store, message);
-              // T94-C-H1: the pinned fork's poll-vote decrypt block is
-              // commented out (process-message.js:576-624) — replicate its
-              // orchestration here: fetch the poll creation row, decrypt with
-              // the fork's own primitive, persist via poll_votes
-              const pollUpdateMessage = message.message?.pollUpdateMessage;
-              const creationKey = pollUpdateMessage?.pollCreationMessageKey;
-              if (
-                pollUpdateMessage !== undefined &&
-                creationKey !== undefined &&
-                creationKey !== null &&
-                typeof creationKey.id === "string"
-              ) {
-                const pollRow = opts.store.db
-                  .prepare("SELECT raw FROM messages WHERE id = ?")
-                  .get(creationKey.id) as { raw?: string | null } | undefined;
-                let pollMessage: proto.IMessage | undefined;
-                if (pollRow?.raw !== undefined && pollRow.raw !== null) {
-                  try {
-                    pollMessage = JSON.parse(pollRow.raw) as proto.IMessage;
-                  } catch {
-                    pollMessage = undefined;
-                  }
-                }
-                const voteUpdate = decryptInboundPollVote(
-                  message,
-                  pollMessage,
-                  state.creds.me?.id ?? "",
-                );
-                console.error(
-                  "DEBUG H1:",
-                  voteUpdate !== null,
-                  JSON.stringify(state.creds.me),
-                  JSON.stringify(voteUpdate ?? {}),
-                );
-                const pollChatJid = remoteJid ?? "";
-                if (voteUpdate !== null && pollChatJid.length > 0) {
-                  storePollVotes(opts.store, pollChatJid, creationKey.id, [voteUpdate]);
-                }
-              }
-              // T93-D: media rides the auto-download rules — fire-and-forget,
-              // never blocks ingest, row linked on success
-              maybeAutoDownload(message, remoteJid);
-              // T84-B line93: inbound non-own texts may trigger an autoreply —
-              // gated by WA_SENDS_DISABLED and the T82 restrict rules, with a
-              // per-chat cooldown inside evaluateAutoreply
-              if (message.key.fromMe !== true) {
-                const inboundText =
-                  (message.message?.conversation as string | undefined) ??
-                  (message.message?.extendedTextMessage?.text as string | undefined);
-                if (typeof inboundText === "string" && inboundText.length > 0) {
-                  const reply = evaluateAutoreply(
-                    opts.store,
-                    remoteJid as string,
-                    inboundText,
-                    Date.now(),
-                  );
-                  if (reply !== null && process.env.WA_SENDS_DISABLED !== "1") {
-                    const verdict = evaluateSendRules(opts.store, remoteJid as string);
-                    // T94-C2(f): the reply burns the same budget as manual
-                    // sends — an inbound loop cannot exceed the daily cap
-                    const budget = opts.sendGuard?.check(Date.now());
-                    const budgetOk = budget === undefined || budget.ok;
-                    if (verdict.allowed && budgetOk) {
-                      opts.sendGuard?.record(Date.now());
-                      void sendViaSocket(socket, remoteJid as string, { text: reply }).catch(
-                        (err: unknown) => {
-                          opts.logger?.warn({ err }, "autoreply send failed");
-                        },
-                      );
+            if (status === "reconnecting" || status === "logged-out") {
+              const code = closeCode(update);
+              if (code === DisconnectReason.restartRequired) {
+                // 515 is the paired handshake step after pair-success, not a
+                // failure: reconnect IMMEDIATELY with the same creds or WhatsApp
+                // removes the brand-new device (401 device_removed).
+                if (!reconnectPending && !closed) {
+                  reconnectPending = true;
+                  reconnectAttempt = 0;
+                  void queueSave().then(() => {
+                    if (closed) {
+                      return;
                     }
-                  }
+                    reconnectPending = false;
+                    connect();
+                  });
                 }
+              } else if (status === "logged-out") {
+                if (!reconnectPending && !closed) {
+                  reconnectPending = true;
+                  wipeCreds();
+                  reconnectAttempt = 0;
+                  void queueSave().then(() => {
+                    if (closed) {
+                      return;
+                    }
+                    reconnectPending = false;
+                    scheduleReconnect();
+                  });
+                }
+              } else {
+                scheduleReconnect();
               }
             }
-          }
-        }
-        if (name === "messages.update") {
-          // T76 H4: the fork emits DECRYPTED poll votes here (it fetched the
-          // poll's encKey through getMessage) — persist them against
-          // poll_options; voter comes from the vote's own message key
-          const updates = payload as Array<{
-            key?: { remoteJid?: string | null; id?: string | null };
-            update?: { pollUpdates?: PollVoteUpdate[] };
-          }>;
-          if (opts.store !== undefined) {
-            for (const update of updates) {
-              const chatJid = update.key?.remoteJid;
-              const pollId = update.key?.id;
-              if (typeof chatJid === "string" && typeof pollId === "string") {
-                storePollVotes(opts.store, chatJid, pollId, update.update?.pollUpdates ?? []);
-              }
-            }
-          }
-        }
-        if (name === "messaging-history.set") {
-          // the initial history sync: potentially thousands of rows — one
-          // transaction, never partially persisted
-          const history = payload as {
-            chats?: Array<{ id: string; name?: string }>;
-            messages?: WAMessage[];
-          };
-          if (opts.store !== undefined) {
-            const store = opts.store;
-            // pre-resolve LID→PN remotes (async) BEFORE the sync transaction
-            const lidToPn = new Map<string, string>();
-            for (const message of history.messages ?? []) {
-              const remoteJid = message.key.remoteJid;
-              if (
-                remoteJid !== null &&
-                remoteJid !== undefined &&
-                remoteJid.endsWith("@lid") &&
-                !lidToPn.has(remoteJid)
-              ) {
-                lidToPn.set(remoteJid, await canonicalChatJid(socket, remoteJid));
-              }
-            }
-            const count = withTransaction(store, () => {
-              for (const chat of history.chats ?? []) {
-                if (typeof chat.id !== "string" || chat.id.length === 0) {
-                  continue;
-                }
-                const canonical = chat.id.endsWith("@lid")
-                  ? (lidToPn.get(chat.id) ?? chat.id)
-                  : chat.id;
-                upsertChatMeta(store, { id: canonical, name: chat.name });
-              }
-              markHistorySynced(
-                store,
-                (history.chats ?? [])
-                  .map((chat) => chat.id)
-                  .filter((id): id is string => typeof id === "string"),
-              );
-              let stored = 0;
-              for (const message of history.messages ?? []) {
-                const remoteJid = message.key.remoteJid;
-                if (remoteJid !== undefined && remoteJid !== null && lidToPn.has(remoteJid)) {
-                  message.key.remoteJid = lidToPn.get(remoteJid);
-                }
-                if (storeMessage(store, message)) {
-                  stored += 1;
-                }
-              }
-              return stored;
-            });
-            opts.logger?.info({ messages: count }, "history sync persisted");
-          }
-        }
-        if (name === "groups.upsert") {
-          // group metadata push: subject lands in chats.name, roster in
-          // group_participants (T62/I)
-          const groups = payload as Array<{
-            id: string;
-            subject?: string;
-            participants?: Array<{ id: string; admin?: string | null }>;
-          }>;
-          if (opts.store !== undefined) {
-            for (const group of groups) {
-              upsertChatMeta(opts.store, { id: group.id, name: group.subject });
-              upsertGroupParticipants(
-                opts.store,
-                group.id,
-                (group.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
-              );
-            }
-          }
-        }
-        if (name === "contacts.upsert") {
-          // T76 H7: the roster push lands in the contacts table (merge keeps
-          // stored aliases — upsertContact only fills blanks)
-          const contacts = payload as Array<{
-            id?: string;
-            name?: string;
-            notify?: string;
-            verifiedName?: string;
-          }>;
-          if (opts.store !== undefined) {
-            for (const contact of contacts) {
-              if (typeof contact.id !== "string" || contact.id.length === 0) {
-                continue;
-              }
-              upsertContact(opts.store, {
-                jid: contact.id,
-                name: contact.name ?? contact.verifiedName,
-                pushname: contact.notify,
+            const qr = update.qr;
+            if (qr !== undefined) {
+              lastQr = qr;
+              process.stderr.write(renderQrAscii(qr));
+              void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
+                opts.logger?.warn({ err }, "failed to persist qr png");
               });
             }
           }
-        }
-        if (name === "group-participants.update") {
-          // T76 H7: roster deltas apply to the T64 participants table
-          const update = payload as {
-            id?: string;
-            participants?: Array<{ id?: string; admin?: string | null }>;
-            action?: string;
-          };
-          if (opts.store !== undefined && typeof update.id === "string") {
-            const ids = (update.participants ?? [])
-              .map((participant) => participant.id)
-              .filter((id): id is string => typeof id === "string" && id.length > 0);
-            if (update.action === "remove") {
-              removeGroupParticipants(opts.store, update.id, ids);
-            } else if (update.action === "promote") {
-              upsertGroupParticipants(
-                opts.store,
-                update.id,
-                ids.map((id) => ({ id, admin: "admin" })),
-              );
-            } else if (update.action === "demote") {
-              upsertGroupParticipants(
-                opts.store,
-                update.id,
-                ids.map((id) => ({ id, admin: null })),
-              );
-            } else {
-              upsertGroupParticipants(
-                opts.store,
-                update.id,
-                ids.map((id) => ({ id, admin: null })),
-              );
+          if (name === "messages.upsert") {
+            // live inbound traffic: notify (real-time) and append (post-reconnect
+            // backlog) both persist; media_path stays null until download
+            const upsert = payload as { messages?: WAMessage[] };
+            if (opts.store !== undefined) {
+              for (const message of upsert.messages ?? []) {
+                const remoteJid: string | null | undefined = message.key.remoteJid;
+                if (remoteJid !== undefined && remoteJid !== null && remoteJid.endsWith("@lid")) {
+                  message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
+                }
+                storeMessage(opts.store, message);
+                // T94-C-H1: the pinned fork's poll-vote decrypt block is
+                // commented out (process-message.js:576-624) — replicate its
+                // orchestration here: fetch the poll creation row, decrypt with
+                // the fork's own primitive, persist via poll_votes
+                const pollUpdateMessage = message.message?.pollUpdateMessage;
+                const creationKey = pollUpdateMessage?.pollCreationMessageKey;
+                if (
+                  pollUpdateMessage !== undefined &&
+                  creationKey !== undefined &&
+                  creationKey !== null &&
+                  typeof creationKey.id === "string"
+                ) {
+                  const pollRow = opts.store.db
+                    .prepare("SELECT raw FROM messages WHERE id = ?")
+                    .get(creationKey.id) as { raw?: string | null } | undefined;
+                  let pollMessage: proto.IMessage | undefined;
+                  if (pollRow?.raw !== undefined && pollRow.raw !== null) {
+                    try {
+                      pollMessage = JSON.parse(pollRow.raw) as proto.IMessage;
+                    } catch {
+                      pollMessage = undefined;
+                    }
+                  }
+                  const voteUpdate = decryptInboundPollVote(
+                    message,
+                    pollMessage,
+                    state.creds.me?.id ?? "",
+                  );
+                  console.error(
+                    "DEBUG H1:",
+                    voteUpdate !== null,
+                    JSON.stringify(state.creds.me),
+                    JSON.stringify(voteUpdate ?? {}),
+                  );
+                  const pollChatJid = remoteJid ?? "";
+                  if (voteUpdate !== null && pollChatJid.length > 0) {
+                    storePollVotes(opts.store, pollChatJid, creationKey.id, [voteUpdate]);
+                  }
+                }
+                // T93-D: media rides the auto-download rules — fire-and-forget,
+                // never blocks ingest, row linked on success
+                maybeAutoDownload(message, remoteJid);
+                // T84-B line93: inbound non-own texts may trigger an autoreply —
+                // gated by WA_SENDS_DISABLED and the T82 restrict rules, with a
+                // per-chat cooldown inside evaluateAutoreply
+                if (message.key.fromMe !== true) {
+                  const inboundText =
+                    (message.message?.conversation as string | undefined) ??
+                    (message.message?.extendedTextMessage?.text as string | undefined);
+                  if (typeof inboundText === "string" && inboundText.length > 0) {
+                    const reply = evaluateAutoreply(
+                      opts.store,
+                      remoteJid as string,
+                      inboundText,
+                      Date.now(),
+                    );
+                    if (reply !== null && process.env.WA_SENDS_DISABLED !== "1") {
+                      const verdict = evaluateSendRules(opts.store, remoteJid as string);
+                      // T94-C2(f): the reply burns the same budget as manual
+                      // sends — an inbound loop cannot exceed the daily cap
+                      const budget = opts.sendGuard?.check(Date.now());
+                      const budgetOk = budget === undefined || budget.ok;
+                      if (verdict.allowed && budgetOk) {
+                        opts.sendGuard?.record(Date.now());
+                        void sendViaSocket(socket, remoteJid as string, { text: reply }).catch(
+                          (err: unknown) => {
+                            opts.logger?.warn({ err }, "autoreply send failed");
+                          },
+                        );
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
-        }
-        if (name === "creds.update") {
-          void queueSave();
-        }
-        bus.emit({ type: name, payload } as WaEvent);
+          if (name === "messages.update") {
+            // T76 H4: the fork emits DECRYPTED poll votes here (it fetched the
+            // poll's encKey through getMessage) — persist them against
+            // poll_options; voter comes from the vote's own message key
+            const updates = payload as Array<{
+              key?: { remoteJid?: string | null; id?: string | null };
+              update?: { pollUpdates?: PollVoteUpdate[] };
+            }>;
+            if (opts.store !== undefined) {
+              for (const update of updates) {
+                const chatJid = update.key?.remoteJid;
+                const pollId = update.key?.id;
+                if (typeof chatJid === "string" && typeof pollId === "string") {
+                  storePollVotes(opts.store, chatJid, pollId, update.update?.pollUpdates ?? []);
+                }
+              }
+            }
+          }
+          if (name === "messaging-history.set") {
+            // the initial history sync: potentially thousands of rows — one
+            // transaction, never partially persisted
+            const history = payload as {
+              chats?: Array<{ id: string; name?: string }>;
+              messages?: WAMessage[];
+            };
+            if (opts.store !== undefined) {
+              const store = opts.store;
+              // pre-resolve LID→PN remotes (async) BEFORE the sync transaction
+              const lidToPn = new Map<string, string>();
+              for (const message of history.messages ?? []) {
+                const remoteJid = message.key.remoteJid;
+                if (
+                  remoteJid !== null &&
+                  remoteJid !== undefined &&
+                  remoteJid.endsWith("@lid") &&
+                  !lidToPn.has(remoteJid)
+                ) {
+                  lidToPn.set(remoteJid, await canonicalChatJid(socket, remoteJid));
+                }
+              }
+              const count = withTransaction(store, () => {
+                for (const chat of history.chats ?? []) {
+                  if (typeof chat.id !== "string" || chat.id.length === 0) {
+                    continue;
+                  }
+                  const canonical = chat.id.endsWith("@lid")
+                    ? (lidToPn.get(chat.id) ?? chat.id)
+                    : chat.id;
+                  upsertChatMeta(store, { id: canonical, name: chat.name });
+                }
+                markHistorySynced(
+                  store,
+                  (history.chats ?? [])
+                    .map((chat) => chat.id)
+                    .filter((id): id is string => typeof id === "string"),
+                );
+                let stored = 0;
+                for (const message of history.messages ?? []) {
+                  const remoteJid = message.key.remoteJid;
+                  if (remoteJid !== undefined && remoteJid !== null && lidToPn.has(remoteJid)) {
+                    message.key.remoteJid = lidToPn.get(remoteJid);
+                  }
+                  if (storeMessage(store, message)) {
+                    stored += 1;
+                  }
+                }
+                return stored;
+              });
+              opts.logger?.info({ messages: count }, "history sync persisted");
+            }
+          }
+          if (name === "groups.upsert") {
+            // group metadata push: subject lands in chats.name, roster in
+            // group_participants (T62/I)
+            const groups = payload as Array<{
+              id: string;
+              subject?: string;
+              participants?: Array<{ id: string; admin?: string | null }>;
+            }>;
+            if (opts.store !== undefined) {
+              for (const group of groups) {
+                upsertChatMeta(opts.store, { id: group.id, name: group.subject });
+                upsertGroupParticipants(
+                  opts.store,
+                  group.id,
+                  (group.participants ?? []).map((p) => ({ id: p.id, admin: p.admin ?? null })),
+                );
+              }
+            }
+          }
+          if (name === "contacts.upsert") {
+            // T76 H7: the roster push lands in the contacts table (merge keeps
+            // stored aliases — upsertContact only fills blanks)
+            const contacts = payload as Array<{
+              id?: string;
+              name?: string;
+              notify?: string;
+              verifiedName?: string;
+            }>;
+            if (opts.store !== undefined) {
+              for (const contact of contacts) {
+                if (typeof contact.id !== "string" || contact.id.length === 0) {
+                  continue;
+                }
+                upsertContact(opts.store, {
+                  jid: contact.id,
+                  name: contact.name ?? contact.verifiedName,
+                  pushname: contact.notify,
+                });
+              }
+            }
+          }
+          if (name === "group-participants.update") {
+            // T76 H7: roster deltas apply to the T64 participants table
+            const update = payload as {
+              id?: string;
+              participants?: Array<{ id?: string; admin?: string | null }>;
+              action?: string;
+            };
+            if (opts.store !== undefined && typeof update.id === "string") {
+              const ids = (update.participants ?? [])
+                .map((participant) => participant.id)
+                .filter((id): id is string => typeof id === "string" && id.length > 0);
+              if (update.action === "remove") {
+                removeGroupParticipants(opts.store, update.id, ids);
+              } else if (update.action === "promote") {
+                upsertGroupParticipants(
+                  opts.store,
+                  update.id,
+                  ids.map((id) => ({ id, admin: "admin" })),
+                );
+              } else if (update.action === "demote") {
+                upsertGroupParticipants(
+                  opts.store,
+                  update.id,
+                  ids.map((id) => ({ id, admin: null })),
+                );
+              } else {
+                upsertGroupParticipants(
+                  opts.store,
+                  update.id,
+                  ids.map((id) => ({ id, admin: null })),
+                );
+              }
+            }
+          }
+          if (name === "creds.update") {
+            void queueSave();
+          }
+          bus.emit({ type: name, payload } as WaEvent);
+        })().catch((err: unknown) => {
+          opts.logger?.error({ err, event: name }, "event handler failed — contained");
+        });
       });
     }
   };
