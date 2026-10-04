@@ -137,7 +137,6 @@ export function createScheduledSender(deps: {
         mimetype: resolved.mimeType,
       } as unknown as AnyMessageContent);
     }
-    sendGuard.record(Date.now());
     return result.messageId;
   };
 }

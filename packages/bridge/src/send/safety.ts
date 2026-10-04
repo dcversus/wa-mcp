@@ -53,6 +53,9 @@ export class SendGuard {
       .run(this.metaKey(now), String(next));
   }
 
+  /** T94-E H2 (RUNTIME review): check() RESERVES atomically — a pure read
+   * let N parallel callers all pass a budget of 1. A failed send calls
+   * release() to give the reservation back. */
   check(now: number): GuardVerdict {
     if (this.sentToday(now) >= this.dailyCap) {
       return { ok: false, code: "DAILY_CAP_EXCEEDED", cap: this.dailyCap };
@@ -63,11 +66,19 @@ export class SendGuard {
         return { ok: false, code: "RATE_LIMITED", retryAfterMs: this.minIntervalMs - elapsed };
       }
     }
+    this.lastSendAt = now;
+    this.addSent(now);
     return { ok: true };
   }
 
-  record(now: number): void {
-    this.lastSendAt = now;
-    this.addSent(now);
+  /** give one reservation back after a failed send (floor 0). Rate pacing
+   * stays consumed — conservative, never over-sends. */
+  release(now: number): void {
+    const next = Math.max(this.sentToday(now) - 1, 0);
+    this.store.db
+      .prepare(
+        "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
+      .run(this.metaKey(now), String(next));
   }
 }

@@ -63,7 +63,6 @@ manually, but they set them _themselves_ — `Host: evil.example:8080`,
 - The T54-revised "ui token reads account data" contracts were rewritten;
   the destructive-mutation 401s they already asserted remain true.
 
-
 ## Addendum (T94-E CR1, runtime-security review)
 
 The original design leaked: `/health` is public and published the pairing

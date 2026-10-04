@@ -913,6 +913,31 @@ export async function createHttpServer(
               sendJson(res, refusal.status, refusal.payload);
               return;
             }
+            // T94-E H2: a batch of N draws N from the budget BEFORE sending;
+            // a refusal mid-reservation releases what was reserved
+            let reserved = 1;
+            let budgetRefused = false;
+            for (let index = 1; index < ids.length; index += 1) {
+              const verdict = opts.sendGuard?.check(Date.now());
+              if (verdict === undefined || verdict.ok) {
+                reserved += 1;
+              } else {
+                budgetRefused = true;
+                break;
+              }
+            }
+            if (budgetRefused) {
+              for (let index = 0; index < reserved; index += 1) {
+                opts.sendGuard?.release(Date.now());
+              }
+              sendJson(res, 429, {
+                error: {
+                  code: "DAILY_CAP_EXCEEDED",
+                  message: `batch of ${ids.length} exceeds the remaining daily budget`,
+                },
+              });
+              return;
+            }
             for (const id of ids) {
               const original = fetchMessageFromStore(opts.store!, id);
               const result = await sendViaSocket(
@@ -923,7 +948,6 @@ export async function createHttpServer(
                 } as unknown as AnyMessageContent,
                 { store: opts.store },
               );
-              opts.sendGuard?.record(Date.now());
               messageIds.push(result.messageId);
             }
             sendJson(res, 200, { message_ids: messageIds });
@@ -1199,7 +1223,6 @@ export async function createHttpServer(
           store: opts.store,
           quoted: quotedForWire,
         });
-        opts.sendGuard?.record(Date.now());
         sendJson(res, 200, { message_id: result.messageId });
       })().catch((err: unknown) => {
         if (err instanceof SendError) {
@@ -1239,10 +1262,11 @@ export async function createHttpServer(
             typeof input.caption === "string" ? input.caption : undefined,
           );
         }
-        opts.sendGuard?.record(Date.now());
         sendJson(res, 200, { message_id: result.messageId });
       })
       .catch((err: unknown) => {
+        // T94-E H2: the failed send gives its reservation back
+        opts.sendGuard?.release(Date.now());
         if (err instanceof SendError) {
           // T56/T84: structured errors are still LOGGED — silent failures forbidden
           opts.logger?.error(
@@ -1985,7 +2009,6 @@ export async function createHttpServer(
               mimetype: "audio/ogg",
             } as AnyMessageContent,
           );
-          opts.sendGuard?.record(Date.now());
           sendJson(res, 200, { message_id: result.messageId });
         })
         .catch((err: unknown) => {
@@ -2051,7 +2074,6 @@ export async function createHttpServer(
           ptt: true,
           mimetype: audio.mime,
         } as AnyMessageContent);
-        opts.sendGuard?.record(Date.now());
         sendJson(res, 200, { message_id: result.messageId });
       })
       .catch((err: unknown) => {
@@ -2844,7 +2866,6 @@ export async function createHttpServer(
           const result = await sendViaSocket(socket, input.jid, {
             text: input.text,
           } as AnyMessageContent);
-          opts.sendGuard?.record(Date.now());
           sendJson(res, 200, { message_id: result.messageId });
           return;
         }

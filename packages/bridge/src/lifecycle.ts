@@ -647,7 +647,6 @@ export async function startBridge(
                       const budget = opts.sendGuard?.check(Date.now());
                       const budgetOk = budget === undefined || budget.ok;
                       if (verdict.allowed && budgetOk) {
-                        opts.sendGuard?.record(Date.now());
                         void sendViaSocket(socket, remoteJid as string, { text: reply }).catch(
                           (err: unknown) => {
                             opts.logger?.warn({ err }, "autoreply send failed");
