@@ -3836,3 +3836,54 @@ test("T94-D-M6 — POST /api/scheduled refuses a non-ISO send_at", async () => {
   });
   expect(res.status).toBe(400);
 });
+
+describe("T94-E CR1 — the tokenless chain is closed once paired", () => {
+  async function pairedBridge() {
+    const bridge = await createHttpServer(
+      stubHandle("connected", null, makeFakeSocket(), true),
+      { token: "test-token", pairingToken: "pair-tok" },
+    );
+    created.push(bridge);
+    return bridge;
+  }
+
+  test("/health stops publishing the pairing token once paired", async () => {
+    const bridge = await pairedBridge();
+    // review RUNTIME CR1: /health (public) handed out the pairing token to
+    // ANY local process — the first link of the tokenless chain
+    const body = (await (await fetch(url(bridge, "/health"))).json()) as {
+      pairingToken?: string;
+    };
+    expect(body.pairingToken).toBeUndefined();
+  });
+
+  test("the pairing token no longer unlocks /api/ui-token once paired", async () => {
+    const bridge = await pairedBridge();
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: "Bearer pair-tok" },
+    });
+    expect(res.status).toBe(403);
+    const err = (await res.json()) as { error: { code: string } };
+    expect(err.error.code).toBe("PAIRED");
+  });
+
+  test("the pairing token still cannot read account data directly", async () => {
+    const bridge = await pairedBridge();
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: "Bearer pair-tok" },
+    });
+    expect(chats.status).toBe(401);
+  });
+
+  test("an unpaired daemon keeps the owner pairing flow intact", async () => {
+    const bridge = await startServer({ pairingToken: "pair-tok" });
+    const health = (await (await fetch(url(bridge, "/health"))).json()) as {
+      pairingToken?: string;
+    };
+    expect(health.pairingToken).toBe("pair-tok");
+    const exchange = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: "Bearer pair-tok" },
+    });
+    expect(exchange.status).toBe(200);
+  });
+});
