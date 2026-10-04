@@ -41,6 +41,29 @@ const MEDIA_FIELD: Record<MediaKind, keyof proto.IMessage> = {
   sticker: "stickerMessage",
 };
 
+export interface LinkPreviewInput {
+  text: string;
+  url: string;
+  title?: string;
+  description?: string;
+}
+
+/** T90 line74: deterministic link-preview text message — matches the fork's
+ * extendedTextMessage shape when a urlInfo object is supplied (matchedText +
+ * canonicalUrl), skipping the engine's async URL fetch. */
+export async function buildLinkPreviewMessage(input: LinkPreviewInput): Promise<proto.IMessage> {
+  return proto.Message.fromObject({
+    extendedTextMessage: {
+      text: input.text,
+      matchedText: input.url,
+      canonicalUrl: input.url,
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      previewType: 0,
+    },
+  });
+}
+
 export async function buildTextMessage(input: TextMessageInput): Promise<proto.IMessage> {
   const hasContext =
     (input.mentions !== undefined && input.mentions.length > 0) ||

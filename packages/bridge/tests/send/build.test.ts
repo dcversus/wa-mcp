@@ -241,3 +241,10 @@ describe("T90 line74 — link preview builder", () => {
     expect(msg.extendedTextMessage?.description).toBe("The example site");
   });
 });
+
+describe("T90 line77 — status broadcast builders", () => {
+  test("status text builds conversation content for status@broadcast", async () => {
+    const msg = await buildStatusTextMessage("day one notes");
+    expect(msg.conversation).toBe("day one notes");
+  });
+});

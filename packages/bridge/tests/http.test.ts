@@ -3337,3 +3337,96 @@ describe("T86 — fetch-history + catch-up digest", () => {
     }
   });
 });
+
+describe("T90 — status/link/buttons/list send kinds", () => {
+  function sendBridge() {
+    const socket = makeFakeSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-send-t90-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(bridge);
+    return { socket, bridge };
+  }
+
+  test("line77 — status-text sends to status@broadcast with the text", async () => {
+    const { socket, bridge } = sendBridge();
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ kind: "status-text", text: "day one" }),
+    });
+    expect(res.status).toBe(200);
+    const calls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0]?.[0]).toBe("status@broadcast");
+    expect((calls[0]?.[1] as { text?: string }).text).toBe("day one");
+  });
+
+  test("line74 — link_preview kind builds extendedText with matchedText", async () => {
+    const { socket, bridge } = sendBridge();
+    const res = await fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "link_preview",
+        text: "look",
+        url: "https://example.com/x",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const call = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      extendedTextMessage?: { matchedText?: string; canonicalUrl?: string };
+    };
+    expect(call?.extendedTextMessage?.matchedText).toBe("https://example.com/x");
+  });
+
+  test("line80 — buttons kind builds buttonsMessage; list kind builds listMessage", async () => {
+    const { socket: s1, bridge: b1 } = sendBridge();
+    const buttons = await fetch(url(b1, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "buttons",
+        chat_jid: "358497773518@s.whatsapp.net",
+        text: "pick",
+        buttons: [
+          { row_id: "b1", title: "Yes" },
+          { row_id: "b2", title: "No" },
+        ],
+      }),
+    });
+    expect(buttons.status).toBe(200);
+    const buttonCall = (s1.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      buttonsMessage?: { buttons?: unknown[] };
+    };
+    expect(buttonCall.buttonsMessage).toBeDefined();
+
+    const s2 = makeFakeSocket();
+    const store2 = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-send-t90b-")));
+    openedStores.push(store2);
+    const b2 = await createHttpServer(stubHandle("connected", null, s2), {
+      token: "test-token",
+      store: store2,
+      sendGuard: new SendGuard(store2, { minIntervalMs: 0, dailyCap: 100 }),
+    });
+    created.push(b2);
+    const list = await fetch(url(b2, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "list",
+        chat_jid: "358497773518@s.whatsapp.net",
+        text: "menu",
+        items: [{ title: "Pizza", row_id: "r1" }],
+      }),
+    });
+    expect(list.status).toBe(200);
+    const listCall = (s2.sendMessage as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as {
+      listMessage?: unknown;
+    };
+    expect(listCall.listMessage).toBeDefined();
+  });
+});
