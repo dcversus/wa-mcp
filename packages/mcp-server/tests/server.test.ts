@@ -51,7 +51,12 @@ test("tools/list returns the registry with names, descriptions and input schemas
     name: string;
     description: string;
     inputSchema: unknown;
+    annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
   }>;
+  expect(tools.find((tool) => tool.name === "list_chats")?.annotations?.readOnlyHint).toBe(true);
+  expect(tools.find((tool) => tool.name === "delete_message")?.annotations?.destructiveHint).toBe(
+    true,
+  );
   expect(tools.map((tool) => tool.name)).toEqual([
     "get_login_qr",
     "send_message",

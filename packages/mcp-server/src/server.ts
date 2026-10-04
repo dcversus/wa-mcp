@@ -272,6 +272,7 @@ export async function handleRpcMessage(
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
+            annotations: tool.annotations,
           })),
         };
       case "tools/call":
