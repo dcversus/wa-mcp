@@ -4087,3 +4087,80 @@ describe("T99 — GET /api/privacy (get_privacy reader)", () => {
     expect(res.status).toBe(501);
   });
 });
+
+describe("T99 chatModify — POST /api/chat/modify", () => {
+  async function modifyFixture() {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-modify-")));
+    openedStores.push(store);
+    for (const [id, ts] of [
+      ["OLD", 1000],
+      ["NEW", 2000],
+    ] as Array<[string, number]>) {
+      storeMessage(store, {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id },
+        message: { conversation: id },
+        messageTimestamp: ts,
+      } as never);
+    }
+    const socket = makeFakeSocket();
+    (socket as { chatModify?: unknown }).chatModify = vi.fn(async () => undefined);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    return { store, socket, bridge };
+  }
+
+  function modify(bridge: BridgeHttp, action: string, extra: Record<string, unknown> = {}) {
+    return fetch(url(bridge, "/api/chat/modify"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", action, ...extra }),
+    });
+  }
+
+  test("archive builds the engine patch with newest-first lastMessages", async () => {
+    const { socket, bridge } = await modifyFixture();
+    const res = await modify(bridge, "archive");
+    expect(res.status).toBe(200);
+    const call = (socket.chatModify as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      { archive?: boolean; lastMessages?: Array<{ messageTimestamp?: number }> },
+      string,
+    ];
+    expect(call[0].archive).toBe(true);
+    expect(call[0].lastMessages?.map((m) => m.messageTimestamp)).toEqual([2000, 1000]);
+    expect(call[1]).toBe("358497773518@s.whatsapp.net");
+  });
+
+  test("mute/unmute/mark_unread/clear/delete build their patches", async () => {
+    const { socket, bridge } = await modifyFixture();
+    await modify(bridge, "unarchive");
+    await modify(bridge, "mute", { duration_seconds: 3600 });
+    await modify(bridge, "unmute");
+    await modify(bridge, "mark_unread");
+    await modify(bridge, "clear");
+    await modify(bridge, "delete");
+    const mods = (socket.chatModify as ReturnType<typeof vi.fn>).mock.calls.map(
+      (call) => call[0],
+    ) as Array<Record<string, unknown>>;
+    expect(mods[0].archive).toBe(false);
+    expect(Number(mods[1].mute)).toBeGreaterThan(Date.now());
+    expect(mods[2].mute).toBeNull();
+    expect(mods[3].markRead).toBe(false);
+    expect(mods[4].clear).toBe(true);
+    expect(mods[5].delete).toBe(true);
+  });
+
+  test("unknown action and missing chat_jid are 400", async () => {
+    const { bridge } = await modifyFixture();
+    const bad = await modify(bridge, "explode");
+    expect(bad.status).toBe(400);
+    const noChat = await fetch(url(bridge, "/api/chat/modify"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ action: "archive" }),
+    });
+    expect(noChat.status).toBe(400);
+  });
+});
