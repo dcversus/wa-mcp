@@ -1,7 +1,7 @@
 import { mkdtempSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test } from "vite-plus/test";
+import {afterEach, expect, test, describe} from "vite-plus/test";
 import { MediaError, resolveMedia, saveOutboundMedia } from "../../src/media/resolve.ts";
 import { openStore, type Store } from "../../src/store/schema.ts";
 
@@ -185,4 +185,40 @@ test("MediaError instances carry their code", () => {
   const err = new MediaError("TOO_LARGE", "too big");
   expect(err).toBeInstanceOf(Error);
   expect(err.code).toBe("TOO_LARGE");
+});
+
+describe("T94-F M6 — URL media fetch is time- and size-bounded", () => {
+  test("the fetch arms an abort timeout", async () => {
+    let seenSignal: unknown;
+    const fetchFn = (async (_url: string | URL, init?: RequestInit) => {
+      seenSignal = init?.signal;
+      return new Response(Buffer.from("tiny"), { status: 200 });
+    }) as unknown as typeof fetch;
+    await resolveMedia({ url: "https://example.com/pic.png" }, { fetchFn, mediaDir: tmpdir() });
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("a lying body without content-length is capped mid-stream", { timeout: 3000 }, async () => {
+    // never ends, keeps emitting — the OLD full-buffer read would hang here
+    let emitted = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (emitted < 4) {
+          controller.enqueue(new Uint8Array(8).fill(0x41));
+          emitted += 1;
+        } else {
+          // stall forever after already exceeding the cap
+        }
+      },
+    });
+    const fetchFn = (async () =>
+      new Response(stream, { status: 200 })) as unknown as typeof fetch;
+    await expect(
+      resolveMedia({ url: "https://example.com/big.png" }, {
+        fetchFn,
+        mediaDir: tmpdir(),
+        maxBytes: 10,
+      }),
+    ).rejects.toHaveProperty("code", "TOO_LARGE");
+  });
 });
