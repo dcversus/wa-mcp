@@ -3561,6 +3561,87 @@ export async function createHttpServer(
           });
           return;
         }
+        if (path === "/api/chat/modify" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+            return;
+          }
+          const input = JSON.parse(body.toString("utf8")) as {
+            chat_jid?: unknown;
+            action?: unknown;
+            duration_seconds?: unknown;
+          };
+          if (typeof input.chat_jid !== "string" || input.chat_jid.length === 0) {
+            validationError(res, "chat_jid is required");
+            return;
+          }
+          const actions = [
+            "archive",
+            "unarchive",
+            "mute",
+            "unmute",
+            "mark_unread",
+            "mark_read",
+            "clear",
+            "delete",
+          ];
+          if (typeof input.action !== "string" || !actions.includes(input.action)) {
+            validationError(
+              res,
+              `action must be one of ${actions.join(", ")}`,
+            );
+            return;
+          }
+          const socket = handle.socket;
+          if (socket === undefined || socket === null || typeof socket.chatModify !== "function") {
+            sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" } });
+            return;
+          }
+          const lastMessages = (
+            opts.store.db
+              .prepare(
+                "SELECT id, chat_jid, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp DESC LIMIT 25",
+              )
+              .all(input.chat_jid) as Array<{
+              id: string;
+              chat_jid: string;
+              is_from_me: number;
+              timestamp: string;
+            }>
+          ).map((row) => ({
+            key: { remoteJid: row.chat_jid, id: row.id, fromMe: row.is_from_me === 1 },
+            messageTimestamp: Math.floor(new Date(row.timestamp).getTime() / 1000),
+          }));
+          const durationSeconds =
+            typeof input.duration_seconds === "number" ? input.duration_seconds : 604800;
+          const modifications: Record<string, Record<string, unknown>> = {
+            archive: { archive: true, lastMessages },
+            unarchive: { archive: false, lastMessages },
+            mute: { mute: Date.now() + durationSeconds * 1000 },
+            unmute: { mute: null },
+            mark_unread: { markRead: false, lastMessages },
+            mark_read: { markRead: true, lastMessages },
+            clear: { clear: true, lastMessages },
+            delete: { delete: true, lastMessages },
+          };
+          void socket
+            .chatModify(
+              modifications[input.action] as never,
+              input.chat_jid,
+            )
+            .then(() => {
+              sendJson(res, 200, { applied: input.action });
+            })
+            .catch((err: unknown) => {
+              sendJson(res, 502, {
+                error: {
+                  code: "MODIFY_FAILED",
+                  message: err instanceof Error ? err.message : "chatModify failed",
+                },
+              });
+            });
+          return;
+        }
         if (path === "/api/unread") {
           if (opts.store === undefined) {
             sendJson(res, 501, {

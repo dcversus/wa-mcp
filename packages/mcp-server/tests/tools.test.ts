@@ -615,6 +615,48 @@ test("T97c — get_chat with_photo merges the profile picture URL", async () => 
   expect(calls).toHaveLength(3);
 });
 
+describe("T99 — chat-management tools via /api/chat/modify", () => {
+  const CHAT = "358497773518@s.whatsapp.net";
+  const CASES: Array<{ tool: string; body: Record<string, unknown> }> = [
+    { tool: "archive_chat", body: { chat_jid: CHAT, action: "archive" } },
+    { tool: "unarchive_chat", body: { chat_jid: CHAT, action: "unarchive" } },
+    {
+      tool: "mute_chat",
+      body: { chat_jid: CHAT, action: "mute", duration_seconds: 3600 },
+    },
+    { tool: "unmute_chat", body: { chat_jid: CHAT, action: "unmute" } },
+    { tool: "mark_chat_unread", body: { chat_jid: CHAT, action: "mark_unread" } },
+    { tool: "delete_chat", body: { chat_jid: CHAT, action: "delete" } },
+    { tool: "clear_chat", body: { chat_jid: CHAT, action: "clear" } },
+  ];
+
+  test("all seven tools exist and are pinned with hints", async () => {
+    for (const c of CASES) {
+      expect(toolByName(c.tool), c.tool).toBeDefined();
+    }
+    const { TOOL_ANNOTATIONS } = (await import("../src/tools.ts")) as {
+      TOOL_ANNOTATIONS: Record<string, { destructiveHint?: boolean; idempotentHint?: boolean }>;
+    };
+    for (const name of ["archive_chat", "unarchive_chat", "mute_chat", "unmute_chat"]) {
+      expect(TOOL_ANNOTATIONS[name]?.idempotentHint, name).toBe(true);
+    }
+    for (const name of ["mark_chat_unread", "delete_chat", "clear_chat"]) {
+      expect(TOOL_ANNOTATIONS[name]?.destructiveHint, name).toBe(true);
+    }
+  });
+
+  for (const c of CASES) {
+    test(`${c.tool} posts its action to /api/chat/modify`, async () => {
+      const { fetchFn, calls } = mockFetch({ "/api/chat/modify": { applied: true } });
+      const tool = toolByName(c.tool);
+      if (!tool) throw new Error(`${c.tool} missing`);
+      await tool.handler({ ...ctx, fetchFn }, structuredClone(c.body));
+      expect(calls[0]?.url).toBe("http://bridge.test:8080/api/chat/modify");
+      expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual(c.body);
+    });
+  }
+});
+
 test("list_chats fetches the chat list and returns json text", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chats?limit=50": { chats: [{ jid: "a@g.us" }] } });
   const tool = toolByName("list_chats");
