@@ -45,6 +45,14 @@ async function trackedStart(...args: Parameters<typeof startBridge>) {
   return handle;
 }
 
+const { downloadMock } = vi.hoisted(() => ({ downloadMock: vi.fn() }));
+vi.mock("../src/media/download.ts", () => ({
+  downloadMessageMedia: (...args: unknown[]) => downloadMock(...args),
+}));
+downloadMock.mockImplementation(
+  async () => ({ path: "/tmp/wa-media/dl.jpg", mime: "image/jpeg", size: 4 }),
+);
+
 const mockMakeWASocket = vi.mocked(makeWASocket);
 const mockAuthState = vi.mocked(useMultiFileAuthState);
 const mockSaveCreds = vi.fn(async () => {});
@@ -1063,6 +1071,114 @@ test("T93 — forced staleness teardown accounts the disconnect BEFORE detaching
   delete process.env.WA_STALENESS_MS;
   vi.useRealTimers();
   await handle.close();
+});
+
+describe("T93-D — auto-download on ingest", () => {
+  function freshSocketWithDrain(): { sock: ReturnType<typeof fakeSocket> } {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReset();
+    mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+    mockMakeWASocket.mockReturnValueOnce(sock as unknown as WASocket);
+    return { sock };
+  }
+
+  function mediaMessage(id: string, remoteJid: string): Record<string, unknown> {
+    return {
+      key: { remoteJid, fromMe: false, id },
+      message: { imageMessage: { mimetype: "image/jpeg" } },
+      messageTimestamp: 1000,
+    };
+  }
+
+  test("inbound media downloads when the rules allow", async () => {
+    delete process.env.WA_AUTO_DOWNLOAD;
+    delete process.env.WA_MIN_FREE_MB;
+    delete process.env.WA_ALLOWED_EXTENSIONS;
+    const { sock } = freshSocketWithDrain();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autodl-")));
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
+    sock.emit("messages.upsert", {
+      messages: [mediaMessage("IMG1", "358497773518@s.whatsapp.net")],
+    });
+    // RED today: nothing in the ingest path ever calls the download engine —
+    // the live voice message stored with media_path EMPTY proves it
+    await vi.waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    const call = downloadMock.mock.calls[0] as [unknown, unknown, { messageId?: string }];
+    expect(call[2]?.messageId).toBe("IMG1");
+    await handle.close();
+    store.close();
+  });
+
+  test("status media never downloads", async () => {
+    delete process.env.WA_AUTO_DOWNLOAD;
+    const { sock } = freshSocketWithDrain();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autodl-status-")));
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
+    sock.emit("messages.upsert", {
+      messages: [mediaMessage("ST1", "status@broadcast")],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(downloadMock).not.toHaveBeenCalled();
+    await handle.close();
+    store.close();
+  });
+
+  test("WA_AUTO_DOWNLOAD=0 disables ingest downloads", async () => {
+    process.env.WA_AUTO_DOWNLOAD = "0";
+    const { sock } = freshSocketWithDrain();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autodl-off-")));
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
+    sock.emit("messages.upsert", {
+      messages: [mediaMessage("OFF1", "358497773518@s.whatsapp.net")],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(downloadMock).not.toHaveBeenCalled();
+    delete process.env.WA_AUTO_DOWNLOAD;
+    await handle.close();
+    store.close();
+  });
+
+  test("low free disk skips the download", async () => {
+    process.env.WA_MIN_FREE_MB = "1000000";
+    const { sock } = freshSocketWithDrain();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autodl-disk-")));
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
+    sock.emit("messages.upsert", {
+      messages: [mediaMessage("DSK1", "358497773518@s.whatsapp.net")],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(downloadMock).not.toHaveBeenCalled();
+    delete process.env.WA_MIN_FREE_MB;
+    await handle.close();
+    store.close();
+  });
+
+  test("daemon start backfills stored media with a null path (bounded)", async () => {
+    delete process.env.WA_AUTO_DOWNLOAD;
+    delete process.env.WA_MIN_FREE_MB;
+    mockMakeWASocket.mockReset();
+    mockMakeWASocket.mockReturnValue(fakeSocket() as unknown as WASocket);
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autodl-bf-")));
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, media_type, media_path, is_from_me, raw) VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?)",
+      )
+      .run(
+        "BF1",
+        "358497773518@s.whatsapp.net",
+        "358497773518@s.whatsapp.net",
+        "2026-01-01T00:00:00Z",
+        null,
+        "image",
+        JSON.stringify(mediaMessage("BF1", "358497773518@s.whatsapp.net")),
+      );
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", { store, mediaDir: tmpdir() });
+    await vi.waitFor(() => expect(downloadMock).toHaveBeenCalledTimes(1));
+    const call = downloadMock.mock.calls[0] as [unknown, unknown, { messageId?: string }];
+    expect(call[2]?.messageId).toBe("BF1");
+    await handle.close();
+    store.close();
+  });
 });
 
 test("T80 line44 — syncFullHistory applies only on FRESH creds (pairing-time)", async () => {
