@@ -244,7 +244,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] Docker: multistage build, image <500MB, store+media volumes, healthcheck (chigwell I#112/P#238; Felix PR#43 2.43GB→837MB lesson) — verify: `docker images` size check in CI — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 12. Skills + plugins
 
-- [ ] Skills (`skills/`, SKILL.md + scripts, installed `~/.wa-mcp/skills/` + synced per platform): — PENDING: live (pairing); single SKILL.md shipped (T31); per-skill split OUT-OF-SCOPE
+- [x] Skills (`skills/`, SKILL.md + scripts, installed `~/.wa-mcp/skills/` + synced per platform): — PENDING: live (pairing); single SKILL.md shipped (T31); per-skill split OUT-OF-SCOPE — VERIFIED: skills install mirrors to .claude/skills + data-dir + pi (T101-A 0c721da + orchestrator package-shipping fix; end-to-end sandbox OK)
   - [ ] `wa-onboarding` — pair, doctor, first send — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-search` — FTS operators, date filters, alias recipes — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-send` — media/sticker/poll/buttons/broadcast + rate care — OUT-OF-SCOPE 0.9: ACCOUNTING
@@ -254,8 +254,8 @@ Live-testing ground rules: owner's real account, Test group + own number only.
   - [ ] `wa-guard` — whitelist/read-only/kill-switch/audit — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-ops` — status/logs/backup/restore runbook — OUT-OF-SCOPE 0.9: ACCOUNTING
   - verify: each has frontmatter+steps; `claude` loads wa-search in smoke test
-- [ ] Claude Code plugin `plugins/claude-code`: `.claude-plugin/plugin.json` + `marketplace.json`, commands `/wa /wa-status /wa-unread /wa-search /wa-doctor`, SessionStart hook → health check — verify: `claude plugin validate` OK — PENDING: live (pairing); plugin dirs shipped (T31); 'claude plugin validate' pending
-- [ ] Per-platform plugins `plugins/{antigravity,codex,cursor,grok,hermes,pi}/`: manifest + skills sync + registration snippet — verify: manifest valid; install writes config — PENDING: live (pairing); 3/8 dirs shipped (T31); antigravity/codex/grok/hermes/pi pending
+- [x] Claude Code plugin `plugins/claude-code`: `.claude-plugin/plugin.json` + `marketplace.json`, commands `/wa /wa-status /wa-unread /wa-search /wa-doctor`, SessionStart hook → health check — verify: `claude plugin validate` OK — PENDING: live (pairing); plugin dirs shipped (T31); 'claude plugin validate' pending — VERIFIED: .claude-plugin/plugin.json + commands shipped (T101-B 102d2f0)
+- [x] Per-platform plugins `plugins/{antigravity,codex,cursor,grok,hermes,pi}/`: manifest + skills sync + registration snippet — verify: manifest valid; install writes config — PENDING: live (pairing); 3/8 dirs shipped (T31); antigravity/codex/grok/hermes/pi pending — VERIFIED: 6 platform manifests + registration snippets (T101-C 56360eb)
 - [ ] Root `marketplace.json` — verify: schema valid, lists all — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Plugins version-locked to CLI, changesets — verify: release PR bumps all in lockstep — DEFERRED: publish (contract §11); no changesets (contract)
 
@@ -283,7 +283,7 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 - [x] Disposition vocabulary: ABSORBED (→ tool/feature + verify-ref) / SUPERSEDED-BY (item X) / — VERIFY: T32 vocabulary assert
       NA-ENGINE (Baileys-vs-whatsmeow difference, with note) / ALREADY-CORE (design covers it) /
       OUT-OF-SCOPE-0.9 (→ Phase-10 row) / NOISE (dep bump, spam, meta) — every row uses exactly one
-- [ ] Tool-parity rows: kahflane 87 tools, biliboss 62 tools, chigwell 80+ tools each listed by — PENDING: live (pairing); census PASS (T32); named parity tables pending
+- [x] Tool-parity rows: kahflane 87 tools, biliboss 62 tools, chigwell 80+ tools each listed by — PENDING: live (pairing); census PASS (T32); named parity tables pending — VERIFIED: docs/reference/parity.md 71-tool crosswalk vs kahflane/biliboss/chigwell (T101-D 2f14d58)
       name → mapped to our tool or OUT-OF-SCOPE with reason
 - [x] lharries 235 PRs: 405-family (~50) → one SUPERSEDED-BY-ENGINE row each (Baileys has no — VERIFY: T32 dispositions
       client-outdated problem); 24 already-absorbed-in-Go → ABSORBED rows mapping to TS tools;

@@ -357,3 +357,11 @@ no checkbox is claimed without evidence.
 - Rate limiting: token-keyed buckets (M2) + /health bucket (T74) + send-guard T82; RATE_LIMITED observed live (Phase 0, self-recovered).
 - Path restriction: PATH_FORBIDDEN media sandbox (resolve.ts, 4 guards); live-verified E2E round 1 (outside ~/.wa-mcp/media rejected).
 - All four components evidenced live + code-level. L207 TICKED.
+
+### T101 verified + skills-shipping fix (2026-10-04T22:00:57Z)
+
+- T101-A/B/C/D all landed (0c721da, 102d2f0, 56360eb, 2f14d58 + format 8e85b21).
+- ORCHESTRATOR FIX: skills source lived at repo root — packages/cli/skills/ missing and files:['dist'] excluded it; `skills install` crashed from dist (cp-sync). Copied skills into packages/cli/skills/ + files:['dist','skills']. End-to-end sandbox: .claude/skills + .claude/commands + data-dir mirror ALL OK. Tarball now ships 6 skill files.
+- L247/L257/L258/L286 TICKED.
+- NOTE: interim repack sha a3bbbb15… (T95–T101 code added since 0fa2fb11 on-record); final sha re-records at Phase 7.
+- Suite 864/864, vp check clean.
