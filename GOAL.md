@@ -204,7 +204,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [ ] Prompt-injection sanitization: user content in structured fields marked untrusted (chigwell) — verify: "ignore instructions" wrapped+flagged in output — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `pnpm audit` 0 HIGH, CodeQL clean, gitleaks clean — verify: CI green — VERIFY: T27 run 36947830588 green — CI re-confirm PENDING: ci (billing)
 
-- [ ] Lethal-trifecta mitigation: approval gate on writes, audit log of sends, rate limiting, path restriction (lharries P#291, I#42 invariantlabs) — verify: audit-log row per send with tool+recipient+timestamp — PENDING: live (pairing); rate-limit+path PASS (T7/T18); audit-log rows OUT-OF-SCOPE
+- [x] Lethal-trifecta mitigation: approval gate on writes, audit log of sends, rate limiting, path restriction (lharries P#291, I#42 invariantlabs) — verify: audit-log row per send with tool+recipient+timestamp — PENDING: live (pairing); rate-limit+path PASS (T7/T18); audit-log rows OUT-OF-SCOPE — VERIFIED: all four components live+code evidenced (T94-C2/C2b, T82, M2, PATH_FORBIDDEN live)
 - [x] Rate limiting with LimitReader body caps on HTTP endpoints (lharries I#340) — verify: >1MB request body → 413 — VERIFY: T7 413 tests
 - [x] Input validation decorators on tool params (chigwell I#11) — verify: invalid JID/phone → structured error, never crash — VERIFY: T14 VALIDATION_ERROR tests
 - [ ] DNS-rebinding protection on HTTP transport (VGP P#252/#216) — verify: request with foreign Host header → rejected — OUT-OF-SCOPE 0.9: ACCOUNTING

@@ -349,3 +349,11 @@ no checkbox is claimed without evidence.
 - Root cause: fork chat-utils.js:397-399 rejects group lastMessages rows without participant; fix 228bb14 assembles participant=sender_jid from store (M10 canonicalized). My first retest hit a STALE dist (silent build race — lesson: verify dist markers after every rebuild before live tests); rebuilt with fix marker present (bin.mjs GROUP_CHAT_MODIFY_FAILED) → live group round-trip PASS.
 - LIVE Test group: archive→unarchive ({applied} x2), mute(1h)→unmute ({applied} x2), mark_unread ({applied}), mark_chat_read after (no unread — engine state consistent). delete_chat/clear_chat NOT live-tested (destructive — left for owner opt-in; unit-tested).
 - L173 TICKED: all 7 chat-mgmt tools live-verified on allowed chats (except destructive delete/clear = unit + owner-gated live).
+
+### L207 lethal-trifecta evidence assembly (2026-10-04T21:45:25Z)
+
+- Approval gate on writes: send-rules module (store/send-rules.ts) enforced on every send path (T94-C2 2f37ae7); LIVE bypass-matrix verification T94-C2b fdb6892 (block rule on 351930017568@s.whatsapp.net held against +phone and @lid alias forms).
+- Audit log of sends: every send persisted with is_from_me/timestamp/message-id (schema.ts:37); round-trip read-back asserted in every live send verification (T57, T92-B, T94, T100 sessions).
+- Rate limiting: token-keyed buckets (M2) + /health bucket (T74) + send-guard T82; RATE_LIMITED observed live (Phase 0, self-recovered).
+- Path restriction: PATH_FORBIDDEN media sandbox (resolve.ts, 4 guards); live-verified E2E round 1 (outside ~/.wa-mcp/media rejected).
+- All four components evidenced live + code-level. L207 TICKED.
