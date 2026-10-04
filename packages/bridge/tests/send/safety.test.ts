@@ -1,9 +1,26 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, test } from "vite-plus/test";
+import { afterEach, expect, test, vi } from "vite-plus/test";
 import { openStore, type Store } from "../../src/store/schema.ts";
 import { SendGuard } from "../../src/send/safety.ts";
+import { createHttpServer } from "../../src/http.ts";
+import type { BridgeHttp } from "../../src/http.ts";
+import type { WASocket } from "baileys";
+import type { BridgeHandle, BridgeStatus } from "../../src/lifecycle.ts";
+import { createEventBus } from "../../src/events.ts";
+
+const created: BridgeHttp[] = [];
+
+function stubHandle(status: BridgeStatus = "connected", socket?: WASocket) {
+  return {
+    status,
+    events: createEventBus(),
+    close: async () => {},
+    getLastQr: () => null,
+    socket,
+  } as unknown as BridgeHandle;
+}
 
 const stores: Store[] = [];
 
@@ -74,4 +91,40 @@ test("defaults are a 1s interval and a 200-per-day cap", { timeout: 30_000 }, ()
     guard.record(now);
   }
   expect(guard.check(200 * 1000)).toEqual({ ok: false, code: "DAILY_CAP_EXCEEDED", cap: 200 });
+});
+
+test("T94-E H2 — check() reserves atomically; release() gives the budget back", () => {
+  const store = freshStore();
+  const guard = new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 });
+  const now = Date.now();
+  // RED today: check() is a pure read — two parallel callers both see ok
+  expect(guard.check(now)).toMatchObject({ ok: true });
+  expect(guard.check(now)).toMatchObject({ ok: false, code: "DAILY_CAP_EXCEEDED" });
+  // a failed send releases the reservation
+  guard.release(now);
+  expect(guard.check(now)).toMatchObject({ ok: true });
+});
+
+test("T94-E H2 — two parallel sends against a budget of 1: exactly one lands", async () => {
+  const store = freshStore();
+  const sendMessage = vi.fn(async () => ({ key: { id: "RACE1", fromMe: true } }));
+  const sock = { sendMessage } as unknown as WASocket;
+  const bridge = await createHttpServer(stubHandle("connected", null, sock), {
+    token: "test-token",
+    store,
+    sendGuard: new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 }),
+  });
+  created.push(bridge);
+  const body = JSON.stringify({ chat_jid: "358497773518@s.whatsapp.net", text: "race" });
+  const fire = () =>
+    fetch(url(bridge, "/api/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body,
+    });
+  // RED today: both pass the check-only gate and both hit WhatsApp
+  const [a, b] = await Promise.all([fire(), fire()]);
+  const codes = [a.status, b.status].sort();
+  expect(codes).toEqual([200, 429]);
+  expect(sendMessage).toHaveBeenCalledTimes(1);
 });
