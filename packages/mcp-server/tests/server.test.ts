@@ -379,3 +379,27 @@ describe("T82-B — daemon utility tools", () => {
     expect(log[1]?.init.method).toBe("DELETE");
   });
 });
+
+describe("T86 — MCP prompts capability", () => {
+  test("prompts/list returns the three guided workflows", async () => {
+    const response = await handleRpcLine(makeRequest(30, "prompts/list", {}), ctx);
+    const result = resultOf(response);
+    const names = (result.prompts as Array<{ name: string }>).map((p) => p.name);
+    expect(names).toEqual(["group-digest", "catch-up", "action-items"]);
+  });
+
+  test("prompts/get renders a guided workflow with a pre-filled tool call", async () => {
+    const response = await handleRpcLine(
+      makeRequest(31, "prompts/get", {
+        name: "group-digest",
+        arguments: { group: "120363428874442773@g.us", since: "2026-10-01" },
+      }),
+      ctx,
+    );
+    const result = resultOf(response);
+    const text = (result.messages as Array<{ content: { text: string } }>)[0]?.content.text;
+    expect(text).toContain("group-digest");
+    expect(text).toContain("digest_group");
+    expect(text).toContain("120363428874442773@g.us");
+  });
+});
