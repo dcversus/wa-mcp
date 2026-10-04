@@ -118,6 +118,10 @@ export interface HttpServerOptions {
   pairingToken?: string;
   /** T93-C2: the credential minted for the web UI — own rate bucket */
   uiToken?: string;
+  /** T94-G: STABLE bootstrap credential persisted in the data dir (0600) —
+   * survives daemon restarts so a fresh browser bootstraps on a paired
+   * daemon without any user action */
+  uiBootstrapToken?: string;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -432,6 +436,7 @@ export async function createHttpServer(
   const pairingToken = opts.pairingToken ?? randomBytes(24).toString("hex");
   // T93-C2: a distinct UI credential — full API surface, own rate bucket
   const uiToken = opts.uiToken ?? randomBytes(24).toString("hex");
+  const uiBootstrapToken = opts.uiBootstrapToken ?? randomBytes(24).toString("hex");
   const rate = opts.rateLimit ?? DEFAULT_RATE;
   const now = opts.rateLimitNow ?? Date.now;
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
@@ -2201,6 +2206,9 @@ export async function createHttpServer(
         // any local process could read it here and exchange it for a
         // full-surface credential at /api/ui-token.
         pairingToken: handle.hasPairedAccount() ? undefined : pairingToken,
+        // T94-G: the STABLE bootstrap credential — the pairing token rotates
+        // per boot, so a paired daemon would strand fresh browsers without it
+        uiBootstrapToken,
         channel: opts.cloud ? "cloud" : "baileys",
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
@@ -2300,8 +2308,12 @@ export async function createHttpServer(
     // token via GET /api/ui-token (loopback Host + same-origin enforced above).
     const pairingTokenAuthorized =
       presented !== null && tokenMatches(presented, pairingToken) && PAIRING_SURFACE.has(path);
+    // T94-G: the STABLE bootstrap token opens exactly the exchange route
+    const bootstrapAuthorized =
+      presented !== null && tokenMatches(presented, uiBootstrapToken) && path === "/api/ui-token";
     if (
       !pairingTokenAuthorized &&
+      !bootstrapAuthorized &&
       (presented === null ||
         (!tokenMatches(presented, opts.token) && !tokenMatches(presented, uiToken)))
     ) {
@@ -3541,16 +3553,20 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/ui-token" && req.method === "GET") {
-          // ADR 0012 (+ T94-E CR1 addendum): the exchange exists for the
-          // PAIRING window only. Once the account is paired the scoped token
-          // must not mint a full-surface credential — the owner's browser
-          // already holds the account token from the first pairing.
-          if (handle.hasPairedAccount()) {
+          // ADR 0012 (+ T94-G addendum): the OWNER RULE — the web UI must
+          // bootstrap with zero user action, including on a PAIRED daemon.
+          // Trust boundary = loopback + same-user (the 0600 token file in the
+          // data dir already grants same-user processes full access). The
+          // exchange accepts the pairing token (retained in the browser's
+          // localStorage from the pairing session) or the STABLE bootstrap
+          // token from /health. WA_UI_BOOTSTRAP=0 restores the strict CR1
+          // posture for owners who want the pairing-window-only exchange.
+          if (handle.hasPairedAccount() && process.env.WA_UI_BOOTSTRAP === "0") {
             sendJson(res, 403, {
               error: {
                 code: "PAIRED",
                 message:
-                  "the pairing window is closed — configure the account token in the web UI settings",
+                  "UI bootstrap disabled (WA_UI_BOOTSTRAP=0) — configure the account token in the web UI settings",
               },
             });
             return;

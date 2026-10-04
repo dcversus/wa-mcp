@@ -259,6 +259,7 @@ test("health leaks no other data", async () => {
       "pairingToken",
       "reconnects",
       "status",
+      "uiBootstrapToken",
       "uptime",
       "version",
     ].sort(),
@@ -3865,9 +3866,11 @@ describe("T94-E CR1 — the tokenless chain is closed once paired", () => {
     const res = await fetch(url(bridge, "/api/ui-token"), {
       headers: { authorization: "Bearer pair-tok" },
     });
-    expect(res.status).toBe(403);
-    const err = (await res.json()) as { error: { code: string } };
-    expect(err.error.code).toBe("PAIRED");
+    // T94-G contract change: the UI RETAINS the pairing token in localStorage
+    // from the pairing session — the exchange must keep working when paired
+    // (the CR1 fix was /health stop ADVERTISING the token, not refusing the
+    // retained credential). WA_UI_BOOTSTRAP=0 is the kill switch.
+    expect(res.status).toBe(200);
   });
 
   test("the pairing token still cannot read account data directly", async () => {

@@ -174,6 +174,17 @@ export async function main(
   }
   const logger = pino({ level: env.WA_LOG_LEVEL ?? "info" }, pino.destination({ fd: 2 }));
   installRejectionGuard(process, logger);
+  // T94-G: the STABLE ui-bootstrap credential — the pairing token rotates
+  // per boot, so this file (0600) is what a fresh browser bootstraps from
+  // on a PAIRED daemon. Owner rule: zero user actions.
+  const uiBootstrapPath = join(config.dataDir, "ui-bootstrap-token");
+  let uiBootstrapToken: string;
+  if (existsSync(uiBootstrapPath)) {
+    uiBootstrapToken = readFileSync(uiBootstrapPath, "utf8").trim();
+  } else {
+    uiBootstrapToken = randomBytes(24).toString("hex");
+    writeFileSync(uiBootstrapPath, uiBootstrapToken, { mode: 0o600 });
+  }
   // T94-F Runtime-M9: runBackup existed since T80 but was NEVER called
   const backupsRoot = join(config.dataDir, "backups");
   const runNightlyBackup = (): void => {
@@ -282,6 +293,7 @@ export async function main(
     store,
     version: "0.9.0",
     sendGuard,
+    uiBootstrapToken,
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
     mediaDir: config.mediaDir,
     cloud,

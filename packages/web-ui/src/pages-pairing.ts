@@ -4,6 +4,9 @@ export type PairingPane = "methods" | "blocked" | "connecting" | "paired" | "err
 
 export interface PairingHealth {
   pairingToken?: string;
+  /** T94-G: the STABLE bootstrap credential (data-dir persisted) — present
+   * even on a paired daemon so a fresh browser bootstraps with no action */
+  uiBootstrapToken?: string;
   status?: string;
   connected?: boolean;
   loggedIn?: boolean;

@@ -88,6 +88,17 @@ async function exchangeAccountToken(): Promise<void> {
 }
 
 function adoptPairingToken(health: PairingHealth): void {
+  // T94-G: on a PAIRED daemon the pairing token is hidden — the STABLE
+  // uiBootstrapToken takes over the bootstrap slot so a fresh browser still
+  // authenticates with zero user action
+  if (
+    typeof (health as { uiBootstrapToken?: unknown }).uiBootstrapToken === "string" &&
+    (health as { uiBootstrapToken: string }).uiBootstrapToken !== pairingToken
+  ) {
+    pairingToken = (health as { uiBootstrapToken: string }).uiBootstrapToken;
+    savePairingToken(localStorage, pairingToken);
+    client = createClient();
+  }
   if (typeof health.pairingToken === "string" && health.pairingToken !== pairingToken) {
     // the ephemeral token rotates per daemon boot — persist the fresh one so
     // all UI pages authenticate without any user action
