@@ -213,7 +213,13 @@ export async function handleRpcMessage(
       case "initialize":
         return {
           protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: {}, resources: {}, prompts: {} },
+          capabilities: {
+            tools: {},
+            resources: { subscribe: false, listChanged: true },
+            prompts: {},
+            logging: {},
+            notifications: {},
+          },
           serverInfo: SERVER_INFO,
         };
       case "prompts/list":
