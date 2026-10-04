@@ -8,17 +8,17 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 
 - Baileys session daemon: pairing (ASCII + PNG + web QR), persistent auth (0700/0600), exponential-backoff reconnect, single-instance lock, graceful shutdown, `WA_DEVICE_NAME`.
 - Typed event bus over the engine's `BaileysEventMap`; SSE `/events` with heartbeats.
-- HTTP API: health, chats, messages (+filters/instants), context, search, send (text + 5 media kinds + reaction/edit/forward/location/contact/poll), media download/stream, read receipts, presence, chat state, contacts, aliases, unread, groups (create/participants/meta/settings/invite/leave), profile/privacy/blocklist, notifications CRUD, transcribe, tts — all bearer-authed, body-capped, rate-limited, structured errors.
+- HTTP API: health (quality fields + contactsWarm), chats, messages (+filters/instants, full-fidelity fields, truncation metadata), context, global search, send (text + 5 media kinds + reaction/edit/forward/location/contact/poll/album/link-preview/status/buttons/list), media download/stream/view, read receipts, presence, chat state, contacts (+avatars, background warmup), aliases (+favorites, non-ASCII), manual unread, groups (create/participants/meta/settings/invite/leave/join-requests/ephemeral), calls reject, labels, newsletters, scheduler, templates, autoreply, restrict rules, export/bulk, history backfill, catch-up digest, profile/privacy/blocklist, notifications CRUD, transcribe (mock/openai/mlx), tts — all bearer-authed, scoped pairing token (ADR 0012), Host/Origin guard, body-capped, rate-limited (health/events off the API bucket), structured errors.
 
 ### Store
 
 - SQLite (node:sqlite) WAL store: messages (+raw proto), chats, contacts, events, poll options/votes, read state, media files, aliases, scheduled, templates, autoreply rules, notification rules, transcripts, meta.
-- Migrations v1–v6; FTS5 search (accent-insensitive, injection-safe) with sync triggers; read state; foreign-layout import path.
+- Migrations v1–v14 (reactions sender-keyed model, poll votes, labels, newsletters, disappearing settings, sync watermark); FTS5 search (accent-insensitive, injection-safe) with sync triggers; read state; foreign-layout import path.
 
 ### MCP
 
 - Zero-dep JSON-RPC 2.0 server: stdio and `POST /mcp` transports; resources (`wa://chats|unread|health`).
-- 22-tool registry: messaging, media, reading, chats/groups, contacts, profile/privacy/blocklist, notifications, transcribe/voice.
+- 58-tool registry: messaging (incl. link preview, status broadcast, buttons/list interactive), media pipeline (download/view/transcribe/TTS), reading, chats/groups (join requests, ephemeral), contacts, labels, newsletters, scheduler, templates, autoreply, restrict rules, profile/privacy/blocklist, notifications, search/digest/export, history backfill — with MCP tool annotations (readOnly/destructive/idempotent).
 - wa:// resources exposed over resources/list + resources/read.
 
 ### CLI
@@ -36,7 +36,7 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 ### Docs & governance
 
 - 10 ADRs, VitePress site (getting started, generated tool reference, configuration, security, development), CHANGELOG.
-- ACCOUNTING.md: 1,029 census items dispositioned; `accounting:check` in CI. `docs:coverage`: all 30 registry tools documented.
+- ACCOUNTING.md: 1,029 census items dispositioned; `accounting:check` in CI. `docs:coverage`: all 58 registry tools documented.
 - CI: check/build/test matrix (3 OS × node 20/22), security job (audit high+, gitleaks, no-publish guard, accounting check). Nothing published.
 
 ### Onboarding round (2026-10-02)
@@ -48,4 +48,13 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 - Build: bridge `vp pack` no longer wipes the served web assets — `pnpm run -r build` always ends with `bridge/dist/web` present (copy-dist after pack, web-ui ordered first via devDep).
 - Platform: node floor raised to `>=22.5.0` — the store is `node:sqlite`; fresh-container install test passes on node:22 (nested bundled-dep resolution fixed in the docker harness).
 - Quality: `vp test --coverage` with enforced per-package line thresholds (bridge 80 / mcp-server 80 / shared 90; actuals 82.89 / 88.36 / 97.77), wired into CI's test job.
-- Packaging: release tarball reproducible via `scripts/pack-release.sh` (sha256 325a60d7…); docker install test green against it.
+- Packaging: release tarball reproducible via `scripts/pack-release.sh` (final: sha256 cc8b9ed6…); docker install test green against it.
+
+### Independent-review + hardening sweep (2026-10-03/04)
+
+- Security (both independent reviews closed — 4 Criticals, 5 Highs, 3 Mediums): scoped pairing token + Host/Origin DNS-rebind guard + ui-token exchange (ADR 0012); stored-XSS escape + CSP everywhere; unhandled-rejection hardening; /api/qr strict allowlist + realpath containment; SSE credential filtering; SSRF guard on URL media fetch; sender-verified delete/edit tombstones; sender-keyed reactions model; poll votes decode + persist; transactional migrations; resume/reconnect single-flight teardown; mock TTS refuses real sends.
+- Reliability: staleness watchdog, app-state 409 conflict auto-resync, /health quality fields, 3-failure alert, stdio EOF clean exit, contact warmup at startup, rate-bucket starvation fixes (health/events off the API bucket; pairing page stops polling QR when logged in).
+- Features: fetch_history (cursor-paged engine backfill + ingest), catch_up digest, digest_group + 3 MCP Prompts, export_chat/export_unread (JSONL/MD/TXT), bulk_clear, get_login_qr, view_media (base64/scene-samples), download_media, transcribe engines (openai/mlx), TTS engine factory, per-engine input normalization, auto-download rules, WA_ALLOWED_EXTENSIONS, labels (probe-verified fork CRUD), newsletters (probe-verified follow/unfollow/send), group join-requests, ephemeral settings, reject_call, scheduled media payloads, alias favorites + Cyrillic resolution, WA_SYNC_FULL_HISTORY, disappearing-message tracking, backup retention, lharries/Go-fork store import.
+- Probes (engine truth, dispositioned not faked): labels SUPPORTED (implemented); newsletters SUPPORTED (implemented); username lookup NA-ENGINE-PARTIAL; member-labels NA-ENGINE-PARTIAL (inbound-only).
+- Import command: wa-mcp import --from lharries|gofork (built-artifact verified).
+- Tooling: exports-discipline lint (no deep src imports), webui-e2e gate, annotations serialized + live-verified.
