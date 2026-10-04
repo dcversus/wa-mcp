@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
-import { installService, uninstallService } from "./service.ts";
+import { installService, isPortBusy, uninstallService } from "./service.ts";
 import {
   buildUpdateReport,
   followLog,
@@ -41,6 +41,13 @@ export async function main(argv: string[]): Promise<void> {
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
   if (command === "install" && flags.service !== undefined) {
+    if (await isPortBusy(Number(flags.port ?? "8080"))) {
+      console.error(
+        `PORT_IN_USE: something is already listening on ${flags.port ?? "8080"} - a bridge may be running; stop it with wa-mcp stop`,
+      );
+      process.exitCode = 1;
+      return;
+    }
     const result = installService({
       home,
       nodePath: process.execPath,
@@ -177,6 +184,13 @@ export async function main(argv: string[]): Promise<void> {
     }
   }
   if (command === "start") {
+    if (await isPortBusy(Number(flags.port ?? "8080"))) {
+      console.error(
+        `PORT_IN_USE: something is already listening on ${flags.port ?? "8080"} - a bridge may be running; stop it with wa-mcp stop`,
+      );
+      process.exitCode = 1;
+      return;
+    }
     if (!existsSync(BRIDGE_BIN)) {
       console.error(`bridge entry not found: ${BRIDGE_BIN}`);
       process.exitCode = 1;

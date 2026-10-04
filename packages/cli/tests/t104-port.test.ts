@@ -34,7 +34,16 @@ test("T104 — install --service refuses with PORT_IN_USE when the port is taken
     const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t104-data-"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      await main(["install", "--service", "--port", String(port), "--home", home, "--data-dir", dataDir]);
+      await main([
+        "install",
+        "--service",
+        "--port",
+        String(port),
+        "--home",
+        home,
+        "--data-dir",
+        dataDir,
+      ]);
       const printed = errSpy.mock.calls.map((call) => call.join(" ")).join("\n");
       expect(printed).toContain("PORT_IN_USE");
       expect(printed).toContain(String(port));

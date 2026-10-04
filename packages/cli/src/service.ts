@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
+import { createServer } from "node:net";
 import {
   existsSync,
   mkdirSync,
@@ -17,6 +18,15 @@ export type SpawnFn = (
   args: readonly string[],
   options: { detached: boolean; stdio: ["ignore", number, number]; env: NodeJS.ProcessEnv },
 ) => { pid: number | undefined; unref: () => void };
+
+export function isPortBusy(port: number, host = "127.0.0.1"): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once("error", () => resolve(true));
+    probe.once("listening", () => probe.close(() => resolve(false)));
+    probe.listen(port, host);
+  });
+}
 
 export interface StartDeps {
   bridgeBin: string;
