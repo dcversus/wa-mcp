@@ -481,12 +481,9 @@ export async function createHttpServer(
           (content as { conversation?: string }).conversation ??
           (content as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ??
           "";
-        const media =
-          (content as { imageMessage?: unknown }).imageMessage !== undefined ||
-          (content as { videoMessage?: unknown }).videoMessage !== undefined ||
-          (content as { audioMessage?: unknown }).audioMessage !== undefined ||
-          (content as { documentMessage?: unknown }).documentMessage !== undefined ||
-          (content as { stickerMessage?: unknown }).stickerMessage !== undefined;
+        const presentKeys = Object.keys(content as Record<string, unknown>);
+        const mediaKeys = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
+        const media = presentKeys.some((k) => mediaKeys.includes(k));
         for (const sub of subs) {
           if (
             matchSubscription(sub, { chatJid, fromJid, kind: "message", hasMedia: media }) &&

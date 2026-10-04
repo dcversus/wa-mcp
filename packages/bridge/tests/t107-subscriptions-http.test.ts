@@ -160,3 +160,43 @@ test("/health reports subscriptions {count, dropped}", async () => {
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("LIVE-shaped upsert (top-level participant, extendedText, string ts, append) appends", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t107-"));
+  const store = openStore(dataDir);
+  const events = createEventBus();
+  try {
+    const bridge = await createHttpServer(stubHandle(events), {
+      token: "t107-token",
+      store,
+      subscriptionsDir: dataDir,
+    });
+    const created = await fetch(url(bridge, "/api/subscriptions"), {
+      method: "POST",
+      headers: auth("t107-token"),
+      body: JSON.stringify({ chat_jid: "120363428874442773@g.us" }),
+    });
+    const { inboxPath } = (await created.json()) as { inboxPath: string };
+    events.emit({
+      type: "messages.upsert",
+      payload: {
+        messages: [
+          {
+            key: { remoteJid: "120363428874442773@g.us", fromMe: true, id: "3EB0764213F942527D3C58" },
+            message: { extendedTextMessage: { text: "t107 sse probe 2" }, messageContextInfo: { messageSecret: "x" } },
+            messageTimestamp: "1791156862",
+            status: "PENDING",
+            participant: "358497773518:2@s.whatsapp.net",
+          },
+        ],
+        type: "append",
+      },
+    } as never);
+    const lines = readFileSync(inboxPath, "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    await bridge.close();
+    store.close();
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});

@@ -290,6 +290,7 @@ export async function main(
     port: config.port,
     qrPngPath,
     qrDir: config.dataDir,
+    subscriptionsDir: config.dataDir,
     store,
     version: "0.9.0",
     sendGuard,
