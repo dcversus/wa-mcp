@@ -100,3 +100,63 @@ test("T81 line72 — private-IP url is refused BEFORE any fetch", async () => {
   ).rejects.toHaveProperty("code", "SSRF_BLOCKED");
   expect(calls).toHaveLength(0);
 });
+
+import { OpenAITranscriptionEngine, normalizeAudioName } from "../../src/media/transcribe.ts";
+
+describe("T90 line143 — OpenAI-compatible transcription engine", () => {
+  test("posts the audio to the configured base URL with the key", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ text: "hello from openai" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const engine = new OpenAITranscriptionEngine({
+      baseUrl: "https://api.example/v1",
+      apiKey: "sk-test",
+      fetchFn,
+    });
+    const result = await engine.transcribe(Buffer.from("ogg-bytes"), "audio/ogg");
+    expect(result.text).toBe("hello from openai");
+    const call = calls[0];
+    expect(call?.url).toBe("https://api.example/v1/audio/transcriptions");
+    const headers = call?.init.headers as Record<string, string>;
+    expect(headers.authorization).toBe("Bearer sk-test");
+    const form = call?.init.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect((form.get("file") as File).name).toBe("audio.ogg");
+  });
+
+  test("missing baseUrl or key is a structured CONFIG error", () => {
+    expect(() => new OpenAITranscriptionEngine({ baseUrl: "", apiKey: "" })).toThrow(
+      /WA_OPENAI_BASE_URL/,
+    );
+  });
+});
+
+describe("T90 line147 — per-engine input normalization", () => {
+  test(".oga and .webm normalize to .ogg", () => {
+    expect(normalizeAudioName("voice.oga")).toBe("voice.ogg");
+    expect(normalizeAudioName("voice.webm")).toBe("voice.ogg");
+    expect(normalizeAudioName("voice.mp3")).toBe("voice.mp3");
+    expect(normalizeAudioName("noext")).toBe("noext.ogg");
+  });
+
+  test("the engine transcribe call receives the normalized name", async () => {
+    const names: string[] = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      const form = init?.body as FormData;
+      names.push((form.get("file") as File).name);
+      return new Response(JSON.stringify({ text: "ok" }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const engine = new OpenAITranscriptionEngine({
+      baseUrl: "https://api.example/v1",
+      apiKey: "k",
+      fetchFn,
+    });
+    await engine.transcribe(Buffer.from("x"), "audio/ogg", "voice.oga");
+    expect(names[0]).toBe("voice.ogg");
+  });
+});
