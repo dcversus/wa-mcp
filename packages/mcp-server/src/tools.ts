@@ -441,15 +441,21 @@ export const TOOLS: ToolDef[] = [
     description: "Full-text search across all stored WhatsApp messages.",
     inputSchema: {
       type: "object",
-      required: ["q"],
+      required: ["query"],
       properties: {
-        q: { type: "string", description: "Search query (FTS operators AND/OR/quoted phrases)" },
+        query: {
+          type: "string",
+          description: "Search query (FTS operators AND/OR/quoted phrases); legacy alias: q",
+        },
         chat_jid: { type: "string", description: "Restrict to one chat" },
         limit: { type: "number" },
       },
     },
     handler: async (toolCtx, args) => {
-      const q = requireString(args, "q");
+      const q =
+        typeof args.query === "string" && args.query.length > 0
+          ? args.query
+          : requireString(args, "q");
       const chatJid = typeof args.chat_jid === "string" ? args.chat_jid : undefined;
       const limit = optionalNumber(args, "limit");
       const payload = (await bridgeFetch(
@@ -477,6 +483,73 @@ export const TOOLS: ToolDef[] = [
         toolCtx,
         `/api/context${query({ message_id: messageId, radius })}`,
       )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "catch_up",
+    description:
+      "Catch-up digest across all chats since a date: active chats, message counts, questions and media.",
+    inputSchema: {
+      type: "object",
+      required: ["since"],
+      properties: {
+        since: { type: "string", description: "ISO timestamp to catch up from" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const since = requireString(args, "since");
+      const payload = (await bridgeFetch(toolCtx, `/api/catch-up${query({ since })}`)) as Record<
+        string,
+        unknown
+      >;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "digest_group",
+    description:
+      "Summarize one chat since a date: message counts, top participants, open questions and media.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid", "since"],
+      properties: {
+        chat_jid: { type: "string", description: "Chat or group JID" },
+        since: { type: "string", description: "ISO timestamp to summarize from" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const since = requireString(args, "since");
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/digest${query({ chat_jid: chatJid, since })}`,
+      )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "fetch_history",
+    description:
+      "Ask WhatsApp to sync older messages for one chat; they arrive asynchronously into the store.",
+    inputSchema: {
+      type: "object",
+      required: ["chat_jid"],
+      properties: {
+        chat_jid: { type: "string", description: "Chat JID to backfill" },
+        count: { type: "number", description: "Approximate message count (default 25)" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const chatJid = requireString(args, "chat_jid");
+      const count = optionalNumber(args, "count");
+      const payload = (await bridgeFetch(toolCtx, "/api/fetch-history", {
+        method: "POST",
+        body: JSON.stringify({
+          chat_jid: chatJid,
+          ...(count !== undefined ? { count } : {}),
+        }),
+      })) as Record<string, unknown>;
       return textResult(payload);
     },
   },
@@ -1727,6 +1800,8 @@ const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   list_chats: { readOnlyHint: true },
   list_messages: { readOnlyHint: true },
   get_message_context: { readOnlyHint: true },
+  catch_up: { readOnlyHint: true },
+  digest_group: { readOnlyHint: true },
   search_messages: { readOnlyHint: true },
   list_contacts: { readOnlyHint: true },
   get_contact: { readOnlyHint: true },

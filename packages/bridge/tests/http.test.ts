@@ -3477,25 +3477,55 @@ describe("T93-B — /api/digest (digest_group data source)", () => {
       .prepare(
         "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
       )
-      .run("M1", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-05-01T10:00:00Z", "hello", null);
+      .run(
+        "M1",
+        GROUP_A,
+        "358400000001@s.whatsapp.net",
+        "Ada",
+        "2026-05-01T10:00:00Z",
+        "hello",
+        null,
+      );
     store.db
       .prepare(
         "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
       )
-      .run("M2", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-05-01T10:05:00Z", null, "image");
+      .run(
+        "M2",
+        GROUP_A,
+        "358400000001@s.whatsapp.net",
+        "Ada",
+        "2026-05-01T10:05:00Z",
+        null,
+        "image",
+      );
     store.db
       .prepare(
         "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
       )
-      .run("M3", GROUP_A, "358400000002@s.whatsapp.net", "Bob", "2026-05-01T10:07:00Z", "when is the release?", null);
+      .run(
+        "M3",
+        GROUP_A,
+        "358400000002@s.whatsapp.net",
+        "Bob",
+        "2026-05-01T10:07:00Z",
+        "when is the release?",
+        null,
+      );
     store.db
       .prepare(
         "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, media_type, is_from_me) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
       )
-      .run("OLD", GROUP_A, "358400000001@s.whatsapp.net", "Ada", "2026-04-01T10:00:00Z", "before the window", null);
-    store.db
-      .prepare("INSERT INTO chats (jid, name) VALUES (?, ?)")
-      .run(GROUP_A, "Test Group");
+      .run(
+        "OLD",
+        GROUP_A,
+        "358400000001@s.whatsapp.net",
+        "Ada",
+        "2026-04-01T10:00:00Z",
+        "before the window",
+        null,
+      );
+    store.db.prepare("INSERT INTO chats (jid, name) VALUES (?, ?)").run(GROUP_A, "Test Group");
 
     const res = await fetch(
       url(

@@ -2370,6 +2370,83 @@ export async function createHttpServer(
           sendJson(res, 200, result);
           return;
         }
+        // T93-B: per-chat digest for the digest_group tool — counts, top
+        // participants, open questions and media since a date
+        if (path === "/api/digest" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const params = new URL(req.url ?? "/", "http://localhost").searchParams;
+          const chatJid = params.get("chat_jid");
+          const since = params.get("since");
+          if (chatJid === null || chatJid.length === 0) {
+            validationError(res, "chat_jid is required");
+            return;
+          }
+          if (since === null || since.length === 0) {
+            validationError(res, "since is required (ISO timestamp)");
+            return;
+          }
+          const rows = opts.store.db
+            .prepare(
+              "SELECT sender_jid, sender_name, content, media_type, timestamp FROM messages WHERE chat_jid = ? AND timestamp >= ? ORDER BY timestamp",
+            )
+            .all(chatJid, since) as Array<{
+            sender_jid: string | null;
+            sender_name: string | null;
+            content: string | null;
+            media_type: string | null;
+            timestamp: string;
+          }>;
+          const counts = new Map<
+            string,
+            { participant: string; name: string | null; count: number }
+          >();
+          let mediaCount = 0;
+          const questions: Array<{
+            sender: string;
+            name: string | null;
+            excerpt: string;
+            at: string;
+          }> = [];
+          for (const row of rows) {
+            const participant = row.sender_jid ?? "unknown";
+            const entry = counts.get(participant) ?? {
+              participant,
+              name: row.sender_name,
+              count: 0,
+            };
+            entry.count += 1;
+            counts.set(participant, entry);
+            if (row.media_type !== null && row.media_type !== undefined) {
+              mediaCount += 1;
+            }
+            if (row.content !== null && row.content.includes("?")) {
+              questions.push({
+                sender: participant,
+                name: row.sender_name,
+                excerpt: row.content.slice(0, 140),
+                at: row.timestamp,
+              });
+            }
+          }
+          const chatRow = opts.store.db
+            .prepare("SELECT name FROM chats WHERE jid = ?")
+            .get(chatJid) as { name?: string } | undefined;
+          sendJson(res, 200, {
+            chat_jid: chatJid,
+            name: chatRow?.name ?? null,
+            since,
+            message_count: rows.length,
+            media_count: mediaCount,
+            top_participants: [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 5),
+            questions: questions.slice(0, 10),
+          });
+          return;
+        }
         if (path === "/api/catch-up" && req.method === "GET") {
           if (opts.store === undefined) {
             sendJson(res, 501, {

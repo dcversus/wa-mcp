@@ -300,9 +300,7 @@ test("T93-B — catch_up hits GET /api/catch-up with since", async () => {
   const tool = toolByName("catch_up");
   if (!tool) throw new Error("catch_up missing");
   await tool.handler({ ...ctx, fetchFn }, { since: "2026-05-01T00:00:00Z" });
-  expect(calls[0]?.url).toBe(
-    "http://bridge.test:8080/api/catch-up?since=2026-05-01T00%3A00%3A00Z",
-  );
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/catch-up?since=2026-05-01T00%3A00%3A00Z");
   expect(calls[0]?.method).toBe("GET");
 });
 
@@ -338,10 +336,7 @@ test("T93-B — fetch_history posts chat_jid and optional count", async () => {
   });
   expect(firstText(result)).toContain("R1");
   // count omitted — the bridge defaults to 25
-  await tool.handler(
-    { ...ctx, fetchFn },
-    { chat_jid: "358497773518@s.whatsapp.net" },
-  );
+  await tool.handler({ ...ctx, fetchFn }, { chat_jid: "358497773518@s.whatsapp.net" });
   expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({
     chat_jid: "358497773518@s.whatsapp.net",
   });

@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 58 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 61 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -152,19 +152,22 @@ Full-text search across all stored WhatsApp messages.
 ```json
 {
   "type": "object",
-  "required": ["q"],
+  "required": ["query"],
   "properties": {
-    "q": { "type": "string", "description": "Search query (FTS operators AND/OR/quoted phrases)" },
+    "query": {
+      "type": "string",
+      "description": "Search query (FTS operators AND/OR/quoted phrases); legacy alias: q"
+    },
     "chat_jid": { "type": "string", "description": "Restrict to one chat" },
     "limit": { "type": "number" }
   }
 }
 ```
 
-- `q` (string, required) — Search query (FTS operators AND/OR/quoted phrases)
+- `query` (string, required) — Search query (FTS operators AND/OR/quoted phrases); legacy alias: q
 - `chat_jid` (string, optional) — Restrict to one chat
 - `limit` (number, optional)
-- required: `q`
+- required: `query`
 
 ### get_message_context
 
@@ -184,6 +187,59 @@ Get the messages immediately before and after one message in its chat.
 - `message_id` (string, required)
 - `radius` (number, optional) — Rows on each side (default 3)
 - required: `message_id`
+
+### catch_up
+
+Catch-up digest across all chats since a date: active chats, message counts, questions and media.
+
+```json
+{
+  "type": "object",
+  "required": ["since"],
+  "properties": { "since": { "type": "string", "description": "ISO timestamp to catch up from" } }
+}
+```
+
+- `since` (string, required) — ISO timestamp to catch up from
+- required: `since`
+
+### digest_group
+
+Summarize one chat since a date: message counts, top participants, open questions and media.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid", "since"],
+  "properties": {
+    "chat_jid": { "type": "string", "description": "Chat or group JID" },
+    "since": { "type": "string", "description": "ISO timestamp to summarize from" }
+  }
+}
+```
+
+- `chat_jid` (string, required) — Chat or group JID
+- `since` (string, required) — ISO timestamp to summarize from
+- required: `chat_jid`, `since`
+
+### fetch_history
+
+Ask WhatsApp to sync older messages for one chat; they arrive asynchronously into the store.
+
+```json
+{
+  "type": "object",
+  "required": ["chat_jid"],
+  "properties": {
+    "chat_jid": { "type": "string", "description": "Chat JID to backfill" },
+    "count": { "type": "number", "description": "Approximate message count (default 25)" }
+  }
+}
+```
+
+- `chat_jid` (string, required) — Chat JID to backfill
+- `count` (number, optional) — Approximate message count (default 25)
+- required: `chat_jid`
 
 ### send_media
 
