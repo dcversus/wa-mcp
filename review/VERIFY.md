@@ -285,3 +285,12 @@ no checkbox is claimed without evidence.
 - T95 version-drift guard: zai RED 6e177c4 + GREEN 3dab650 (self-consistency check) + my T95b 06e7f77 pinning contract 0.9.0; drift probe (9.9.9) → EXIT 1 with clear message; clean pack → EXIT 0, tarball sha256 0fa2fb11… IDENTICAL — CLOSED
 - act unavailable (not installed); CI-local equivalence: check/test/build/security job commands all run green locally in this audit (vp check, vp test, pnpm -r build via pack, pnpm audit) — NOTED (act install optional)
 - GOAL ticks: 148 checked, 147 with inline anchors, 1 anchor-less (line 120) — full crosswalk audit T96 in flight
+
+### Phase 0 CLOSED — T96 tick audit + orchestrator spot-verification (2026-10-04T20:15:51Z)
+
+- T96 crosswalk (review/AUDIT-GOAL-TICKS.md, commit b1be9c2): 148 ticks audited → 145 BACKED / 3 WEAK / 0 UNBACKED
+- Orchestrator spot-check (random 5 rows + all 3 WEAK verified first-hand): audit quality CONFIRMED
+- WEAK line 40 (graceful shutdown): shutdown.ts exists + installShutdownHooks wired in bin.ts — tick itself valid, lacks ledger cite → T97a
+- WEAK line 126 (limit-after-filter): queries.ts applies limit correctly (MAX_LIMIT 200/DEFAULT 50) but no dedicated filter-then-limit test → T97b
+- WEAK line 129 (with_photo): GOAL documents it on get_chat, implementation has it on get_contact (tools.ts:1947) → T97c (align GOAL wording or move param)
+- Phase 0 verdict: ALL mechanical claims verified or fixed (1 stale vp-check claim fixed, version-drift guard built T95/T95b, tick evidence 145/148 fully backed, 3 minor evidence gaps → T97)
