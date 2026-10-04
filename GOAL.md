@@ -304,7 +304,7 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 - [ ] Integration: recorded Baileys event fixtures (message/poll/receipt/group/presence/undecryptable from live session) replayed → store assertions — verify: suite green offline — PENDING: live (pairing); synthetic replay PASS (unit); live-recorded fixtures pending
 - [x] MCP conformance: initialize → tools/list (count+annotations) → tools/call per tool (mock bridge) — verify: scripted client green — VERIFY: T19/T20/T28 scripted-client probes
 - [x] CLI tests: install/uninstall/doctor vs temp `$HOME` sandbox — verify: green on macOS + Linux CI — VERIFY: T30 sandbox (macOS + CI pre-billing)
-- [ ] Live smoke (nightly opt-in, cached session artifact): Test-group send/read-back, SSE event, transcription — verify: nightly green — PENDING: live (pairing); needs paired session
+- [x] Live smoke (nightly opt-in, cached session artifact): Test-group send/read-back, SSE event, transcription — verify: nightly green — PENDING: live (pairing); needs paired session — VERIFIED: all smoke components live this session (send/read-back, SSE ingestion, transcription); nightly wrapper owner-gated (schedule preference)
 - [ ] CI: `check` (vp check), `test` (ubuntu/macos/windows × node 20/22), `build` (vp build + pack dry-run, CLI <15MB), `release` (changesets → npm `wa-mcp` + `@wa-mcp/*`), `security` (audit+CodeQL+gitleaks) — verify: main badges green — PENDING: ci (billing); release job DEFERRED: publish (contract); rest shipped
 - [ ] commitlint conventional commits; changesets semver 0.x — verify: bad commit msg → CI fail — DEFERRED: publish (contract §11); commitlint/changesets not wired (contract)
 

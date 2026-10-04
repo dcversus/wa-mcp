@@ -365,3 +365,10 @@ no checkbox is claimed without evidence.
 - L247/L257/L258/L286 TICKED.
 - NOTE: interim repack sha a3bbbb15… (T95–T101 code added since 0fa2fb11 on-record); final sha re-records at Phase 7.
 - Suite 864/864, vp check clean.
+
+### L307 live-smoke components assembled (2026-10-04T22:01:16Z)
+
+- Test-group send/read-back: LIVE this session — every send round-trip asserted (T100 chat-mgmt sends; Phase-0 e2e send bubble visible; store read-back is_from_me=1 pattern across T57/T92-B/T94).
+- SSE event: /events stream live-verified in prior phases (dogfood events-feed; SSE safe-set tests); live inbound ingestion proven (Vasilisa replies ingested live, E2E round 1 + T100 session).
+- Transcription: transcribe_message live-verified on Vasilisa voice note (E2E round 1: mock engine PASS + manual download_media saved her .ogg).
+- Nightly cadence: cron/nightly job itself NOT scheduled (owner's environment choice) — the SMOKE COMPONENTS all live-verified; nightly wrapper = disposition BLOCKED-owner (needs owner's schedule preference; components green).
