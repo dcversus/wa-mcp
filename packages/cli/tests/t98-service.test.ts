@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, vi } from "vite-plus/test";
-import { PLATFORMS, resolveConfigPath } from "../src/platforms.ts";
+import { PLATFORMS } from "../src/platforms.ts";
 import { writeServerEntry, listRegisteredPlatforms } from "../src/writers.ts";
 
 function tempHome(): string {
@@ -39,12 +39,13 @@ test("T98 restart — stops the fake daemon and starts a replacement", async () 
   fake.once("exit", () => {
     exited = true;
   });
-  const result = await (async () => {
-    const { stopDaemon } = (await import("../src/service.ts")) as {
-      stopDaemon: (dataDir: string) => { stopped: boolean; message: string };
-    };
-    return runRestart({ dataDir, bridgeBin: process.execPath, port: "8081", logPath: join(dataDir, "bridge.log"), spawnFn });
-  })();
+  const result = runRestart({
+    dataDir,
+    bridgeBin: process.execPath,
+    port: "8081",
+    logPath: join(dataDir, "bridge.log"),
+    spawnFn,
+  });
   await new Promise((resolve) => setTimeout(resolve, 200));
   expect(exited).toBe(true);
   expect(result.stopped).toBe(true);
@@ -73,11 +74,7 @@ test("T98 logs — tail returns the last N lines; follow streams appends", async
     ) => Promise<void>;
   };
   const seen: string[] = [];
-  const following = followLog(
-    logPath,
-    (line) => seen.push(line),
-    { intervalMs: 10, maxPolls: 3 },
-  );
+  const following = followLog(logPath, (line) => seen.push(line), { intervalMs: 10, maxPolls: 3 });
   await new Promise((resolve) => setTimeout(resolve, 15));
   writeFileSync(logPath, `${readFileSync(logPath, "utf8")}line-61\n`);
   await following;

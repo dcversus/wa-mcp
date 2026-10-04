@@ -1,0 +1,262 @@
+import { spawn } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
+import { resolveConfigPath, type Platform } from "./platforms.ts";
+
+export type SpawnFn = (
+  command: string,
+  args: readonly string[],
+  options: { detached: boolean; stdio: ["ignore", number, number]; env: NodeJS.ProcessEnv },
+) => { pid: number | undefined; unref: () => void };
+
+export interface StartDeps {
+  bridgeBin: string;
+  dataDir: string;
+  port: string;
+  logPath: string;
+  spawnFn?: SpawnFn;
+  envExtras?: Record<string, string>;
+}
+
+export interface StartResult {
+  pid: number | undefined;
+  logPath: string;
+}
+
+export interface StopResult {
+  stopped: boolean;
+  message: string;
+}
+
+export interface RestartResult extends StopResult {
+  startedPid: number | undefined;
+  logPath: string;
+}
+
+export interface PurgeResult {
+  purged: boolean;
+  message: string;
+}
+
+export function startDaemon(deps: StartDeps): StartResult {
+  const spawnFn = (deps.spawnFn ?? spawn) as SpawnFn;
+  mkdirSync(dirname(deps.logPath), { recursive: true });
+  const logFd = openSync(deps.logPath, "a");
+  const child = spawnFn(
+    process.execPath,
+    [deps.bridgeBin, "--data-dir", deps.dataDir, "--port", deps.port],
+    {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: { ...process.env, ...(deps.envExtras ?? {}) },
+    },
+  );
+  child.unref();
+  return { pid: child.pid, logPath: deps.logPath };
+}
+
+export function stopDaemon(dataDir: string): StopResult {
+  const lockPath = join(dataDir, "bridge.lock");
+  if (!existsSync(lockPath)) {
+    return { stopped: false, message: "bridge not running" };
+  }
+  const parsed = JSON.parse(readFileSync(lockPath, "utf8")) as { pid?: number };
+  if (typeof parsed.pid !== "number") {
+    return { stopped: false, message: "lockfile has no pid" };
+  }
+  try {
+    process.kill(parsed.pid, "SIGTERM");
+  } catch {
+    return { stopped: false, message: `process ${parsed.pid} already gone` };
+  }
+  return { stopped: true, message: `sent SIGTERM to ${parsed.pid}` };
+}
+
+export function runRestart(deps: StartDeps): RestartResult {
+  const stop = stopDaemon(deps.dataDir);
+  const start = startDaemon(deps);
+  return {
+    stopped: stop.stopped,
+    message: `${stop.message}; started (pid ${start.pid})`,
+    startedPid: start.pid,
+    logPath: start.logPath,
+  };
+}
+
+export function readLogTail(logPath: string, lines: number): string {
+  if (!existsSync(logPath)) {
+    return "";
+  }
+  const all = readFileSync(logPath, "utf8").split("\n");
+  if (all.at(-1) === "") {
+    all.pop();
+  }
+  return all.slice(Math.max(0, all.length - lines)).join("\n");
+}
+
+export async function followLog(
+  logPath: string,
+  onData: (line: string) => void,
+  opts: { intervalMs: number; maxPolls: number },
+): Promise<void> {
+  let offset = existsSync(logPath) ? readFileSync(logPath, "utf8").length : 0;
+  for (let poll = 0; poll < opts.maxPolls; poll += 1) {
+    if (existsSync(logPath)) {
+      const content = readFileSync(logPath, "utf8");
+      if (content.length > offset) {
+        const fresh = content.slice(offset);
+        offset = content.length;
+        for (const line of fresh.split("\n")) {
+          if (line.length > 0) {
+            onData(line);
+          }
+        }
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, opts.intervalMs));
+  }
+}
+
+export function uninstallRegistrations(
+  home: string,
+  targets: ReadonlyArray<Platform>,
+): Array<{ platform: Platform; path: string }> {
+  const removed: Array<{ platform: Platform; path: string }> = [];
+  for (const platform of targets) {
+    const path = resolveConfigPath(platform, home);
+    if (removeServerEntry(platform, home)) {
+      removed.push({ platform, path });
+    }
+  }
+  return removed;
+}
+
+export function purgeDataDir(
+  dataDir: string,
+  opts: { yes: boolean; readLine: () => string },
+): PurgeResult {
+  if (!existsSync(dataDir)) {
+    return { purged: false, message: `nothing to remove: ${dataDir} does not exist` };
+  }
+  if (!opts.yes) {
+    console.log(`about to delete the ENTIRE data directory: ${dataDir}`);
+    for (const entry of listTree(dataDir)) {
+      console.log(`  - ${entry}`);
+    }
+    console.log("type y to confirm:");
+    const answer = opts.readLine().trim().toLowerCase();
+    if (answer !== "y" && answer !== "yes") {
+      return { purged: false, message: "purge aborted" };
+    }
+  }
+  rmSync(dataDir, { recursive: true, force: true });
+  return { purged: true, message: `removed ${dataDir}` };
+}
+
+export function buildUpdateReport(version: string): string {
+  return [
+    `wa-mcp ${version}`,
+    "no self-update by design — the daemon owns live state a hot swap could corrupt",
+    "to refresh: run scripts/pack-release.sh, then reinstall from the produced tarball",
+  ].join("\n");
+}
+
+function removeServerEntry(platform: Platform, home: string): boolean {
+  const path = resolveConfigPath(platform, home);
+  if (!existsSync(path)) {
+    return false;
+  }
+  if (platform === "pi") {
+    rmSync(path, { force: true });
+    return true;
+  }
+  const text = readFileSync(path, "utf8");
+  let updated: string;
+  if (platform === "codex") {
+    updated = text.replace(/\[mcp_servers\.wa-mcp\]\n(?:[^[]*\n)*/g, "");
+  } else if (platform === "hermes") {
+    const out: string[] = [];
+    let skipping = false;
+    for (const line of text.split("\n")) {
+      if (line.trim() === "wa-mcp:") {
+        skipping = true;
+        continue;
+      }
+      if (skipping) {
+        if (line.startsWith("  ") || line.length === 0) {
+          continue;
+        }
+        skipping = false;
+      }
+      out.push(line);
+    }
+    updated = out.join("\n").replace(/\n{3,}/g, "\n\n");
+  } else {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object") {
+        return false;
+      }
+      const record = parsed as Record<string, unknown>;
+      for (const key of Object.keys(record)) {
+        const container = record[key];
+        if (
+          container !== null &&
+          typeof container === "object" &&
+          "wa-mcp" in (container as Record<string, unknown>)
+        ) {
+          delete (container as Record<string, unknown>)["wa-mcp"];
+        }
+      }
+      updated = `${JSON.stringify(record, null, 2)}\n`;
+    } catch {
+      return false;
+    }
+  }
+  if (updated === text) {
+    return false;
+  }
+  writeFileSync(path, updated, { mode: 0o600 });
+  return !readFileSync(path, "utf8").includes("wa-mcp");
+}
+
+function joinPath(parent: string, entry: string): string {
+  return parent.endsWith("/") ? `${parent}${entry}` : `${parent}/${entry}`;
+}
+
+function listTree(dir: string): string[] {
+  const out: string[] = [];
+  const stack = [dir];
+  while (stack.length > 0) {
+    const current = stack.pop() as string;
+    let entries: string[] = [];
+    try {
+      entries = readdirSync(current).sort();
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = joinPath(current, entry);
+      out.push(full);
+      let isDir = false;
+      try {
+        isDir = statSync(full).isDirectory();
+      } catch {
+        isDir = false;
+      }
+      if (isDir) {
+        stack.push(full);
+      }
+    }
+  }
+  return out;
+}

@@ -1,10 +1,19 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
+import {
+  buildUpdateReport,
+  followLog,
+  purgeDataDir,
+  readLogTail,
+  runRestart,
+  startDaemon,
+  stopDaemon,
+  uninstallRegistrations,
+} from "./service.ts";
 import { runDoctor } from "./doctor.ts";
 import { installSkills } from "./skills.ts";
 import { runPair } from "./pair.ts";
@@ -150,36 +159,97 @@ export async function main(argv: string[]): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const child = spawn(
-      process.execPath,
-      [BRIDGE_BIN, "--data-dir", dataDir, "--port", flags.port ?? "8080"],
-      {
-        detached: true,
-        stdio: "ignore",
-        env: { ...process.env, WA_UI_DIR: BRIDGE_WEB },
-      },
-    );
-    child.unref();
-    console.log(`bridge started (pid ${child.pid})`);
+    const logPath = join(dataDir, "bridge.log");
+    const started = startDaemon({
+      bridgeBin: BRIDGE_BIN,
+      dataDir,
+      port: flags.port ?? "8080",
+      logPath,
+    });
+    console.log(`bridge started (pid ${started.pid}); logs: ${logPath}`);
     return;
   }
   if (command === "stop") {
-    const lockPath = join(dataDir, "bridge.lock");
-    if (!existsSync(lockPath)) {
-      console.log("bridge not running");
+    console.log(stopDaemon(dataDir).message);
+    return;
+  }
+  if (command === "restart") {
+    if (!existsSync(BRIDGE_BIN)) {
+      console.error(`bridge entry not found: ${BRIDGE_BIN}`);
+      process.exitCode = 1;
       return;
     }
-    const parsed = JSON.parse(readFileSync(lockPath, "utf8")) as { pid?: number };
-    if (typeof parsed.pid === "number") {
-      process.kill(parsed.pid, "SIGTERM");
-      console.log(`sent SIGTERM to ${parsed.pid}`);
+    const logPath = join(dataDir, "bridge.log");
+    const result = runRestart({
+      bridgeBin: BRIDGE_BIN,
+      dataDir,
+      port: flags.port ?? "8080",
+      logPath,
+      envExtras: { WA_UI_DIR: BRIDGE_WEB },
+    });
+    console.log(`restart: ${result.message}`);
+    if (!result.stopped) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+  if (command === "logs") {
+    const logPath = join(dataDir, "bridge.log");
+    if (!existsSync(logPath)) {
+      console.log(`no daemon log at ${logPath} — start the bridge first`);
       return;
     }
-    console.log("lockfile has no pid");
+    if (flags.follow !== undefined) {
+      void followLog(logPath, (line) => console.log(line), {
+        intervalMs: 500,
+        maxPolls: Number.MAX_SAFE_INTEGER,
+      });
+      return;
+    }
+    const tail = readLogTail(logPath, 50);
+    console.log(tail.length > 0 ? tail : `(empty log) ${logPath}`);
+    return;
+  }
+  if (command === "uninstall") {
+    const targets = (flags.target !== undefined ? [flags.target] : [...PLATFORMS]) as Array<string>;
+    const removed = uninstallRegistrations(
+      home,
+      targets.filter((target): target is (typeof PLATFORMS)[number] =>
+        (PLATFORMS as readonly string[]).includes(target),
+      ),
+    );
+    if (removed.length === 0) {
+      console.log("no wa-mcp registrations found");
+    }
+    for (const entry of removed) {
+      console.log(`removed ${entry.platform}: ${entry.path}`);
+    }
+    if (flags.purge !== undefined) {
+      const result = purgeDataDir(dataDir, {
+        yes: flags.yes !== undefined,
+        readLine: () => {
+          const chunk = process.stdin.read(1);
+          return chunk ?? "";
+        },
+      });
+      console.log(`purge: ${result.message}`);
+      if (!result.purged) {
+        process.exitCode = 1;
+      }
+    } else {
+      console.log(`data dir kept: ${dataDir} (pass --purge to remove it)`);
+    }
+    return;
+  }
+  if (command === "update") {
+    const version = JSON.parse(
+      readFileSync(join(packageDir("@wa-mcp/cli"), "package.json"), "utf8"),
+    ) as { version?: string };
+    console.log(buildUpdateReport(version.version ?? "unknown"));
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...]`,
+    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
 }
 
