@@ -397,3 +397,9 @@ no checkbox is claimed without evidence.
 - REFINEMENT QUEUED (T104): install --service must check port 8080 first and refuse with a clear message when a daemon is already running (this exact race cost a pairing attempt).
 - systemd unit + Windows TaskScheduler doc shipped in services/ (unit asserted in tests; Windows documented-manual per host reality).
 - L219 TICKED with live evidence.
+
+### Phase 2 T105+T106 closed — orchestrator-implemented during zai 429 outage (2026-10-04T23:22:45Z)
+
+- T105: V18 subscriptions migration + subscriptions.ts (create/list/delete + matchSubscription filter matrix). RED via stash-pop proof. Schema/queries tests updated to V18 (3 hardcoded version arrays + table list + length). Suite 878/878.
+- T106: inbox.ts (JSONL append, 280-char cap, bounded 2-file rotation with rename-eviction, dropped counter). My impl bugs caught by own tests: rotation data-loss (empty-file cleanup hack → rmSync+rename), chmod-dir injection didn't block owner writes (→ chmod file 0400). Bounded-retention semantics clarified per opus spec. Suite 882/882 (83 files).
+- zai still 429 (probes at 02:1x-02:2x timed out). BLOCKED.md carries the takeover decision.
