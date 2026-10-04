@@ -1,6 +1,7 @@
 # Skill source
 
 These four skills are installed verbatim from openclaw/openclaw `.agents/skills/` (MIT-licensed repo, fetched 2026-10-04) at the owner's direction:
+
 - test-audit (+ CAMPAIGN.md)
 - auto-qa (+ agents/openai.yaml, references/*)
 - deslop
