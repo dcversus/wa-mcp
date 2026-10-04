@@ -5,7 +5,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { proto } from "baileys";
 import type { WAMessage } from "baileys";
 import { openStore } from "../../src/store/schema.ts";
-import { storeMessage } from "../../src/store/messages.ts";
+import { storeMessage, upsertChatMeta } from "../../src/store/messages.ts";
 import { listMessages } from "../../src/store/queries.ts";
 import {
   addSendRule,
@@ -366,9 +366,7 @@ test("T94-F M4 — a chat row with a NULL timestamp still updates from messages"
       pushName: "V",
     } as never);
     const row = store.db
-      .prepare(
-        "SELECT name, last_message_text, last_message_ts FROM chats WHERE jid = ?",
-      )
+      .prepare("SELECT name, last_message_text, last_message_ts FROM chats WHERE jid = ?")
       .get("358497773518@s.whatsapp.net") as {
       name: string | null;
       last_message_text: string | null;

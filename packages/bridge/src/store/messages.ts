@@ -17,7 +17,7 @@ ON CONFLICT(jid) DO UPDATE SET
   last_message_text = excluded.last_message_text,
   last_message_ts = excluded.last_message_ts,
   name = COALESCE(chats.name, excluded.name)
-WHERE excluded.last_message_ts > chats.last_message_ts
+WHERE chats.last_message_ts IS NULL OR excluded.last_message_ts > chats.last_message_ts
 `;
 
 function toIsoTimestamp(raw: number | { toNumber(): number } | null | undefined): string {
