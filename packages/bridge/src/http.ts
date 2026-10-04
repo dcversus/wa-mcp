@@ -329,6 +329,57 @@ function validationError(res: ServerResponse, message: string): void {
   sendJson(res, 400, { error: { code: "VALIDATION_ERROR", message } });
 }
 
+/** T94-C2: the ONE send-policy gate — restrict rules + send budget — shared
+ * by every secondary send path (tts, voice, newsletter, batch forward).
+ * Returns the refusal to send, or null when the send may proceed. */
+function sendPolicyRefusal(
+  store: Store | undefined,
+  guard: SendGuard | undefined,
+  target: string,
+  now: number,
+): { status: number; payload: Record<string, unknown> } | null {
+  if (store !== undefined) {
+    const verdict = evaluateSendRules(store, target);
+    if (!verdict.allowed) {
+      return {
+        status: 403,
+        payload: {
+          error: {
+            code: "SEND_BLOCKED",
+            message: `sending to ${target} is blocked by rule #${verdict.rule?.id} (${verdict.rule?.target})`,
+          },
+        },
+      };
+    }
+  }
+  if (guard !== undefined) {
+    const check = guard.check(now);
+    if (!check.ok) {
+      return check.code === "RATE_LIMITED"
+        ? {
+            status: 429,
+            payload: {
+              error: {
+                code: "RATE_LIMITED",
+                message: "sending too fast",
+                retryAfterMs: check.retryAfterMs,
+              },
+            },
+          }
+        : {
+            status: 429,
+            payload: {
+              error: {
+                code: "DAILY_CAP_EXCEEDED",
+                message: `daily send cap of ${check.cap} reached`,
+              },
+            },
+          };
+    }
+  }
+  return null;
+}
+
 type ParamResult<T> = { ok: true; value: T | undefined } | { ok: false };
 
 function intParam(params: URLSearchParams, name: string): ParamResult<number> {
@@ -556,18 +607,9 @@ export async function createHttpServer(
       parsedSend = {};
     }
     const sendTarget = (parsedSend as { chat_jid?: unknown }).chat_jid;
-    if (typeof sendTarget === "string" && opts.store !== undefined) {
-      const verdict = evaluateSendRules(opts.store, sendTarget);
-      if (!verdict.allowed) {
-        sendJson(res, 403, {
-          error: {
-            code: "SEND_BLOCKED",
-            message: `sending to ${sendTarget} is blocked by rule #${verdict.rule?.id} (${verdict.rule?.target})`,
-          },
-        });
-        return;
-      }
-    }
+    // T94-C2(a): the rules gate runs AFTER recipient resolution (below) so an
+    // alias or +phone form cannot dodge a rule written on the resolved jid —
+    // and a rule written as an alias still blocks when the jid is passed
 
     let parsed: unknown;
     try {
@@ -836,15 +878,42 @@ export async function createHttpServer(
                 return;
               }
             }
+            // T94-C2(b): the batch rides the SAME gate as the single send —
+            // recipient resolution, restrict rules, the send budget, and
+            // persistence were all skipped on this path
+            const batchRaw = chatJid as string;
+            let batchTarget = batchRaw;
+            if (opts.store !== undefined) {
+              const resolution = resolveRecipient(opts.store, batchRaw);
+              if (!resolution.ok) {
+                sendJson(res, 400, {
+                  error: { code: resolution.code, message: resolution.message },
+                });
+                return;
+              }
+              batchTarget = resolution.jid;
+            } else if (!isValidRecipientJid(batchRaw)) {
+              sendJson(res, 400, {
+                error: { code: "INVALID_JID", message: `cannot resolve recipient: ${batchRaw}` },
+              });
+              return;
+            }
+            const refusal = sendPolicyRefusal(opts.store, opts.sendGuard, batchTarget, Date.now());
+            if (refusal !== null) {
+              sendJson(res, refusal.status, refusal.payload);
+              return;
+            }
             for (const id of ids) {
               const original = fetchMessageFromStore(opts.store!, id);
               const result = await sendViaSocket(
                 socket,
-                chatJid as string,
+                batchTarget,
                 {
                   forward: original,
                 } as unknown as AnyMessageContent,
+                { store: opts.store },
               );
+              opts.sendGuard?.record(Date.now());
               messageIds.push(result.messageId);
             }
             sendJson(res, 200, { message_ids: messageIds });
@@ -1029,6 +1098,35 @@ export async function createHttpServer(
         error: { code: "INVALID_JID", message: `cannot resolve recipient: ${chatJid}` },
       });
       return;
+    }
+    // T94-C2(a): rules against BOTH the caller's form and the resolved jid —
+    // either match blocks the send. Alias-authored rules are included via the
+    // jid->alias inverse so the resolved form cannot dodge them either.
+    if (opts.store !== undefined) {
+      const candidates = new Set<string>([chatJid]);
+      if (typeof sendTarget === "string" && sendTarget.length > 0) {
+        candidates.add(sendTarget);
+      }
+      try {
+        const aliasRows = opts.store.db
+          .prepare("SELECT alias FROM aliases WHERE jid = ?")
+          .all(chatJid) as Array<{ alias: string }>;
+        for (const row of aliasRows) {
+          if (typeof row.alias === "string" && row.alias.length > 0) {
+            candidates.add(row.alias);
+          }
+        }
+      } catch {
+        // the aliases table is best-effort here — rules on the jid itself
+        // already evaluated below
+      }
+      for (const candidate of candidates) {
+        const refusal = sendPolicyRefusal(opts.store, undefined, candidate, Date.now());
+        if (refusal !== null) {
+          sendJson(res, refusal.status, refusal.payload);
+          return;
+        }
+      }
     }
     const socket = handle.socket;
     const needsStore = input.media !== undefined;
@@ -1836,6 +1934,17 @@ export async function createHttpServer(
             });
             return;
           }
+          // T94-C2(d): the tts send leg rides the same gate
+          const ttsRefusal = sendPolicyRefusal(
+            opts.store,
+            opts.sendGuard,
+            chatJid as string,
+            Date.now(),
+          );
+          if (ttsRefusal !== null) {
+            sendJson(res, ttsRefusal.status, ttsRefusal.payload);
+            return;
+          }
           const result = await sendViaSocket(
             socket,
             chatJid as string,
@@ -1845,6 +1954,7 @@ export async function createHttpServer(
               mimetype: "audio/ogg",
             } as AnyMessageContent,
           );
+          opts.sendGuard?.record(Date.now());
           sendJson(res, 200, { message_id: result.messageId });
         })
         .catch((err: unknown) => {
@@ -1899,11 +2009,18 @@ export async function createHttpServer(
           });
           return;
         }
+        // T94-C2(d): the voice-file send leg rides the same gate
+        const voiceRefusal = sendPolicyRefusal(opts.store, opts.sendGuard, chatJid, Date.now());
+        if (voiceRefusal !== null) {
+          sendJson(res, voiceRefusal.status, voiceRefusal.payload);
+          return;
+        }
         const result = await sendViaSocket(socket, chatJid, {
           audio: audio.buffer,
           ptt: true,
           mimetype: audio.mime,
         } as AnyMessageContent);
+        opts.sendGuard?.record(Date.now());
         sendJson(res, 200, { message_id: result.messageId });
       })
       .catch((err: unknown) => {
@@ -2683,9 +2800,16 @@ export async function createHttpServer(
             });
             return;
           }
+          // T94-C2(e): newsletter broadcasts burn the same budget
+          const nlRefusal = sendPolicyRefusal(opts.store, opts.sendGuard, input.jid, Date.now());
+          if (nlRefusal !== null) {
+            sendJson(res, nlRefusal.status, nlRefusal.payload);
+            return;
+          }
           const result = await sendViaSocket(socket, input.jid, {
             text: input.text,
           } as AnyMessageContent);
+          opts.sendGuard?.record(Date.now());
           sendJson(res, 200, { message_id: result.messageId });
           return;
         }

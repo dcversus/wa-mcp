@@ -1403,7 +1403,7 @@ test("T94-C2f — the autoreply send rides the send budget", async () => {
   };
   const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
     store,
-    sendGuard: guard as unknown as import("../src/send/send.ts").SendGuard,
+    sendGuard: guard as unknown as import("../src/send/safety.ts").SendGuard,
   });
   sock.emit("messages.upsert", {
     messages: [

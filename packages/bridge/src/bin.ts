@@ -119,12 +119,19 @@ export async function main(
   void openAuthStore(authDir);
   const store = openStore(join(config.dataDir, "store"));
   const qrPngPath = join(config.dataDir, "qr.png");
+  // T94-C2(f): ONE daemon-wide budget — the bridge (autoreply), the HTTP
+  // surface and the scheduler all draw from the same SendGuard
+  const sendGuard = new SendGuard(
+    store,
+    config.dailyCap === null ? {} : { dailyCap: config.dailyCap },
+  );
   const handle = await startBridge(authDir, {
     syncFullHistory: config.syncFullHistory,
     deviceName: config.deviceName,
     logger,
     qrPngPath,
     store,
+    sendGuard,
   });
   // T82 line88: daemon scheduler — every 30s, due scheduled texts are sent
   // through the live socket and marked sent/failed.
@@ -192,7 +199,7 @@ export async function main(
     qrDir: config.dataDir,
     store,
     version: "0.9.0",
-    sendGuard: new SendGuard(store, config.dailyCap === null ? {} : { dailyCap: config.dailyCap }),
+    sendGuard,
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
     mediaDir: config.mediaDir,
     cloud,

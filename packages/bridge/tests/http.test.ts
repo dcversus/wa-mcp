@@ -56,7 +56,36 @@ function makeFakeSocket(): WASocket {
                 mimetype: (content as { mimetype?: string }).mimetype,
               },
             }
-          : content;
+          : (content as { forward?: { message?: Record<string, unknown> } }).forward !== undefined
+            ? // T94-C2 engine truth: generateForwardMessageContent emits the
+              // INNER content with contextInfo {forwardingScore, isForwarded}
+              // (fork Utils/messages.js:334-335, 238-262)
+              (() => {
+                const inner = {
+                  ...(content as { forward: { message?: Record<string, unknown> } }).forward
+                    .message,
+                };
+                const first = Object.keys(inner)[0];
+                // the engine converts conversation -> extendedTextMessage and
+                // stamps contextInfo on the payload object
+                if (first === "conversation") {
+                  inner.extendedTextMessage = {
+                    text: inner.conversation as string,
+                    contextInfo: { forwardingScore: 1, isForwarded: true },
+                  };
+                  delete inner.conversation;
+                } else if (first !== undefined) {
+                  const entry = inner[first];
+                  if (typeof entry === "object" && entry !== null) {
+                    inner[first] = {
+                      ...entry,
+                      contextInfo: { forwardingScore: 1, isForwarded: true },
+                    };
+                  }
+                }
+                return inner;
+              })()
+            : content;
     return {
       key: { remoteJid: jid, fromMe: true, id: "SENTID1" },
       message,
@@ -3691,7 +3720,13 @@ describe("T94-C2 — the send-safety gates cannot be bypassed", () => {
       .prepare(
         "INSERT INTO messages (id, chat_jid, sender_jid, timestamp, content, is_from_me) VALUES (?, ?, ?, ?, ?, 0)",
       )
-      .run("SRC1", "358497773518@s.whatsapp.net", "358497773518@s.whatsapp.net", "2026-01-01T00:00:00Z", "forward me");
+      .run(
+        "SRC1",
+        "358497773518@s.whatsapp.net",
+        "358497773518@s.whatsapp.net",
+        "2026-01-01T00:00:00Z",
+        "forward me",
+      );
     const socket = makeFakeSocket();
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",
