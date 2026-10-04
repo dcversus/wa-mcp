@@ -3990,3 +3990,63 @@ test("T94-F M2 — tokenless floods do not burn the account token's API bucket",
   // RED today: 429 — the anon flood consumed the shared per-IP bucket
   expect(legit.status).toBe(200);
 });
+
+describe("T94-G — the owner rule: a fresh browser bootstraps on a PAIRED daemon", () => {
+  function pairedWithBootstrap() {
+    return createHttpServer(stubHandle("connected", null, makeFakeSocket(), true), {
+      token: "test-token",
+      pairingToken: "pair-tok",
+      uiBootstrapToken: "boot-tok",
+    });
+  }
+
+  test("/health publishes the STABLE ui bootstrap token even when paired", async () => {
+    const bridge = await pairedWithBootstrap();
+    const body = (await (await fetch(url(bridge, "/health"))).json()) as {
+      uiBootstrapToken?: string;
+      pairingToken?: string;
+    };
+    // the pairing token stays hidden (CR1) — the bootstrap token is the
+    // owner-rule replacement: stable across boots, loopback+same-origin only
+    expect(body.uiBootstrapToken).toBe("boot-tok");
+    expect(body.pairingToken).toBeUndefined();
+  });
+
+  test("the bootstrap token exchanges for a full-surface ui token when paired", async () => {
+    const bridge = await pairedWithBootstrap();
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: "Bearer boot-tok" },
+    });
+    expect(res.status).toBe(200);
+    const { token } = (await res.json()) as { token: string };
+    expect(token).not.toBe("test-token");
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(chats.status).not.toBe(401);
+  });
+
+  test("the pairing token exchange ALSO works when paired (retained from the pairing session)", async () => {
+    const bridge = await pairedWithBootstrap();
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: "Bearer pair-tok" },
+    });
+    // reverses the CR1 403 — the UI retains the pairing token in localStorage
+    // and must re-exchange after daemon restarts (the CR1 leak was /health
+    // ADVERTISING it; not advertising ≠ refusing the retained credential)
+    expect(res.status).toBe(200);
+  });
+
+  test("WA_UI_BOOTSTRAP=0 restores the CR1 posture (kill switch)", async () => {
+    process.env.WA_UI_BOOTSTRAP = "0";
+    try {
+      const bridge = await pairedWithBootstrap();
+      const res = await fetch(url(bridge, "/api/ui-token"), {
+        headers: { authorization: "Bearer boot-tok" },
+      });
+      expect(res.status).toBe(403);
+    } finally {
+      delete process.env.WA_UI_BOOTSTRAP;
+    }
+  });
+});
