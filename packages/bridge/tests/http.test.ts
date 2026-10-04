@@ -3339,7 +3339,7 @@ describe("T86 — fetch-history + catch-up digest", () => {
 });
 
 describe("T90 — status/link/buttons/list send kinds", () => {
-  function sendBridge() {
+  async function sendBridge() {
     const socket = makeFakeSocket();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-send-t90-")));
     openedStores.push(store);
