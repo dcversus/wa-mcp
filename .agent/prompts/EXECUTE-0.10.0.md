@@ -4,106 +4,106 @@ You are the implementing agent for the wa-mcp project. This prompt is your contr
 
 ## Mission
 
-Take wa-mcp from "feature-complete 0.9.0" to "deep, production-grade 0.10.0": real-time agent subscriptions, full diagnostic observability, dual-channel parity, voice/video understanding, and documentation that an outside engineer can install from without asking a question. The owner's verdict on 0.9.0: **"current implementation is too raw."** This release closes that gap.
+Take wa-mcp from "feature-complete 0.9.0" to "deep, production-grade 0.10.0": real-time agent subscriptions, full diagnostic observability, dual-channel parity, voice/video/document understanding, full parity with every capability found in the reference WhatsApp MCPs — and documentation an outside engineer can install from without asking a question. The owner's verdict on 0.9.0: **"current implementation is too raw."** This release closes that gap.
 
-Nothing is published: no npm publish, no registry listings. Deliverable = private repo at 0.10.0, green CI, packed tarball never shipped.
+Nothing is published: no npm publish, no registry listings. Deliverable = private repo at **0.10.0** (bump version on day one), green CI, packed `wa-mcp-0.10.0.tgz` never shipped.
 
-## The owner's five questions — answered with today's code truth, each becomes a work item
+## The owner's five questions — code truth, each a work item
 
-1. **Subscriptions/notifications to the agent from incoming messages?** — NO. `/events` SSE serves browsers only; MCP clients get nothing pushed. `add_notification_rule` matches rules but has NO delivery channel — matched notifications go nowhere. → §A fixes this for real.
-2. **Web UI full history/diagnostics of tool calls?** — NO. Zero tool-call surface in the web UI. → §B.
-3. **CLI + web UI sign-in with QR AND code?** — PARTIAL. Web UI: QR yes + pairing code display yes. CLI: `wa-mcp pair` exists — verify QR render + add `--code` flow. → §C.
-4. **Dual channel (official Meta Cloud API)?** — SKELETON. `channels/cloud` selects the channel and receives webhooks; sending, media, and read-state through Cloud API are not at parity with the Baileys channel. → §D.
-5. **Proper and consistent documentation?** — PARTIAL. 23 docs files, 63/63 tools referenced, but getting-started assumes knowledge, no cookbook, no troubleshooting matrix, ADRs lag the new subsystems. → §E.
+1. **Subscriptions/notifications to the agent?** — NO. `/events` SSE serves browsers; MCP clients get nothing pushed; `add_notification_rule` matches rules but delivers nowhere. → §A.
+2. **Web UI tool-call diagnostics?** — NO. → §B.
+3. **QR + code signin, CLI and web?** — PARTIAL (web has both; CLI has QR pair, no `--code`). → §C.
+4. **Dual channel (official Meta Cloud API)?** — SKELETON (channel select + webhook receive only). → §D.
+5. **Proper consistent documentation?** — PARTIAL (23 files, 63/63 tools, no cookbook/troubleshooting/security-model). → §F.
 
 ## Source of truth
 
-1. `GOAL-0.10.md` — you create this FIRST (from this prompt) as the checkbox ledger, mirroring GOAL.md's structure. Every item below becomes a numbered, verifiable checkbox. Never invent scope beyond this prompt; bright ideas → `review/IDEAS.md`.
-2. `GOAL.md` (0.9.0) — read-only history. Do not re-litigate.
-3. `review/INDEPENDENT-REVIEW2-*.md` — three reviewer reports; their Low findings and anything deferred lands here as explicit checkboxes or is ACCOUNTING'd out.
-4. Engine truth from the fork's types and runtime probes, never assumptions.
+1. `GOAL-0.10.md` — create FIRST from this prompt as the checkbox ledger (mirror GOAL.md structure). Every section below becomes numbered verifiable checkboxes. No scope beyond this prompt; ideas → `review/IDEAS.md`.
+2. `GOAL.md` (0.9.0) — read-only history.
+3. `review/BACKLOG-FULL.md` (1,029 items) + `review/ACCOUNTING.md` — the parity mine: every OUT-OF-SCOPE-0.9 row that is a real FEATURE (not packaging noise) is re-triaged here or explicitly re-deferred with reason. `review/INDEPENDENT-REVIEW2-*.md` — reviewer Low findings become checkboxes.
+4. Engine truth from the fork's types + runtime probes, never assumptions.
 
-## A. Real-time agent subscriptions (the headline feature)
+## A. Real-time agent subscriptions (headline)
 
-- **MCP `notifications/message` push**: when an MCP client sends `notifications/initialized`, the server subscribes it to the bridge event bus and pushes `notifications/message` frames (spec-compliant: method, params with message envelope) for inbound messages. Honor a client capability declaration — only push to clients that opt in via the init handshake or a `subscribe` tool call.
-- **`subscribe_events` / `unsubscribe_events` MCP tools**: filter by chat_jid, from_jid, kind (message/reaction/poll/read/receipt/error), include_media flag. Subscription registry survives reconnects (stdio transport: reconnect = new session = new registry, document that).
-- **Notification rules get DELIVERY**: matched rules fire into (a) MCP push for connected agents, (b) an outbound **webhook** (owner-configurable URL, HMAC signature, retry with backoff, dead-letter after N), (c) the web UI toast + log. `add_notification_rule` gains `deliver: ["mcp","webhook","ui"]`.
-- **SSE for agents**: `/events?stream=messages` documented as the HTTP-client subscription surface (already exists — document + test contract).
-- Backpressure: bounded queue per subscriber, drop-oldest with a `dropped` counter surfaced in /health; slow agent must never block the ingest path.
-- TDD: fake MCP client (ws/stdio) receives a pushed frame within 2s of a synthetic upsert; filter matrix; webhook delivery with signature verification test; backpressure test with a stalling client.
+- **MCP `notifications/message` push** after `notifications/initialized`: spec-compliant frames with the message envelope; only to opted-in clients (init capability or `subscribe` tool).
+- **`subscribe_events` / `unsubscribe_events` tools**: filters (chat_jid, from_jid, kind: message/reaction/poll/read/receipt/error/connection, include_media); bounded per-subscriber queue, drop-oldest + `dropped` counters in /health; a slow agent NEVER blocks ingest.
+- **Notification rules get DELIVERY** — `add_notification_rule` gains `deliver: ["mcp","webhook","ui"]`: MCP push to connected agents; outbound **webhook** (HMAC-SHA256 signature, retry w/ exponential backoff, dead-letter after N failures, `WEBHOOK_ENABLED` opt-out — verygoodplugins I#150/PR#195 lessons: auth + opt-out from day one); web UI toast + log. Webhook payload: canonical PN jids (PR#56 lesson), preserved message ids (PR#220), reaction events (PR#129).
+- **SSE `?stream=messages`** = documented HTTP-client subscription surface (contract test).
+- TDD: fake MCP client receives a pushed frame ≤2s after synthetic upsert; filter matrix; webhook signature verify + retry/dead-letter; backpressure with a stalling client.
 
-## B. Observability — tool-call + event diagnostics in the web UI
+## B. Observability — tool-call ledger + diagnostics UI
 
-- **Tool-call ledger**: every MCP `tools/call` and every `/api/*` mutation is recorded (timestamp, tool/route, arguments-redacted, duration, result-status, error text, correlated request-id). New table + retention (default 7d, env-tunable). NEVER log message bodies at rest by default — configurable `WA_DIAG_LOG_BODIES=1` for debug.
-- **Web UI Diagnostics page** (`#/diagnostics`): live tail of the tool-call ledger, filter by tool/chat/status, per-tool latency percentiles, error-rate panel, restart-safe (reads the ledger table). Zero-framework discipline stays (no React/Vue; existing patterns).
-- **Event inspector**: `#/events` page listing the raw bridge event bus (same safe-set as SSE) with pause/capture.
-- **`/health` deep fields**: subscriptions active, webhook queue depth, ledger size, per-tool p95 from the ledger.
-- TDD: ledger row per call (integration through the mcp-server), redaction test (bodies never persisted unless enabled), diagnostics page renders from a seeded ledger.
+- **Ledger table**: every MCP `tools/call` + every mutating `/api/*` (ts, tool/route, redacted args, duration, status, error, request-id); 7d retention (env-tunable); bodies at rest ONLY with `WA_DIAG_LOG_BODIES=1`.
+- **`#/diagnostics` page**: live tail, filter by tool/chat/status, per-tool p50/p95, error-rate panel, restart-safe from the table. Zero-framework discipline.
+- **`#/events` page**: raw bridge event inspector (same safe-set as SSE), pause/capture.
+- **/health deep fields**: active subscriptions, webhook queue depth + last-delivery status, ledger size, per-tool p95.
+- TDD: ledger row per call through the real mcp-server; redaction test; page renders from seeded ledger.
 
-## C. Sign-in everywhere — QR + code, CLI + web, symmetric
+## C. Sign-in symmetry — QR + code, CLI + web
 
-- **CLI**: `wa-mcp pair` renders QR (terminal block + PNG path, cp1252-safe) AND accepts `--code 12345678` (requests an 8-digit code via the engine's requestPairingCode, prints it, waits for link). Verify live once (budget: 3 attempts max, owner consent before any registration).
-- **Web UI**: pairing page shows QR (exists) AND a "use a code instead" toggle that requests + displays the code (bridge route exists: get_pairing_code tool; wire the page).
-- **Both flows must never expect a terminal step after first install** (owner rule, absolute): the web UI remains the primary surface; CLI pair is for headless servers, documented as such.
-- TDD: code-flow bridge route tests (mock engine), CLI pair --code unit tests with a fake daemon, web pairing toggle e2e.
+- CLI: `wa-mcp pair` renders QR (block + PNG, cp1252-safe) AND `--code` flow (requestPairingCode → print 8 digits → wait). Unit-tested with fake daemon; ONE live verify (budget 3, owner consent first).
+- Web: QR (exists) + "use a code instead" toggle wired to get_pairing_code.
+- Absolute: no terminal step after first install, ever (owner rule). CLI pair documented as the headless-server path.
+- TDD: bridge code-route tests (mock engine), CLI --code tests, web toggle e2e.
 
-## D. Dual channel — Meta Cloud API parity (channel interface completion)
+## D. Dual channel — Meta Cloud API parity
 
-- Define the `Channel` interface contract formally (send matrix, media, read-state, presence, group ops) with a conformance test suite BOTH channels must pass (mock transport for Cloud).
-- Cloud API: send text/media/template, mark read, download media, phone-number-id resolution. Webhook ingest already exists — extend to delivery-status → read-state rows.
-- `wa-mcp doctor` reports the active channel + config validity for both.
-- Channel switch is a documented, reversible operation (env `WA_CHANNEL=cloud|baileys`), with an ADR explaining the trust/latency/feature trade-offs.
-- Live Cloud testing stays OWNER-GATED (WABA creds in BLOCKED.md); everything else ships behind the mock conformance suite.
+- Formal `Channel` interface (send matrix, media, read-state, presence, groups) + **conformance suite both channels pass** (mock Cloud transport).
+- Cloud: send text/media/template, mark read, media download, phone-number-id resolution; webhook delivery-status → read-state rows.
+- `doctor` reports active channel + both configs' validity. `WA_CHANNEL=cloud|baileys` reversible switch, ADR for the trade-offs. Live Cloud stays owner-gated (WABA creds → BLOCKED.md).
 
-## E. Voice & media understanding (the owner's PS, made concrete)
+## E. Voice / video / document understanding
 
-- **Voice messages**: transcription pipeline exists (mock/openai-BYOK/mlx). Add:
-  - `whisper.cpp` LOCAL engine (optional dependency, `WA_TRANSCRIBE_ENGINE=whisper-local`, model path env; falls back with a structured error if the binary is absent — never a hard dependency).
-  - **BYOK config surface**: `wa-mcp config set transcription.api_key …` (stored 0600 in the data dir, never in the repo) + the same via web UI Settings page. No key + engine=openai → clear structured error with setup instructions.
-  - `transcribe_voice` auto-persist: transcripts land in the messages table (new column or transcript sidecar) and surface in `list_messages` output (`transcript` field) — agents read history without re-transcribing.
-- **Video messages**: `transcribe_message` accepts video notes (extract audio via ffmpeg → engine) — ffmpeg is ALREADY a dependency (PTT path). Same engine factory, same persistence.
-- **Document messages**: PDF/text extraction (pdf.js or pdftotext optional dep) into the same transcript surface. DOCX plain-text extraction.
-- **Caption + OCR for images**: optional (Tesseract via an engine flag) — ship behind `WA_OCR_ENGINE=none|tesseract`, default none.
-- Every engine is optional-or-BYOK, each with a doctor check (`wa-mcp doctor --engines`) reporting availability + config validity. TDD with fixture media per type.
+- Engines: mock / openai-BYOK / mlx / **whisper.cpp local (optional dep, structured fallback when absent)**.
+- **BYOK config**: `wa-mcp config set transcription.api_key …` (0600 data-dir) + web Settings field; missing key + openai → structured error with setup instructions.
+- **Transcripts persist** (messages column/sidecar) and surface in `list_messages` — history without re-transcribing.
+- **Video messages → transcript** (ffmpeg audio extract; already a dep). **PDF** (pdftotext/pdf.js optional) + **DOCX** text extraction into the transcript surface. **Document MIME + FileName on send** (lharries PR#342/PR#353: correct MIME types, downloadable old media — fix the 403-on-old-sent-media class). Optional OCR (`WA_OCR_ENGINE=tesseract`, default none).
+- `wa-mcp doctor --engines`: availability + config validity per engine. TDD per type with fixtures.
 
-## F. Documentation — "an engineer installs without asking"
+## F. Documentation — claude-CLI (Opus) driven
 
-- **VitePress site overhaul**: information architecture — Getting Started (3 paths: desktop web-first / headless CLI / Docker), Configuration reference (EVERY env var, every flag, generated table from the config schema), Cookbook (send a poll, run an agent with subscriptions, dual-channel setup, BYOK transcription, import from lharries/gofork), Troubleshooting matrix (symptom → cause → fix, seeded from every BLOCKED.md + review finding), MCP tool reference (generated from tools.ts — name, description, schema, annotation, example call), Security model page (token, pairing, ADR 0012 + the 0.10 trust-boundary addendum), Diagnostics guide (the new §B surface).
-- **ADR catch-up**: 0013+ for subscriptions architecture, tool-call ledger (privacy trade-off), dual-channel contract, transcription engine factory. ADRs are written BEFORE the code they describe.
-- **CLAUDE.md / AGENTS.md** updated: the repo's own contributor docs explain how to add a tool (schema → bridge route → tests → docs → doc-coverage), how to add an engine, how to run the gates.
-- `docs:build` green, doc-coverage 100% of tools, and a NEW doc-coverage for env vars (every env var in code appears in the configuration reference — script, CI-wired).
-- **This release's docs are PLANNED AND WRITTEN with the Anthropic CLI (claude -p, Opus plan)**: the implementing agent MUST dispatch documentation drafting to `claude -p --model opus` (or the claude CLI with the owner's ~/.claude config, max effort) for: the cookbook, the security model page, and the troubleshooting matrix — then verify factual accuracy against the code itself (every claim gets a file:line check by the implementing agent). Human-reviewable drafts land in docs/ via the agent; the claude CLI never commits directly.
+- **Planning AND drafting via the Anthropic CLI**: the implementing agent dispatches to `claude -p --model opus` (owner's ~/.claude config, max effort) for the docs IA plan, then the cookbook, security-model page, and troubleshooting matrix drafts; every factual claim then gets a file:line verification pass by the implementing agent before landing. The claude CLI never commits directly.
+- VitePress IA: 3 getting-started paths (desktop web-first / headless CLI / Docker), generated configuration reference (EVERY env var — new env-doc-coverage script, CI-wired), cookbook (polls, subscriptions, dual-channel, BYOK transcription, imports, headless QR/code), troubleshooting matrix seeded from BLOCKED.md + every review finding, generated tool reference (name/description/schema/annotation/example), security model (token + pairing + ADR 0012 + 0.10 addendum), diagnostics guide, ROADMAP page (lharries PR#47 pattern).
+- ADR 0013+ written BEFORE their code: subscriptions, ledger privacy, channel contract, engine factory, group-admin ops.
+- CLAUDE.md/AGENTS.md: how to add a tool/engine, how to run gates.
 
-## G. Hardening carry-overs (close the reviewers' tail)
+## G. Parity sweep from the census (what the other WhatsApp MCPs have that we lack)
 
-- Every remaining Low finding from all three review reports: triaged into checkboxes here or explicitly ACCOUNTING'd.
-- The `search_messages` param naming (`q` vs `query`) — align schema + docs.
-- Leftover empty `scheduled` table → cleanup migration (v15) with a data-preserving check.
-- `merge-lid-chats` dropping deleted/edited/reactions/poll/labels (codex-M) → full-fidelity migration rewrite.
-- Message-id-only lookups: complete the chat-scoping sweep (runtime-M1 follow-up audit: every route taking a message id).
-- Load test: 10k messages ingested through the store in <30s with FTS on (M3 regression guard).
-- Chaos test: daemon killed mid-batch-send → restart → no double-sends (scheduler idempotency), no lost scheduled rows.
+Each: capability-probe FIRST (engine truth), then implement or ACCOUNTING-row with probe evidence. Sources cited per item.
 
-## Process (non-negotiable, carried from 0.9.0)
+- **Group admin ops** (kahflane/biliboss): promote/demote participants, group settings (description, subject, announce/lock, invite-link revoke). We have create/leave/update-meta only.
+- **Chat organization setters**: pin/unpin chat (kahflane), archive/unarchive (PR#60-class), mute/unmute + `muted_only`/`unmuted_only` + mute-status in list_chats (PR#78 read-side exists; setters don't), star/unstar message, mark chat UNREAD (we have mark-read only).
+- **Albums/carousel**: multi-image album send + album-preserving forward (PR#127/PR#129) — engine-truth probe first (Baileys album API).
+- **Forum topics / communities** (PR#125/PR#126/PR#139): list/create/edit topics, manage_topics admin right — probe the fork's community API; NA-ENGINE with evidence if absent.
+- **Scheduled media** (PR#205): scheduler accepts media payloads, not just text.
+- **Unicode-safe search** (PR#181): Cyrillic/emoji search correctness test matrix.
+- **WhatsApp Business capture** (PR#264): business-account service messages (DHL/banks/OTP) ingest as first-class typed events — probe.
+- **Buttons/lists delivery** (NA-ENGINE today: engine-dropped for non-Business): re-probe on the pinned fork; if Business-only, document the constraint in the tool schema (structured error for non-Business senders).
+- **Semantic recall** (FelixIsaac PR#56): optional embedding-based message recall (`WA_RECALL_ENGINE=none|openai`), off by default — memory-layer feature, design in an ADR first.
+- **Multi-account** (PR#88/PR#357): stays EXCLUDED for 0.10 (single-account daemon model) — but document the multi-INSTANCE pattern (one daemon per account, per-port, per data-dir) as the supported path, with a doctor check.
+- **MCPL protocol** (PR#120): re-triage — implement only if the spec has stabilized; else explicit deferral row.
+- **Event-driven agent mode** (lharries PR#175/PR#176): an OPTIONAL autonomous agent loop (subscription → LLM → reply) as a plugin/skill, OFF by default, owner-gated keys — design doc + ADR first, implementation last (Phase G2, only if Phases A–F are green).
+- Pin/star/mute/archive parity matrix test: for each setter, a fixture-store round-trip test + live verify where the engine allows.
 
-- TDD strictly: RED → GREEN per checkbox, RED evidence in commits, zero comments in source, docs explain.
-- Live testing rules unchanged (allowed chats, round-trip asserts, VERIFY.md with ISO timestamps, pairing budget 3 + owner consent, mock engines by default).
-- One small task → agent executes → orchestrator (Hermes) validates mechanically → next. Live-probe verification before every wrap: the 0.9.0 review round proved mock-green ≠ working.
-- Conventional commits; every commit leaves vp check + vp test green; coverage floors 80/80/90 enforced (coverage:gate is wired).
-- GOAL-0.10.md checkboxes earn ticks only with VERIFY.md evidence lines (test name + output, or live note with timestamp).
-- When blocked: BLOCKED.md entry with proposed default, continue non-blocking work.
+## H. Hardening carry-overs (reviewer tail)
 
-## Phasing (gates hard, gate records to review/GATES-0.10.md)
+- All reviewer Low findings triaged (checkbox or ACCOUNTING row).
+- `search_messages` param naming aligned (q vs query) across schema+docs.
+- `scheduled` legacy table → cleanup migration v15 (data-preserving).
+- `merge-lid-chats` full-fidelity rewrite (deleted/edited/reactions/polls/labels survive).
+- Message-id lookup chat-scoping audit (every route taking a message id).
+- Load test: 10k messages ingest <30s with FTS on. Chaos test: kill mid-batch-send → no double-sends, no lost scheduled rows.
+- Docker packaging round (the 15 deferred container rows): multi-stage image, HTTP-transport QR pairing in-container (PR#145 pattern — no terminal step in Docker either), docker-compose with volume-mounted data dir (PR#10-class persistence), image-size budget <400MB (FelixIsaac 837MB lesson), CI docker build job.
 
-- Phase A0: GOAL-0.10.md ledger authored + owner approval of scope (this prompt printed to the owner is the offer).
-- Phase A: subscriptions + webhook delivery (§A) — the headline.
-- Phase B: observability (§B).
-- Phase C: sign-in symmetry (§C).
-- Phase D: dual-channel contract + cloud parity behind mocks (§D).
-- Phase E: voice/video/document understanding (§E).
-- Phase F: documentation (§F, claude-CLI-driven planning+drafting with verification).
-- Phase G: hardening carry-overs (§G) + full gate re-run + repack + fresh-container + live smoke.
+## Process (non-negotiable, from 0.9.0)
+
+TDD RED→GREEN with evidence; zero comments in source; live-probe verification before every wrap (mock-green ≠ working — proven three times); one small task → mechanical validation → next; conventional commits, each leaves `vp check && vp test` green; coverage floors 80/80/90 (coverage:gate wired); GOAL-0.10 ticks need VERIFY.md evidence lines; live rules unchanged (allowed chats, round-trips, ISO timestamps, pairing budget 3 + consent, mock engines default); BLOCKED.md with proposed defaults.
+
+## Phasing (gates → review/GATES-0.10.md)
+
+- **A0**: GOAL-0.10.md ledger authored; version bumped to 0.10.0; owner scope approval.
+- **A** subscriptions + webhook delivery. **B** observability. **C** sign-in symmetry. **D** dual-channel contract. **E** media understanding. **F** documentation (claude-Opus driven). **G** parity sweep (§G, probe-first). **G2** event-driven agent mode (conditional). **H** hardening + Docker + full gate re-run + repack + fresh-container + live smoke.
 
 ## Final report format (unchanged)
 
-Checkbox count, gate table A→G, tarball name + sha256, ACCOUNTING deltas, VERIFY.md line count, BLOCKED.md contents, and: "PUBLISH NOT PERFORMED" with every deferred publish action listed.
+Checkbox count (checked/total), gate table A→H, CI run links, `wa-mcp-0.10.0.tgz` name + sha256, ACCOUNTING deltas (every re-triaged OUT-OF-SCOPE row listed), VERIFY.md line count, BLOCKED.md contents, and: **"PUBLISH NOT PERFORMED"** with every deferred publish action.

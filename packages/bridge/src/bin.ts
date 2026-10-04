@@ -291,7 +291,7 @@ export async function main(
     qrPngPath,
     qrDir: config.dataDir,
     store,
-    version: "0.9.0",
+    version: "0.10.0",
     sendGuard,
     uiBootstrapToken,
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
