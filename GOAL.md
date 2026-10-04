@@ -126,8 +126,8 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Query semantics: limit applied AFTER date/sender filtering, never over-fetch then trim (chigwell I#27/P#245) — verify: fixture — ask 10 msgs from empty date range → 0 rows, one SQL page — VERIFY: T13 query tests (filters then limit)
 - [x] Global message search (no chat filter) across all chats (chigwell P#74) — verify: fixture query without chat_jid hits multiple chats — PENDING: live (pairing); global no-chat search unproven
 - [ ] Contact cache warmed in BACKGROUND at startup — MCP tools never block on warmup (chigwell P#140) — verify: tools/call within 100ms of server start — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `get_chat` reports has_photo + profile picture URL (chigwell P#191) — verify: Test-group get_chat includes both fields — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] View profile pictures through MCP: list + open contact avatars as images (chigwell P#199) — verify: avatar download returns image bytes — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `get_chat` reports has_photo + profile picture URL (chigwell P#191) — verify: Test-group get_chat includes both fields — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] View profile pictures through MCP: list + open contact avatars as images (chigwell P#199) — verify: avatar download returns image bytes — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Alias favorites flag + non-ASCII aliases resolve everywhere (chigwell P#173/P#178) — verify: Cyrillic alias resolves; favorite listed first — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Manually-marked-unread detection distinct from auto read-state (chigwell P#46) — verify: mark-unread on phone → unread count +1 in next list_chats — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `request_history` tool: on-demand older-message backfill for ONE chat (VGP P#168; lharries PR#364) — verify: live request on Test group → older messages appear — OUT-OF-SCOPE 0.9: ACCOUNTING
