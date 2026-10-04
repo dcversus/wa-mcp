@@ -1,0 +1,11 @@
+{
+  "name": "wa-mcp",
+  "version": "0.10.0",
+  "description": "WhatsApp bridge for Claude Code — messaging, groups, media, health via the wa-mcp MCP server",
+  "mcpServers": {
+    "wa-mcp": {
+      "command": "wa-mcp",
+      "args": ["skills"]
+    }
+  }
+}
