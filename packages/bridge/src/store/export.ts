@@ -1,5 +1,4 @@
 import type { Store } from "./schema.ts";
-import { listMessages } from "./queries.ts";
 
 export type ExportFormat = "jsonl" | "md" | "txt";
 
