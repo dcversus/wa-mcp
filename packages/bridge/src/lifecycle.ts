@@ -17,6 +17,7 @@ import { markHistorySynced } from "./store/meta.ts";
 import { fetchMessageFromStore } from "./store/queries.ts";
 import { autoDownloadRules, shouldAutoDownload } from "./store/autodl.ts";
 import { downloadMessageMedia } from "./media/download.ts";
+import { decryptInboundPollVote } from "./ingest/poll-vote.ts";
 import { withTransaction } from "./store/schema.ts";
 import type { Store } from "./store/schema.ts";
 import type { WAMessage } from "baileys";
@@ -555,6 +556,45 @@ export async function startBridge(
                 message.key.remoteJid = await canonicalChatJid(socket, remoteJid);
               }
               storeMessage(opts.store, message);
+              // T94-C-H1: the pinned fork's poll-vote decrypt block is
+              // commented out (process-message.js:576-624) — replicate its
+              // orchestration here: fetch the poll creation row, decrypt with
+              // the fork's own primitive, persist via poll_votes
+              const pollUpdateMessage = message.message?.pollUpdateMessage;
+              const creationKey = pollUpdateMessage?.pollCreationMessageKey;
+              if (
+                pollUpdateMessage !== undefined &&
+                creationKey !== undefined &&
+                creationKey !== null &&
+                typeof creationKey.id === "string"
+              ) {
+                const pollRow = opts.store.db
+                  .prepare("SELECT raw FROM messages WHERE id = ?")
+                  .get(creationKey.id) as { raw?: string | null } | undefined;
+                let pollMessage: proto.IMessage | undefined;
+                if (pollRow?.raw !== undefined && pollRow.raw !== null) {
+                  try {
+                    pollMessage = JSON.parse(pollRow.raw) as proto.IMessage;
+                  } catch {
+                    pollMessage = undefined;
+                  }
+                }
+                const voteUpdate = decryptInboundPollVote(
+                  message,
+                  pollMessage,
+                  state.creds.me?.id ?? "",
+                );
+                console.error(
+                  "DEBUG H1:",
+                  voteUpdate !== null,
+                  JSON.stringify(state.creds.me),
+                  JSON.stringify(voteUpdate ?? {}),
+                );
+                const pollChatJid = remoteJid ?? "";
+                if (voteUpdate !== null && pollChatJid.length > 0) {
+                  storePollVotes(opts.store, pollChatJid, creationKey.id, [voteUpdate]);
+                }
+              }
               // T93-D: media rides the auto-download rules — fire-and-forget,
               // never blocks ingest, row linked on success
               maybeAutoDownload(message, remoteJid);

@@ -67,6 +67,7 @@ function encryptPollVote(
   const aad = toBinary(`${pollMsgId}\u0000${voterJid}`);
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", decKey, iv);
+  cipher.setAAD(aad);
   const plaintext = Buffer.concat([
     Buffer.from([0x0a, selectedSha256.length]), // proto: field 1 (selectedOptions), LEN
     selectedSha256,
@@ -77,8 +78,6 @@ function encryptPollVote(
     encIv: new Uint8Array(iv),
   };
 }
-
-
 
 // handles started per test; afterEach closes them so no real reconnect
 // timer outlives its test and fires inside a later one
@@ -1467,11 +1466,11 @@ test("T94-C2f — the autoreply send rides the send budget", async () => {
   store.close();
 });
 
-
 test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-pollvote-")));
   const CHAT = "120363428874442773@g.us";
   const POLL_ID = "POLLMSG1";
+  const creatorJid = "358497773518@s.whatsapp.net";
   const secret = randomBytes(32);
   // the poll creation message, exactly as ingest writes it into raw
   store.db
@@ -1486,7 +1485,10 @@ test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes
       "Lunch?",
       null,
       JSON.stringify({
-        pollCreationMessage: { name: "Lunch?", options: [{ optionName: "Pizza" }, { optionName: "Salad" }] },
+        pollCreationMessage: {
+          name: "Lunch?",
+          options: [{ optionName: "Pizza" }, { optionName: "Salad" }],
+        },
         messageContextInfo: { messageSecret: Array.from(secret) },
       }),
     );
@@ -1500,10 +1502,16 @@ test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes
   const sock = fakeSocket();
   mockMakeWASocket.mockReset();
   mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  // a PAIRED daemon carries creds.account (stripPairingPollution keeps
+  // creds.me only then) — the poll creator jid derives from creds.me.
+  // MUTATE: the auth-state mock captured the creds object by reference
+  Object.assign(currentCreds, {
+    account: { id: "123" },
+    me: { id: creatorJid },
+  });
   await trackedStart("/tmp/wa-mcp-test-auth", { store });
 
   const voter = "358400000077@s.whatsapp.net";
-  const creatorJid = "358497773518@s.whatsapp.net";
   const selected = createHash("sha256").update("Pizza").digest();
   const vote = encryptPollVote(secret, POLL_ID, creatorJid, voter, selected);
   sock.emit("messages.upsert", {

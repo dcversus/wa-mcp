@@ -25,6 +25,7 @@ function encryptPollVote(
   const aad = toBinary(`${pollMsgId}\u0000${voterJid}`);
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", decKey, iv);
+  cipher.setAAD(aad);
   const plaintext = Buffer.concat([
     Buffer.from([0x0a, selectedSha256.length]), // proto: field 1 (selectedOptions), LEN
     selectedSha256,
@@ -42,7 +43,10 @@ test("T94-C-H1 — decryptInboundPollVote recovers the selected option", async (
       message: unknown,
       pollMessage: unknown,
       meId: string,
-    ) => { vote?: { selectedOptions?: Array<Uint8Array> } } | null;
+    ) => {
+      vote?: { selectedOptions?: Array<Uint8Array> };
+      pollUpdateMessageKey?: { participant?: string | null };
+    } | null;
   };
   const pollEncKey = randomBytes(32);
   const pollMsgId = "POLLMSG1";
@@ -51,10 +55,19 @@ test("T94-C-H1 — decryptInboundPollVote recovers the selected option", async (
   const selected = createHash("sha256").update("Pizza").digest();
   const vote = encryptPollVote(pollEncKey, pollMsgId, creatorJid, voterJid, selected);
   const message = {
-    key: { remoteJid: "120363428874442773@g.us", fromMe: false, id: "VOTE1", participant: voterJid },
+    key: {
+      remoteJid: "120363428874442773@g.us",
+      fromMe: false,
+      id: "VOTE1",
+      participant: voterJid,
+    },
     message: {
       pollUpdateMessage: {
-        pollCreationMessageKey: { remoteJid: "120363428874442773@g.us", id: pollMsgId, fromMe: true },
+        pollCreationMessageKey: {
+          remoteJid: "120363428874442773@g.us",
+          id: pollMsgId,
+          fromMe: true,
+        },
         vote,
         senderTimestampMs: 1_760_000_000_000,
       },
@@ -75,6 +88,8 @@ test("T94-C-H1 — a vote without a secret or key returns null instead of throwi
   const { decryptInboundPollVote } = (await import("../../src/ingest/poll-vote.ts")) as {
     decryptInboundPollVote: (message: unknown, pollMessage: unknown, meId: string) => unknown;
   };
-  expect(decryptInboundPollVote({ key: {}, message: { pollUpdateMessage: {} } }, {}, "x@s.whatsapp.net")).toBeNull();
+  expect(
+    decryptInboundPollVote({ key: {}, message: { pollUpdateMessage: {} } }, {}, "x@s.whatsapp.net"),
+  ).toBeNull();
   expect(decryptInboundPollVote({ key: {}, message: {} }, {}, "x@s.whatsapp.net")).toBeNull();
 });
