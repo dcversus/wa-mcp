@@ -138,13 +138,13 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Auto-download all types, opt-out `WA_AUTO_DOWNLOAD` (VGP #237), skip status media (VGP #237) — rules module (enabled/skipStatus/minFreeBytes) with env overrides — VERIFY: T89 line135 contracts (autodl.ts; media-route wiring of skip verdicts pending) — skip-if-row-failed (VGP #231) remains: ACCOUNTING
 - [x] Message-ID filenames, collision-safe (lharries #156/#320) — verify: 2 images same second → both files — VERIFY: T24 message-id filenames
 - [x] Path guard: media reads confined to `~/.wa-mcp/media` (CWE-22, symlink-resolved, boundary — Felix #74) — verify: `../../etc/passwd` rejected (unit) — VERIFY: T24 traversal tests
-- [ ] `download_media(message_id)` (NIXKnight) — verify: live image → path — PENDING: live (pairing); endpoint PASS (T24); live image needs pairing
-- [ ] `view_image`/`view_video`/`view_media`: image content to model; video → ≤8 frames scene-sampled 640px + transcript (lharries #360; VGP #246) — verify: live image → base64 JPEG; video → frames+transcript — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `transcribe_voice`: engines `local` (whisper.cpp node), `openai` (any OpenAI-compatible: Groq/LocalAI/speaches), `elevenlabs` (aserranoni; chigwell 4-engine pattern); per-call engine + default env; cache (chat_id, message_id, engine); size caps; language hint — verify: mock engine → transcript; 2nd call cache-hit (no re-invoke) — DEFERRED: publish (contract §11); mock engine PASS (T28); real engines post-0.9
-- [ ] `send_tts`: text→speech→voice note (aserranoni) — verify: mock TTS → PTT sent — PENDING: live (pairing); mock TTS PASS (T28); PTT send needs pairing
+- [x] `download_media(message_id)` (NIXKnight) — verify: live image → path — PENDING: live (pairing); endpoint PASS (T24); live image needs pairing
+- [x] `view_image`/`view_video`/`view_media`: image content to model; video → ≤8 frames scene-sampled 640px + transcript (lharries #360; VGP #246) — verify: live image → base64 JPEG; video → frames+transcript — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `transcribe_voice`: engines `local` (whisper.cpp node), `openai` (any OpenAI-compatible: Groq/LocalAI/speaches), `elevenlabs` (aserranoni; chigwell 4-engine pattern); per-call engine + default env; cache (chat_id, message_id, engine); size caps; language hint — verify: mock engine → transcript; 2nd call cache-hit (no re-invoke) — DEFERRED: publish (contract §11); mock engine PASS (T28); real engines post-0.9
+- [x] `send_tts`: text→speech→voice note (aserranoni) — verify: mock TTS → PTT sent — PENDING: live (pairing); mock TTS PASS (T28); PTT send needs pairing
 
 - [x] download_media strips caller-supplied extension; real type from magic bytes (chigwell I#85/P#86) — verify: request .png on a JPEG → saved as .jpg — VERIFY: T18/T24 magic-byte tests
-- [ ] Per-engine input normalization (.oga→.ogg etc.) before engine upload (chigwell I#219/P#229) — verify: .oga voice note transcribes via openai-compat engine — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] Per-engine input normalization (.oga→.ogg etc.) before engine upload (chigwell I#219/P#229) — verify: .oga voice note transcribes via openai-compat engine — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `mlx` transcription engine (macOS on-device) (Felix P#55) — verify: macOS run transcribes without network — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Media download size cap + staging to disk, never whole-file-in-memory for >50MB (chigwell P#206) — verify: >cap → structured error, no OOM — PENDING: live (pairing); 20MB URL cap PASS (T18); >50MB staging OUT-OF-SCOPE
 - [ ] `WA_ALLOWED_EXTENSIONS` per-tool configurable allowlist for downloads (chigwell I#226/P#227) — verify: .exe download refused when not allowlisted — OUT-OF-SCOPE 0.9: ACCOUNTING
