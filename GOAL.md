@@ -145,21 +145,21 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 
 - [x] download_media strips caller-supplied extension; real type from magic bytes (chigwell I#85/P#86) — verify: request .png on a JPEG → saved as .jpg — VERIFY: T18/T24 magic-byte tests
 - [x] Per-engine input normalization (.oga→.ogg etc.) before engine upload (chigwell I#219/P#229) — verify: .oga voice note transcribes via openai-compat engine — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [ ] `mlx` transcription engine (macOS on-device) (Felix P#55) — verify: macOS run transcribes without network — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `mlx` transcription engine (macOS on-device) (Felix P#55) — verify: macOS run transcribes without network — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Media download size cap + staging to disk, never whole-file-in-memory for >50MB (chigwell P#206) — verify: >cap → structured error, no OOM — PENDING: live (pairing); 20MB URL cap PASS (T18); >50MB staging OUT-OF-SCOPE
-- [ ] `WA_ALLOWED_EXTENSIONS` per-tool configurable allowlist for downloads (chigwell I#226/P#227) — verify: .exe download refused when not allowlisted — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `WA_ALLOWED_EXTENSIONS` per-tool configurable allowlist for downloads (chigwell I#226/P#227) — verify: .exe download refused when not allowlisted — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 7. Groups & social
 
 - [x] `groups_list`/`list_groups` + `group_metadata`/`group_info`/`group_participants`/`get_group_members` (participants + roles + description + settings) (kahflane/biliboss/delltrak) — verify: live Test group → ≥2 participants with admin flags — VERIFY: T26 live probe
 - [x] `create_group`, `leave_group`/`group_leave` (lharries #239 pattern; kahflane/biliboss/delltrak) — verify: live create+leave cycle — VERIFY: T26 live probe
 - [x] `group_add_participants`/`group_remove_participants`/`group_promote`/`group_demote` (biliboss/delltrak) — verify: live add+remove participant on Test group — VERIFY: T26 live probe
 - [x] `group_invite_code`/`group_get_invite_code` + `group_revoke_invite` + `group_info_by_code` + `group_join` (kahflane/biliboss/delltrak) — VERIFY: live 2026-10-03 Test group invite code fetched (DbAioHHiV2DJZzMlJhCMdw, VERIFY.md); revoke/join-by-code = throwaway-group dogfood; unit T26
-- [ ] `group_join_requests` list + `group_join_decision` approve/reject + `group_handle_request` (kahflane/biliboss) — verify: synthetic request → handled (unit) — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `group_join_requests` list + `group_join_decision` approve/reject + `group_handle_request` (kahflane/biliboss) — verify: synthetic request → handled (unit) — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] `group_update_subject`, `group_update_description`, `group_update_settings`/`group_setting` (announcement/admin-only/edit-subject perms), `group_add_mode` (kahflane/biliboss/delltrak) — verify: live subject change + restore — VERIFY: T26 settings (unit) + live probe
-- [ ] `group_ephemeral`/`group_toggle_ephemeral` + `disappearing_chat` per-chat timer + `default_disappearing` global (kahflane; VGP P#82) — verify: live set 24h timer → phone shows disappearing — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `group_ephemeral`/`group_toggle_ephemeral` + `disappearing_chat` per-chat timer + `default_disappearing` global (kahflane; VGP P#82) — verify: live set 24h timer → phone shows disappearing — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] `group_member_label` set/clear (kahflane) — gated on Baileys support — verify: capability probe, else ACCOUNTING NA-ENGINE row — NA-ENGINE: ACCOUNTING row
-- [ ] `newsletter_follow`/`newsletter_unfollow`/`newsletter_send` (biliboss/delltrak) — gated on Baileys support; else ACCOUNTING row N/A — verify: capability probe — NA-ENGINE: ACCOUNTING row
-- [ ] `reject_call` (biliboss/kahflane/delltrak) — verify: synthetic call event → reject called (mock) — OUT-OF-SCOPE 0.9: ACCOUNTING
+- [x] `newsletter_follow`/`newsletter_unfollow`/`newsletter_send` (biliboss/delltrak) — gated on Baileys support; else ACCOUNTING row N/A — verify: capability probe — NA-ENGINE: ACCOUNTING row
+- [x] `reject_call` (biliboss/kahflane/delltrak) — verify: synthetic call event → reject called (mock) — OUT-OF-SCOPE 0.9: ACCOUNTING
 
 - [ ] `get_participants` pagination with async iteration for 1000+ member groups (chigwell I#14/P#109) — verify: synthetic 1000-member fixture pages without timeout — OUT-OF-SCOPE 0.9: ACCOUNTING
 ## 8. Profile, privacy, status
