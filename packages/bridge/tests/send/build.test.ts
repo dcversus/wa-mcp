@@ -163,7 +163,7 @@ test("buttons and lists build proto shells for business-account delivery", async
 
 describe("T84 line99 — poll validation", () => {
   test("fewer than two options is rejected", async () => {
-    const err = await buildPollMessage("lunch", ["Pizza"]).catch((e: SendError) => e);
+    const err = await buildPollMessage("lunch", ["Pizza"]).catch((e: unknown) => e as SendError);
     expect(err).toBeInstanceOf(SendError);
     expect(err.code).toBe("VALIDATION_ERROR");
     expect(err.message).toContain("at least 2");
@@ -171,7 +171,7 @@ describe("T84 line99 — poll validation", () => {
 
   test("more than twelve options is rejected", async () => {
     const options = Array.from({ length: 13 }, (_, i) => `opt ${i}`);
-    const err = await buildPollMessage("lunch", options).catch((e: SendError) => e);
+    const err = await buildPollMessage("lunch", options).catch((e: unknown) => e as SendError);
     expect(err.code).toBe("VALIDATION_ERROR");
     expect(err.message).toContain("at most 12");
   });
@@ -186,7 +186,9 @@ describe("T84 line99 — poll validation", () => {
   });
 
   test("empty-string options are rejected", async () => {
-    const err = await buildPollMessage("lunch", ["Pizza", "   "]).catch((e: SendError) => e);
+    const err = await buildPollMessage("lunch", ["Pizza", "   "]).catch(
+      (e: unknown) => e as SendError,
+    );
     expect(err.code).toBe("VALIDATION_ERROR");
     expect(err.message).toContain("non-empty");
   });
