@@ -141,9 +141,14 @@ describe("T87 — read deepening", () => {
         { headers: authHeader },
       );
       const body = (await res.json()) as {
-        messages: Array<{ mentions: string[]; forwarded?: boolean; reactions: unknown }>;
+        messages: Array<{
+          id: string;
+          mentions: string[];
+          forwarded?: boolean;
+          reactions: unknown;
+        }>;
       };
-      const row = body.messages.find((m) => (m as { id: string }).id === "FF1");
+      const row = body.messages.find((m) => m.id === "FF1");
       expect(row?.mentions).toContain("358400000001@s.whatsapp.net");
       expect(row?.forwarded).toBe(false);
       void row?.reactions;

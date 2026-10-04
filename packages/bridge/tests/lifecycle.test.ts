@@ -960,8 +960,9 @@ test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
   // the fork logs LTHash 409 conflicts through the INJECTED logger
   const injected = (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger })
     .logger;
-  injected?.warn({ collection: "regular" }, "conflict in processing state");
-  injected?.warn({ collection: "regular" }, "conflict in processing state");
+  const injectedWarn = injected?.warn?.bind(injected);
+  injectedWarn?.({ collection: "regular" }, "conflict in processing state");
+  injectedWarn?.({ collection: "regular" }, "conflict in processing state");
   const recoveries = warns.filter((entry) => entry.includes("APP-STATE-RECOVERY"));
   expect(recoveries).toHaveLength(1);
   await handle.close();
