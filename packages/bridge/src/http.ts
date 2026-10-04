@@ -57,6 +57,7 @@ import {
   subscriptionDir,
 } from "./subscriptions.ts";
 import { openInbox } from "./inbox.ts";
+import { toMcpNotifications } from "./mcp-notify.ts";
 import {
   ValidationError,
   blockUnblock,
@@ -482,7 +483,13 @@ export async function createHttpServer(
           (content as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ??
           "";
         const presentKeys = Object.keys(content as Record<string, unknown>);
-        const mediaKeys = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
+        const mediaKeys = [
+          "imageMessage",
+          "videoMessage",
+          "audioMessage",
+          "documentMessage",
+          "stickerMessage",
+        ];
         const media = presentKeys.some((k) => mediaKeys.includes(k));
         for (const sub of subs) {
           if (
@@ -2424,6 +2431,23 @@ export async function createHttpServer(
         }
         if (path === "/mcp") {
           serveMcp(req, res, body);
+          return;
+        }
+        if (path === "/api/mcp-notify" && req.method === "GET") {
+          res.writeHead(200, {
+            "content-type": "text/event-stream",
+            "cache-control": "no-cache",
+            connection: "keep-alive",
+          });
+          res.write(": connected\n\n");
+          const unsubscribeNotify = handle.events.subscribe((event) => {
+            for (const notification of toMcpNotifications(event)) {
+              res.write(`data: ${JSON.stringify(notification)}\n\n`);
+            }
+          });
+          req.on("close", () => {
+            unsubscribeNotify();
+          });
           return;
         }
         if (path === "/events" && req.method === "GET") {

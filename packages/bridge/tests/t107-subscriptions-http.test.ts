@@ -182,8 +182,15 @@ test("LIVE-shaped upsert (top-level participant, extendedText, string ts, append
       payload: {
         messages: [
           {
-            key: { remoteJid: "120363428874442773@g.us", fromMe: true, id: "3EB0764213F942527D3C58" },
-            message: { extendedTextMessage: { text: "t107 sse probe 2" }, messageContextInfo: { messageSecret: "x" } },
+            key: {
+              remoteJid: "120363428874442773@g.us",
+              fromMe: true,
+              id: "3EB0764213F942527D3C58",
+            },
+            message: {
+              extendedTextMessage: { text: "t107 sse probe 2" },
+              messageContextInfo: { messageSecret: "x" },
+            },
             messageTimestamp: "1791156862",
             status: "PENDING",
             participant: "358497773518:2@s.whatsapp.net",
