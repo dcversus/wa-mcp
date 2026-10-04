@@ -591,6 +591,28 @@ test("T94-D-H3claude — get_chat merges group participants; get_group_info read
   expect((info.inputSchema.properties ?? {}) as unknown).toBeDefined();
 });
 
+test("T97c — get_chat with_photo merges the profile picture URL", async () => {
+  const { fetchFn, calls } = mockFetch({
+    "/api/chats?limit=200": {
+      chats: [{ jid: "358497773518@s.whatsapp.net", name: "V", unreadCount: 0 }],
+    },
+    "/api/picture-url": { url: "https://pps.example/v.jpg" },
+  });
+  const tool = toolByName("get_chat");
+  if (!tool) throw new Error("get_chat missing");
+  const result = await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518@s.whatsapp.net", with_photo: true },
+  );
+  expect(calls[1]?.url).toBe("http://bridge.test:8080/api/picture-url?jid=358497773518%40s.whatsapp.net");
+  expect(calls[1]?.method).toBe("POST");
+  const parsed = JSON.parse(firstText(result)) as { pictureUrl?: string };
+  expect(parsed.pictureUrl).toBe("https://pps.example/v.jpg");
+  // default: no photo lookup
+  await tool.handler({ ...ctx, fetchFn }, { chat_jid: "358497773518@s.whatsapp.net" });
+  expect(calls).toHaveLength(3);
+});
+
 test("list_chats fetches the chat list and returns json text", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chats?limit=50": { chats: [{ jid: "a@g.us" }] } });
   const tool = toolByName("list_chats");
