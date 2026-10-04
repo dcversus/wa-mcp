@@ -107,3 +107,40 @@ async function assertUrl(
   const { assertPublicHttpUrl } = await import("../../src/media/resolve.ts");
   await assertPublicHttpUrl(url, lookup as never);
 }
+
+describe("T94-E H1 — IPv4-embedded IPv6 answers normalize to the embedded v4", () => {
+  const cases: Array<[string, string]> = [
+    ["IPv4-mapped loopback", "::ffff:127.0.0.1"],
+    ["IPv4-mapped RFC1918", "::ffff:10.0.0.1"],
+    ["NAT64 well-known prefix", "64:ff9b::7f00:1"],
+    ["6to4", "2002:7f00:1::"],
+  ];
+
+  for (const [label, answer] of cases) {
+    test(`by-name resolution to ${label} (${answer}) is refused`, async () => {
+      await expect(
+        assertUrl("http://evil.example/x", lookupOf([{ address: answer, family: 6 }])),
+      ).rejects.toHaveProperty("code", "SSRF_BLOCKED");
+    });
+  }
+
+  test("v4-mapped literals are refused without DNS", async () => {
+    await expect(assertUrl("http://[::ffff:127.0.0.1]/x")).rejects.toHaveProperty(
+      "code",
+      "SSRF_BLOCKED",
+    );
+    await expect(assertUrl("http://[::ffff:10.0.0.1]/x")).rejects.toHaveProperty(
+      "code",
+      "SSRF_BLOCKED",
+    );
+  });
+
+  test("genuinely public v6 answers still pass", async () => {
+    await expect(
+      assertUrl(
+        "http://example.com/x",
+        lookupOf([{ address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 }]),
+      ),
+    ).resolves.toBeUndefined();
+  });
+});
