@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { proto } from "baileys";
 import {
   buildButtonsMessage,
@@ -14,6 +14,7 @@ import {
   BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY,
   type MediaKind,
 } from "../../src/send/build.ts";
+import { SendError } from "../../src/send/safety.ts";
 
 test("plain text builds a conversation content", async () => {
   const content = await buildTextMessage({ text: "hello" });
@@ -158,4 +159,35 @@ test("buttons and lists build proto shells for business-account delivery", async
   expect(listMessage.title).toBe("Menu");
   expect((listMessage.sections ?? [])[0]?.rows?.[0]?.title).toBe("Pizza");
   expect(BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY).toBe(true);
+});
+
+describe("T84 line99 — poll validation", () => {
+  test("fewer than two options is rejected", async () => {
+    const err = await buildPollMessage("lunch", ["Pizza"]).catch((e: SendError) => e);
+    expect(err).toBeInstanceOf(SendError);
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.message).toContain("at least 2");
+  });
+
+  test("more than twelve options is rejected", async () => {
+    const options = Array.from({ length: 13 }, (_, i) => `opt ${i}`);
+    const err = await buildPollMessage("lunch", options).catch((e: SendError) => e);
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.message).toContain("at most 12");
+  });
+
+  test("duplicate options (case-insensitive) are rejected", async () => {
+    const err = await buildPollMessage("lunch", ["Pizza", "pizza", "Burger"]).catch(
+      (e: SendError) => e,
+    );
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.message).toContain("duplicate");
+    expect(err.message).toContain("pizza");
+  });
+
+  test("empty-string options are rejected", async () => {
+    const err = await buildPollMessage("lunch", ["Pizza", "   "]).catch((e: SendError) => e);
+    expect(err.code).toBe("VALIDATION_ERROR");
+    expect(err.message).toContain("non-empty");
+  });
 });
