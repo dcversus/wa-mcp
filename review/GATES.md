@@ -113,3 +113,12 @@ deferred — see deviations.
 - CI-green: BLOCKED — GitHub Actions billing (runs 36979526866+ never start; owner action recorded 5d17b71). Local gates green: vp check exit 0, vp test 369/369.
 - Live smoke: BLOCKED — pairing scan. Live pairing still fails (creds.update never persists; engine analysis complete: stale `creds.me` from earlier pairing-code calls blocks the fork's adv-secret rotation — identical devicePairingData across cycles); instrumented rescan is the next step.
 - Verdict: PARTIAL honestly — every gate runnable without pairing or paid CI is green; the two open items are external blockers, not missing work.
+
+## Phase J — refresh 2026-10-04 15:05 (post T73–T92 sweep, tarball cc8b9ed6)
+- vp check: exit 0 (0 errors). vp test: 726/726 (72 files) — supersedes the 369/369 figure above.
+- Live smoke: GREEN since 2026-10-02 pairing success — send matrix (text/poll/edit/location/contact/reaction/profile-status/delete/forward/media), incoming ingest, LID canonicalization (T63 proven by owner's live reply), group metadata, FTS/search/context, presence, concurrent MCP (2×200, 58 tools), SSE, rate starvation fixes (T74/T75), annotations live-verified. Evidence lines in VERIFY.md (T55–T92).
+- Fresh-container: PASS re-run 2026-10-04 on final tarball cc8b9ed6 (log /tmp/docker-test.log EXIT 0).
+- 8-platform sandbox registration: all 8 verified read-back (VERIFY Phase-J entry).
+- CI matrix: still BLOCKED — GitHub billing (fresh evidence run 37200516247, 2026-10-04 14:59). node:20 deviation unchanged (floor >=22.5.0, owner ratification pending).
+- Publish: NOT PERFORMED (by design) — §11 deferred items remain unchecked per contract.
+- Dogfood offer (14-day): delivered to owner 2026-10-04; awaiting decision.
