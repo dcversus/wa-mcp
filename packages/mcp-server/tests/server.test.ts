@@ -80,6 +80,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "forward_message",
     "mark_chat_read",
     "set_chat_state",
+    "set_presence",
     "list_contacts",
     "set_alias",
     "get_unread_counts",

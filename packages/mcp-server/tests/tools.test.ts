@@ -360,6 +360,141 @@ test("T93-B — search_messages takes query (q stays a legacy alias)", async () 
   expect(legacy.searchParams.get("q")).toBe("legacy");
 });
 
+test("T94-B — send_message schema exposes location/contact/poll params", () => {
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  const props = (tool.inputSchema.properties ?? {}) as Record<string, unknown>;
+  for (const name of ["location", "contact", "poll"]) {
+    expect(props[name], `missing property: ${name}`).toBeDefined();
+  }
+});
+
+test("T94-B — location posts the bridge location kind", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "LOC1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      location: { latitude: 60.17, longitude: 24.94, label: "office" },
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "location",
+    chat_jid: "358497773518@s.whatsapp.net",
+    latitude: 60.17,
+    longitude: 24.94,
+    label: "office",
+  });
+});
+
+test("T94-B — contact posts the bridge contact kind with a vcard-backed body", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "CT1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "358497773518@s.whatsapp.net",
+      contact: { name: "Ada", phones: ["+358497773518", "+15550100"] },
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "contact",
+    chat_jid: "358497773518@s.whatsapp.net",
+    contact_name: "Ada",
+    phones: ["+358497773518", "+15550100"],
+  });
+});
+
+test("T94-B — poll posts the bridge poll kind (selectableCount optional)", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "PL1" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "120363428874442773@g.us",
+      poll: { question: "Lunch?", options: ["Pizza", "Salad"] },
+    },
+  );
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    kind: "poll",
+    chat_jid: "120363428874442773@g.us",
+    poll_name: "Lunch?",
+    options: ["Pizza", "Salad"],
+  });
+  await tool.handler(
+    { ...ctx, fetchFn },
+    {
+      chat_jid: "120363428874442773@g.us",
+      poll: { question: "Pick", options: ["A", "B"], selectableCount: 1 },
+    },
+  );
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({
+    kind: "poll",
+    chat_jid: "120363428874442773@g.us",
+    poll_name: "Pick",
+    options: ["A", "B"],
+    selectable_count: 1,
+  });
+});
+
+test("T94-B — bridge validation errors pass through structured", async () => {
+  const failingFetch = (async () =>
+    new Response(
+      JSON.stringify({
+        error: { code: "VALIDATION_ERROR", message: "options must have between 2 and 12 unique entries" },
+      }),
+      { status: 400, headers: { "content-type": "application/json" } },
+    )) as unknown as typeof fetch;
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await expect(
+    tool.handler(
+      { ...ctx, fetchFn: failingFetch },
+      {
+        chat_jid: "120363428874442773@g.us",
+        poll: { question: "Bad", options: ["only-one"] },
+      },
+    ),
+  ).rejects.toThrow("options must have between 2 and 12 unique entries");
+});
+
+test("T94-B — combining location with poll is rejected", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/send": { message_id: "X" } });
+  const tool = toolByName("send_message");
+  if (!tool) throw new Error("send_message missing");
+  await expect(
+    tool.handler(
+      { ...ctx, fetchFn },
+      {
+        chat_jid: "a@s.whatsapp.net",
+        location: { latitude: 1, longitude: 2 },
+        poll: { question: "q", options: ["a", "b"] },
+      },
+    ),
+  ).rejects.toThrow("only one");
+  expect(calls).toHaveLength(0);
+});
+
+test("T94-B — set_presence posts the bridge presence route", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/presence": { ok: true } });
+  const tool = toolByName("set_presence");
+  if (!tool) throw new Error("set_presence missing");
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { chat_jid: "358497773518@s.whatsapp.net", presence: "composing" },
+  );
+  expect(calls[0]?.method).toBe("POST");
+  expect(calls[0]?.url).toBe("http://bridge.test:8080/api/presence");
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({
+    chat_jid: "358497773518@s.whatsapp.net",
+    presence: "composing",
+  });
+});
+
 test("list_chats fetches the chat list and returns json text", async () => {
   const { fetchFn, calls } = mockFetch({ "/api/chats?limit=50": { chats: [{ jid: "a@g.us" }] } });
   const tool = toolByName("list_chats");
