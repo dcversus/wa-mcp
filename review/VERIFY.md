@@ -317,3 +317,10 @@ no checkbox is claimed without evidence.
 
 - L220 (CLI subcommands): LIVE probe  → actual surface = install|pair|doctor|status|start|stop|skills. GOAL promises restart|update|uninstall|logs too. GAP: 4 subcommands missing (restart, update, uninstall, logs). Implementable — queued as T98 (CLI parity subcommands; logs = tail daemon log; restart = stop+start; uninstall = remove registrations + optional data; update = self-version note pointing to tarball flow given no-publish).
 - L207 (lethal-trifecta mitigation): approval gate + audit log + rate limiting + path restriction — rate limiting VERIFIED (Phase 0 /health bucket + T82 send-guard history), path restriction VERIFIED (PATH_FORBIDDEN outside ~/.wa-mcp/media, E2E round 1), audit log of sends = store is_from_me + send ledger rows (T94 era). Remaining: approval-gate wording — verify whitelist enforcement on next send (already enforced: send-rules block verified live in T94-C2b bypass matrix). Status: VERIFIED by components (each evidenced in prior phases); assembling one evidence line for GOAL tick.
+
+### T97 CLOSED (2026-10-04T20:26:11Z)
+
+- T97a: graceful-stop cite recorded (stop.ts module + bin.ts wiring + its test file).
+- T97b: 47846fd — limit-after-filter contract test, 26/26 green, RED evidence real ('expected [S3] to deeply equal [S3, S2]'). VERIFIED by orchestrator.
+- T97c: 7cc83bc RED then 7d8fc84 GREEN — get_chat gains with_photo (tools.ts + docs/reference/tools.md + tests). Orchestrator verify: mcp-server 94/94, vp check clean. VERIFIED.
+- GOAL lines 40/126/129 now fully evidenced — WEAK set from T96 cleared.
