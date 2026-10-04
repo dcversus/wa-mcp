@@ -443,7 +443,7 @@ export async function createHttpServer(
         return;
       }
       const limitValue = limit.value;
-      const offsetValue = offset.value;
+      const offsetValue = offset.value ?? 0;
       const messages = listMessages(store, {
         chatJid: params.get("chat_jid") ?? undefined,
         sender: params.get("sender") ?? undefined,
@@ -453,15 +453,12 @@ export async function createHttpServer(
         offset: offsetValue,
       });
       // T87 line121: truncation metadata for capped pages
-      let total = 0;
-      try {
-        total = countMessages(store, {
-          chatJid: params.get("chat_jid") ?? undefined,
-          sender: params.get("sender") ?? undefined,
-          after: after.value,
-          before: before.value,
-        });
-      }
+      const total = countMessages(store, {
+        chatJid: params.get("chat_jid") ?? undefined,
+        sender: params.get("sender") ?? undefined,
+        after: after.value,
+        before: before.value,
+      });
       const returned = messages.length;
       const truncated = offsetValue + returned < total;
       sendJson(res, 200, {
