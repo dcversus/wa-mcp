@@ -218,3 +218,60 @@ test("T94-D-H3 — processDue marks failed rows with the structured reason", asy
     store.close();
   }
 });
+
+
+describe("T94-D-M6 — scheduler timezone normalization", () => {
+  test("scheduleMessage normalizes offsets to UTC ISO (string-compare then works)", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6-")));
+    try {
+      // RED today: the +03:00 offset stored verbatim fires 3h late under the
+      // lexical due comparison
+      const id = scheduleMessage(store, {
+        chatJid: "358497773518@s.whatsapp.net",
+        payload: "tz text",
+        sendAt: "2026-12-01T09:00:00+03:00",
+      });
+      const row = store.db
+        .prepare("SELECT send_at FROM scheduled_messages WHERE id = ?")
+        .get(id) as { send_at: string };
+      expect(row.send_at).toBe("2026-12-01T06:00:00.000Z");
+    } finally {
+      store.close();
+    }
+  });
+
+  test("a non-ISO send_at is refused", () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6b-")));
+    try {
+      expect(() =>
+        scheduleMessage(store, {
+          chatJid: "358497773518@s.whatsapp.net",
+          payload: "x",
+          sendAt: "tomorrow",
+        }),
+      ).toThrow("send_at");
+    } finally {
+      store.close();
+    }
+  });
+
+  test("an offset-expressed row comes due at the right wall clock", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6c-")));
+    try {
+      scheduleMessage(store, {
+        chatJid: "358497773518@s.whatsapp.net",
+        payload: "tz due",
+        sendAt: "2026-12-01T09:00:00+03:00",
+      });
+      const sent: string[] = [];
+      // 06:00 UTC == 09:00 +03:00 — string-compare would need 09:00 UTC
+      await processDue(store, new Date("2026-12-01T06:00:01.000Z"), async (chatJid) => {
+        sent.push(chatJid);
+        return "M6ID";
+      });
+      expect(sent).toHaveLength(1);
+    } finally {
+      store.close();
+    }
+  });
+});

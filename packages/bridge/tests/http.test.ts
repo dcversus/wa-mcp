@@ -3819,3 +3819,21 @@ describe("T94-C2 — the send-safety gates cannot be bypassed", () => {
     expect(second.status).toBe(429);
   });
 });
+
+
+test("T94-D-M6 — POST /api/scheduled refuses a non-ISO send_at", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-m6d-")));
+  openedStores.push(store);
+  const bridge = await createHttpServer(stubHandle("connected"), { token: "test-token", store });
+  created.push(bridge);
+  const res = await fetch(url(bridge, "/api/scheduled"), {
+    method: "POST",
+    headers: { ...authHeader, "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_jid: "358497773518@s.whatsapp.net",
+      text: "later",
+      send_at: "tomorrow",
+    }),
+  });
+  expect(res.status).toBe(400);
+});
