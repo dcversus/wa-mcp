@@ -409,3 +409,59 @@ describe("T86 — MCP prompts capability", () => {
     expect(text).toContain("120363428874442773@g.us");
   });
 });
+
+describe("T88-B — export/bulk MCP tools", () => {
+  function rec() {
+    const log: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      log.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    return { log, toolCtx: { ...ctx, fetchFn } };
+  }
+
+  test("tools/list includes export_chat, export_unread_messages, bulk_clear", async () => {
+    const response = await handleRpcLine(makeRequest(50, "tools/list", {}), ctx);
+    const names = (resultOf(response).tools as Array<{ name: string }>).map((t) => t.name);
+    expect(names).toContain("export_chat");
+    expect(names).toContain("export_unread_messages");
+    expect(names).toContain("bulk_clear");
+  });
+
+  test("export_chat hits /api/export with chat_jid + format", async () => {
+    const { log, toolCtx } = rec();
+    await handleRpcLine(
+      makeRequest(51, "tools/call", {
+        name: "export_chat",
+        arguments: { chat_jid: "1@g.us", format: "md" },
+      }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/export?chat_jid=1%40g.us&format=md");
+  });
+
+  test("export_unread_messages hits /api/export?unread=true", async () => {
+    const { log, toolCtx } = rec();
+    await handleRpcLine(
+      makeRequest(52, "tools/call", { name: "export_unread_messages", arguments: {} }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/export?unread=true&format=jsonl");
+  });
+
+  test("bulk_clear posts chat_jids to /api/read-bulk", async () => {
+    const { log, toolCtx } = rec();
+    await handleRpcLine(
+      makeRequest(53, "tools/call", {
+        name: "bulk_clear",
+        arguments: { chat_jids: ["1@g.us", "2@g.us"] },
+      }),
+      toolCtx,
+    );
+    expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/read-bulk");
+    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ chat_jids: ["1@g.us", "2@g.us"] });
+  });
+});
