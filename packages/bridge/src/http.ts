@@ -3601,16 +3601,22 @@ export async function createHttpServer(
           const lastMessages = (
             opts.store.db
               .prepare(
-                "SELECT id, chat_jid, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp DESC LIMIT 25",
+                "SELECT id, chat_jid, sender_jid, is_from_me, timestamp FROM messages WHERE chat_jid = ? ORDER BY timestamp DESC LIMIT 25",
               )
               .all(input.chat_jid) as Array<{
               id: string;
               chat_jid: string;
+              sender_jid: string | null;
               is_from_me: number;
               timestamp: string;
             }>
           ).map((row) => ({
-            key: { remoteJid: row.chat_jid, id: row.id, fromMe: row.is_from_me === 1 },
+            key: {
+              remoteJid: row.chat_jid,
+              id: row.id,
+              fromMe: row.is_from_me === 1,
+              participant: row.is_from_me === 1 ? undefined : (row.sender_jid ?? undefined),
+            },
             messageTimestamp: Math.floor(new Date(row.timestamp).getTime() / 1000),
           }));
           const durationSeconds =
@@ -3633,8 +3639,9 @@ export async function createHttpServer(
             .catch((err: unknown) => {
               sendJson(res, 502, {
                 error: {
-                  code: "MODIFY_FAILED",
+                  code: "GROUP_CHAT_MODIFY_FAILED",
                   message: err instanceof Error ? err.message : "chatModify failed",
+                  hint: "1:1 chats archive/mute fine; groups need sender-attributed lastMessages",
                 },
               });
             });

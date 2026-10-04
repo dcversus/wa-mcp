@@ -1129,7 +1129,13 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
   };
   expect(body.jsonrpc).toBe("2.0");
   expect(body.id).toBe(1);
-  expect(body.result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
+  expect(body.result.capabilities).toEqual({
+    tools: {},
+    resources: { subscribe: false, listChanged: true },
+    prompts: {},
+    logging: {},
+    notifications: {},
+  });
   expect(body.result.serverInfo.name).toBe("wa-mcp");
 });
 
