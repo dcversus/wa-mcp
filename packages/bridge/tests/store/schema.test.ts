@@ -245,3 +245,20 @@ describe("T62/I group participants table (v8)", () => {
     }
   });
 });
+
+test("T94-D-M3 — the FTS update trigger fires only on content changes", () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-fts-m3-")));
+  try {
+    const triggers = store.db
+      .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'messages_fts%'")
+      .all() as Array<{ name: string; sql: string }>;
+    const update = triggers.find((trigger) => trigger.name === "messages_fts_update");
+    expect(update).toBeDefined();
+    // CODEX M3: the unscoped AFTER UPDATE trigger ran its unindexed FTS
+    // delete-scan on EVERY row update — markChatRead's per-row UPDATE was
+    // O(rows x FTS size) on the event loop
+    expect(update?.sql).toContain("AFTER UPDATE OF content");
+  } finally {
+    store.close();
+  }
+});
