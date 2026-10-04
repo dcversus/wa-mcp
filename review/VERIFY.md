@@ -276,3 +276,12 @@ no checkbox is claimed without evidence.
 - tarball reproducibility: repack from HEAD → sha256 0fa2fb11c46506ed… IDENTICAL to on-record tarball — VERIFIED
 - version-drift guard: ABSENT — probe set version 9.9.9 → pack fails (mv error) = accidental guard only; NO explicit assertion → follow-up task (T95)
 - package.json = 0.9.0 across 6 packages + bin.ts + SERVER_INFO + device label — VERIFIED (grep zero hits for other versions)
+
+### Phase 0 continued (2026-10-04T20:11:04Z)
+
+- pnpm audit --prod: No known vulnerabilities — VERIFIED
+- webui-dogfood: EXIT 0, all routes render, zero console errors (report /tmp/webui-dogfood-report.json) — VERIFIED
+- MCP HTTP transport: initialize → server wa-mcp 0.9.0, protocol 2025-06-18, bearer token accepted — VERIFIED
+- T95 version-drift guard: zai RED 6e177c4 + GREEN 3dab650 (self-consistency check) + my T95b 06e7f77 pinning contract 0.9.0; drift probe (9.9.9) → EXIT 1 with clear message; clean pack → EXIT 0, tarball sha256 0fa2fb11… IDENTICAL — CLOSED
+- act unavailable (not installed); CI-local equivalence: check/test/build/security job commands all run green locally in this audit (vp check, vp test, pnpm -r build via pack, pnpm audit) — NOTED (act install optional)
+- GOAL ticks: 148 checked, 147 with inline anchors, 1 anchor-less (line 120) — full crosswalk audit T96 in flight
