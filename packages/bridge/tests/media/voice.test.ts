@@ -160,3 +160,36 @@ describe("T90 line147 — per-engine input normalization", () => {
     expect(names[0]).toBe("voice.ogg");
   });
 });
+
+import { OpenAITtsEngine } from "../../src/media/tts.ts";
+
+describe("T90 line144 — OpenAI TTS engine", () => {
+  test("posts to /audio/speech and returns the audio bytes", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchFn = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(Buffer.from("tts-ogg-bytes"), {
+        status: 200,
+        headers: { "content-type": "audio/ogg" },
+      });
+    }) as unknown as typeof fetch;
+    const engine = new OpenAITtsEngine({
+      baseUrl: "https://api.example/v1",
+      apiKey: "sk-tts",
+      fetchFn,
+    });
+    const result = await engine.synthesize("say this");
+    expect(result.buffer).toEqual(Buffer.from("tts-ogg-bytes"));
+    const call = calls[0];
+    expect(call?.url).toBe("https://api.example/v1/audio/speech");
+    const headers = call?.init.headers as Record<string, string>;
+    expect(headers.authorization).toBe("Bearer sk-tts");
+    const spoken = JSON.parse(String(call?.init.body)) as { input: string; voice: string };
+    expect(spoken.input).toBe("say this");
+    expect(typeof spoken.voice).toBe("string");
+  });
+
+  test("missing config is a structured CONFIG error", () => {
+    expect(() => new OpenAITtsEngine({ baseUrl: "", apiKey: "" })).toThrow(/WA_OPENAI_BASE_URL/);
+  });
+});
