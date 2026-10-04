@@ -243,3 +243,59 @@ describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () 
     void createTranscriptionEngine;
   });
 });
+
+describe("T89-D — newsletters follow/unfollow/send/list", () => {
+  function newsletterSocket() {
+    return {
+      newsletterFollow: vi.fn(async () => undefined),
+      newsletterUnfollow: vi.fn(async () => undefined),
+      sendMessage: vi.fn(async () => ({ key: { id: "NL1", remoteJid: "newsletter-jid" } })),
+    } as unknown as WASocket;
+  }
+
+  test("line161 — follow/unfollow route to the engine; list reads our registry", async () => {
+    const socket = newsletterSocket();
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-nl-")));
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+    });
+    created.push({ close: bridge.close });
+    const follow = await fetch(url(bridge, "/api/newsletters/follow"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "1234@newsletter" }),
+    });
+    expect(follow.status).toBe(200);
+    const followCalls = (socket.newsletterFollow as ReturnType<typeof vi.fn>).mock.calls;
+    expect(followCalls[0]).toEqual(["1234@newsletter"]);
+    const list = (await (
+      await fetch(url(bridge, "/api/newsletters"), { headers: authHeader })
+    ).json()) as { newsletters: Array<{ jid: string }> };
+    expect(list.newsletters).toEqual([{ jid: "1234@newsletter" }]);
+    const unfollow = await fetch(url(bridge, "/api/newsletters/unfollow"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "1234@newsletter" }),
+    });
+    expect(unfollow.status).toBe(200);
+    const unfollowCalls = (socket.newsletterUnfollow as ReturnType<typeof vi.fn>).mock.calls;
+    expect(unfollowCalls[0]).toEqual(["1234@newsletter"]);
+  });
+
+  test("line161 — newsletter send posts a text message to the newsletter jid", async () => {
+    const socket = newsletterSocket();
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+    });
+    created.push({ close: bridge.close });
+    const res = await fetch(url(bridge, "/api/newsletters/send"), {
+      method: "POST",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({ jid: "1234@newsletter", text: "bulletin" }),
+    });
+    expect(res.status).toBe(200);
+    const sendCalls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
+    expect(sendCalls[0]).toEqual(["1234@newsletter", { text: "bulletin" }]);
+  });
+});
