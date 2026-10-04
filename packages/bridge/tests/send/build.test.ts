@@ -186,10 +186,9 @@ describe("T84 line99 — poll validation", () => {
   });
 
   test("empty-string options are rejected", async () => {
-    const err = await buildPollMessage("lunch", ["Pizza", "   "]).catch(
-      (e: unknown) => e as SendError,
-    );
-    expect(err.code).toBe("VALIDATION_ERROR");
-    expect(err.message).toContain("non-empty");
+    await expect(buildPollMessage("lunch", ["Pizza", "   "])).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: expect.stringContaining("non-empty"),
+    });
   });
 });
