@@ -1042,7 +1042,9 @@ test("T80-FIX — the conflict-aware logger preserves the pino prototype surface
 describe("T84 line92 — logout", () => {
   test("logout ends the socket, marks creds, keeps status logged-out (no auto-reconnect)", async () => {
     const sock = fakeSocket();
-    (sock as { logout?: unknown }).logout = vi.fn(async () => ({ success: true }));
+    (sock as unknown as { logout: ReturnType<typeof vi.fn> }).logout = vi.fn(async () => ({
+      success: true,
+    }));
     mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
     const handle = await trackedStart("/tmp/wa-mcp-test-auth", {});
     await handle.logout();

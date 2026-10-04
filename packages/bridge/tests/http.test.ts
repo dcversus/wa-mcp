@@ -2275,12 +2275,13 @@ test("send failures are LOGGED before the 500 (T56: silent failures forbidden)",
   expect(errors.length).toBeGreaterThan(0);
   // T84: the mapped SendError logs code + retry metadata; the raw engine
   // message rides the top-level entry
-  const first = errors[0] as { code?: string; message?: string; err?: { message?: string } };
-  expect(first.code ?? first.err?.code).toBe("SEND_FAILED");
-  expect(
-    `${first.message ?? ""}${first.err?.message ?? ""}`.includes("NoMatchingSessions") ||
-      errors.length > 0,
-  ).toBe(true);
+  const first = errors[0] as {
+    code?: string;
+    message?: string;
+    err?: { message?: string };
+  };
+  expect(first.code).toBe("SEND_FAILED");
+  expect(String(first.message ?? first.err?.message ?? "")).toContain("NoMatchingSessions");
 });
 
 describe("T57 wire content shapes (AnyMessageContent, engine dispatch)", () => {
