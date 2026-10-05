@@ -270,6 +270,64 @@ export function resolveTranscriptionSettings(
   };
 }
 
+export async function extractAudio(
+  buffer: Buffer,
+  mime: string,
+  opts: {
+    ffmpegPath: string;
+    spawnFn?: typeof spawn;
+    tmpDir?: string;
+  } = { ffmpegPath: "ffmpeg" },
+): Promise<Buffer> {
+  const spawnFn = opts.spawnFn ?? spawn;
+  const dir = opts.tmpDir ?? mkdtempSync(join(tmpdir(), "wa-mcp-audio-"));
+  const ownsTmp = opts.tmpDir === undefined;
+  const out = join(dir, "audio.wav");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawnFn(opts.ffmpegPath, [
+        "-i",
+        "pipe:0",
+        "-vn",
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-f",
+        "wav",
+        out,
+      ]);
+      child.stdin.on("error", () => undefined);
+      child.stdin.end(buffer);
+      child.on("error", (err: NodeJS.ErrnoException) =>
+        reject(
+          new MediaError(
+            "ENGINE_UNAVAILABLE",
+            `ffmpeg not runnable at ${opts.ffmpegPath}: ${err.message} — install with: brew install ffmpeg`,
+          ),
+        ),
+      );
+      child.on("close", (code) => {
+        if (code !== 0) {
+          reject(
+            new MediaError(
+              "ENGINE_UNAVAILABLE",
+              `ffmpeg exited ${code} — ${mime} may have no audio track`,
+            ),
+          );
+          return;
+        }
+        resolve();
+      });
+    });
+    return readFileSync(out);
+  } finally {
+    if (ownsTmp) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+}
+
 export function readBridgeConfig(dataDir: string | undefined): {
   transcription?: {
     engine?: string;

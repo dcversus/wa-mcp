@@ -94,6 +94,7 @@ import {
   resolveTranscriptionSettings,
   readBridgeConfig,
   writeTranscriptionSection,
+  extractAudio,
 } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
@@ -2115,7 +2116,16 @@ export async function createHttpServer(
         row?.media_type !== null && row?.media_type !== undefined && row.media_type.length > 0
           ? row.media_type
           : "audio/ogg";
-      const result = await engine.transcribe(buffer, mime);
+      let audioBuffer = buffer;
+      if (mime.startsWith("video/")) {
+        audioBuffer = await extractAudio(buffer, mime, {
+          ffmpegPath: process.env.WA_FFMPEG_BIN ?? "ffmpeg",
+        });
+      }
+      const result = await engine.transcribe(
+        audioBuffer,
+        mime.startsWith("video/") ? "audio/wav" : mime,
+      );
       saveTranscript(
         store,
         original.key.remoteJid ?? "",
