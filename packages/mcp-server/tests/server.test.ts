@@ -102,6 +102,8 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "mark_chat_unread",
     "delete_chat",
     "clear_chat",
+    "subscribe_events",
+    "unsubscribe_events",
     "get_privacy",
     "block_unblock",
     "get_blocklist",

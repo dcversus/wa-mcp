@@ -1286,6 +1286,72 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "subscribe_events",
+    description:
+      "Subscribe to WhatsApp events for a chat (or all chats). Appends matching events as JSONL lines to a local inbox file and returns the subscription id and inbox path for the agent to watch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chat_jid: {
+          type: "string",
+          description: "Chat or group jid; omit with all_chats for every chat",
+        },
+        from_jid: { type: "string", description: "Only events from this sender jid (optional)" },
+        kind: {
+          type: "array",
+          items: { type: "string" },
+          description: "Event kinds to match (default: message)",
+        },
+        include_media: {
+          type: "boolean",
+          description: "Also deliver media-bearing messages (default false)",
+        },
+        all_chats: { type: "boolean", description: "Match every chat (requires chat_jid omitted)" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const body: Record<string, unknown> = {};
+      if (typeof args.chat_jid === "string") {
+        body.chat_jid = args.chat_jid;
+      }
+      if (typeof args.from_jid === "string") {
+        body.from_jid = args.from_jid;
+      }
+      if (Array.isArray(args.kind)) {
+        body.kinds = args.kind;
+      }
+      if (args.include_media === true) {
+        body.include_media = true;
+      }
+      if (args.all_chats === true) {
+        body.all_chats = true;
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/subscriptions", {
+        method: "POST",
+        body: JSON.stringify(body),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "unsubscribe_events",
+    description: "Remove an event subscription by id.",
+    inputSchema: {
+      type: "object",
+      required: ["id"],
+      properties: {
+        id: { type: "string" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const id = requireString(args, "id");
+      const payload = (await bridgeFetch(toolCtx, `/api/subscriptions/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
     name: "get_privacy",
     description:
       "Read the account's current privacy settings (lastSeen, online, profilePic, status, groupAdd, call, messages, readReceipts).",
@@ -2243,6 +2309,8 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   // transcribe_* pair only write the LOCAL media dir / transcript cache)
   get_chat: { readOnlyHint: true },
   get_privacy: { readOnlyHint: true },
+  subscribe_events: { readOnlyHint: false, idempotentHint: false },
+  unsubscribe_events: { destructiveHint: false, idempotentHint: true },
   label_list: { readOnlyHint: true },
   export_chat: { readOnlyHint: true },
   export_unread_messages: { readOnlyHint: true },

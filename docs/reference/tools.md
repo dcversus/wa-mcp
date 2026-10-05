@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 71 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 73 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -669,6 +669,53 @@ Clear all messages in a chat (chat stays in the list).
 
 - `chat_jid` (string, required)
 - required: `chat_jid`
+
+### subscribe_events
+
+Subscribe to WhatsApp events for a chat (or all chats). Appends matching events as JSONL lines to a local inbox file and returns the subscription id and inbox path for the agent to watch.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "chat_jid": {
+      "type": "string",
+      "description": "Chat or group jid; omit with all_chats for every chat"
+    },
+    "from_jid": { "type": "string", "description": "Only events from this sender jid (optional)" },
+    "kind": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Event kinds to match (default: message)"
+    },
+    "include_media": {
+      "type": "boolean",
+      "description": "Also deliver media-bearing messages (default false)"
+    },
+    "all_chats": {
+      "type": "boolean",
+      "description": "Match every chat (requires chat_jid omitted)"
+    }
+  }
+}
+```
+
+- `chat_jid` (string, optional) — Chat or group jid; omit with all_chats for every chat
+- `from_jid` (string, optional) — Only events from this sender jid (optional)
+- `kind` (array, optional) — Event kinds to match (default: message)
+- `include_media` (boolean, optional) — Also deliver media-bearing messages (default false)
+- `all_chats` (boolean, optional) — Match every chat (requires chat_jid omitted)
+
+### unsubscribe_events
+
+Remove an event subscription by id.
+
+```json
+{ "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } }
+```
+
+- `id` (string, required)
+- required: `id`
 
 ### get_privacy
 

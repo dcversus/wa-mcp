@@ -70,6 +70,8 @@ test("the registry exposes the full launch set", () => {
     "mark_chat_unread",
     "delete_chat",
     "clear_chat",
+    "subscribe_events",
+    "unsubscribe_events",
     "get_privacy",
     "block_unblock",
     "get_blocklist",
