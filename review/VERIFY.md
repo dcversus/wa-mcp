@@ -461,3 +461,11 @@ Transport live proofs: stdio push frame on stdout (T110), /api/mcp-notify frames
 Bugs caught live this phase: Baileys proto getters (media false-positive), doubled subs path, main ctx missing fetchFn (pump dead in real binary), V19 ALTER on pre-table stores, 11 type errors swept.
 
 Suite 925/925 (95 files), vp check 0 errors. zai 429-blocked throughout — orchestrator-implemented per BLOCKED.md.
+
+### PHASE 3 CLOSED — sign-in symmetry (2026-10-05T00:30:37Z)
+
+- T118: CLI pair --code now prints the code AND waits for the phone (shared poll loop; exit 1 + 'timed out' hint on timeout). RED: 2 new tests failed on the immediate-return behavior; GREEN after restructure (QR render moved into the else branch). Old 'prints the formatted pairing code' test updated to the wait contract (was asserting the pre-T118 immediate exit).
+- Web UI 'use a code instead' phone-form: ALREADY shipped in T73 (pages-pairing.ts phone-form + main.ts pairingCode binding + api.test pairingCode POST) — verified present + tested, no new work needed.
+- T120: getting-started documents both paths (QR scan + pair --code with 'Link with phone number instead' + web-UI cross-ref) with drift-guard tests (docs vs bin.ts flag parsing vs pages-pairing phone-form).
+- Phase 3 contract line 'web-first flow NEVER requires a terminal step' verified: web #/pairing offers QR + phone-form both.
+Suite 930/930 (97 files), vp check 0 errors.
