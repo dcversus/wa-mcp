@@ -22,3 +22,11 @@
 - Dispatch 1: full Gate B diff (25d6052^..HEAD, 450 lines) review → verdict NOT CLEAN (1 blocker, 5 majors, 3 minors). All findings mechanically verified before fixing (blocker confirmed live: bin.ts:260 still DEFAULT_DATA_DIR).
 - Dispatch 2: re-review of the fix wave (799-line diff) → verdict NOT CLEAN (new blocker: readCappedLines per-line handleStream reset MCP sessions; residue: per-row write_seq). Both fixed + minors (dedupe kinds check, CLI empty entries, Retry-After empty/cap, strong --data-dir wire assertion).
 - Both dispatches: claude -p --model opus --permission-mode plan; prompts + verdicts at /tmp/opus-gated.md, /tmp/opus-rereview.md (preserved in session log).
+
+### Opus dispatch — WebUI usable-round review (2026-10-05T13:11:58Z)
+
+- Scope: 1df0a40..HEAD (3 commits: stats-format, redesign, usable-round W1-W3), 1921-line diff, Gate C deslop clean beforehand.
+- Verdict: NOT CLEAN — 1 BLOCKER (B1: new profile controls never wired — handlers bind dead #name-form/#privacy-form selectors; no setProfileStatus client method; read/write privacy key mismatch), 4 MAJORS (M1 latch semantics + retry-storm risk, M2 stale stored token strands UI after daemon restart — "likely the REAL cause of the owner's paired-then-401", M3 /api/me name fallback returns the RECIPIENT's digits for 1:1 fromMe messages — one save would rename the owner to a contact's number, M4 picker races/duplicate subs/silent failures), 11 minors (CSS regressions: .chat-main flex, .messages scroll, send-box sticky, no mobile breakpoint; orphaned styles vs unstyled markup; dead privacyMatrixHtml; weak t141 assertions; unescaped initials).
+- Orchestrator mechanically verified B1 + M3 before dispatching fixes (grep: handlers bind dead selectors; senderNameOf fallback = recipient digits).
+- Fix round dispatched to zai (brief: .agent/prompts/WEBUI-REVIEW-FIXES.md, order B1→M3→M1+M2→M4→minors).
+- Review preserved: .agent/prompts/OPUS-WEBUI-REVIEW.md + /tmp/opus-webui-review.md.
