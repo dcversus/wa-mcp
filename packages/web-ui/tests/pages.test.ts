@@ -539,3 +539,21 @@ test("T142-W3 — profilePageHtml mirrors native WhatsApp: me-card + privacy row
   expect(html).toContain('data-privacy-key="calladd"');
   expect(html).toContain("358999@s.whatsapp.net");
 });
+
+test("T106-major4 — privacy rows derive from state privacyOptionsFor; live values render selected", async () => {
+  const { privacyOptionsFor } = (await import("../src/state.ts")) as {
+    privacyOptionsFor: (key: string) => string[];
+  };
+  expect(privacyOptionsFor("profile")).toContain("contact_blacklist");
+  expect(privacyOptionsFor("groupadd")).toContain("none");
+  const html = profilePageHtml({
+    blocklist: [],
+    me: { pn: null, name: "V", status: null },
+    privacy: { profile: "contact_blacklist", groupadd: "none", last: "nobody" },
+  });
+  // live values outside the vocabulary render as an extra selected option
+  expect(html).toContain('<option value="nobody" selected>nobody</option>');
+  expect(html).toContain('<option value="contact_blacklist" selected');
+  // groupadd: none is a legal option and shows selected for the live value
+  expect(html).toContain('<option value="none" selected>none</option>');
+});

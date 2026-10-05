@@ -61,8 +61,10 @@ export function loadPairingToken(storage: SettingsStorage): string {
 }
 
 export interface ExchangeState {
+  /** the daemon reports loggedIn — a latched failure retries once it flips */
   loggedIn: boolean;
   token: string;
+  latched: boolean;
   terminal: boolean;
   retryNotBefore: number;
   now: number;
@@ -79,14 +81,46 @@ export interface ExchangeFailureVerdict {
  * sync once loggedIn. */
 export function classifyExchangeFailure(
   failure: { status: number; retryAfterMs?: number | null } | null,
+  context: { firstAttempt?: boolean } = {},
 ): ExchangeFailureVerdict {
+  // 403: non-loopback origin or bootstrap disabled — nothing changes in this
+  // page load. 401: the inline token form is the path, and retrying would
+  // loop at ~2 req/s against the exchange cap — except on the very first
+  // attempt, where a 401 can be a pre-bootstrap startup race.
   if (failure !== null && failure.status === 403) {
+    return { terminal: true, retryAfterMs: null };
+  }
+  if (failure !== null && failure.status === 401) {
+    if (context.firstAttempt === true) {
+      return { terminal: false, retryAfterMs: null };
+    }
     return { terminal: true, retryAfterMs: null };
   }
   if (failure !== null && failure.status === 429) {
     return { terminal: false, retryAfterMs: failure.retryAfterMs ?? null };
   }
   return { terminal: false, retryAfterMs: null };
+}
+
+export interface ExchangeFailureInput {
+  failure: { status: number; retryAfterMs?: number | null } | null;
+  attempt: number;
+  now: number;
+}
+
+export interface ExchangeFailureResult {
+  terminal: boolean;
+  retryNotBefore: number;
+  latched: true;
+}
+
+export function applyExchangeFailure(input: ExchangeFailureInput): ExchangeFailureResult {
+  const verdict = classifyExchangeFailure(input.failure, { firstAttempt: input.attempt <= 1 });
+  return {
+    terminal: verdict.terminal,
+    retryNotBefore: verdict.retryAfterMs !== null ? input.now + verdict.retryAfterMs : 0,
+    latched: true,
+  };
 }
 
 export function shouldExchange(state: ExchangeState): boolean {
@@ -96,7 +130,34 @@ export function shouldExchange(state: ExchangeState): boolean {
   if (state.terminal) {
     return false;
   }
+  // a latched failure only retries once the daemon reports loggedIn —
+  // while unpaired the retry would just loop against a closed pairing window
+  if (state.latched && !state.loggedIn) {
+    return false;
+  }
   return state.now >= state.retryNotBefore;
+}
+
+export interface StaleTokenCheck {
+  token: string;
+  terminal: boolean;
+  exchangeMinted: boolean;
+  clearedForEpoch: number;
+  currentEpoch: number;
+}
+
+/** T147: a 401 may wipe the stored token once per epoch. Only a token the
+ * exchange itself wrote is wipeable — a manually entered one never is. The
+ * wipe budget is armed by a successful exchange (epoch bump) and consumed by
+ * one clear; a terminal failure keeps the token (the inline form takes over). */
+export function shouldClearStaleToken(check: StaleTokenCheck): boolean {
+  if (check.terminal || check.token.length === 0) {
+    return false;
+  }
+  if (!check.exchangeMinted) {
+    return false;
+  }
+  return check.clearedForEpoch < check.currentEpoch;
 }
 
 /** Priority: saved session token wins; the ephemeral pairing token is the
@@ -117,6 +178,33 @@ export const PRIVACY_READ_TO_WRITE: Record<string, string> = {
   online: "online",
   messages: "messages",
 };
+
+export interface PickerToggle {
+  checked: boolean;
+  includeMedia: boolean;
+  chatJid: string;
+  subIds: string[];
+}
+
+export type PickerAction =
+  | { kind: "create"; chatJid: string; kinds: string[]; includeMedia: boolean }
+  | { kind: "delete"; ids: string[] }
+  | { kind: "none" };
+
+export function pickerToggleAction(toggle: PickerToggle): PickerAction {
+  if (toggle.checked) {
+    return {
+      kind: "create",
+      chatJid: toggle.chatJid,
+      kinds: ["message"],
+      includeMedia: toggle.includeMedia,
+    };
+  }
+  if (toggle.subIds.length === 0) {
+    return { kind: "none" };
+  }
+  return { kind: "delete", ids: toggle.subIds };
+}
 
 const PRIVACY_VALUES: Record<string, string[]> = {
   last: ["all", "contacts", "contact_blacklist", "none"],

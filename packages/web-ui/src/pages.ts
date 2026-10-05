@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape.ts";
+import { privacyOptionsFor } from "./state.ts";
 
 export function initials(name: string): string {
   const trimmed = name.trim();
@@ -28,11 +29,30 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "settings", label: "Settings", href: "#/settings" },
 ];
 
-export function navHtml(active: string): string {
-  return NAV_SECTIONS.map(
-    (section) =>
-      `<a href="${section.href}"${section.id === active ? ' class="active"' : ""} data-nav="${section.id}">${section.label}</a>`,
-  ).join("");
+export function navHtml(active: string, version = "0.9.0"): string {
+  const groups: Array<{ label: string; keys: string[] }> = [
+    { label: "chats", keys: ["chats", "unread"] },
+    { label: "people", keys: ["contacts", "groups", "profile"] },
+    { label: "automations", keys: ["subscriptions"] },
+    { label: "system", keys: ["status", "pairing", "settings"] },
+  ];
+  const brand = `<div class="brand"><strong>wa-mcp</strong><span class="version">v${version}</span></div>`;
+  const links = groups
+    .map((group) => {
+      const label = `<div class="nav-group">${group.label}</div>`;
+      const links = group.keys
+        .map((key) => {
+          const section = NAV_SECTIONS.find((candidate) => candidate.id === key);
+          if (section === undefined) {
+            return "";
+          }
+          return `<a href="${section.href}"${section.id === active ? ' class="active"' : ""} data-nav="${section.id}">${section.label}</a>`;
+        })
+        .join("");
+      return label + links;
+    })
+    .join("");
+  return `${brand}${links}`;
 }
 
 export interface StatusDashboardInput {
@@ -71,7 +91,7 @@ export function formatStatValue(key: string, value: unknown): string {
   }
   if (typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `${k}: ${formatStatValue(k, v)}`)
+      .map(([k, v]) => `${k}: (${formatStatValue(k, v)})`)
       .join(", ");
   }
   if (typeof value === "string" || typeof value === "number") {
@@ -324,15 +344,15 @@ export interface MeInfo {
   status: string | null;
 }
 
-const PRIVACY_ROWS: Array<{ key: string; label: string; values: string[] }> = [
-  { key: "last", label: "last seen", values: ["all", "contacts", "contact_blacklist", "none"] },
-  { key: "online", label: "online", values: ["all", "match_last_seen"] },
-  { key: "profile", label: "profile photo", values: ["all", "contacts", "none"] },
-  { key: "status", label: "about", values: ["all", "contacts", "none"] },
-  { key: "groupadd", label: "groups", values: ["all", "contacts", "contact_blacklist"] },
-  { key: "calladd", label: "calls", values: ["all", "known"] },
-  { key: "messages", label: "who can message", values: ["all", "contacts"] },
-  { key: "readreceipts", label: "read receipts", values: ["all", "none"] },
+const PRIVACY_ROWS: Array<{ key: string; label: string }> = [
+  { key: "last", label: "last seen" },
+  { key: "online", label: "online" },
+  { key: "profile", label: "profile photo" },
+  { key: "status", label: "about" },
+  { key: "groupadd", label: "groups" },
+  { key: "calladd", label: "calls" },
+  { key: "messages", label: "who can message" },
+  { key: "readreceipts", label: "read receipts" },
 ];
 
 export function profilePageHtml(input: {
@@ -348,18 +368,20 @@ export function profilePageHtml(input: {
     .join("");
   const me = input.me ?? { pn: null, name: null, status: null };
   const initial = (me.name ?? "?").charAt(0).toUpperCase();
-  const privacyRows = PRIVACY_ROWS.map(
-    (
-      row,
-    ) => `<div class="privacy-row"><label>${escapeHtml(row.label)}<select data-privacy-key="${row.key}">
-${row.values
+  const privacyRows = PRIVACY_ROWS.map((row) => {
+    const options = privacyOptionsFor(row.key);
+    const live = (input.privacy ?? {})[row.key];
+    const all =
+      live !== undefined && live !== null && !options.includes(live) ? [live, ...options] : options;
+    return `<div class="privacy-row"><label>${escapeHtml(row.label)}<select data-privacy-key="${row.key}">
+${all
   .map(
     (value) =>
-      `<option value="${value}"${(input.privacy ?? {})[row.key] === value ? " selected" : ""}>${escapeHtml(value)}</option>`,
+      `<option value="${escapeHtml(value)}"${value === live ? " selected" : ""}>${escapeHtml(value)}</option>`,
   )
   .join("")}
-</select></label></div>`,
-  ).join("");
+</select></label></div>`;
+  }).join("");
   return `<section id="profile-page"><h2>Profile</h2>
 <div class="me-card"><span class="avatar">${escapeHtml(initial)}</span>
 <div class="me-fields">
@@ -417,29 +439,6 @@ export function eventsPageHtml(events: Array<FeedEntry>): string {
     )
     .join("");
   return `<section id="events-page"><div class="events-header"><h2>Events</h2><button id="events-pause">pause</button><button id="events-clear">clear</button></div><ul id="events-feed">${items}</ul></section>`;
-}
-
-const PRIVACY_FIELDS: Array<{ key: string; label: string }> = [
-  { key: "readReceipts", label: "Read receipts" },
-  { key: "lastSeen", label: "Last seen" },
-  { key: "status", label: "Status addressee" },
-  { key: "groups", label: "Who can add me to groups" },
-  { key: "profilePic", label: "Profile photo" },
-  { key: "online", label: "Online status" },
-];
-
-const PRIVACY_VALUES = ["all", "contacts", "contact_blacklist", "known", "none", "match_last_seen"];
-
-export function privacyMatrixHtml(current: Record<string, string>): string {
-  const rows = PRIVACY_FIELDS.map((field) => {
-    const value = current[field.key] ?? "unknown";
-    const options = PRIVACY_VALUES.map(
-      (option) =>
-        `<option value="${option}"${option === value ? " selected" : ""}>${option}</option>`,
-    ).join("");
-    return `<div class="privacy-row"><label>${field.label}<select name="${field.key}">${options}</select></label></div>`;
-  }).join("");
-  return `<section id="privacy-matrix"><h3>Privacy</h3>${rows}<button id="privacy-apply" type="button">apply privacy</button></section>`;
 }
 
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */

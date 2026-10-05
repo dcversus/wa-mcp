@@ -21,16 +21,37 @@ test("network failures are retryable without delay", () => {
 
 test("shouldExchange: terminal latch blocks even when loggedIn", () => {
   expect(
-    shouldExchange({ loggedIn: true, token: "", terminal: true, retryNotBefore: 0, now: 1000 }),
+    shouldExchange({
+      loggedIn: true,
+      latched: false,
+      token: "",
+      terminal: true,
+      retryNotBefore: 0,
+      now: 1000,
+    }),
   ).toBe(false);
 });
 
 test("shouldExchange: retry-after window blocks until it passes", () => {
   expect(
-    shouldExchange({ loggedIn: true, token: "", terminal: false, retryNotBefore: 5000, now: 4000 }),
+    shouldExchange({
+      loggedIn: true,
+      latched: false,
+      token: "",
+      terminal: false,
+      retryNotBefore: 5000,
+      now: 4000,
+    }),
   ).toBe(false);
   expect(
-    shouldExchange({ loggedIn: true, token: "", terminal: false, retryNotBefore: 5000, now: 6000 }),
+    shouldExchange({
+      loggedIn: true,
+      latched: false,
+      token: "",
+      terminal: false,
+      retryNotBefore: 5000,
+      now: 6000,
+    }),
   ).toBe(true);
 });
 
@@ -38,6 +59,7 @@ test("shouldExchange: a stored token always blocks", () => {
   expect(
     shouldExchange({
       loggedIn: true,
+      latched: true,
       token: "stored",
       terminal: false,
       retryNotBefore: 0,
@@ -48,6 +70,13 @@ test("shouldExchange: a stored token always blocks", () => {
 
 test("shouldExchange: clean state exchanges", () => {
   expect(
-    shouldExchange({ loggedIn: false, token: "", terminal: false, retryNotBefore: 0, now: 1000 }),
+    shouldExchange({
+      loggedIn: false,
+      latched: false,
+      token: "",
+      terminal: false,
+      retryNotBefore: 0,
+      now: 1000,
+    }),
   ).toBe(true);
 });

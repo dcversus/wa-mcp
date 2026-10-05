@@ -30,6 +30,7 @@ import {
   type PairingView,
 } from "./pages-pairing.ts";
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
+import { escapeHtml } from "./escape.ts";
 import {
   effectiveToken,
   loadPairingToken,
@@ -37,8 +38,10 @@ import {
   savePairingToken,
   saveSettings,
   type WebSettings,
+  applyExchangeFailure,
+  pickerToggleAction,
+  shouldClearStaleToken,
   shouldExchange,
-  classifyExchangeFailure,
   buildPrivacyPatch,
 } from "./state.ts";
 
@@ -74,12 +77,17 @@ async function syncPairingToken(): Promise<void> {
 // flow instead of retrying in a loop.
 let exchangeTerminal = false;
 let exchangeRetryNotBefore = 0;
-let staleTokenCleared = false;
+let tokenEpoch = 0;
+let clearedForEpoch = -1;
+let exchangeMinted = true;
+let exchangeLatched = false;
+let exchangeAttempts = 0;
 async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
   if (
     !shouldExchange({
       loggedIn,
       token: settings.token,
+      latched: exchangeLatched,
       terminal: exchangeTerminal,
       retryNotBefore: exchangeRetryNotBefore,
       now: Date.now(),
@@ -87,33 +95,46 @@ async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
   ) {
     return;
   }
+  exchangeLatched = true;
+  exchangeAttempts += 1;
   try {
     const res = await client.uiToken();
     if (typeof res.token === "string" && res.token.length > 0) {
       settings = { ...settings, token: res.token };
       saveSettings(localStorage, settings);
       client = createClient();
+      tokenEpoch += 1;
+      exchangeMinted = true;
     }
   } catch (err) {
-    const verdict = classifyExchangeFailure(
-      err instanceof ApiError ? { status: err.status, retryAfterMs: err.retryAfterMs } : null,
-    );
-    if (verdict.terminal) {
+    const next = applyExchangeFailure({
+      failure:
+        err instanceof ApiError ? { status: err.status, retryAfterMs: err.retryAfterMs } : null,
+      attempt: exchangeAttempts,
+      now: Date.now(),
+    });
+    if (next.terminal) {
       exchangeTerminal = true;
     }
-    if (verdict.retryAfterMs !== null) {
-      exchangeRetryNotBefore = Date.now() + verdict.retryAfterMs;
-    }
+    exchangeRetryNotBefore = next.retryNotBefore;
   }
 }
 
 /** A daemon restart rotates the UI token — a stored token then 401s every
  * call. Clear it ONCE per page load and let the exchange run again. */
 function clearStaleTokenOnce(): void {
-  if (staleTokenCleared || settings.token.length === 0) {
+  if (
+    !shouldClearStaleToken({
+      token: settings.token,
+      terminal: exchangeTerminal,
+      exchangeMinted,
+      clearedForEpoch,
+      currentEpoch: tokenEpoch,
+    })
+  ) {
     return;
   }
-  staleTokenCleared = true;
+  clearedForEpoch = tokenEpoch;
   settings = { ...settings, token: "" };
   saveSettings(localStorage, settings);
   client = createClient();
@@ -324,7 +345,7 @@ async function renderCurrent(): Promise<void> {
     console.error("render failed:", err);
     const app = document.getElementById("app");
     if (app !== null) {
-      app.innerHTML = `<p class="danger">render failed: ${String(err instanceof Error ? err.message : err)}</p>`;
+      app.innerHTML = `<p class="danger">render failed: ${escapeHtml(String(err instanceof Error ? err.message : err))}</p>`;
     }
   }
 }
@@ -444,12 +465,11 @@ const loaders: {
       ...sub,
       inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
     }));
-    activeSubRows = rows.map((row) => ({ id: row.id, chatJid: row.chatJid }));
     const chatsPayload = (await client.getChats().catch(() => ({ chats: [] }))) as {
       chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
     };
     const chatRows = (chatsPayload.chats ?? [])
-      .filter((c) => !c.jid.endsWith("@lid"))
+      .filter((c) => typeof c.jid === "string" && !c.jid.endsWith("@lid"))
       .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
     return subscriptionsPageHtml(rows, chatRows);
   },
@@ -1033,16 +1053,6 @@ window.addEventListener("hashchange", () => {
 });
 void renderCurrent();
 
-let activeSubRows: Array<{ id: string; chatJid: string | null }> = [];
-
-async function deleteSubscriptionForChat(chatJid: string): Promise<void> {
-  const match = activeSubRows.find((row) => row.chatJid === chatJid);
-  if (match === undefined) {
-    return;
-  }
-  await client.deleteSubscription(match.id);
-}
-
 function bindSubscriptionsControls(): void {
   document.getElementById("sub-chat-filter")?.addEventListener("input", (event) => {
     const needle = (event.target as HTMLInputElement).value.trim().toLowerCase();
@@ -1060,12 +1070,47 @@ function bindSubscriptionsControls(): void {
     if (chatJid === undefined || chatJid.length === 0) {
       return;
     }
-    if (target.checked) {
-      await client.createSubscription({ chat_jid: chatJid, kinds: ["message"] });
-    } else {
-      await deleteSubscriptionForChat(chatJid);
+    const includeMedia =
+      (document.getElementById("sub-include-media") as HTMLInputElement | null)?.checked === true;
+    target.disabled = true;
+    try {
+      const row = target.closest(".sub-chat-row");
+      const ids = (row?.getAttribute("data-sub-ids") ?? "")
+        .split(",")
+        .filter((id) => id.length > 0);
+      const action = pickerToggleAction({
+        checked: target.checked,
+        includeMedia,
+        chatJid,
+        subIds: ids,
+      });
+      if (action.kind === "create") {
+        await client.createSubscription({
+          chat_jid: action.chatJid,
+          kinds: action.kinds,
+          include_media: action.includeMedia,
+        });
+      } else if (action.kind === "delete") {
+        for (const id of action.ids) {
+          await client.deleteSubscription(id);
+        }
+      } else {
+        target.checked = false;
+        return;
+      }
+      await renderCurrent();
+    } catch (err) {
+      target.checked = !target.checked;
+      const app = document.getElementById("app");
+      if (app !== null) {
+        const banner = document.createElement("div");
+        banner.className = "error-banner";
+        banner.textContent = `subscription failed: ${err instanceof Error ? err.message : String(err)}`;
+        app.prepend(banner);
+      }
+    } finally {
+      target.disabled = false;
     }
-    await renderCurrent();
   });
   document.getElementById("subscription-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1077,7 +1122,8 @@ function bindSubscriptionsControls(): void {
     if (!allChats && chatJid.length === 0) {
       return;
     }
-    const kinds = String(data.get("kinds") ?? "message")
+    const kindsRaw = data.get("kinds");
+    const kinds = (typeof kindsRaw === "string" ? kindsRaw : "message")
       .split(",")
       .map((k) => k.trim())
       .filter((k) => k.length > 0);

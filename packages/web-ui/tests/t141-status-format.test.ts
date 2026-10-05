@@ -12,11 +12,12 @@ const HEALTH = {
 
 test("T141 — statusDashboardHtml renders semantic stat values, never [object Object]", () => {
   const html = statusDashboardHtml({ health: HEALTH, notifications: [], events: [] });
-  expect(html).toContain("1 / 3");
-  expect(html).toContain("2");
   expect(html).not.toContain("[object Object]");
-  expect(html).toContain("yes");
-  expect(html).toContain("no");
+  expect(html).toContain("<dd>1 / 3</dd>");
+  expect(html).toContain("<dd>2</dd>");
+  expect(html).toContain("<dd>yes</dd>");
+  expect(html).toContain("<dd>no</dd>");
+  expect(html).toContain("<dd>912</dd>");
 });
 
 test("T141 — healthHtml renders the same values escaped and readable", () => {
@@ -31,7 +32,7 @@ test("T141 — healthHtml renders the same values escaped and readable", () => {
 test("T141 — unknown object keys render as k: v pairs", () => {
   const html = healthHtml({ meta: { a: 1, b: "x" } });
   expect(html).not.toContain("[object Object]");
-  expect(html).toContain("a: 1, b: x");
+  expect(html).toContain("a: (1), b: (x)");
 });
 
 test("T141 — the formatter is a shared pages.ts export", () => {
