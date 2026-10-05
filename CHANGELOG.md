@@ -18,16 +18,16 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 ### MCP
 
 - Zero-dep JSON-RPC 2.0 server: stdio and `POST /mcp` transports; resources (`wa://chats|unread|health`).
-- 58-tool registry: messaging (incl. link preview, status broadcast, buttons/list interactive), media pipeline (download/view/transcribe/TTS), reading, chats/groups (join requests, ephemeral), contacts, labels, newsletters, scheduler, templates, autoreply, restrict rules, profile/privacy/blocklist, notifications, search/digest/export, history backfill — with MCP tool annotations (readOnly/destructive/idempotent).
-- wa:// resources exposed over resources/list + resources/read.
+- 74-tool registry: messaging (incl. link preview, status broadcast, buttons/list interactive), media pipeline (download/view/transcribe/TTS), reading, chats/groups (join requests, ephemeral), contacts, labels, newsletters, scheduler, templates, autoreply, restrict rules, profile/privacy/blocklist, notifications, search/digest/export, history backfill — with MCP tool annotations (readOnly/destructive/idempotent).
+- wa:// resources (sync-status, config, chats, unread, health) exposed over resources/list + resources/read with subscribe support.
 
 ### CLI
 
-- `wa-mcp install|doctor|status|start|stop|skills` — 8 platform config writers with read-back verification, sandbox `--home`, doctor check table, skills + slash-command install.
+- `wa-mcp install|doctor|status|start|stop|restart|logs|uninstall|update|skills|pair|config|inbox|hook` — 8 platform config writers with read-back verification, sandbox `--home`, doctor check table, skills + slash-command install, inbox drain reader (JSONL cursor, exit-code protocol for host hooks).
 
 ### Web UI
 
-- Vanilla SPA: pairing (QR poll), chats + chat detail + send, unread inbox with mark-read, settings (localStorage token), health dashboard. Served by the bridge; shell unauthenticated, API bearer-authed.
+- Vanilla SPA: pairing (QR poll, phone code, copy link), chats + chat detail + send with media bubbles and day separators, unread inbox with mark-read, contacts/aliases, groups, native-style profile page (name/phone/about from the auth state, editable, privacy controls with read→write key mapping, blocklist), subscriptions manager (per-chat toggles with filter + count, hook snippets, advanced raw form), live events feed, status dashboard (structured stat formatting, no more [object Object]), settings (localStorage token + bridge URL). Served by the bridge; shell unauthenticated, API bearer-authed with resilient token exchange (failure classification: terminal 403, retry-after 429; stale-token self-heal after daemon restarts).
 
 ### Media
 
@@ -35,8 +35,8 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 
 ### Docs & governance
 
-- 10 ADRs, VitePress site (getting started, generated tool reference, configuration, security, development), CHANGELOG.
-- ACCOUNTING.md: 1,029 census items dispositioned; `accounting:check` in CI. `docs:coverage`: all 58 registry tools documented.
+- 12 ADRs, VitePress site (getting started, generated tool reference, configuration, security, development), CHANGELOG.
+- ACCOUNTING.md: 1,029 census items dispositioned; `accounting:check` in CI. `docs:coverage`: all 74 registry tools documented.
 - CI: check/build/test matrix (3 OS × node 20/22), security job (audit high+, gitleaks, no-publish guard, accounting check). Nothing published.
 
 ### Onboarding round (2026-10-02)

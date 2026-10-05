@@ -2,7 +2,7 @@
 layout: home
 hero:
   name: wa-mcp
-  tagline: WhatsApp MCP server — local bridge, 30 tools, zero-dep bridge core
+  tagline: WhatsApp MCP server — local bridge, 74 tools, zero-dep bridge core
   actions:
     - theme: brand
       text: Getting started

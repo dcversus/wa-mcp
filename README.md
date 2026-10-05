@@ -1,13 +1,13 @@
 # wa-mcp
 
 WhatsApp as a local MCP server: a **single-user daemon** (Baileys session,
-Node ≥22.5, zero runtime deps in the core) exposing **32 MCP tools** over
+Node ≥22.5, zero runtime deps in the core) exposing **74 MCP tools** over
 stdio and HTTP, with a built-in web UI — chat, media, contacts, groups,
 privacy, events feed, pairing with all three link methods.
 
 ```
 WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite store)
-                ├─ MCP stdio + POST /mcp   → 32 tools
+                ├─ MCP stdio + POST /mcp   → 74 tools
                 ├─ HTTP /api/* + SSE       → web UI (vanilla, served by the bridge)
                 └─ CLI wa-mcp              → install / doctor / pair / start / stop
 ```
@@ -28,14 +28,18 @@ Requires Node ≥22.5 (`node:sqlite`). Full per-platform setup:
 
 ## What you get
 
-- **32 MCP tools** — messaging (text/media/poll/reaction/edit/forward/
-  location/contact), reads (chats/messages/context/search), groups,
-  contacts + aliases, profile/privacy/blocklist, notifications,
-  transcribe/TTS (mock engines), delete.
+- **74 MCP tools** — messaging (text/media/poll/reaction/edit/forward/
+  location/contact/scheduled/templates), reads (chats/messages/context/
+  search/digest/catch-up), groups (create/invite/participants/meta),
+  contacts + aliases + labels, profile/privacy/blocklist, newsletters,
+  autoreply, notification rules, subscriptions with agent inbox files,
+  media understanding (transcribe/TTS, document reading), export.
 - **Web UI** — pairing (QR + phone code + copy link), chats with media
   bubbles and day separators, unread inbox, contacts/aliases, groups,
-  privacy matrix, live events feed, status dashboard. Served by the bridge
-  at `http://127.0.0.1:8080/`.
+  native-style profile page (your name/phone/about, editable, privacy
+  controls), subscriptions manager with per-chat toggles + filter, live
+  events feed, status dashboard. Served by the bridge at
+  `http://127.0.0.1:8080/`.
 - **Safety floor** — loopback bind, bearer auth (401 matrix), 1 MB body
   cap, rate limits, daily send cap + `WA_SENDS_DISABLED` kill switch,
   path-confined media, pairing-attempt budget (anti-abuse cooldown aware).
