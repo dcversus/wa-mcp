@@ -1,6 +1,6 @@
 {
   "name": "wa-mcp",
-  "version": "0.10.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,8 @@
     "coverage:gate": "pnpm --filter @wa-mcp/shared exec vp test --coverage && pnpm --filter @wa-mcp/bridge exec vp test --coverage && pnpm --filter @wa-mcp/mcp-server exec vp test --coverage",
     "merge-lid-chats": "node --experimental-strip-types scripts/merge-lid-chats.ts",
     "webui-e2e": "node scripts/webui-e2e.mjs",
-    "env-doc-coverage": "node --experimental-strip-types scripts/env-doc-coverage.ts"
+    "env-doc-coverage": "node --experimental-strip-types scripts/env-doc-coverage.ts",
+    "version:check": "node scripts/version-drift.mjs"
   },
   "devDependencies": {
     "@types/node": "^24",

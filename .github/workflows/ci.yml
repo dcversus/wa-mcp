@@ -63,6 +63,8 @@ jobs:
       - name: no-publish guard
         run: |
           ! grep -rEn "npm[ ]publish|pnpm[ ]publish|npmjs[.]org" --include="*.ts" --include="*.mjs" --include="*.yml" packages scripts .github/workflows
+      - name: version-drift guard
+        run: node scripts/version-drift.mjs
       - name: accounting census check
         run: pnpm run accounting:check
       - name: env var doc coverage
