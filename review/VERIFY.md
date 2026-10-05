@@ -537,3 +537,13 @@ All gates re-run mechanically at HEAD (post Gate D corrections, version guard):
 
 ### WebUI usable-round — Gate C deslop pass (pre-autoreview)
 Scope: git diff 1df0a40..HEAD (3 commits, 15 files, +1075/−406). Zero as-any/console.*; one .catch fallback matches module loader norms; widening casts in /api/me are typed shapes not laundering; no one-use helpers, no shims. Verdict: CLEAN, no edits. (Gate D below.)
+
+### Install E2E + subscriptions E2E (2026-10-05, orchestrator-executed)
+- 8-platform install: all registered + doctor ok (claude-code, claude-desktop, cursor, codex, pi, hermes, grok, antigravity)
+- Claude Code E2E: `claude -p --allowedTools mcp__wa-mcp__list_chats` → live chats (Test group, Vasilisa, 55600000009854) — PASS
+- Pi E2E: pi 0.73.1 + pi-mcp-extension 1.5.1 installed; zai GLM provider wired into ~/.pi/agent/models.json; `pi -p --provider zai-glm --model glm-4.7` → same live chats — PASS (but required MANUAL agent/mcp.json; installer path wrong → BUG 1)
+- Hermes E2E: config.yaml registration + orchestrator session called mcp__wa_mcp__list_chats → live chats — PASS
+- MCP stdio E2E: initialize + tools/list → 74 tools; tools/call list_chats → live data — PASS
+- Subscriptions E2E: subscribe_events (Test group) → id e5997895bec4 + inbox path; send_message probe → inbox.jsonl line {ts, kind, chat, from, text, media} within 3s; `inbox drain --inbox <path>` → "1 new" + exit 0 — PASS
+- Uninstall E2E: pi/hermes/claude-code removed cleanly (keys gone, data dir kept) — PASS; reinstall restored all — PASS
+- BUGS FOUND: (1) pi writer wrong path+shape [~/.pi/mcp/wa-mcp.json vs ~/.pi/agent/mcp.json mcpServers wrapper]; (2) UI hook snippet `inbox drain --sub <id>` ≠ CLI `--inbox <path>`; (3) multi-target install applies only last --target; (4) usage string omits inbox+hook subcommands. Fixes queued: .agent/prompts/INSTALL-E2E-FIXES.md
