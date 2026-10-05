@@ -17,6 +17,13 @@ import {
 } from "./service.ts";
 import { runDoctor } from "./doctor.ts";
 import { drainInbox, runSubscribe, runUnsubscribe } from "./subscribe.ts";
+import {
+  claudeSettingsPath,
+  codexHooksPath,
+  installHooksFile,
+  renderClaudeHooks,
+  renderCodexHooks,
+} from "./hooks.ts";
 import { installSkills } from "./skills.ts";
 import { runPair } from "./pair.ts";
 import { runImport } from "./import-store.ts";
@@ -41,6 +48,38 @@ export async function main(argv: string[]): Promise<void> {
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+  if (command === "install" && flags.hooks !== undefined) {
+    const target = flags.hooks;
+    if (target !== "claude" && target !== "codex") {
+      console.error("install --hooks: target must be claude or codex");
+      process.exitCode = 1;
+      return;
+    }
+    const remove = flags.remove === "true" || flags.remove === "";
+    if (!remove && flags.sub === undefined) {
+      console.error("install --hooks: --sub <subscription-id> required (or --remove)");
+      process.exitCode = 1;
+      return;
+    }
+    const subId = flags.sub as string | undefined;
+    const inboxPath = subId !== undefined ? join(dataDir, "subs", subId, "inbox.jsonl") : undefined;
+    const settingsPath = target === "claude" ? claudeSettingsPath(home) : codexHooksPath(home);
+    const ours =
+      target === "claude" && inboxPath !== undefined
+        ? renderClaudeHooks(subId as string, inboxPath)
+        : inboxPath !== undefined
+          ? renderCodexHooks(subId as string, inboxPath)
+          : {};
+    const result = installHooksFile(settingsPath, ours, { remove });
+    console.log(result.ok ? `${result.message}: ${settingsPath}` : result.message);
+    if (result.ok === true && result.backupPath !== undefined) {
+      console.log(`backup: ${result.backupPath}`);
+    }
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+    return;
+  }
   if (command === "install" && flags.service !== undefined) {
     if (await isPortBusy(Number(flags.port ?? "8080"))) {
       console.error(
