@@ -12,7 +12,7 @@ Per-tool crosswalk against the reference repos from the census
 | kahflane/whatsapp-mcp | 87             | README feature-level count — trackers empty (0 issues, 0 PRs), per-tool presence not enumerable from the census |
 | biliboss/whatsapp-mcp | 62             | README feature-level count — trackers empty, same caveat                                                        |
 
-Full census with dispositions: [ACCOUNTING.md](../ACCOUNTING.md)
+Full census with dispositions: review/ACCOUNTING.md in the repository
 
 ## Legend
 

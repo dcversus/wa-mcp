@@ -8,6 +8,7 @@ export default defineConfig({
     nav: [
       { text: "Getting started", link: "/getting-started/" },
       { text: "Tools", link: "/reference/tools" },
+      { text: "Cookbook", link: "/cookbook/react-to-messages" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },
@@ -19,6 +20,7 @@ export default defineConfig({
       { text: "Getting started", link: "/getting-started/" },
       { text: "Per-platform install", link: "/getting-started/platforms" },
       { text: "Tool reference", link: "/reference/tools" },
+      { text: "React to messages", link: "/cookbook/react-to-messages" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },
