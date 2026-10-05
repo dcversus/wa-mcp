@@ -88,6 +88,7 @@ import {
 import { downloadMessageMedia } from "./media/download.ts";
 import { viewMedia } from "./media/view.ts";
 import { extractDocumentText } from "./media/document.ts";
+import { ocrImage } from "./media/ocr.ts";
 import {
   createTranscriptionEngine,
   saveTranscript,
@@ -2741,6 +2742,20 @@ export async function createHttpServer(
                 });
                 mediaPath = downloaded.path;
                 mime = downloaded.mime;
+              }
+              if (mime.startsWith("image/")) {
+                const text = await ocrImage(mediaPath);
+                saveTranscript(
+                  store,
+                  original.key.remoteJid ?? "",
+                  messageId,
+                  "tesseract",
+                  text,
+                  undefined,
+                  "document",
+                );
+                sendJson(res, 200, { text, engine: "tesseract", truncated: false, cached: false });
+                return;
               }
               const result = await extractDocumentText(mediaPath, mime);
               saveTranscript(
