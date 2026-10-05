@@ -1,2 +1,4 @@
-export const name = "@wa-mcp/web-ui";
-export const version = "0.0.0";
+import pkg from "../package.json" with { type: "json" };
+
+export const name: string = pkg.name;
+export const version: string = pkg.version;

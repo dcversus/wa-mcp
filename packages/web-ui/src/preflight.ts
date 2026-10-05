@@ -15,3 +15,23 @@ export async function retryUntil(
   }
   return false;
 }
+
+/** T136: the UI boot fetch of /health can meet a drained pairing-surface
+ * rate bucket (429) while other tabs hammer it — retry with backoff before
+ * giving up, so a fresh session still bootstraps. Returns {} only after the
+ * attempt budget is spent. */
+export async function healthWithRetry(
+  client: { getHealth(): Promise<Record<string, unknown>> },
+  opts: { attempts: number; delayMs: number },
+): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < opts.attempts; attempt += 1) {
+    try {
+      return await client.getHealth();
+    } catch {
+      if (attempt < opts.attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
+      }
+    }
+  }
+  return {};
+}

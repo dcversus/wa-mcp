@@ -1,6 +1,7 @@
 import "./styles.css";
 import { renderFrame, type Route } from "./app.ts";
 import { createApiClient, type ApiClient } from "./api.ts";
+import { healthWithRetry } from "./preflight.ts";
 import {
   bridgeDownBanner,
   chatErrorHtml,
@@ -61,7 +62,7 @@ let pairingView: PairingView = {
  * T73 C1 (ADR 0012) that token opens ONLY the pairing surface, so once the
  * daemon reports a paired account we exchange it once for the real token. */
 async function syncPairingToken(): Promise<void> {
-  const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+  const health = (await healthWithRetry(client, { attempts: 5, delayMs: 1200 })) as PairingHealth;
   adoptPairingToken(health);
   if (health.loggedIn === true) {
     await exchangeAccountToken();

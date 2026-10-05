@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createApiClient } from "../src/api.ts";
+import { healthWithRetry } from "../src/preflight.ts";
 
 /** request bodies are strings by construction (createApiClient JSON.stringify's them) */
 function bodyOf(call: { init?: { body?: unknown } } | undefined): string {
@@ -322,4 +323,39 @@ test("C1 — search sends the bridge's q param (query was silently ignored)", as
   });
   await client.search("pizza", 5);
   expect(calls[0]?.url).toBe("http://bridge:8080/api/search?q=pizza&limit=5");
+});
+
+test("healthWithRetry recovers after a 429 then succeeds", async () => {
+  let calls = 0;
+  const client = {
+    getHealth: async () => {
+      calls += 1;
+      if (calls < 3) {
+        throw new Error("rate limit exceeded");
+      }
+      return { connected: true, uiBootstrapToken: "tok" };
+    },
+  };
+  const health = await healthWithRetry(client as unknown as Parameters<typeof healthWithRetry>[0], {
+    attempts: 5,
+    delayMs: 1,
+  });
+  expect(calls).toBe(3);
+  expect(health.uiBootstrapToken).toBe("tok");
+});
+
+test("healthWithRetry gives up after the budget and returns {}", async () => {
+  let calls = 0;
+  const client = {
+    getHealth: async () => {
+      calls += 1;
+      throw new Error("rate limit exceeded");
+    },
+  };
+  const health = await healthWithRetry(client as unknown as Parameters<typeof healthWithRetry>[0], {
+    attempts: 3,
+    delayMs: 1,
+  });
+  expect(calls).toBe(3);
+  expect(health).toEqual({});
 });
