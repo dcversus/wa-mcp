@@ -310,7 +310,13 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   if (command === "doctor") {
-    const report = await runDoctor({ home, dataDir, bridgeUrl, minNodeMajor: 22 });
+    const report = await runDoctor({
+      home,
+      dataDir,
+      bridgeUrl,
+      minNodeMajor: 22,
+      engines: flags.engines === "true" || flags.engines === "",
+    });
     for (const check of report.checks) {
       console.log(`${check.ok ? "ok" : "FAIL"}  ${check.name}: ${check.detail}`);
     }
