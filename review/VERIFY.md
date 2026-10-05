@@ -438,3 +438,9 @@ no checkbox is claimed without evidence.
 - T111: createToolsChangedWatcher (sorted-name hash, one notification per real change, none on reorder) wired into /api/mcp-notify + GET /mcp on connection.update.
 - T112: subscribe_events/unsubscribe_events MCP tools → /api/subscriptions POST/DELETE; annotations (subscribe: readOnlyHint:false idempotentHint:false; unsubscribe: idempotentHint:true); tools.md regenerated 73/73; launch-set + tools/list arrays updated.
 - Suite 903/903 (90 files), check clean, pushed.
+
+### Phase 2 T113+T115 CLOSED (2026-10-05T00:03:56Z)
+
+- T113: CLI subscribe/unsubscribe/inbox drain. LIVE E2E (contract sequence): CLI subscribe → send → inbox 1 line → drain exit 2 "1 new: <chat>: <snippet>" → second drain exit 0. Byte-cursor with rotation reset.
+- T115: hook installer (install --hooks claude|codex [--remove]). Marker ownership; merge preserves user hooks/permissions/env/order; idempotent; .bak timestamped; refuses unparseable JSON. LIVE temp-home check: only FileChanged+asyncRewake added, user entries intact, REAL ~/.claude/settings.json verified clean.
+- Suite 914/914 (92 files), check clean, pushed.
