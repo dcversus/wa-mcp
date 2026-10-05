@@ -534,3 +534,6 @@ All gates re-run mechanically at HEAD (post Gate D corrections, version guard):
 - Live smoke (careful mode): send to Test group → message_id 3EB0090C9CDD510CECA3DF → store read-back verified; daemon connected, loggedIn, reconnects 0
 - Live store: migrations V21 (write_seq), transcripts.kind present
 - CI: billing-blocked (owner) — compensating local gates above; BLOCKED.md carries it
+
+### WebUI usable-round — Gate C deslop pass (pre-autoreview)
+Scope: git diff 1df0a40..HEAD (3 commits, 15 files, +1075/−406). Zero as-any/console.*; one .catch fallback matches module loader norms; widening casts in /api/me are typed shapes not laundering; no one-use helpers, no shims. Verdict: CLEAN, no edits. (Gate D below.)
