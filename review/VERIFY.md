@@ -432,3 +432,9 @@ no checkbox is claimed without evidence.
 - Capabilities assertions updated (subscribe:true) in mcp-server + bridge tests.
 - LIVE E2E: stdio client → initialize (subscribe:true advertised) → resources/subscribe wa://unread → own-send to Test group → stdout received notifications/message (wa-mcp.connection) + notifications/resources/updated wa://unread.
 - Suite 898/898 (88 files), check clean, pushed.
+
+### Phase 2 T111+T112 CLOSED (2026-10-05T00:00:16Z)
+
+- T111: createToolsChangedWatcher (sorted-name hash, one notification per real change, none on reorder) wired into /api/mcp-notify + GET /mcp on connection.update.
+- T112: subscribe_events/unsubscribe_events MCP tools → /api/subscriptions POST/DELETE; annotations (subscribe: readOnlyHint:false idempotentHint:false; unsubscribe: idempotentHint:true); tools.md regenerated 73/73; launch-set + tools/list arrays updated.
+- Suite 903/903 (90 files), check clean, pushed.
