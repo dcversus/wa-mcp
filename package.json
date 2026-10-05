@@ -15,7 +15,8 @@
     "docs:coverage": "node --experimental-strip-types scripts/doc-coverage.ts",
     "coverage:gate": "pnpm --filter @wa-mcp/shared exec vp test --coverage && pnpm --filter @wa-mcp/bridge exec vp test --coverage && pnpm --filter @wa-mcp/mcp-server exec vp test --coverage",
     "merge-lid-chats": "node --experimental-strip-types scripts/merge-lid-chats.ts",
-    "webui-e2e": "node scripts/webui-e2e.mjs"
+    "webui-e2e": "node scripts/webui-e2e.mjs",
+    "env-doc-coverage": "node --experimental-strip-types scripts/env-doc-coverage.ts"
   },
   "devDependencies": {
     "@types/node": "^24",
