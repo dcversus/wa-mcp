@@ -278,12 +278,13 @@ export function saveTranscript(
   engine: string,
   text: string,
   language?: string,
+  kind = "voice",
 ): void {
   store.db
     .prepare(
-      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language",
+      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language, kind = excluded.kind",
     )
-    .run(chatJid, messageId, engine, text, language ?? null, new Date().toISOString());
+    .run(chatJid, messageId, engine, text, language ?? null, kind, new Date().toISOString());
 }
 
 export function getTranscript(

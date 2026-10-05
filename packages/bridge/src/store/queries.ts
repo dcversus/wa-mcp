@@ -37,6 +37,13 @@ export interface MessageRow {
   forwarded?: boolean;
   forwardedFrom?: string | null;
   raw?: string | null;
+  transcript?: {
+    text: string;
+    engine: string;
+    kind: string;
+    language: string | null;
+    truncated: boolean;
+  } | null;
 }
 
 export interface Pagination {
@@ -128,6 +135,54 @@ function attachReactions(store: Store, rows: MessageRow[]): void {
 }
 
 /** T78 M3: poll rows carry their question + per-option vote counts. */
+const TRANSCRIPT_MAX_CHARS = 2000;
+
+function attachTranscripts(store: Store, rows: MessageRow[]): void {
+  const ids = rows.map((row) => row.id);
+  if (ids.length === 0) {
+    return;
+  }
+  const placeholders = ids.map(() => "?").join(",");
+  const saved = store.db
+    .prepare(
+      `SELECT message_id, engine, kind, text, language FROM transcripts WHERE message_id IN (${placeholders})`,
+    )
+    .all(...ids) as Array<{
+    message_id: string;
+    engine: string;
+    kind: string;
+    text: string;
+    language: string | null;
+  }>;
+  const byMessage = new Map<
+    string,
+    { engine: string; kind: string; text: string; language: string | null }
+  >();
+  for (const entry of saved) {
+    if (!byMessage.has(entry.message_id)) {
+      byMessage.set(entry.message_id, {
+        engine: entry.engine,
+        kind: entry.kind,
+        text: entry.text,
+        language: entry.language,
+      });
+    }
+  }
+  for (const row of rows) {
+    const found = byMessage.get(row.id);
+    row.transcript =
+      found === undefined
+        ? null
+        : {
+            text: found.text.slice(0, TRANSCRIPT_MAX_CHARS),
+            engine: found.engine,
+            kind: found.kind,
+            language: found.language,
+            truncated: found.text.length > TRANSCRIPT_MAX_CHARS,
+          };
+  }
+}
+
 function attachPolls(store: Store, rows: MessageRow[]): void {
   const pollIds = rows.filter((row) => row.poll === undefined).map((row) => row.id);
   if (pollIds.length === 0) {
@@ -330,6 +385,7 @@ export function listMessages(store: Store, opts: ListMessagesFilter): MessageRow
   attachReactions(store, messages);
   attachForwarded(messages);
   attachPolls(store, messages);
+  attachTranscripts(store, messages);
   return messages;
 }
 
@@ -432,6 +488,7 @@ export function searchMessages(
       attachReactions(store, messages);
       attachForwarded(messages);
       attachPolls(store, messages);
+      attachTranscripts(store, messages);
       return messages;
     } catch {
       return likeFallback(store, query, opts, limit, offset);
@@ -462,6 +519,7 @@ function likeFallback(
     attachReactions(store, messages);
     attachForwarded(messages);
     attachPolls(store, messages);
+    attachTranscripts(store, messages);
     return messages;
   }
   const rows = store.db
@@ -474,6 +532,7 @@ function likeFallback(
   attachReactions(store, messages);
   attachForwarded(messages);
   attachPolls(store, messages);
+  attachTranscripts(store, messages);
   return messages;
 }
 

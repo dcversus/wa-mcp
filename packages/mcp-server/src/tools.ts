@@ -572,7 +572,8 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "list_messages",
-    description: "List messages of one chat, newest first.",
+    description:
+      "List messages of one chat, newest first. Messages with a saved transcript carry transcript {text, engine, kind, language, truncated} — voice notes, videos and documents transcribe once and are surfaced without re-running engines.",
     inputSchema: {
       type: "object",
       required: ["chat_jid"],
