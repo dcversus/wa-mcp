@@ -11,6 +11,7 @@ export default defineConfig({
       { text: "Cookbook", link: "/cookbook/react-to-messages" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
+      { text: "Diagnostics", link: "/diagnostics" },
       { text: "Development", link: "/development" },
       { text: "Migration", link: "/migration" },
       { text: "Troubleshooting", link: "/troubleshooting" },

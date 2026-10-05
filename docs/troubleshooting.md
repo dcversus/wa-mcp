@@ -1,54 +1,94 @@
 # Troubleshooting
 
-Real failure modes from the live session, with the actual mechanics.
+Symptom → cause → fix, grouped by area. Start with `wa-mcp doctor`, then see [Diagnostics](./diagnostics.md).
 
-## Pairing fails: "can't link new devices right now"
+## Pairing
 
-WhatsApp's anti-abuse counts EVERY link attempt and the cooldown RESETS on
-each attempt. A daemon that re-registers on a timer (QR-pool recovery) keeps
-the clock at zero — the lockout deepens. wa-mcp budgets this: after 3
-registrations without pairing it stops minting registrations entirely
-(`/health.pairingBlocked`) until you `POST /api/pair/resume` or restart.
+| Symptom                                                | Cause                                                                                                                                                                                                                                                                      | Fix                                                                                                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| "can't link new devices right now"                     | WhatsApp's anti-abuse counts **every** link attempt, and each attempt restarts its cooldown. After 3 registrations without a successful pairing, wa-mcp stops creating new ones (`/health.pairingBlocked: true`). <!-- src: packages/bridge/src/http.ts:2398-2399, 572 --> | Stop all attempts and wait hours. Then send `POST /api/pair/resume` with the account token, or restart, and pair **once**. See below. |
+| `pairingAttempts.used` keeps rising on its own         | A second daemon, or a restart loop, is creating registrations                                                                                                                                                                                                              | Check for two daemons (see CLI). Every boot counts.                                                                                   |
+| `wa-mcp pair --code` prints a code but nothing happens | You need to enter the code on the phone: **Linked devices → Link with phone number instead**. The CLI waits while you do it. <!-- src: packages/cli/src/pair.ts:61-71 -->                                                                                                  | Enter the code in time. The code path counts as one link against the budget, the same as QR.                                          |
+| Restart asks for a QR again                            | `~/.wa-mcp/auth/` was wiped, or the phone removed the device (401 `device_removed` wipes creds by design)                                                                                                                                                                  | Pair again (once). Check Linked devices on the phone.                                                                                 |
+| `/api/pair/resume` returns 401 with a pairing token    | Resume was removed from the pairing surface (it resets the budget) <!-- src: packages/bridge/src/http.ts:200-204 -->                                                                                                                                                       | Use the account token or the web UI's token.                                                                                          |
 
-Do: stop all pairing attempts, wait out the cooldown (hours), restart the
-daemon, pair once.
+**Recovering from the lockout:**
 
-## Reaction/emote stored twice
+```sh
+# 1. stop everything that might create registrations
+wa-mcp stop
+# 2. wait out the cooldown (hours; every attempt restarts it)
+# 3. start once and pair once
+wa-mcp start
+wa-mcp pair            # or: wa-mcp pair --code <phone>
+# if the daemon stayed up and reports pairingBlocked:
+curl -X POST -H "Authorization: Bearer $(cat ~/.wa-mcp/token)" \
+  http://127.0.0.1:8080/api/pair/resume
+```
 
-The send-echo and the reaction event both reach the ingest. Deduped since
-T60 — upgrade if you see `[{👍},{👍}]`.
+## Sends
 
-## Poll content empty / poll_options missing
+| Symptom                                        | Cause                                                                                 | Fix                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A send fails with nothing in the log           | Before T56, engine errors were swallowed                                              | Upgrade. The engine error is now logged verbatim (`"send failed"`, level 50) before the 500. <!-- src: packages/bridge/src/http.ts:1366-1371, 1408-1412 --> |
+| 429 `RATE_LIMITED` with `retryAfterMs`         | Send pacing: at least 1s between sends                                                | Space sends; honour `retryAfterMs`.                                                                                                                         |
+| 429 `RATE_LIMITED` with a `Retry-After` header | Transport bucket (60/min per token)                                                   | Space your requests. See [Diagnostics → rate limits](./diagnostics.md#rate-limits).                                                                         |
+| 429 `DAILY_CAP_EXCEEDED`                       | 200 sends per UTC day reached                                                         | Wait for UTC midnight, or set `WA_DAILY_CAP`.                                                                                                               |
+| 403 `SENDS_DISABLED`                           | `WA_SENDS_DISABLED=1`                                                                 | Unset it and restart.                                                                                                                                       |
+| 403 `SEND_BLOCKED`                             | A send rule matches the target, its alias or its LID form                             | `GET /api/send-rules`; delete the rule.                                                                                                                     |
+| 400 `INVALID_JID`                              | The recipient can't be resolved                                                       | Use a full jid, `+phone`, or a known alias.                                                                                                                 |
+| Reaction stored twice (`[{👍},{👍}]`)          | The send echo and the reaction event both reached ingest                              | Deduplicated since T60; upgrade.                                                                                                                            |
+| Poll content empty or `poll_options` missing   | The engine sends `pollCreationMessage`, `…V2` or `…V3` depending on `selectableCount` | Fixed in T58b (all three keys are read and stored); upgrade.                                                                                                |
 
-Engine dispatch: `{poll}` input becomes `pollCreationMessage`, `V2` or `V3`
-by selectableCount. Fixed in T58b to extract all three keys and write
-`poll_options` at storage time.
+## Chats and contacts
 
-## Group chats show a contact name instead of the subject
+| Symptom                                                        | Cause                                    | Fix                                                                                                                                                 |
+| -------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A group shows a contact name, not the subject                  | `groups.upsert` metadata wasn't consumed | Fixed in T62/I: the subject goes into `chats.name` and the roster into `group_participants`. `GET /api/group/info?jid=<group>` refreshes on demand. |
+| One person split across a phone-number chat and an `@lid` chat | LID-era addressing                       | Fixed at ingest (canonical phone-number chat, T59). For older rows run `vp run merge-lid-chats`.                                                    |
 
-`groups.upsert` metadata is now consumed (T62/I): subject lands in
-`chats.name`, the roster in `group_participants`. A `GET
-/api/group/info?jid=<group>` fetches fresh metadata on demand.
+## Media and engines
 
-## Chat split between phone number and @lid (LID-era)
+| Symptom                                    | Cause                                                                                                                                                         | Fix                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 422 `ENGINE_NOT_CONFIGURED`                | The selected engine isn't set up. `message` and `setup` contain the setup text. <!-- src: packages/bridge/src/http.ts:2153-2158 -->                           | Follow the `setup` text; run `wa-mcp doctor --engines`.                                             |
+| 422 `ENGINE_UNAVAILABLE`                   | The engine's binary is missing or failed to run <!-- src: packages/bridge/src/http.ts:2159-2164 -->                                                           | Install the binary named in the message.                                                            |
+| whisper-local fails: model missing         | `WA_WHISPER_MODEL` isn't set, or doesn't point to a file <!-- src: packages/cli/src/doctor.ts:117-134 -->                                                     | Set `WA_WHISPER_MODEL` to a ggml `.bin` path. If the binary is missing: `brew install whisper-cpp`. |
+| PDF text extraction fails                  | `pdftotext` isn't installed <!-- src: packages/bridge/src/media/document.ts:101-117 -->                                                                       | `brew install poppler`                                                                              |
+| Image text returns `ENGINE_NOT_CONFIGURED` | OCR is off by default (`WA_OCR_ENGINE=none`) <!-- src: packages/bridge/src/media/ocr.ts:11-16 -->                                                             | `brew install tesseract`, then `WA_OCR_ENGINE=tesseract` (and `WA_OCR_LANG` if needed).             |
+| Video or audio processing fails            | `ffmpeg` is missing                                                                                                                                           | `brew install ffmpeg` (or point `WA_FFMPEG_BIN` at it)                                              |
+| `list_messages` shows no transcripts       | Transcripts exist only after the first transcribe call. They're cached per (chat, message, engine). <!-- src: packages/bridge/src/store/schema.ts:291-302 --> | Call `transcribe_audio` once. Switching engines creates a new cache entry.                          |
+| 400 `SSRF_BLOCKED` on a media URL          | The URL resolves to a loopback, private or link-local address                                                                                                 | Use a public URL, or send by `path` / base64.                                                       |
 
-One person, two rows. Fixed at ingest (canonical PN chat, T59 full-jid
-contract); run `vp run merge-lid-chats` for the historical rows.
+## Subscriptions and inbox
 
-## Sends fail with nothing in the log
+| Symptom                                                               | Cause                                                                                                                             | Fix                                                                  |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| The inbox file isn't growing                                          | The subscription filter doesn't match (`chat_jid`, `from_jid`, `kinds`) <!-- src: packages/bridge/src/store/schema.ts:280-288 --> | `GET /api/subscriptions`; check the filters.                         |
+| The inbox file isn't growing, and `/health.subscriptions.dropped` > 0 | Writes are failing                                                                                                                | Check disk space and permissions on `~/.wa-mcp/subs/<id>/`.          |
+| The inbox file shrank or reset                                        | It rotates to `inbox.1.jsonl` at 2 MB <!-- src: packages/bridge/src/inbox.ts:19-30 -->                                            | Read both files.                                                     |
+| Media events missing from the inbox, or false media hits              | Older builds misdetected Baileys proto media                                                                                      | Upgrade (fixed). fixed in T107b (`aca4144`)                          |
+| Inbox `text` is cut short                                             | Inbox lines cap `text` at 280 characters <!-- src: packages/bridge/src/inbox.ts:19 -->                                            | Fetch the full message with `list_messages` / `get_message_context`. |
 
-Fixed in T56 — send failures log the engine error verbatim before the 500.
-If your deployment predates it, upgrade.
+## Web UI
 
-## Media bubbles render broken
+| Symptom                                        | Cause                                                                                | Fix                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Stale chats or messages                        | The SSE stream dropped and the page is holding old state                             | Hard reload (Cmd+Shift+R). EventSource reconnects by itself.          |
+| Media bubbles render broken                    | The daemon restarted, so the UI token in `?token=` is stale                          | Reload; the UI fetches a new token.                                   |
+| `missing or invalid bearer token` on `#/chats` | `WA_UI_BOOTSTRAP=0` is set and the browser has no stored token                       | Paste the account token into UI settings, or unset `WA_UI_BOOTSTRAP`. |
+| 403 `FORBIDDEN_HOST`                           | The UI was opened through a non-loopback hostname (port-forward, LAN IP, custom DNS) | Open `http://127.0.0.1:8080/`. Remote access isn't supported.         |
+| The old UI bundle shows after a build          | Browser cache                                                                        | Hard reload; the bridge replaces bundles whose hash changed.          |
 
-Media elements authenticate via the ephemeral token in the query string
-(T70). If they still break, the daemon restarted mid-session — reload the
-page to pick up the fresh token.
+## CLI and daemon
 
-## Daemon restart loses pairing
+| Symptom                                                          | Cause                                                                                                               | Fix                                                                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PORT_IN_USE` from `install --service` or `start`                | A daemon is already listening on that port (T104 port guard) <!-- src: packages/cli/src/bin.ts:153-160, 353-360 --> | `wa-mcp stop`, then retry.                                                                           |
+| Bridge unreachable after `install --service`                     | The service failed to start, or another daemon held the port                                                        | `wa-mcp status`; `wa-mcp logs`; `wa-mcp doctor`.                                                     |
+| Two daemons fighting (the token changes, pairing attempts climb) | The launchd/systemd service plus a manually started daemon                                                          | Stop the manual one (`wa-mcp stop`) and keep only the service. The port guard blocks new duplicates. |
+| `config.json permissions too open`                               | Group or other users can read the file <!-- src: packages/cli/src/config-store.ts:36-45 -->                         | `chmod 600 ~/.wa-mcp/config.json`                                                                    |
+| `doctor` reports `bridge token: present but mode …`              | The token file mode isn't 0600 <!-- src: packages/cli/src/doctor.ts:42-57 -->                                       | `chmod 600 ~/.wa-mcp/token`                                                                          |
+| The daemon won't start: `node:sqlite` errors                     | Node is older than 22.5                                                                                             | Upgrade Node.                                                                                        |
 
-Session persistence is `~/.wa-mcp/auth/` (0700). A restart that asks for QR
-again means the auth dir was wiped or the device was removed server-side
-(401 device_removed → wa-mcp wipes creds and starts a fresh registration by
-design).
+---

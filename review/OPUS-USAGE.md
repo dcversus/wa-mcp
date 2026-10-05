@@ -9,3 +9,10 @@
 - Output: review/plans/PHASE4-OPUS-PLAN.md (T121-T130, 136 lines, exact acceptance checks + files + risks + live checks per task)
 - Findings that changed the plan: serveTranscribe swallows all engine errors into 500 INTERNAL; mlx ENOENT mis-coded FFMPEG_UNAVAILABLE; no config store anywhere (config.json needed); transcripts PK lacks kind.
 - Decisions taken by orchestrator: (1) GOAL re-ticks deferred to T130 with explicit ACCOUNTING delta; (2) zero-comments rule applies to new/edited lines only; (3) video transcription opt-OUT default (cost control) — will flip T126 to opt-in via include_transcript flag defaulting to false.
+
+## 2026-10-05T01:10:34Z — Phase 5 docs drafting dispatch (opus, plan mode)
+- Prompt: /tmp/opus-phase5-prompt.txt (3 pages: security-model expansion, troubleshooting matrix, diagnostics guide; source inventory + VERIFY-MARKER protocol)
+- Output: 474 lines → landed as docs/security.md (15KB, 50 src anchors), docs/troubleshooting.md (8.3KB, matrix format), docs/diagnostics.md (8.5KB).
+- Opus corrected the brief 8× — all verified against source before landing: /health flat fields (no watchdog key, has uiBootstrapToken+reconnects), bridge deps = baileys/pino/qrcode+terminal (ADR 0002 'zero-dep' scope = hand-rolled core), kill-switch order (after guard reserve), rate-limit keying (API=IP+sha256(token) http.ts:2360, health 120/min IP, UI 240/min, /events unlimited), /api/pair/resume needs account token (ADR 0012 addendum), stdio pump → /api/mcp-notify (not GET /mcp), doctor checks token-file mode not 'token mode'.
+- 14 VERIFY-MARKERs resolved mechanically: node major 22 (bin.ts:317), deny-list allow-skip (send-rules.ts:59), non-constant-time webhook verify_token (webhooks.ts:14, owner-gated skeleton — noted as gap), dataDir chmod 0700 (bin.ts:70-71), MCP sessions in-memory no-TTL (http.ts:1445), messages columns (schema.ts:26), proto-media fix = T107b aca4144.
+- Spot-verified after landing: bucket keys, /health shape, inbox path format. docs:build EXIT 0.
