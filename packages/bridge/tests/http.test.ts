@@ -1,5 +1,13 @@
 import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { request as httpRequest } from "node:http";
 import { EventEmitter } from "node:events";
 import { addSendRule } from "../src/store/send-rules.ts";
@@ -4290,5 +4298,23 @@ describe("T124 — /api/config", () => {
     const bridge = await startServer();
     const res = await fetch(url(bridge, "/api/config"));
     expect(res.status).toBe(401);
+  });
+});
+
+describe("T134 — /api/config engine validation", () => {
+  test("PUT with an unknown engine is rejected with the supported list", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t134-"));
+    const bridge = await startServer({ dataDir });
+    const res = await fetch(url(bridge, "/api/config"), {
+      method: "PUT",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ transcription: { engine: "rm -rf /tmp" } }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { message?: string } };
+    expect(body.error?.message).toContain("mock");
+    expect(body.error?.message).toContain("whisper-local");
+    expect(existsSync(join(dataDir, "config.json"))).toBe(false);
+    rmSync(dataDir, { recursive: true, force: true });
   });
 });

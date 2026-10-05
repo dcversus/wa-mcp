@@ -110,3 +110,23 @@ test("drain after rotation (file size < cursor) resets and reports new lines", (
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("subscribe rejects an unknown kind filter with the known kinds listed", async () => {
+  let called = false;
+  const { deps, printed } = mkDeps((url) => {
+    called = true;
+    void url;
+    return new Response("{}", { status: 201 });
+  });
+  const exit = await runSubscribe(deps, {
+    baseUrl: "http://127.0.0.1:8080",
+    token: "t",
+    chat: "12345@s.whatsapp.net",
+    all: false,
+    kind: "bogus",
+  });
+  expect(exit).toBe(1);
+  expect(called).toBe(false);
+  expect(printed.join("\n")).toContain("message");
+  expect(printed.join("\n")).toContain("reaction");
+});

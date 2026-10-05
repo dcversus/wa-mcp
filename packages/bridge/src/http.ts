@@ -97,6 +97,7 @@ import {
   readBridgeConfig,
   writeTranscriptionSection,
   extractAudio,
+  SUPPORTED_TRANSCRIPTION_ENGINES,
 } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
@@ -3502,6 +3503,24 @@ export async function createHttpServer(
             validationError(res, "chat_jid or all_chats required");
             return;
           }
+          const SUBSCRIPTION_KINDS = ["message", "reaction", "rule"] as const;
+          const requestedKinds = Array.isArray(input.kinds)
+            ? (input.kinds as unknown[])
+            : input.kinds === undefined
+              ? []
+              : String(input.kinds).split(",");
+          for (const kind of requestedKinds) {
+            if (
+              typeof kind !== "string" ||
+              !(SUBSCRIPTION_KINDS as readonly string[]).includes(kind)
+            ) {
+              validationError(
+                res,
+                `kinds must be from: ${SUBSCRIPTION_KINDS.join(", ")} (got: ${String(kind)})`,
+              );
+              return;
+            }
+          }
           const sub = createSubscription(opts.store as Store, opts.subscriptionsDir as string, {
             chatJid: typeof input.chat_jid === "string" ? input.chat_jid : null,
             fromJid: typeof input.from_jid === "string" ? input.from_jid : null,
@@ -4129,6 +4148,17 @@ export async function createHttpServer(
             const value = section[key];
             return typeof value === "string" ? value : undefined;
           };
+          const engine = pick("engine");
+          if (
+            engine !== undefined &&
+            !(SUPPORTED_TRANSCRIPTION_ENGINES as readonly string[]).includes(engine)
+          ) {
+            validationError(
+              res,
+              `unsupported transcription engine: ${engine} (supported: ${SUPPORTED_TRANSCRIPTION_ENGINES.join(", ")})`,
+            );
+            return;
+          }
           try {
             writeTranscriptionSection(opts.dataDir, {
               engine: pick("engine"),

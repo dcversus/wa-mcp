@@ -207,3 +207,28 @@ test("LIVE-shaped upsert (top-level participant, extendedText, string ts, append
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("POST /api/subscriptions rejects an unknown kind with 400", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t107-kinds-"));
+  const store = openStore(dataDir);
+  try {
+    const bridge = await createHttpServer(stubHandle(createEventBus()), {
+      token: "t107-token",
+      store,
+      subscriptionsDir: join(dataDir, "subs"),
+    });
+    const res = await fetch(url(bridge, "/api/subscriptions"), {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
+      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["bogus"] }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { message?: string } };
+    expect(body.error?.message).toContain("message");
+    expect(body.error?.message).toContain("reaction");
+    await bridge.close();
+  } finally {
+    store.close();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});

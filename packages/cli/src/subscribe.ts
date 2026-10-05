@@ -23,6 +23,15 @@ export async function runSubscribe(deps: SubscribeDeps, args: SubscribeArgs): Pr
     deps.print("subscribe: --chat <jid> or --all is required");
     return 1;
   }
+  const KNOWN_KINDS = ["message", "reaction", "rule"];
+  if (args.kind !== undefined) {
+    for (const kind of args.kind.split(",")) {
+      if (!KNOWN_KINDS.includes(kind)) {
+        deps.print(`subscribe: unknown kind '${kind}' — kinds: ${KNOWN_KINDS.join(", ")}`);
+        return 1;
+      }
+    }
+  }
   const body: Record<string, unknown> = {};
   if (args.chat !== undefined) {
     body.chat_jid = args.chat;
