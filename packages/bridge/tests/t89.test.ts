@@ -74,7 +74,7 @@ test("line128 — contactsWarm flips true once contacts are stored", async () =>
   const handle = stubHandle("connected");
   handle.connectionQuality = () => ({ reconnects: 0, lastDisconnectAt: null });
   const bridge = await createHttpServer(handle, { token: "test-token", store });
-  created.push({ close: bridge.close });
+  created.push({ close: () => bridge.close() });
   const auth = { authorization: "Bearer test-token" };
   contactsWarmFlag = false;
   const before = (await (await fetch(url(bridge, "/health"), { headers: auth })).json()) as {
@@ -97,7 +97,7 @@ test("line132 — mark-unread sets the manual flag; clear drops it", async () =>
   const handle = stubHandle("connected");
   handle.connectionQuality = () => ({ reconnects: 0, lastDisconnectAt: null });
   const bridge = await createHttpServer(handle, { token: "test-token", store });
-  created.push({ close: bridge.close });
+  created.push({ close: () => bridge.close() });
   const mark = await fetch(url(bridge, "/api/mark-unread"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },
@@ -173,7 +173,7 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
     const socket = groupSocket();
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-jreq-")));
     const bridge = await createHttpServer(groupHandle(socket), { token: "test-token", store });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const list = await fetch(url(bridge, `/api/groups/${encodeURIComponent(GROUP_A)}/requests`), {
       headers: authHeader,
     });
@@ -195,7 +195,7 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
   test("line159 — POST ephemeral routes to groupToggleEphemeral with the duration", async () => {
     const socket = groupSocket();
     const bridge = await createHttpServer(groupHandle(socket), { token: "test-token" });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, `/api/groups/${encodeURIComponent(GROUP_A)}/ephemeral`), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -214,7 +214,7 @@ describe("T89-C — line157 join requests, line159 ephemeral, line162 reject cal
       async () => undefined,
     );
     const bridge = await createHttpServer(groupHandle(socket), { token: "test-token" });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, "/api/calls/reject"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -264,7 +264,7 @@ describe("T89-D — newsletters follow/unfollow/send/list", () => {
       token: "test-token",
       store,
     });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const follow = await fetch(url(bridge, "/api/newsletters/follow"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -292,7 +292,7 @@ describe("T89-D — newsletters follow/unfollow/send/list", () => {
     const bridge = await createHttpServer(stubHandle("connected", null, socket), {
       token: "test-token",
     });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, "/api/newsletters/send"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },

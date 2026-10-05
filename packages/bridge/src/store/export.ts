@@ -27,9 +27,9 @@ function rows(store: Store, chatJid: string | undefined, unreadOnly: boolean): E
     .prepare(`SELECT * FROM messages${suffix} ORDER BY timestamp`)
     .all(...params) as Array<Record<string, unknown>>;
   return rows.map((row) => ({
-    id: String(row.id ?? ""),
-    chatJid: String(row.chat_jid ?? ""),
-    timestamp: String(row.timestamp ?? ""),
+    id: typeof row.id === "string" ? row.id : typeof row.id === "number" ? String(row.id) : "",
+    chatJid: typeof row.chat_jid === "string" ? row.chat_jid : "",
+    timestamp: typeof row.timestamp === "string" ? row.timestamp : "",
     sender: typeof row.sender_jid === "string" ? row.sender_jid : null,
     fromMe: row.is_from_me === 1,
     text: typeof row.content === "string" ? row.content : "",

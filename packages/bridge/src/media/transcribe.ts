@@ -100,7 +100,7 @@ export class MlxTranscriptionEngine implements TranscriptionEngine {
     private readonly spawnFn: typeof import("node:child_process").spawn = spawn,
   ) {}
 
-  async transcribe(buffer: Buffer, mime: string): Promise<TranscriptionResult> {
+  async transcribe(buffer: Buffer, _mime: string): Promise<TranscriptionResult> {
     const dir = mkdtempSync(join(tmpdir(), "wa-mcp-mlx-"));
     const input = join(dir, "input.ogg");
     const output = join(dir, "out.json");

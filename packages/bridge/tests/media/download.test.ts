@@ -221,7 +221,7 @@ describe("T90 line141 — forced download returns the local path + updates the D
       store,
       mediaDir,
     });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, "/api/media/DL1/download"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -266,7 +266,7 @@ test("T90 line141 — POST /api/media/:id/download forces download + updates the
     store,
     mediaDir,
   });
-  created.push({ close: bridge.close });
+  created.push({ close: () => bridge.close() });
   const res = await fetch(url(bridge, "/api/media/DL1/download"), {
     method: "POST",
     headers: { ...authHeader, "content-type": "application/json" },

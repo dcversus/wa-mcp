@@ -173,7 +173,9 @@ async function bridgeFetchText(toolCtx: ToolContext, path: string): Promise<stri
     try {
       const parsed = JSON.parse(text) as { error?: { message?: unknown } };
       if (parsed?.error?.message !== undefined) {
-        throw new Error(`bridge request failed: ${String(parsed.error.message)}`);
+        throw new Error(
+          `bridge request failed: ${typeof parsed.error.message === "string" ? parsed.error.message : "unknown"}`,
+        );
       }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("bridge request failed")) {
@@ -1624,7 +1626,7 @@ export const TOOLS: ToolDef[] = [
       handler: async (toolCtx, args) => {
         const body = {
           message_id: requireString(args, "message_id"),
-          ...(args.chat_jid !== undefined ? { chat_jid: String(args.chat_jid) } : {}),
+          ...(typeof args.chat_jid === "string" ? { chat_jid: args.chat_jid } : {}),
         };
         const payload = (await bridgeFetch(
           toolCtx,

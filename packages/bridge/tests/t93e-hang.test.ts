@@ -71,7 +71,7 @@ async function startBridge(): Promise<number> {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t93e-")));
   stores.push(store);
   const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-  servers.push({ close: bridge.close });
+  servers.push({ close: () => bridge.close() });
   return bridge.port;
 }
 

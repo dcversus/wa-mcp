@@ -53,7 +53,7 @@ test("extractAudio rejects with ENGINE_UNAVAILABLE when ffmpeg is missing", asyn
     await expect(
       extractAudio(Buffer.from("x"), "video/mp4", {
         ffmpegPath: "ffmpeg",
-        spawnFn: ((bin: string) => {
+        spawnFn: ((_bin: string) => {
           const child = new FakeChild();
           setImmediate(() => {
             child.emit(

@@ -63,24 +63,80 @@ export function loadPairingToken(storage: SettingsStorage): string {
 export interface ExchangeState {
   loggedIn: boolean;
   token: string;
-  latched: boolean;
+  terminal: boolean;
+  retryNotBefore: number;
+  now: number;
 }
 
-/** T142-W1: decide whether to attempt the ui-token exchange. A failure
- * latches only until the daemon reports loggedIn — then the owner-rule
- * retry kicks in. An existing session token means never exchange. */
+export interface ExchangeFailureVerdict {
+  terminal: boolean;
+  retryAfterMs: number | null;
+}
+
+/** Classify a failed ui-token exchange: 403 (non-loopback origin or
+ * bootstrap disabled) never changes within a page load — latch. 429 honors
+ * the server's retry-after. Anything else (network, 5xx) retries on the next
+ * sync once loggedIn. */
+export function classifyExchangeFailure(
+  failure: { status: number; retryAfterMs?: number | null } | null,
+): ExchangeFailureVerdict {
+  if (failure !== null && failure.status === 403) {
+    return { terminal: true, retryAfterMs: null };
+  }
+  if (failure !== null && failure.status === 429) {
+    return { terminal: false, retryAfterMs: failure.retryAfterMs ?? null };
+  }
+  return { terminal: false, retryAfterMs: null };
+}
+
 export function shouldExchange(state: ExchangeState): boolean {
   if (state.token.length > 0) {
     return false;
   }
-  if (state.latched && !state.loggedIn) {
+  if (state.terminal) {
     return false;
   }
-  return true;
+  return state.now >= state.retryNotBefore;
 }
 
 /** Priority: saved session token wins; the ephemeral pairing token is the
  * fallback so pairing pages work before any token is stored. */
 export function effectiveToken(settings: WebSettings, pairingToken: string): string {
   return settings.token.length > 0 ? settings.token : pairingToken;
+}
+
+/** Read keys come from GET /api/privacy (Baileys' own naming); write keys are
+ * the bridge's PRIVACY_KEYS (profile.ts). One mapping, drift-guarded by test. */
+export const PRIVACY_READ_TO_WRITE: Record<string, string> = {
+  last: "lastSeen",
+  profile: "profilePic",
+  status: "status",
+  groupadd: "groups",
+  calladd: "calls",
+  readreceipts: "readReceipts",
+  online: "online",
+  messages: "messages",
+};
+
+const PRIVACY_VALUES: Record<string, string[]> = {
+  last: ["all", "contacts", "contact_blacklist", "none"],
+  profile: ["all", "contacts", "contact_blacklist", "none"],
+  status: ["all", "contacts", "contact_blacklist", "none"],
+  groupadd: ["all", "contacts", "contact_blacklist", "none"],
+  calladd: ["all", "known"],
+  readreceipts: ["all", "none"],
+  online: ["all", "match_last_seen"],
+  messages: ["all", "contacts"],
+};
+
+export function buildPrivacyPatch(readKey: string, value: string): Record<string, string> {
+  const writeKey = PRIVACY_READ_TO_WRITE[readKey];
+  if (writeKey === undefined) {
+    throw new Error(`unknown privacy key: ${readKey}`);
+  }
+  return { [writeKey]: value };
+}
+
+export function privacyOptionsFor(readKey: string): string[] {
+  return PRIVACY_VALUES[readKey] ?? ["all"];
 }

@@ -97,7 +97,7 @@ describe("T87 — read deepening", () => {
         } as never);
       }
       const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-      created.push({ close: bridge.close });
+      created.push({ close: () => bridge.close() });
       const res = await fetch(
         url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=20&offset=0`),
         { headers: authHeader },
@@ -143,7 +143,7 @@ describe("T87 — read deepening", () => {
         messageTimestamp: 1000,
       } as never);
       const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-      created.push({ close: bridge.close });
+      created.push({ close: () => bridge.close() });
       const res = await fetch(
         url(bridge, `/api/messages?chat_jid=${encodeURIComponent(GROUP_A)}&limit=10`),
         { headers: authHeader },
@@ -200,7 +200,7 @@ describe("T87-B — export, bulk clear, photo fields", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-exp-")));
     seed(store);
     const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     for (const [fmt, marker] of [
       ["jsonl", '"text":"export me"'],
       ["md", "## 2023-11-14"],
@@ -226,7 +226,7 @@ describe("T87-B — export, bulk clear, photo fields", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-expu-")));
     seed(store);
     const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, "/api/export?unread=true&format=jsonl"), {
       headers: authHeader,
     });
@@ -241,7 +241,7 @@ describe("T87-B — export, bulk clear, photo fields", () => {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-bulk-")));
     seed(store);
     const bridge = await createHttpServer(stubHandle(), { token: "test-token", store });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(url(bridge, "/api/read-bulk"), {
       method: "POST",
       headers: { ...authHeader, "content-type": "application/json" },
@@ -266,7 +266,7 @@ describe("T87-B — export, bulk clear, photo fields", () => {
       token: "test-token",
       store,
     });
-    created.push({ close: bridge.close });
+    created.push({ close: () => bridge.close() });
     const res = await fetch(
       url(bridge, `/api/contacts/${encodeURIComponent(GROUP_A)}?with_photo=true`),
       { headers: authHeader },

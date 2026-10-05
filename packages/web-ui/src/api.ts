@@ -60,8 +60,10 @@ export interface ApiClient {
   sendPresence(chatJid: string, state: string): Promise<unknown>;
   getContext(chatJid: string, messageId: string, limit?: number): Promise<unknown>;
   block(chatJid: string): Promise<unknown>;
-  setPrivacy(key: string, value: string): Promise<unknown>;
+  unblock(chatJid: string): Promise<unknown>;
+  setPrivacy(patch: Record<string, string>): Promise<unknown>;
   setProfileName(name: string): Promise<unknown>;
+  setProfileStatus(status: string): Promise<unknown>;
 }
 
 /** T93-C1: error bodies are data, not payloads — every non-OK response
@@ -197,8 +199,10 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     sendTts: (chatJid, text) => post("/api/tts", { chat_jid: chatJid, text }),
     // T77: the route validates input.presence (NOT state) — drift fixed
     sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, presence: state }),
-    block: (chatJid) => post("/api/block", { chat_jid: chatJid, block: true }),
-    setPrivacy: (privacy_key, value) => post("/api/privacy", { privacy_key, value }),
+    block: (chatJid) => post("/api/block", { jid: chatJid, block: true }),
+    unblock: (chatJid) => post("/api/block", { jid: chatJid, block: false }),
+    setPrivacy: (patch) => post("/api/privacy", patch),
+    setProfileStatus: (status) => post("/api/profile", { status }),
     setProfileName: (name) => post("/api/profile", { name }),
     groupInfo: (groupJid) => jsonCall(`/api/group/info?jid=${encodeURIComponent(groupJid)}`),
     getContext: (chatJid, messageId, radius) => {

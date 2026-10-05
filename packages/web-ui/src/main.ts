@@ -1,6 +1,6 @@
 import "./styles.css";
 import { renderFrame, type Route } from "./app.ts";
-import { createApiClient, type ApiClient } from "./api.ts";
+import { ApiError, createApiClient, type ApiClient } from "./api.ts";
 import { healthWithRetry } from "./preflight.ts";
 import {
   bridgeDownBanner,
@@ -38,6 +38,8 @@ import {
   saveSettings,
   type WebSettings,
   shouldExchange,
+  classifyExchangeFailure,
+  buildPrivacyPatch,
 } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
@@ -70,18 +72,21 @@ async function syncPairingToken(): Promise<void> {
 // ADR 0012: one exchange attempt per page load — a 401/403 (unpaired daemon,
 // or the UI reached from a non-loopback origin) leaves the UI on the pairing
 // flow instead of retrying in a loop.
-let accountTokenExchanged = false;
+let exchangeTerminal = false;
+let exchangeRetryNotBefore = 0;
+let staleTokenCleared = false;
 async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
   if (
     !shouldExchange({
       loggedIn,
       token: settings.token,
-      latched: accountTokenExchanged,
+      terminal: exchangeTerminal,
+      retryNotBefore: exchangeRetryNotBefore,
+      now: Date.now(),
     })
   ) {
     return;
   }
-  accountTokenExchanged = true;
   try {
     const res = await client.uiToken();
     if (typeof res.token === "string" && res.token.length > 0) {
@@ -89,11 +94,29 @@ async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
       saveSettings(localStorage, settings);
       client = createClient();
     }
-  } catch {
-    // T142-W1: a failed attempt clears the latch — a later loggedIn sync
-    // retries instead of stranding the owner on 401s
-    accountTokenExchanged = false;
+  } catch (err) {
+    const verdict = classifyExchangeFailure(
+      err instanceof ApiError ? { status: err.status, retryAfterMs: err.retryAfterMs } : null,
+    );
+    if (verdict.terminal) {
+      exchangeTerminal = true;
+    }
+    if (verdict.retryAfterMs !== null) {
+      exchangeRetryNotBefore = Date.now() + verdict.retryAfterMs;
+    }
   }
+}
+
+/** A daemon restart rotates the UI token — a stored token then 401s every
+ * call. Clear it ONCE per page load and let the exchange run again. */
+function clearStaleTokenOnce(): void {
+  if (staleTokenCleared || settings.token.length === 0) {
+    return;
+  }
+  staleTokenCleared = true;
+  settings = { ...settings, token: "" };
+  saveSettings(localStorage, settings);
+  client = createClient();
 }
 
 function adoptPairingToken(health: PairingHealth): void {
@@ -255,6 +278,7 @@ function createClient(): ApiClient {
     // on the current route instead (needsToken path in renderFrame). A stored
     // but INVALID token must not loop: debounce re-renders per 401 burst.
     onUnauthorized: () => {
+      clearStaleTokenOnce();
       const now = Date.now();
       if (now - lastUnauthorizedRender > 500) {
         lastUnauthorizedRender = now;
@@ -421,10 +445,10 @@ const loaders: {
       inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
     }));
     activeSubRows = rows.map((row) => ({ id: row.id, chatJid: row.chatJid }));
-    const chats = await client.getChats();
-    const chatRows = (
-      chats as { chats: Array<{ jid: string; name: string | null; unreadCount: number }> }
-    ).chats
+    const chatsPayload = (await client.getChats().catch(() => ({ chats: [] }))) as {
+      chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
+    };
+    const chatRows = (chatsPayload.chats ?? [])
       .filter((c) => !c.jid.endsWith("@lid"))
       .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
     return subscriptionsPageHtml(rows, chatRows);
@@ -661,25 +685,43 @@ function bindParticipantsControls(): void {
 }
 
 function bindProfileControls(): void {
-  document.getElementById("name-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const name = (document.querySelector("#name-form input[name=name]") as HTMLInputElement).value;
-    if (name.length > 0) {
-      await client.setProfileName(name).catch(() => undefined);
+  document.getElementById("save-name")?.addEventListener("click", async () => {
+    const name = (document.getElementById("me-name") as HTMLInputElement | null)?.value ?? "";
+    if (name.length === 0) {
+      return;
+    }
+    try {
+      await client.setProfileName(name);
+      showProfileSaved("name saved");
+    } catch (err) {
+      showProfileError(err);
     }
   });
-  document.getElementById("privacy-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const value = (
-      document.querySelector("#privacy-form select[name=privacy_value]") as HTMLSelectElement
-    ).value;
-    await client.setPrivacy("read_receipts", value).catch(() => undefined);
+  document.getElementById("save-status")?.addEventListener("click", async () => {
+    const status = (document.getElementById("me-status") as HTMLInputElement | null)?.value ?? "";
+    try {
+      await client.setProfileStatus(status);
+      showProfileSaved("status saved");
+    } catch (err) {
+      showProfileError(err);
+    }
+  });
+  document.querySelectorAll<HTMLSelectElement>("select[data-privacy-key]").forEach((select) => {
+    select.addEventListener("change", async () => {
+      const key = select.dataset.privacyKey ?? "";
+      try {
+        await client.setPrivacy(buildPrivacyPatch(key, select.value));
+        showProfileSaved(`${key} set to ${select.value}`);
+      } catch (err) {
+        showProfileError(err);
+      }
+    });
   });
   document.getElementById("block-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const jid = (document.querySelector("#block-form input[name=chat_jid]") as HTMLInputElement)
-      .value;
-    if (jid.length > 0) {
+      ?.value;
+    if (jid !== undefined && jid.length > 0) {
       await client.block(jid).catch(() => undefined);
       await renderCurrent();
     }
@@ -687,10 +729,26 @@ function bindProfileControls(): void {
   document.querySelectorAll("[data-unblock-jid]").forEach((button) => {
     button.addEventListener("click", async () => {
       const jid = (button as HTMLElement).dataset.unblockJid ?? "";
-      await client.block(jid).catch(() => undefined);
+      await client.unblock(jid).catch(() => undefined);
       await renderCurrent();
     });
   });
+}
+
+function showProfileSaved(message: string): void {
+  const slot = document.getElementById("profile-save-status");
+  if (slot !== null) {
+    slot.textContent = message;
+    slot.className = "save-flash ok";
+  }
+}
+
+function showProfileError(err: unknown): void {
+  const slot = document.getElementById("profile-save-status");
+  if (slot !== null) {
+    slot.textContent = err instanceof Error ? err.message : "save failed";
+    slot.className = "save-flash danger";
+  }
 }
 
 function bindEventsControls(): void {
@@ -986,6 +1044,13 @@ async function deleteSubscriptionForChat(chatJid: string): Promise<void> {
 }
 
 function bindSubscriptionsControls(): void {
+  document.getElementById("sub-chat-filter")?.addEventListener("input", (event) => {
+    const needle = (event.target as HTMLInputElement).value.trim().toLowerCase();
+    document.querySelectorAll<HTMLElement>(".sub-chat-row").forEach((row) => {
+      const haystack = (row.textContent ?? "").toLowerCase();
+      row.style.display = haystack.includes(needle) ? "" : "none";
+    });
+  });
   document.getElementById("sub-chat-picker")?.addEventListener("change", async (event) => {
     const target = event.target as HTMLInputElement;
     if (target.type !== "checkbox") {
@@ -1007,7 +1072,8 @@ function bindSubscriptionsControls(): void {
     const form = event.currentTarget as HTMLFormElement;
     const data = new FormData(form);
     const allChats = data.get("all_chats") === "on";
-    const chatJid = String(data.get("chat_jid") ?? "").trim();
+    const chatJidRaw = data.get("chat_jid");
+    const chatJid = (typeof chatJidRaw === "string" ? chatJidRaw : "").trim();
     if (!allChats && chatJid.length === 0) {
       return;
     }

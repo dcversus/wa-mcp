@@ -145,7 +145,7 @@ test("pdf with pdftotext missing rejects with ENGINE_UNAVAILABLE", async () => {
     writeFileSync(path, Buffer.from("%PDF-1.4 fake"));
     await expect(
       extractDocumentText(path, "application/pdf", {
-        spawnFn: ((bin: string) => {
+        spawnFn: ((_bin: string) => {
           const child: unknown = {
             stdout: { on: () => undefined },
             stderr: { on: () => undefined },

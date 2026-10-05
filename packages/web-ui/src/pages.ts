@@ -48,25 +48,36 @@ export function formatStatValue(key: string, value: unknown): string {
   if (typeof value === "boolean") {
     return value ? "yes" : "no";
   }
+  if (Array.isArray(value)) {
+    return value.map((entry) => formatStatValue(key, entry)).join(", ");
+  }
   if (key === "pairingAttempts" && typeof value === "object") {
     const v = value as { used?: unknown; limit?: unknown };
-    return `${Number(v.used ?? 0)} / ${Number(v.limit ?? 0)}`;
+    const used = Number(v.used ?? 0);
+    const limit = Number(v.limit ?? 0);
+    if (!Number.isFinite(used) || !Number.isFinite(limit)) {
+      return "—";
+    }
+    return `${used} / ${limit}`;
   }
   if (key === "subscriptions" && typeof value === "object") {
     const v = value as { count?: unknown; dropped?: unknown };
     const count = Number(v.count ?? 0);
     const dropped = Number(v.dropped ?? 0);
+    if (!Number.isFinite(count) || !Number.isFinite(dropped)) {
+      return "—";
+    }
     return dropped > 0 ? `${count} (${dropped} dropped)` : `${count}`;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => formatStatValue(key, entry)).join(", ");
   }
   if (typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
       .map(([k, v]) => `${k}: ${formatStatValue(k, v)}`)
       .join(", ");
   }
-  return String(value);
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }
 
 export function statusDashboardHtml(input: StatusDashboardInput): string {
@@ -134,7 +145,7 @@ export function chatListHtml(
   opts: { showArchived?: boolean; query?: string } = {},
 ): string {
   if (chats.length === 0) {
-    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${emptyState("No chats yet — they appear after your first message")}</section>`;
+    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${emptyState("No chats yet — they appear after your first message")}</section>`;
   }
   const items = chats
     .map((chat) => {
@@ -149,7 +160,7 @@ export function chatListHtml(
       return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</li>`;
     })
     .join("");
-  return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
+  return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
 }
 
 export interface MessageView {
@@ -357,6 +368,7 @@ ${row.values
 <label>about / status<input id="me-status" value="${escapeHtml(me.status ?? "")}" placeholder="—" /></label>
 <button id="save-name" type="button">save name</button>
 <button id="save-status" type="button">save status</button>
+<span id="profile-save-status" class="save-flash" aria-live="polite"></span>
 </div></div>
 <h3>privacy</h3>
 <div class="privacy-settings">${privacyRows}</div>
@@ -492,15 +504,36 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[]
 </li>`,
     )
     .join("");
+  const allChatsSub = subs.find((s) => s.allChats);
   const subscribed = new Set(subs.filter((s) => !s.allChats).map((s) => s.chatJid));
+  const sortedChats = [...chats].sort((a, b) => {
+    const aGroup = a.jid.endsWith("@g.us") ? 0 : 1;
+    const bGroup = b.jid.endsWith("@g.us") ? 0 : 1;
+    return aGroup - bGroup || (a.name ?? a.jid).localeCompare(b.name ?? b.jid);
+  });
+  const allChatsNote =
+    allChatsSub !== undefined
+      ? '<p class="hint">all-chats subscription active — manage it in Advanced</p>'
+      : "";
+  const globalMedia =
+    '<label class="check-row"><input type="checkbox" id="sub-include-media" /> include media</label>';
   const picker =
-    chats.length > 0
-      ? `<ul id="sub-chat-picker">${chats
-          .map(
-            (chat) => `<li class="sub-chat-row" data-chat-jid="${escapeHtml(chat.jid)}">
-<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${subscribed.has(chat.jid) ? " checked" : ""} /> <span class="avatar">${initials(chat.name ?? chat.jid)}</span> <span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span> <code class="inbox-path">${escapeHtml(chat.jid)}</code></label>
-</li>`,
-          )
+    sortedChats.length > 0
+      ? `${allChatsNote}${globalMedia}<input id="sub-chat-filter" type="search" placeholder="filter chats…" aria-label="filter chats" autocomplete="off" />
+<div class="picker-count" data-picker-count="${sortedChats.length}">${sortedChats.length} chats — ${subscribed.size} subscribed</div>
+<ul id="sub-chat-picker">${sortedChats
+          .map((chat) => {
+            const checked = allChatsSub !== undefined || subscribed.has(chat.jid);
+            const disabled = allChatsSub !== undefined;
+            const subIds = subs
+              .filter((s) => !s.allChats && s.chatJid === chat.jid)
+              .map((s) => s.id);
+            const subIdsAttr =
+              subIds.length > 0 ? ` data-sub-ids="${escapeHtml(subIds.join(","))}"` : "";
+            return `<li class="sub-chat-row" data-chat-jid="${escapeHtml(chat.jid)}"${subIdsAttr}>
+<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${checked ? " checked" : ""}${disabled ? " disabled" : ""} /> <span class="avatar">${escapeHtml(initials(chat.name ?? chat.jid))}</span> <span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span> <code class="inbox-path">${escapeHtml(chat.jid)}</code></label>
+</li>`;
+          })
           .join("")}</ul>`
       : emptyState("No chats yet — they appear after messages arrive");
   return `<section id="subscriptions-page"><h2>Subscriptions</h2>

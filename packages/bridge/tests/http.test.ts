@@ -1352,7 +1352,7 @@ test("POST /api/profile/picture uploads the decoded image", async () => {
   expect(res.status).toBe(200);
   const call = (socket.updateProfilePicture as ReturnType<typeof vi.fn>).mock.calls[0];
   expect(call?.[0]).toBe("358497773518@s.whatsapp.net");
-  expect((call?.[1] as Buffer).equals(png)).toBe(true);
+  expect(call?.[1] !== undefined && (call[1] as Buffer).equals(png)).toBe(true);
 });
 
 test("POST /api/privacy applies keys and rejects unsupported ones", async () => {
@@ -3344,7 +3344,7 @@ describe("T86 — fetch-history + catch-up digest", () => {
     const call = (socket as unknown as { fetchMessageHistory: ReturnType<typeof vi.fn> })
       .fetchMessageHistory.mock.calls[0];
     expect(call?.[0]).toBe(25);
-    expect((call?.[1] as { id: string }).id).toBe("OLDEST-1");
+    expect(call?.[1] !== undefined && (call[1] as { id: string }).id).toBe("OLDEST-1");
   });
 
   test("line112 — /api/catch-up returns the activity digest since a timestamp", async () => {
@@ -3427,7 +3427,7 @@ describe("T90 — status/link/buttons/list send kinds", () => {
     expect(res.status).toBe(200);
     const calls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
     expect(calls[0]?.[0]).toBe("status@broadcast");
-    expect((calls[0]?.[1] as { text?: string }).text).toBe("day one");
+    expect(calls[0]?.[1] !== undefined && (calls[0][1] as { text?: string }).text).toBe("day one");
   });
 
   test("line74 — link_preview kind builds extendedText with matchedText", async () => {
@@ -4370,29 +4370,19 @@ describe("T138 — exchange limiter is separate and small", () => {
 });
 
 describe("T142-W3 — GET /api/me mirrors the logged-in identity", () => {
-  test("returns pn + own pushName from the newest fromMe row", async () => {
-    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-meweb-")));
+  test("returns pn + name from creds.me (auth state), not from message rows", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-meweb-"));
+    mkdirSync(join(dataDir, "auth"), { recursive: true });
+    writeFileSync(
+      join(dataDir, "auth", "creds.json"),
+      JSON.stringify({ me: { id: "358497773518:2@s.whatsapp.net", name: "Vasilisa" } }),
+    );
+    const store = openStore(join(dataDir, "store"));
     openedStores.push(store);
-    store.db
-      .prepare(
-        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, is_from_me) VALUES (?, ?, ?, ?, ?, ?, 1)",
-      )
-      .run(
-        "ME1",
-        "358400000099@s.whatsapp.net",
-        "358497773518@s.whatsapp.net",
-        "2026-06-01T00:00:00Z",
-        "mine",
-      );
-    store.db.prepare("UPDATE messages SET sender_name = 'Vasilisa' WHERE id = 'ME1'").run();
-    const socket = makeFakeSocket();
-    (socket as { user?: unknown }).user = {
-      id: "358497773518@s.whatsapp.net",
-      name: "Vasilisa",
-    };
-    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+    const bridge = await createHttpServer(stubHandle("connected"), {
       token: "test-token",
       store,
+      dataDir,
     });
     created.push(bridge);
     const res = await fetch(url(bridge, "/api/me"), { headers: authHeader });
@@ -4402,7 +4392,7 @@ describe("T142-W3 — GET /api/me mirrors the logged-in identity", () => {
       name: string | null;
       status: string | null;
     };
-    expect(body.pn).toBe("358497773518@s.whatsapp.net");
+    expect(body.pn).toBe("358497773518");
     expect(body.name).toBe("Vasilisa");
     expect(body.status).toBeNull();
   });
@@ -4420,5 +4410,38 @@ describe("T142-W3 — GET /api/me mirrors the logged-in identity", () => {
     const body = (await res.json()) as { pn: string | null; name: string | null };
     expect(body.pn).toBeNull();
     expect(body.name).toBeNull();
+  });
+});
+
+describe("T144 — GET /api/me reads identity from the auth state (no sender_name fallback)", () => {
+  test("returns normalized pn and name from creds.me; strips device suffix and domain", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t144-"));
+    mkdirSync(join(dataDir, "auth"), { recursive: true });
+    writeFileSync(
+      join(dataDir, "auth", "creds.json"),
+      JSON.stringify({ me: { id: "358497773518:12@s.whatsapp.net", name: "Versus" } }),
+    );
+    const bridge = await startServer({ dataDir });
+    const res = await fetch(url(bridge, "/api/me"), {
+      headers: { authorization: `Bearer ${"test-token"}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { pn?: string; name?: string; status?: string | null };
+    expect(body.pn).toBe("358497773518");
+    expect(body.name).toBe("Versus");
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  test("unpaired daemon returns nulls, not someone else's digits", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t144b-"));
+    const bridge = await startServer({ dataDir });
+    const res = await fetch(url(bridge, "/api/me"), {
+      headers: { authorization: `Bearer ${"test-token"}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { pn?: string | null; name?: string | null };
+    expect(body.pn).toBeNull();
+    expect(body.name).toBeNull();
+    rmSync(dataDir, { recursive: true, force: true });
   });
 });

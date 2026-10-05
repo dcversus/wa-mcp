@@ -126,11 +126,11 @@ export function createScheduledSender(deps: {
       result = await sendViaSocket(socket, target, { text: payload } as AnyMessageContent);
     } else {
       // T84-B line98: media payloads route through resolveMedia like /api/send
-      const kind = String(payload.kind ?? "image");
+      const kind = typeof payload.kind === "string" ? payload.kind : "image";
       const resolved = await resolveMedia(
         typeof payload.url === "string"
           ? { url: payload.url }
-          : { base64: String(payload.base64 ?? "") },
+          : { base64: typeof payload.base64 === "string" ? payload.base64 : "" },
         { mediaDir, fetchFn: undefined },
       );
       result = await sendViaSocket(socket, target, {

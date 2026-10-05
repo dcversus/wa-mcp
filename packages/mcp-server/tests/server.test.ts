@@ -701,7 +701,11 @@ describe("T89-D — newsletter MCP tools", () => {
       toolCtx,
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/newsletters/follow");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({ jid: "1234@newsletter" });
+    expect(
+      JSON.parse(typeof log[0]?.init.body === "string" ? (log[0].init.body as string) : "{}"),
+    ).toEqual({
+      jid: "1234@newsletter",
+    });
     await handleRpcLine(
       makeRequest(82, "tools/call", {
         name: "newsletter_unfollow",
@@ -730,7 +734,9 @@ describe("T89-D — newsletter MCP tools", () => {
       toolCtx,
     );
     expect(log[0]?.url).toBe("http://127.0.0.1:8080/api/newsletters/send");
-    expect(JSON.parse(String(log[0]?.init.body))).toEqual({
+    expect(
+      JSON.parse(typeof log[0]?.init.body === "string" ? (log[0].init.body as string) : "{}"),
+    ).toEqual({
       jid: "1234@newsletter",
       text: "bulletin",
     });

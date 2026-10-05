@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { openInbox, readInboxLines } from "../src/inbox.ts";
 
-function mkInbox(capBytes?: number): { dir: string; cleanup: () => void } {
+function mkInbox(_capBytes?: number): { dir: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "t106-"));
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }

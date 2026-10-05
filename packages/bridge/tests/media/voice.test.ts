@@ -184,7 +184,12 @@ describe("T90 line144 — OpenAI TTS engine", () => {
     expect(call?.url).toBe("https://api.example/v1/audio/speech");
     const headers = call?.init.headers as Record<string, string>;
     expect(headers.authorization).toBe("Bearer sk-tts");
-    const spoken = JSON.parse(String(call?.init.body)) as { input: string; voice: string };
+    const spoken = JSON.parse(
+      typeof call?.init.body === "string" ? (call.init.body as string) : "{}",
+    ) as {
+      input: string;
+      voice: string;
+    };
     expect(spoken.input).toBe("say this");
     expect(typeof spoken.voice).toBe("string");
   });

@@ -217,7 +217,7 @@ describe("task-51 client surface", () => {
   test("block/setPrivacy/setName hit their endpoints", async () => {
     const { client, calls } = recordingClient();
     await client.block("999@s.whatsapp.net");
-    await client.setPrivacy("read_receipts", "none");
+    await client.setPrivacy({ readReceipts: "none" });
     await client.setProfileName("New Name");
     expect(calls.map((c) => c.path)).toEqual(["/api/block", "/api/privacy", "/api/profile"]);
     // bodies are strings by construction (createApiClient JSON.stringify's them)
@@ -227,12 +227,11 @@ describe("task-51 client surface", () => {
       return body;
     };
     expect(JSON.parse(bodyOf(0))).toEqual({
-      chat_jid: "999@s.whatsapp.net",
+      jid: "999@s.whatsapp.net",
       block: true,
     });
     expect(JSON.parse(bodyOf(1))).toEqual({
-      privacy_key: "read_receipts",
-      value: "none",
+      readReceipts: "none",
     });
     expect(JSON.parse(bodyOf(2))).toEqual({ name: "New Name" });
   });

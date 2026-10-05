@@ -57,6 +57,7 @@ import {
   DISPATCHED_SUBSCRIPTION_KINDS,
   subscriptionDir,
 } from "./subscriptions.ts";
+import { readOwnIdentity } from "./auth.ts";
 import { openInbox } from "./inbox.ts";
 import { toMcpNotifications, createToolsChangedWatcher } from "./mcp-notify.ts";
 import { randomUUID as sessionIdGen } from "node:crypto";
@@ -3439,23 +3440,27 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/me" && req.method === "GET") {
-          const socket = handle.socket as
-            | { user?: { id?: string; name?: string } | null }
-            | undefined
-            | null;
-          const pn = socket?.user?.id ?? null;
-          let name: string | null = socket?.user?.name ?? null;
-          if (opts.store !== undefined) {
-            const row = opts.store.db
-              .prepare(
-                "SELECT sender_name FROM messages WHERE is_from_me = 1 AND sender_name IS NOT NULL ORDER BY timestamp DESC LIMIT 1",
-              )
-              .get() as { sender_name?: string | null } | undefined;
-            if (name === null && row?.sender_name !== undefined && row.sender_name !== null) {
-              name = row.sender_name;
+          const identity =
+            opts.dataDir !== undefined
+              ? readOwnIdentity(join(opts.dataDir, "auth"))
+              : { pn: null, name: null };
+          let status: string | null = null;
+          const socket = handle.socket;
+          if (socket?.user?.id !== undefined && typeof socket.fetchStatus === "function") {
+            try {
+              const fetched = await socket.fetchStatus(socket.user.id);
+              status =
+                fetched !== null &&
+                fetched !== undefined &&
+                fetched.length > 0 &&
+                typeof fetched[0]?.status === "string"
+                  ? fetched[0].status
+                  : null;
+            } catch {
+              status = null;
             }
           }
-          sendJson(res, 200, { pn, name, status: null });
+          sendJson(res, 200, { ...identity, status });
           return;
         }
         if (path === "/api/blocklist") {

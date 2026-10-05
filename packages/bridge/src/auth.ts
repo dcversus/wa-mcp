@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { AuthenticationCreds } from "baileys";
@@ -37,4 +37,26 @@ export function openAuthStore(dir: string): AuthStore {
       chmodSync(file, 0o600);
     },
   };
+}
+
+export interface OwnIdentity {
+  pn: string | null;
+  name: string | null;
+}
+
+export function readOwnIdentity(dir: string): OwnIdentity {
+  const file = join(dir, CREDS_FILE);
+  if (!existsSync(file)) {
+    return { pn: null, name: null };
+  }
+  try {
+    const creds = JSON.parse(readFileSync(file, "utf8")) as {
+      me?: { id?: string; name?: string };
+    };
+    const id = creds.me?.id ?? null;
+    const pn = id !== null ? (id.split("@")[0]?.replace(/:\d+$/, "") ?? null) : null;
+    return { pn, name: creds.me?.name ?? null };
+  } catch {
+    return { pn: null, name: null };
+  }
 }
