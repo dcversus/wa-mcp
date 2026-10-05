@@ -21,6 +21,20 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 | 13 | read_document readOnlyHint at wrong level (TS2353) | vp check | annotate() fix | check 0 + 113/113 |
 | 14 | maskSecret length-5 leak (sho…hort LONGER than input) | t123 unit test | T123 commit | 5/5 |
 | 15 | extractAudio readFile callback-style in async | TypeError cb argument | T126 commit | 2/2 |
+| 16 | attachTranscripts first-seen row wins — stale mock transcript shadows later real one | sqlite probe: no ORDER BY; RED test same-second tie | Gate B w2 commit | store 91/91 |
+| 17 | deleted subscriptions retain InboxWriter in closure Map (memory) | no inboxes.delete on DELETE route | Gate B w2 commit | t107+t116 green |
+| 18 | settingsHtml interpolates bridgeUrl/token without escaping (attribute injection) | RED test: script tag passes through | Gate B w3 commit | web-ui 117 |
+| 19 | stdio JSON-RPC reader has no line cap (unbounded memory) | RED test: >4MB line processed | Gate B w3 commit | mcp 115 |
+
+## Hypothesis dispositions (wave 2-3)
+
+- H3 MCP session no-TTL → documented known 0.9 gap in security.md; protocol-adjacent → owner review, outside count.
+- H4 pairing budget resets on restart → by design (budget guards retry-loops within a boot; resume is the operator escape); documented in troubleshooting.md.
+- H5 → FIXED as #16.
+- H6 dropped counter excludes rotation deletions → matches documented contract ("failed inbox writes"); no fix.
+- H7 /events writer cleanup → T116 reuses the shared eventsWriters set with close-handler cleanup; no leak.
+- H8 dual-process rate buckets → mitigated by T104 port guard.
+- H1/H2 (webhook timing, DNS rebinding) → security-sensitive, owner review, outside count.
 
 ## Open hypotheses (wave 2 — from opus review + known gaps)
 
