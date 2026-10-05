@@ -41,12 +41,40 @@ export interface StatusDashboardInput {
   events: Array<{ type: string; at: number; detail?: string }>;
 }
 
+export function formatStatValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no";
+  }
+  if (key === "pairingAttempts" && typeof value === "object") {
+    const v = value as { used?: unknown; limit?: unknown };
+    return `${Number(v.used ?? 0)} / ${Number(v.limit ?? 0)}`;
+  }
+  if (key === "subscriptions" && typeof value === "object") {
+    const v = value as { count?: unknown; dropped?: unknown };
+    const count = Number(v.count ?? 0);
+    const dropped = Number(v.dropped ?? 0);
+    return dropped > 0 ? `${count} (${dropped} dropped)` : `${count}`;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => formatStatValue(key, entry)).join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${k}: ${formatStatValue(k, v)}`)
+      .join(", ");
+  }
+  return String(value);
+}
+
 export function statusDashboardHtml(input: StatusDashboardInput): string {
   const fields = Object.entries(input.health)
     .filter(([key]) => key !== "channel" || input.health.channel !== undefined)
     .map(
       ([key, value]) =>
-        `<div class="stat"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd></div>`,
+        `<div class="stat"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(formatStatValue(key, value))}</dd></div>`,
     )
     .join("");
   const rules = input.notifications
@@ -272,7 +300,10 @@ export function qrHtml(pngDataUrl: string | null): string {
 
 export function healthHtml(health: Record<string, unknown>): string {
   return `<dl class="health">${Object.entries(health)
-    .map(([key, value]) => `<dt>${key}</dt><dd>${String(value)}</dd>`)
+    .map(
+      ([key, value]) =>
+        `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(formatStatValue(key, value))}</dd>`,
+    )
     .join("")}</dl>`;
 }
 
