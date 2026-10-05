@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
+import { StringDecoder } from "node:string_decoder";
 import { pathToFileURL } from "node:url";
 import {
   handleRpcLine,
@@ -125,54 +126,55 @@ async function pumpNotifications(ctx: ServerContext, write: (line: string) => vo
   }
 }
 
-/** Byte-counting line reader: unlike readline, memory stays bounded at the
- * cap — an oversized line is dropped as soon as it EXCEEDS the cap while
- * still streaming, instead of being buffered whole and rejected afterwards. */
-export async function readCappedLines(
-  input: NodeJS.ReadableStream & {
-    [Symbol.asyncIterator](): AsyncIterableIterator<string | Buffer>;
-  },
+/** Character-counting line generator: unlike readline, memory stays bounded
+ * at the cap — an oversized line is dropped as soon as it EXCEEDS the cap
+ * while still streaming, instead of being buffered whole and rejected
+ * afterwards. Yields complete lines only; the ONE handleStream consumer
+ * keeps its MCP session and notification pump across lines. */
+export async function* readCappedLines(
+  input: AsyncIterable<string | Buffer>,
   cap: number,
-  onLine: (line: string) => void,
-  ctx: ServerContext,
-): Promise<void> {
+): AsyncGenerator<string> {
+  const decoder = new StringDecoder("utf8");
   let buffer = "";
   let dropping = false;
-  const oversized = (): void => {
-    onLine(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32600, message: `line exceeds ${cap} characters — dropping` },
-      }),
-    );
-  };
+  const oversized = (): string =>
+    JSON.stringify({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: `line exceeds ${cap} characters — dropping` },
+    });
   for await (const chunk of input) {
-    buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    buffer += decoder.write(typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk);
     let newlineIndex = buffer.indexOf("\n");
     while (newlineIndex !== -1) {
       const line = buffer.slice(0, newlineIndex);
       buffer = buffer.slice(newlineIndex + 1);
-      if (!dropping) {
-        await handleStream([line], onLine, ctx);
+      if (dropping) {
+        dropping = false;
+      } else {
+        yield line;
       }
-      dropping = false;
       newlineIndex = buffer.indexOf("\n");
     }
     if (buffer.length > cap) {
       if (!dropping) {
-        oversized();
+        yield oversized();
       }
       dropping = true;
       buffer = "";
     }
   }
-  if (buffer.length > 0 && !dropping) {
-    if (buffer.length > cap) {
-      oversized();
-    } else {
-      await handleStream([buffer], onLine, ctx);
+  buffer += decoder.end();
+  if (buffer.length > 0) {
+    if (dropping) {
+      return;
     }
+    if (buffer.length > cap) {
+      yield oversized();
+      return;
+    }
+    yield buffer;
   }
 }
 
@@ -189,9 +191,8 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
     token: config.token,
     fetchFn: fetch,
   };
-  await readCappedLines(
-    process.stdin,
-    JSON_RPC_LINE_CAP,
+  await handleStream(
+    readCappedLines(process.stdin, JSON_RPC_LINE_CAP),
     (line) => {
       process.stdout.write(`${line}\n`);
     },

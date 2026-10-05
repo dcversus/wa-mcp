@@ -88,3 +88,21 @@ test("same-engine re-transcribe refreshes created_at so latest-wins still holds"
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("global write_seq: mock saved 3 times then openai — the newest write wins regardless of engine", () => {
+  const { store, dir } = makeStore();
+  try {
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "mock v1");
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "mock v2");
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "mock v3");
+    saveTranscript(store, "chat1@g.us", "m1", "openai", "openai first save");
+    const rows = listMessages(store, { chatJid: "chat1@g.us", limit: 10 });
+    const m1Row = rows.find((row) => (row as { id?: string }).id === "m1") as {
+      transcript?: { text?: string };
+    };
+    expect(m1Row?.transcript?.text).toBe("openai first save");
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

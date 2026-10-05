@@ -51,16 +51,10 @@ test("readCappedLines drops an oversized line DURING streaming (bounded memory)"
       yield chunk;
     }
   })();
-  await readCappedLines(
-    input as unknown as NodeJS.ReadableStream,
-    JSON_RPC_LINE_CAP,
-    (line) => {
-      writes.push(line);
-    },
-    makeCtx(),
-  );
+  for await (const line of readCappedLines(input, JSON_RPC_LINE_CAP)) {
+    writes.push(line);
+  }
   const oversized = writes.find((line) => line.includes("exceeds"));
   expect(oversized).toContain("-32600");
-  const ping = writes.find((line) => line.includes('"id":7'));
-  expect(ping).toContain("result");
+  expect(writes.some((line) => line.includes('"id":7'))).toBe(true);
 });

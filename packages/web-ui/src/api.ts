@@ -125,9 +125,12 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
           ? String((parsed as { error: { message: unknown } }).error.message)
           : `bridge returned ${response.status}`;
       const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterSeconds = Number(retryAfterHeader);
       const retryAfterMs =
-        retryAfterHeader !== null && Number.isFinite(Number(retryAfterHeader))
-          ? Math.ceil(Number(retryAfterHeader) * 1000)
+        retryAfterHeader !== null &&
+        retryAfterHeader.length > 0 &&
+        Number.isFinite(retryAfterSeconds)
+          ? Math.ceil(retryAfterSeconds * 1000)
           : null;
       throw new ApiError(response.status, message, retryAfterMs);
     }

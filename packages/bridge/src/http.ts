@@ -3510,10 +3510,6 @@ export async function createHttpServer(
             validationError(res, "chat_jid or all_chats required");
             return;
           }
-          if (input.kinds !== undefined && !Array.isArray(input.kinds)) {
-            validationError(res, "kinds must be an array");
-            return;
-          }
           const requestedKinds = (Array.isArray(input.kinds) ? input.kinds : []) as unknown[];
           for (const kind of requestedKinds) {
             if (

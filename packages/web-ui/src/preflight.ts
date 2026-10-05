@@ -34,8 +34,9 @@ export async function healthWithRetry(
       if (!rateLimited || attempt === opts.attempts - 1) {
         return {};
       }
+      const serverWait = err instanceof ApiError ? err.retryAfterMs : null;
       const waitMs =
-        err instanceof ApiError && err.retryAfterMs !== null ? err.retryAfterMs : opts.delayMs;
+        serverWait !== null ? Math.min(serverWait, opts.delayMs * opts.attempts) : opts.delayMs;
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   }

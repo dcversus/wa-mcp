@@ -25,7 +25,10 @@ export async function runSubscribe(deps: SubscribeDeps, args: SubscribeArgs): Pr
     return 1;
   }
   if (args.kind !== undefined) {
-    for (const kind of args.kind.split(",").map((entry) => entry.trim())) {
+    for (const kind of args.kind
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)) {
       if (!(DISPATCHED_SUBSCRIPTION_KINDS as readonly string[]).includes(kind)) {
         deps.print(
           `subscribe: kind '${kind}' is not filterable — only ${DISPATCHED_SUBSCRIPTION_KINDS.join(", ")} dispatch today (reaction dispatch is not implemented)`,

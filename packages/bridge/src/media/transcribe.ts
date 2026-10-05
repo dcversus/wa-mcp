@@ -434,7 +434,7 @@ export function saveTranscript(
 ): void {
   store.db
     .prepare(
-      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, kind, created_at, write_seq) VALUES (?, ?, ?, ?, ?, ?, ?, 1) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language, kind = excluded.kind, created_at = excluded.created_at, write_seq = transcripts.write_seq + 1",
+      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, kind, created_at, write_seq) VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(write_seq), 0) + 1 FROM transcripts)) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language, kind = excluded.kind, created_at = excluded.created_at, write_seq = (SELECT COALESCE(MAX(write_seq), 0) + 1 FROM transcripts)",
     )
     .run(chatJid, messageId, engine, text, language ?? null, kind, new Date().toISOString());
 }

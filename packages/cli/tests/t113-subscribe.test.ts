@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -166,4 +167,38 @@ test("subscribe --kind reaction is rejected as not-yet-dispatched", async () => 
   });
   expect(exit).toBe(1);
   expect(printed.join("\n")).toContain("not implemented");
+});
+
+test("subscribe with --data-dir sends THAT dir's token to the bridge", async () => {
+  const { main } = await import("../src/bin.ts");
+  const dir = mkdtempSync(join(tmpdir(), "t113-datadir2-"));
+  writeFileSync(join(dir, "token"), "dir-token-xyz\n");
+  const seen: Array<{ auth?: string; url: string }> = [];
+  const server = await new Promise<import("node:http").Server>((resolve) => {
+    const srv = createServer((req, res) => {
+      seen.push({ auth: req.headers.authorization, url: String(req.url) });
+      res.writeHead(201, { "content-type": "application/json" });
+      res.end(JSON.stringify({ id: "probe", inboxPath: "/tmp/x" }));
+    });
+    srv.listen(0, "127.0.0.1", () => resolve(srv));
+  });
+  const port = (server.address() as { port: number }).port;
+  try {
+    await main([
+      "subscribe",
+      "--chat",
+      "12345@s.whatsapp.net",
+      "--data-dir",
+      dir,
+      "--bridge-url",
+      `http://127.0.0.1:${port}`,
+    ]);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0]?.auth).toBe("Bearer dir-token-xyz");
+    expect(process.exitCode ?? 0).toBe(0);
+    process.exitCode = 0;
+  } finally {
+    server.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
