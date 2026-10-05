@@ -16,3 +16,9 @@
 - Opus corrected the brief 8× — all verified against source before landing: /health flat fields (no watchdog key, has uiBootstrapToken+reconnects), bridge deps = baileys/pino/qrcode+terminal (ADR 0002 'zero-dep' scope = hand-rolled core), kill-switch order (after guard reserve), rate-limit keying (API=IP+sha256(token) http.ts:2360, health 120/min IP, UI 240/min, /events unlimited), /api/pair/resume needs account token (ADR 0012 addendum), stdio pump → /api/mcp-notify (not GET /mcp), doctor checks token-file mode not 'token mode'.
 - 14 VERIFY-MARKERs resolved mechanically: node major 22 (bin.ts:317), deny-list allow-skip (send-rules.ts:59), non-constant-time webhook verify_token (webhooks.ts:14, owner-gated skeleton — noted as gap), dataDir chmod 0700 (bin.ts:70-71), MCP sessions in-memory no-TTL (http.ts:1445), messages columns (schema.ts:26), proto-media fix = T107b aca4144.
 - Spot-verified after landing: bucket keys, /health shape, inbox path format. docs:build EXIT 0.
+
+### Gate D opus dispatches — Phase 6 (2026-10-05T02:23:28Z)
+
+- Dispatch 1: full Gate B diff (25d6052^..HEAD, 450 lines) review → verdict NOT CLEAN (1 blocker, 5 majors, 3 minors). All findings mechanically verified before fixing (blocker confirmed live: bin.ts:260 still DEFAULT_DATA_DIR).
+- Dispatch 2: re-review of the fix wave (799-line diff) → verdict NOT CLEAN (new blocker: readCappedLines per-line handleStream reset MCP sessions; residue: per-row write_seq). Both fixed + minors (dedupe kinds check, CLI empty entries, Retry-After empty/cap, strong --data-dir wire assertion).
+- Both dispatches: claude -p --model opus --permission-mode plan; prompts + verdicts at /tmp/opus-gated.md, /tmp/opus-rereview.md (preserved in session log).

@@ -44,6 +44,16 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 - H10 webui-e2e "no open chat row" → NOT a defect: orchestrator probes starved the shared 120/min pairing bucket the e2e bootstraps through. Clean re-run PASS. Discipline rule recorded in GATES.md. (Live-store V20 scare also resolved: direct read-only probe showed V20 + kind column applied.) PARTIALLY SUPERSEDED by #23: the deeper truth is the UI had no 429 retry at all — now it does; T135 additionally decoupled the exchange from the health bucket (security-surface, owner review, outside count).
 - H11 SSE feed has no Last-Event-ID replay — dispositioned NOT a defect: the feed is a cosmetic live tail; status truth comes from /health + route loaders which refetch on entry.
 
+## Gate D corrections (2026-10-05, opus autoreview rounds 1+2)
+
+The independent review rejected the initial "25/25 verified" claim and was RIGHT. Corrections:
+- #21 as first landed fixed the WRONG line (pair branch instead of subscribe branch — bin.ts:260 still read DEFAULT_DATA_DIR). Corrected in Gate D round 1 with a regression test that runs main() with --data-dir; round 2 strengthened the test to assert the temp-dir token reaches the wire.
+- #22's vocabulary ["message","reaction","rule"] was invented — only "message" dispatches (reactions never reach matchSubscription; rule events bypass the filter). Corrected to DISPATCHED_SUBSCRIPTION_KINDS=["message"] in @wa-mcp/shared; reaction now rejected with "dispatch is not implemented".
+- #19's readline cap did not bound memory during reading. Corrected: readCappedLines async generator (single handleStream consumer — per-line calls reset the MCP session, a NEW blocker opus caught in round 2), StringDecoder for UTF-8 chunk splits.
+- #16's latest-wins still broke on same-engine re-transcribe (upsert kept old created_at + per-row write_seq let mock×3 beat a fresh openai save). Corrected: V21 write_seq as a GLOBAL sequence + created_at refresh on update.
+- T135 moved starvation into the UI's 240/min bucket. Corrected: dedicated 10/min EXCHANGE_RATE.
+Post-fix state: suite 996/996, vp check 0, live store at V21, exchange limiter + --data-dir + V21 live-proven on the daemon.
+
 ## CAMPAIGN RESULT — TARGET REACHED
 
 **25/25 counted fixes landed + verified** (waves 1–7, 2026-10-05). Plus outside-count: T135 ui-token exchange decoupling (security-surface → owner review), H1/H2 (security → owner review), H3 MCP session TTL (documented known gap in security.md), H4 pairing budget restart-reset (by design, documented in troubleshooting.md). 10+ lanes exercised: bridge http/dispatch, lifecycle+watchdog, send/canonicalization, store+migrations, ingest+media, MCP server (stdio + http), CLI+platforms, web UI, security gate, scheduler (none exists — verified no setInterval-based scheduler shipped; pacing handled by SendGuard).
