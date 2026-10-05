@@ -469,3 +469,12 @@ Suite 925/925 (95 files), vp check 0 errors. zai 429-blocked throughout — orch
 - T120: getting-started documents both paths (QR scan + pair --code with 'Link with phone number instead' + web-UI cross-ref) with drift-guard tests (docs vs bin.ts flag parsing vs pages-pairing phone-form).
 - Phase 3 contract line 'web-first flow NEVER requires a terminal step' verified: web #/pairing offers QR + phone-form both.
 Suite 930/930 (97 files), vp check 0 errors.
+
+### Phase 4 progress (2026-10-05T00:51:06Z)
+- T121+T125: structured engine errors (ENGINE_NOT_CONFIGURED 422 + setup hints; mlx ENOENT no longer FFMPEG_UNAVAILABLE) + real MIME passthrough + WhisperLocalTranscriptionEngine (ffmpeg→wav→whisper-cli). Media 63→66.
+- T122: V20 transcripts.kind (defensive create+alter; T62 fixture again caught the bare-ALTER issue) + attachTranscripts in listMessages/getMessageContext (IN-query, 2000-char cap, truncated flag). Store 90/90.
+- T123: config.json BYOK store (0600 enforced) + wa-mcp config set|get|unset|list (masked key) + resolveTranscriptionSettings env>file>default wired into /api/transcribe. Scope-error fix commit (config.dataDir / argv).
+- T124: GET/PUT /api/config (masked api_key, empty-keeps-saved) + web Settings transcription section. LIVE: GET+PUT+mask+empty-key-keep verified on the real daemon (key cleaned after). Suite 948→950.
+- T126: extractAudio (-vn 16kHz wav) + video/* accepted by /api/transcribe + transcribe_message. Live video note deferred to T130 final chain (needs owner-sent video).
+- Pending: T127 (read_document DOCX+PDF), T128 (OCR), T129 (doctor --engines), T130 (docs+ledger+GOAL re-ticks L142/L143/L148/L252).
+- Masker false alarm resolved: 'proces..._KEY' was transport-redacted terminal OUTPUT, file verified intact via hex bytes. Lesson recorded.
