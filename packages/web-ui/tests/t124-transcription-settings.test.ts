@@ -28,3 +28,13 @@ test("a set api key placeholder does not leak the raw key", () => {
   const html = transcriptionSettingsHtml({ apiKeyMasked: "sk-…AAAA" });
   expect(html).not.toMatch(/sk-[A-Za-z0-9]{20,}/);
 });
+
+test("settingsHtml escapes bridge url and token attribute values", async () => {
+  const { settingsHtml } = await import("../src/pages.ts");
+  const html = settingsHtml({
+    bridgeUrl: 'http://x"><script>alert(1)</script>',
+    token: 't"><img src=x>',
+  });
+  expect(html).not.toContain("<script>");
+  expect(html).not.toContain("<img ");
+});

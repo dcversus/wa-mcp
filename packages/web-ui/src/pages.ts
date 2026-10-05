@@ -233,7 +233,7 @@ export function unreadHtml(entries: Array<UnreadEntryView>): string {
 }
 
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${settings.bridgeUrl}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" value="${settings.token}" /></label><button type="submit">Save</button></form>`;
+  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" value="${escapeHtml(settings.token)}" /></label><button type="submit">Save</button></form>`;
 }
 
 export interface TranscriptionSettingsView {

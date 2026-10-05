@@ -34,6 +34,8 @@ export function parseMcpConfig(args: string[], env: Record<string, string | unde
   };
 }
 
+export const JSON_RPC_LINE_CAP = 4 * 1024 * 1024;
+
 export async function handleStream(
   lines: Iterable<string> | AsyncIterable<string>,
   write: (line: string) => void,
@@ -44,6 +46,19 @@ export async function handleStream(
   for await (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length === 0) {
+      continue;
+    }
+    if (trimmed.length > JSON_RPC_LINE_CAP) {
+      write(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: null,
+          error: {
+            code: -32600,
+            message: `request too large: ${trimmed.length} bytes exceeds the ${JSON_RPC_LINE_CAP} line cap`,
+          },
+        }),
+      );
       continue;
     }
     const response: JsonRpcResponse | null = await handleRpcLine(trimmed, ctx);
