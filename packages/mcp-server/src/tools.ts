@@ -1609,6 +1609,32 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "read_document",
+    description:
+      "Extract text from a document message (DOCX built-in; PDF via pdftotext when installed). Result is cached as a document transcript on the message.",
+    inputSchema: {
+      type: "object",
+      required: ["message_id"],
+      properties: {
+        message_id: { type: "string" },
+        chat_jid: { type: "string", description: "optional chat scope check" },
+      },
+    },
+    readOnlyHint: true,
+    handler: async (toolCtx, args) => {
+      const body = {
+        message_id: requireString(args, "message_id"),
+        ...(args.chat_jid !== undefined ? { chat_jid: String(args.chat_jid) } : {}),
+      };
+      const payload = (await bridgeFetch(
+        toolCtx,
+        `/api/media/${encodeURIComponent(body.message_id)}/text`,
+        { method: "POST", body: JSON.stringify(body) },
+      )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
     name: "send_voice_note",
     description:
       "Synthesize text to speech (mock engine) and send it as a push-to-talk voice note.",

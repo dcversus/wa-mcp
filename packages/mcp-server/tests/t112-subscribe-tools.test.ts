@@ -75,5 +75,5 @@ test("tools/list contains both with annotations", async () => {
   expect(sub?.annotations?.readOnlyHint).toBe(false);
   expect(sub?.annotations?.idempotentHint).toBe(false);
   expect(unsub?.annotations?.idempotentHint).toBe(true);
-  expect(tools).toHaveLength(73);
+  expect(tools).toHaveLength(74);
 });

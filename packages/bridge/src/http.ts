@@ -87,6 +87,7 @@ import {
 } from "./media/resolve.ts";
 import { downloadMessageMedia } from "./media/download.ts";
 import { viewMedia } from "./media/view.ts";
+import { extractDocumentText } from "./media/document.ts";
 import {
   createTranscriptionEngine,
   saveTranscript,
@@ -2700,6 +2701,71 @@ export async function createHttpServer(
                 return;
               }
               sendJson(res, 500, { error: { code: "INTERNAL", message: "view failed" } });
+            });
+            return;
+          }
+          if (path.endsWith("/text") && path.startsWith("/api/media/") && req.method === "POST") {
+            const messageId = path.slice("/api/media/".length, -"/text".length);
+            if (!/^[A-Za-z0-9_-]+$/.test(messageId)) {
+              validationError(res, "invalid message id");
+              return;
+            }
+            const store = opts.store;
+            if (store === undefined) {
+              sendJson(res, 501, {
+                error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+              });
+              return;
+            }
+            const original = fetchMessageFromStore(store, messageId);
+            if (original === null) {
+              sendJson(res, 404, { error: { code: "NOT_FOUND", message: "message not found" } });
+              return;
+            }
+            void (async () => {
+              const row = store.db
+                .prepare("SELECT media_path, media_type FROM messages WHERE id = ?")
+                .get(messageId) as
+                | { media_path: string | null; media_type: string | null }
+                | undefined;
+              let mediaPath = row?.media_path ?? null;
+              let mime = row?.media_type ?? null;
+              if (mediaPath === null || mime === null) {
+                if (handle.socket === undefined || handle.socket === null) {
+                  throw new MediaError("NOT_FOUND", "message has no downloaded media");
+                }
+                const downloaded = await downloadMessageMedia(handle.socket as never, original, {
+                  store,
+                  mediaDir: opts.mediaDir ?? ".",
+                  messageId,
+                });
+                mediaPath = downloaded.path;
+                mime = downloaded.mime;
+              }
+              const result = await extractDocumentText(mediaPath, mime);
+              saveTranscript(
+                store,
+                original.key.remoteJid ?? "",
+                messageId,
+                result.engine,
+                result.text,
+                undefined,
+                "document",
+              );
+              sendJson(res, 200, {
+                text: result.text,
+                engine: result.engine,
+                truncated: result.truncated,
+                cached: false,
+              });
+            })().catch((err: unknown) => {
+              if (err instanceof MediaError) {
+                const status =
+                  err.code === "TOO_LARGE" ? 413 : err.code === "VALIDATION_ERROR" ? 422 : 422;
+                sendJson(res, status, { error: { code: err.code, message: err.message } });
+                return;
+              }
+              sendJson(res, 500, { error: { code: "INTERNAL", message: "document text failed" } });
             });
             return;
           }

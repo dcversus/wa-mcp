@@ -117,6 +117,7 @@ test("tools/list returns the registry with names, descriptions and input schemas
     "leave_group",
     "get_group_invite",
     "transcribe_message",
+    "read_document",
     "send_voice_note",
     "get_pairing_code",
     "restrict_sending",

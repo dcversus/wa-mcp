@@ -121,7 +121,7 @@ test("T94-E H2 — two parallel sends against a budget of 1: exactly one lands",
     });
   // RED today: both pass the check-only gate and both hit WhatsApp
   const [a, b] = await Promise.all([fire(), fire()]);
-  const codes = [a.status, b.status].sort();
+  const codes = [a.status, b.status].sort((x, y) => x - y);
   expect(codes).toEqual([200, 429]);
   expect(sendMessage).toHaveBeenCalledTimes(1);
 });

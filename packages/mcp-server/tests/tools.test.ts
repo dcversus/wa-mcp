@@ -85,6 +85,7 @@ test("the registry exposes the full launch set", () => {
     "leave_group",
     "get_group_invite",
     "transcribe_message",
+    "read_document",
     "send_voice_note",
     "get_pairing_code",
     "restrict_sending",
