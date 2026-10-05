@@ -249,7 +249,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
   - [ ] `wa-search` — FTS operators, date filters, alias recipes — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-send` — media/sticker/poll/buttons/broadcast + rate care — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-inbox` — unread triage, unanswered, summarize-latest, draft-without-sending (chigwell workflows) — OUT-OF-SCOPE 0.9: ACCOUNTING
-  - [ ] `wa-media` — view/transcribe/tts + engine config — OUT-OF-SCOPE 0.9: ACCOUNTING
+  - [x] `wa-media` — view/transcribe/tts + engine config — VERIFY: T130 (skill at packages/cli/skills/wa-mcp/wa-media/SKILL.md, mirrors on install; cookbook docs/cookbook/media-understanding.md + drift-guard t130-media-docs.test.ts 5/5; engines transcribe.ts mock/openai/mlx/whisper-local; read_document docx/pdf; ocr.ts tesseract)
   - [ ] `wa-groups` — create/manage/invite/join — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-guard` — whitelist/read-only/kill-switch/audit — OUT-OF-SCOPE 0.9: ACCOUNTING
   - [ ] `wa-ops` — status/logs/backup/restore runbook — OUT-OF-SCOPE 0.9: ACCOUNTING

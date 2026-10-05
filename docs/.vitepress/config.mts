@@ -21,6 +21,7 @@ export default defineConfig({
       { text: "Per-platform install", link: "/getting-started/platforms" },
       { text: "Tool reference", link: "/reference/tools" },
       { text: "React to messages", link: "/cookbook/react-to-messages" },
+      { text: "Media understanding", link: "/cookbook/media-understanding" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },

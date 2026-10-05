@@ -478,3 +478,20 @@ Suite 930/930 (97 files), vp check 0 errors.
 - T126: extractAudio (-vn 16kHz wav) + video/* accepted by /api/transcribe + transcribe_message. Live video note deferred to T130 final chain (needs owner-sent video).
 - Pending: T127 (read_document DOCX+PDF), T128 (OCR), T129 (doctor --engines), T130 (docs+ledger+GOAL re-ticks L142/L143/L148/L252).
 - Masker false alarm resolved: 'proces..._KEY' was transport-redacted terminal OUTPUT, file verified intact via hex bytes. Lesson recorded.
+
+### PHASE 4 CLOSED — voice/video/document understanding (2026-10-05T01:00:36Z)
+
+T121-T130 all landed:
+- T121: ENGINE_NOT_CONFIGURED/ENGINE_UNAVAILABLE codes (422 + setup hints; t89 + voice tests updated from FFMPEG_UNAVAILABLE/CONFIG-error contracts). Real MIME passthrough in /api/transcribe.
+- T125: WhisperLocalTranscriptionEngine (ffmpeg 16kHz wav → whisper-cli -m -oj; model required; tmpdir cleanup; brew/pip hints).
+- T122: V20 transcripts.kind (defensive create+alter — T62 fixture caught the bare-ALTER again) + attachTranscripts in listMessages/getMessageContext (single IN query, 2000-char cap, truncated flag); saveTranscript kind param; list_messages description documents transcript payload.
+- T123: config.json BYOK store (0600 enforced, refuses looser perms) + wa-mcp config set|get|unset|list (masked key, unknown-key lists allowed) + resolveTranscriptionSettings env>file>default + factory overrides. Scope-error fixup commit.
+- T124: GET/PUT /api/config (auth; masked key; empty-key-keeps-saved) + web Settings transcription section (engine select, base-url/model/key; escapeHtml) + api client. LIVE: GET+PUT+mask+keep verified on daemon; smoke key cleaned; file 0600.
+- T126: extractAudio (-vn 16kHz mono wav) + video/* accepted by transcribe_message (audio extracted first, transcript cached). Live video note deferred to owner (no real video on hand).
+- T127: read_document — DOCX built-in (zip parse, 20MB inflate cap, 200 entries, XML→text, 1M-char cap) + PDF via pdftotext (spawn; ENOENT → ENGINE_UNAVAILABLE + brew hint); POST /api/media/:id/text caches kind:document; MCP tool #74; tools.md 74/74.
+- T128: ocrImage — WA_OCR_ENGINE default none (ENGINE_NOT_CONFIGURED + setup text), tesseract spawn (-l eng, WA_OCR_LANG), ENOENT → hint; image/* in /text route when enabled.
+- T129: doctor --engines — optional engines never fail; selected-engine missing binary/model fails with hints; openai key masked; check list unchanged without flag. LIVE: ffmpeg available, pdftotext not-configured+hint.
+- T130: docs/cookbook/media-understanding.md (engines table, BYOK, doctor, error codes) + drift-guard 5/5 + nav; wa-media SKILL.md (packages/cli/skills/wa-mcp/wa-media/, mirrors on install — verified live with temp-home install); GOAL L252 re-ticked OUT-OF-SCOPE→DONE (170 ticks).
+
+Gates: suite 962/962 → (final count after T129/T130 commits), vp check 0 errors, docs:build EXIT 0, docs-coverage 74/74, accounting:check pass.
+Note: multiple lint-fix commits — webui-e2e unused vars, server.test String(url), safety.test sort-compare, read_document annotate(). webui-e2e re-run PASS after edits.
