@@ -64,7 +64,11 @@ export async function handleStream(
 async function pumpNotifications(ctx: ServerContext, write: (line: string) => void): Promise<void> {
   const controller = new AbortController();
   try {
-    const res = await ctx.fetchFn(`${ctx.bridgeUrl}/api/mcp-notify`, {
+    const fetchFn = ctx.fetchFn;
+    if (fetchFn === undefined) {
+      return;
+    }
+    const res = await fetchFn(`${ctx.bridgeUrl}/api/mcp-notify`, {
       headers: { authorization: "Bearer " + ctx.token },
       signal: controller.signal,
     });

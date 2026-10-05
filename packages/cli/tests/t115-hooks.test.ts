@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import {
   HOOK_MARKER,
-  claudeSettingsPath,
   codexHooksPath,
   installHooksFile,
   mergeHooks,

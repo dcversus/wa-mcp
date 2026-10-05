@@ -1013,8 +1013,8 @@ test("T79 line48 — an app-state conflict triggers ONE recovery", async () => {
     } as unknown as BridgeLogger,
   });
   // the fork logs LTHash 409 conflicts through the INJECTED logger
-  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger })
-    .logger;
+  const firstCall = mockMakeWASocket.mock.calls[0];
+  const injected = (firstCall?.[0] as unknown as { logger?: BridgeLogger } | undefined)?.logger;
   const injectedWarn = injected?.warn?.bind(injected);
   injectedWarn?.({ collection: "regular" }, "conflict in processing state");
   injectedWarn?.({ collection: "regular" }, "conflict in processing state");
@@ -1274,8 +1274,8 @@ test("T80-FIX — the conflict-aware logger preserves the pino prototype surface
   const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
     logger: base as unknown as BridgeLogger,
   });
-  const injected = (mockMakeWASocket.mock.calls[0]?.[0] as unknown as { logger?: BridgeLogger })
-    .logger;
+  const firstCall = mockMakeWASocket.mock.calls[0];
+  const injected = (firstCall?.[0] as unknown as { logger?: BridgeLogger } | undefined)?.logger;
   expect(typeof injected?.child).toBe("function");
   expect(() => injected?.child({}).warn({}, "via child")).not.toThrow();
   // interception still fires on conflict

@@ -1,12 +1,4 @@
-import {
-  appendFileSync,
-  existsSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { appendFileSync, existsSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export interface InboxEvent {

@@ -27,7 +27,7 @@ function url(bridge: BridgeHttp, path: string): string {
   return `http://127.0.0.1:${bridge.port}${path}`;
 }
 
-function auth(token: string): HeadersInit {
+function auth(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}` };
 }
 

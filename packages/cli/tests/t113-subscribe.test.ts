@@ -9,7 +9,7 @@ function mkDeps(handler: (url: string, init?: RequestInit) => Response) {
   return {
     printed,
     deps: {
-      fetchFn: (async (input: RequestInfo | URL, init?: RequestInit) =>
+      fetchFn: (async (input: string | URL, init?: RequestInit) =>
         handler(String(input), init)) as unknown as typeof fetch,
       print: (line: string) => printed.push(line),
     },

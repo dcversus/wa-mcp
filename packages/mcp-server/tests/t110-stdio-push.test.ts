@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { handleStream, type ServerContext } from "../src/bin.ts";
+import { handleStream } from "../src/bin.ts";
+import type { ServerContext } from "../src/server.ts";
 import { TOOLS } from "../src/tools.ts";
 
 function makeSseBody(lines: string[]): ReadableStream<Uint8Array> {
@@ -20,7 +21,7 @@ test("after resources/subscribe wa://unread, a bridge upsert yields a notificati
     tools: TOOLS,
     bridgeUrl: "http://127.0.0.1:1",
     token: "t",
-    fetchFn: (async (input: RequestInfo | URL) => {
+    fetchFn: (async (input: string | URL) => {
       const url = String(input);
       if (url.endsWith("/api/mcp-notify")) {
         return new Response(

@@ -1078,10 +1078,12 @@ test("POST /api/send routes location, contact and poll kinds", async () => {
   });
   expect(poll.status).toBe(200);
   const sent = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
-  expect((sent[0]?.[1] as { location?: { name?: string } }).location?.name).toBe("Kallio");
-  expect((sent[1]?.[1] as { contacts?: { displayName?: string } }).contacts?.displayName).toBe(
-    "John Doe",
+  expect((sent[0]?.[1] as { location?: { name?: string } } | undefined)?.location?.name).toBe(
+    "Kallio",
   );
+  expect(
+    (sent[1]?.[1] as { contacts?: { displayName?: string } } | undefined)?.contacts?.displayName,
+  ).toBe("John Doe");
   const pollArg = sent[2]?.[1] as { poll?: { name?: string } };
   expect(pollArg.poll?.name).toBe("Lunch?");
 });

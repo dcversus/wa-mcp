@@ -8,7 +8,7 @@ const ctx: ServerContext = {
   tools: TOOLS,
   bridgeUrl: "http://127.0.0.1:1",
   token: "t",
-  fetchFn: (async (input: RequestInfo | URL, init?: RequestInit) => {
+  fetchFn: (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     calls.push({ method: init?.method ?? "GET", path: url.pathname, body: init?.body });
     if (url.pathname === "/api/subscriptions" && (init?.method ?? "GET") === "POST") {
