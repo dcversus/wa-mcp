@@ -48,7 +48,7 @@ import {
   type GroupSetting,
 } from "./groups.ts";
 import { GroupValidationError } from "./groups.ts";
-import { createRule, deleteRule, listRules } from "./notifications.ts";
+import { createRule, deleteRule, evaluateRules, listRules } from "./notifications.ts";
 import {
   createSubscription,
   deleteSubscription,
@@ -479,6 +479,30 @@ export async function createHttpServer(
     const unsubscribeBus = handle.events.subscribe((event) => {
       if (event.type !== "messages.upsert" || event.payload.type === "notify") {
         return;
+      }
+      const ruleMatches = evaluateRules(opts.store as Store, event);
+      for (const match of ruleMatches) {
+        if (match.deliver.includes("ui")) {
+          const frame = `data: ${JSON.stringify({ type: "wa.rule", payload: { ruleId: match.ruleId, title: match.title, body: match.body } })}\n\n`;
+          for (const write of eventsWriters) {
+            write(frame);
+          }
+        }
+        if (match.deliver.includes("file") && match.subId !== null) {
+          const target = listSubscriptions(opts.store as Store).find(
+            (sub) => sub.id === match.subId,
+          );
+          if (target !== undefined) {
+            writer(target.id).append({
+              ts: new Date().toISOString(),
+              kind: "rule",
+              chat: target.chatJid ?? "",
+              from: "rule",
+              text: match.title,
+              media: false,
+            });
+          }
+        }
       }
       const subs = listSubscriptions(opts.store as Store);
       for (const upsert of event.payload.messages) {
@@ -1408,6 +1432,7 @@ export async function createHttpServer(
 
   let selfPort = 0;
   const mcpSessions = new Map<string, McpSession>();
+  const eventsWriters = new Set<(frame: string) => void>();
   const toolsChanged = createToolsChangedWatcher(() => TOOLS.map((tool) => tool.name));
   const serveMcp = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
     let parsed: unknown;
@@ -1493,6 +1518,8 @@ export async function createHttpServer(
       body?: unknown;
       unread_only?: unknown;
       from_jid?: unknown;
+      deliver?: unknown;
+      sub_id?: unknown;
     };
     const needsChatJid = route !== "/api/alias";
     if (needsChatJid && (typeof input.chat_jid !== "string" || input.chat_jid.length === 0)) {
@@ -1618,12 +1645,34 @@ export async function createHttpServer(
         validationError(res, "unread_only must be a boolean");
         return;
       }
+      let deliver: string[] | undefined;
+      if (input.deliver !== undefined) {
+        if (!Array.isArray(input.deliver) || !input.deliver.every((d) => typeof d === "string")) {
+          validationError(res, "deliver must be an array of strings");
+          return;
+        }
+        const channels = input.deliver as string[];
+        const known = ["mcp", "file", "ui"];
+        for (const channel of channels) {
+          if (!known.includes(channel)) {
+            validationError(res, `unknown deliver channel: ${channel}`);
+            return;
+          }
+        }
+        if (channels.includes("file") && typeof input.sub_id !== "string") {
+          validationError(res, "sub_id is required when deliver includes file");
+          return;
+        }
+        deliver = channels;
+      }
       const rule = createRule(opts.store as Store, {
         title: input.title,
         body: typeof input.body === "string" ? input.body : undefined,
         chatJid: typeof input.chat_jid === "string" ? input.chat_jid : undefined,
         fromJid: typeof input.from_jid === "string" ? input.from_jid : undefined,
         unreadOnly: input.unread_only === true,
+        deliver,
+        subId: typeof input.sub_id === "string" ? input.sub_id : undefined,
       });
       sendJson(res, 200, { rule });
       return;
@@ -2532,6 +2581,10 @@ export async function createHttpServer(
             connection: "keep-alive",
           });
           res.write(": connected\n\n");
+          const eventsWrite = (frame: string): void => {
+            res.write(frame);
+          };
+          eventsWriters.add(eventsWrite);
           const unsubscribe = handle.events.subscribe((event) => {
             // T73 H2: credential-bearing events (creds.update et al) never
             // reach the public SSE stream — safe-set whitelist
@@ -2544,6 +2597,7 @@ export async function createHttpServer(
             res.write(": heartbeat\n\n");
           }, opts.eventsHeartbeatMs ?? 25_000);
           res.on("close", () => {
+            eventsWriters.delete(eventsWrite);
             unsubscribe();
             clearInterval(heartbeat);
           });

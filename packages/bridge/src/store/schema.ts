@@ -262,6 +262,20 @@ const MIGRATION_V17 = `
 ALTER TABLE scheduled_messages ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
 `;
 
+const MIGRATION_V19 = `
+CREATE TABLE IF NOT EXISTS notification_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_jid TEXT,
+  from_jid TEXT,
+  unread_only INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+ALTER TABLE notification_rules ADD COLUMN deliver TEXT NOT NULL DEFAULT '["mcp"]';
+ALTER TABLE notification_rules ADD COLUMN sub_id TEXT;
+`;
+
 const MIGRATION_V18 = `
 CREATE TABLE subscriptions (
   id TEXT PRIMARY KEY,
@@ -293,6 +307,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 16, sql: MIGRATION_V16 },
   { version: 17, sql: MIGRATION_V17 },
   { version: 18, sql: MIGRATION_V18 },
+  { version: 19, sql: MIGRATION_V19 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

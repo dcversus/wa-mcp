@@ -6,6 +6,8 @@ export interface NotificationRuleInput {
   unreadOnly?: boolean;
   title: string;
   body?: string;
+  deliver?: string[];
+  subId?: string;
 }
 
 export interface NotificationRule {
@@ -15,6 +17,8 @@ export interface NotificationRule {
   unreadOnly: boolean;
   title: string;
   body: string;
+  deliver: string[];
+  subId: string | null;
 }
 
 export interface WaEventLike {
@@ -26,6 +30,8 @@ export interface RuleMatch {
   ruleId: number;
   title: string;
   body: string;
+  deliver: string[];
+  subId: string | null;
 }
 
 type RawRow = Record<string, unknown>;
@@ -35,6 +41,17 @@ function asString(value: unknown): string | null {
 }
 
 function rowToRule(row: RawRow): NotificationRule {
+  let deliver: string[] = ["mcp"];
+  if (typeof row.deliver === "string" && row.deliver.length > 0) {
+    try {
+      const parsed = JSON.parse(row.deliver) as unknown;
+      if (Array.isArray(parsed) && parsed.every((entry) => typeof entry === "string")) {
+        deliver = parsed as string[];
+      }
+    } catch {
+      deliver = ["mcp"];
+    }
+  }
   return {
     id: Number(row.id ?? 0),
     chatJid: asString(row.chat_jid),
@@ -42,13 +59,15 @@ function rowToRule(row: RawRow): NotificationRule {
     unreadOnly: row.unread_only === 1,
     title: asString(row.title) ?? "",
     body: asString(row.body) ?? "",
+    deliver,
+    subId: asString(row.sub_id),
   };
 }
 
 export function createRule(store: Store, input: NotificationRuleInput): NotificationRule {
   const info = store.db
     .prepare(
-      "INSERT INTO notification_rules (chat_jid, from_jid, unread_only, title, body, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO notification_rules (chat_jid, from_jid, unread_only, title, body, deliver, sub_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .run(
       input.chatJid ?? null,
@@ -56,6 +75,8 @@ export function createRule(store: Store, input: NotificationRuleInput): Notifica
       input.unreadOnly === true ? 1 : 0,
       input.title ?? "",
       input.body ?? "",
+      JSON.stringify(input.deliver ?? ["mcp"]),
+      input.subId ?? null,
       new Date().toISOString(),
     );
   const id = Number(info.lastInsertRowid);
@@ -66,6 +87,8 @@ export function createRule(store: Store, input: NotificationRuleInput): Notifica
     unreadOnly: input.unreadOnly === true,
     title: input.title ?? "",
     body: input.body ?? "",
+    deliver: input.deliver ?? ["mcp"],
+    subId: input.subId ?? null,
   };
 }
 
@@ -122,6 +145,8 @@ export function evaluateRules(store: Store, event: WaEventLike): RuleMatch[] {
         ruleId: rule.id,
         title: substitute(rule.title, values),
         body: substitute(rule.body, values),
+        deliver: rule.deliver,
+        subId: rule.subId,
       });
     }
   }
