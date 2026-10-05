@@ -834,7 +834,7 @@ test("T99 — resources expose wa://sync-status and wa://config (no token)", asy
     if (String(url).endsWith("/health")) {
       return new Response(JSON.stringify({ connected: true, loggedIn: true }), { status: 200 });
     }
-    throw new Error(`unexpected url ${url}`);
+    throw new Error(`unexpected url ${String(url)}`);
   }) as unknown as typeof fetch;
   const readSync = await handleRpcLine(
     makeRequest(971, "resources/read", { uri: "wa://sync-status" }),

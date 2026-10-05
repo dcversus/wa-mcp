@@ -31,7 +31,7 @@ const chrome = spawn(
   { stdio: ["ignore", "pipe", "pipe"] },
 );
 
-const wsUrl = await new Promise((resolve, reject) => {
+const wsUrl = await new Promise((resolve, _reject) => {
   const t = setTimeout(() => reject(new Error("chrome ws timeout")), 10000);
   chrome.stderr.on("data", (c) => {
     const m = /ws:\/\/127\.0\.0\.1:\d+\/devtools\/browser\/[0-9a-f-]+/.exec(c.toString());
@@ -85,7 +85,7 @@ ws.on("message", (raw) => {
 });
 
 function browser(method, params = {}) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const id = nextId++;
     browserPending.set(id, resolve);
     ws.send(JSON.stringify({ id, method, params }));
@@ -93,7 +93,7 @@ function browser(method, params = {}) {
 }
 
 function cdp(method, params = {}) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const id = nextId++;
     const t = setTimeout(() => {
       sessionPending.delete(id);
@@ -142,16 +142,6 @@ const attach = await browser("Target.attachToTarget", {
 });
 const sessionId = attach.result.sessionId;
 // route cdp() through the session
-const sessionCdp = (method, params = {}) =>
-  new Promise((resolve, reject) => {
-    const id = nextId++;
-    const t = setTimeout(() => reject(new Error(`cdp timeout: ${method}`)), 15000);
-    sessionPending.set(id, (msg) => {
-      clearTimeout(t);
-      resolve(msg);
-    });
-    ws.send(JSON.stringify({ id, method, params, sessionId }));
-  });
 
 await cdp("Runtime.enable");
 await cdp("Page.enable");
