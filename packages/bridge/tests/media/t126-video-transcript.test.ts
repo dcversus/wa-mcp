@@ -29,7 +29,7 @@ test("extractAudio spawns ffmpeg with -vn and writes a wav", async () => {
       spawnFn: ((bin: string, args: string[]) => {
         calls.push({ bin, args });
         const child = new FakeChild();
-        const outFile = args[args.length - 1];
+        const outFile = args[args.length - 1] ?? "out.wav";
         setImmediate(() => {
           writeFileSync(outFile, "wav-bytes");
           child.emit("close", 0);
