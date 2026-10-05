@@ -280,7 +280,7 @@ describe("auth matrix", () => {
     ["GET", "/api/messages"],
     ["GET", "/api/chats"],
     ["POST", "/api/send"],
-    ["GET", "/api/download"],
+    ["GET", "/api/media/some-id/view"],
     ["GET", "/events"],
     ["POST", "/mcp"],
     ["GET", "/api/context"],
@@ -4332,5 +4332,17 @@ describe("T135 — ui-token exchange decoupled from the /health bucket", () => {
     });
     expect(res.status).toBe(200);
     rmSync(dataDir, { recursive: true, force: true });
+  });
+});
+
+describe("T137 — dead /api/download route removed", () => {
+  test("GET /api/download is an unknown route, not NOT_IMPLEMENTED", async () => {
+    const bridge = await startServer({});
+    const res = await fetch(url(bridge, "/api/download?id=x"), {
+      headers: { authorization: `Bearer ${"test-token"}` },
+    });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("NOT_FOUND");
   });
 });

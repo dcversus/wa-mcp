@@ -208,7 +208,6 @@ const API_PATHS = new Set([
   "/api/messages",
   "/api/chats",
   "/api/send",
-  "/api/download",
   "/events",
   "/mcp",
 ]);
