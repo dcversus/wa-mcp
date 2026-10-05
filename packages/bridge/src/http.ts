@@ -2084,8 +2084,8 @@ export async function createHttpServer(
         return null;
       }
       const row = store.db
-        .prepare("SELECT media_path FROM messages WHERE id = ?")
-        .get(messageId) as { media_path: string | null } | undefined;
+        .prepare("SELECT media_path, media_type FROM messages WHERE id = ?")
+        .get(messageId) as { media_path: string | null; media_type: string | null } | undefined;
       let buffer: Buffer;
       if (row?.media_path !== null && row?.media_path !== undefined) {
         buffer = await readFile(row.media_path);
@@ -2098,7 +2098,11 @@ export async function createHttpServer(
         buffer = await readFile(downloaded.path);
       }
       const engine = createTranscriptionEngine(engineName);
-      const result = await engine.transcribe(buffer, "audio/ogg");
+      const mime =
+        row?.media_type !== null && row?.media_type !== undefined && row.media_type.length > 0
+          ? row.media_type
+          : "audio/ogg";
+      const result = await engine.transcribe(buffer, mime);
       saveTranscript(
         store,
         original.key.remoteJid ?? "",
@@ -2118,6 +2122,18 @@ export async function createHttpServer(
         if (err instanceof MediaError && err.code === "EMPTY") {
           sendJson(res, 404, {
             error: { code: "NOT_FOUND", message: "message has no downloadable media" },
+          });
+          return;
+        }
+        if (err instanceof MediaError && err.code === "ENGINE_NOT_CONFIGURED") {
+          sendJson(res, 422, {
+            error: { code: err.code, message: err.message, setup: err.message },
+          });
+          return;
+        }
+        if (err instanceof MediaError && err.code === "ENGINE_UNAVAILABLE") {
+          sendJson(res, 422, {
+            error: { code: err.code, message: err.message, setup: err.message },
           });
           return;
         }

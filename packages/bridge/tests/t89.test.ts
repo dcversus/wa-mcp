@@ -242,7 +242,7 @@ describe("T89-C — line135 rules module + line148 mlx + line150 allowlist", () 
     const missing = new MlxTranscriptionEngine("/nonexistent/mlx");
     await expect(missing.transcribe(Buffer.from("x"), "audio/ogg")).rejects.toHaveProperty(
       "code",
-      "FFMPEG_UNAVAILABLE",
+      "ENGINE_UNAVAILABLE",
     );
     void createTranscriptionEngine;
   });

@@ -129,10 +129,10 @@ describe("T90 line143 — OpenAI-compatible transcription engine", () => {
     expect((form.get("file") as File).name).toBe("audio.ogg");
   });
 
-  test("missing baseUrl or key is a structured CONFIG error", () => {
-    expect(() => new OpenAITranscriptionEngine({ baseUrl: "", apiKey: "" })).toThrow(
-      /WA_OPENAI_BASE_URL/,
-    );
+  test("missing key is a structured ENGINE_NOT_CONFIGURED error", () => {
+    expect(
+      () => new OpenAITranscriptionEngine({ baseUrl: "https://api.openai.com/v1", apiKey: "" }),
+    ).toThrowError(/WA_OPENAI_API_KEY/);
   });
 });
 

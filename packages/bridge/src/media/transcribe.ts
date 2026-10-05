@@ -25,7 +25,7 @@ export class MockTranscriptionEngine implements TranscriptionEngine {
   }
 }
 
-export const SUPPORTED_TRANSCRIPTION_ENGINES = ["mock", "openai", "mlx"] as const;
+export const SUPPORTED_TRANSCRIPTION_ENGINES = ["mock", "openai", "mlx", "whisper-local"] as const;
 
 export interface TranscribeCallOptions {
   fileName?: string;
@@ -53,9 +53,10 @@ export class OpenAITranscriptionEngine implements TranscriptionEngine {
       model?: string;
     },
   ) {
-    if (config.baseUrl.length === 0 || config.apiKey.length === 0) {
-      throw new Error(
-        "CONFIG: openai transcription needs WA_OPENAI_BASE_URL and WA_OPENAI_API_KEY",
+    if (config.apiKey.length === 0) {
+      throw new MediaError(
+        "ENGINE_NOT_CONFIGURED",
+        "openai transcription needs an API key — set WA_OPENAI_API_KEY (or config transcription.api_key) to use this engine",
       );
     }
   }
@@ -112,8 +113,8 @@ export class MlxTranscriptionEngine implements TranscriptionEngine {
         } catch (err: unknown) {
           reject(
             new MediaError(
-              "FFMPEG_UNAVAILABLE",
-              `mlx binary not runnable at ${this.binPath}: ${String(err)}`,
+              "ENGINE_UNAVAILABLE",
+              `mlx binary not runnable at ${this.binPath}: ${String(err)} — install with: pip install mlx-whisper`,
             ),
           );
           return;
@@ -121,14 +122,14 @@ export class MlxTranscriptionEngine implements TranscriptionEngine {
         child.on("error", (err: NodeJS.ErrnoException) =>
           reject(
             new MediaError(
-              "FFMPEG_UNAVAILABLE",
-              `mlx binary not runnable at ${this.binPath}: ${err.message}`,
+              "ENGINE_UNAVAILABLE",
+              `mlx binary not runnable at ${this.binPath}: ${err.message} — install with: pip install mlx-whisper`,
             ),
           ),
         );
         child.on("close", (code) => {
           if (code !== 0) {
-            reject(new MediaError("FFMPEG_UNAVAILABLE", `mlx exited ${code}`));
+            reject(new MediaError("ENGINE_UNAVAILABLE", `mlx exited ${code}`));
             return;
           }
           resolve();
@@ -145,6 +146,100 @@ export class MlxTranscriptionEngine implements TranscriptionEngine {
   }
 }
 
+export class WhisperLocalTranscriptionEngine implements TranscriptionEngine {
+  constructor(
+    private readonly config: {
+      binPath: string;
+      modelPath: string;
+      ffmpegPath: string;
+      spawnFn?: typeof spawn;
+    },
+  ) {
+    if (config.modelPath.length === 0) {
+      throw new MediaError(
+        "ENGINE_NOT_CONFIGURED",
+        "whisper-local needs a model — set WA_WHISPER_MODEL to a ggml .bin model path (e.g. ggml-base.bin from https://huggingface.co/ggerganov/whisper.cpp)",
+      );
+    }
+  }
+
+  async transcribe(buffer: Buffer, mime: string): Promise<TranscriptionResult> {
+    const spawnFn = this.config.spawnFn ?? spawn;
+    const dir = mkdtempSync(join(tmpdir(), "wa-mcp-whisper-"));
+    const input = join(dir, "input.wav");
+    const output = join(dir, "out.json");
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const ffmpeg = spawnFn(this.config.ffmpegPath, [
+          "-i",
+          "pipe:0",
+          "-ar",
+          "16000",
+          "-ac",
+          "1",
+          "-f",
+          "wav",
+          input,
+        ]);
+        ffmpeg.stdin.on("error", () => undefined);
+        ffmpeg.stdin.end(buffer);
+        ffmpeg.on("error", (err: NodeJS.ErrnoException) =>
+          reject(
+            new MediaError(
+              "ENGINE_UNAVAILABLE",
+              `ffmpeg not runnable at ${this.config.ffmpegPath}: ${err.message} — install with: brew install ffmpeg`,
+            ),
+          ),
+        );
+        ffmpeg.on("close", (code) => {
+          if (code !== 0) {
+            reject(new MediaError("ENGINE_UNAVAILABLE", `ffmpeg exited ${code} for ${mime} input`));
+            return;
+          }
+          const whisper = spawnFn(this.config.binPath, [
+            "-m",
+            this.config.modelPath,
+            "-f",
+            input,
+            "-oj",
+            "-of",
+            output.replace(/\.json$/, ""),
+          ]);
+          whisper.on("error", (err: NodeJS.ErrnoException) =>
+            reject(
+              new MediaError(
+                "ENGINE_UNAVAILABLE",
+                `whisper binary not runnable at ${this.config.binPath}: ${err.message} — install with: brew install whisper-cpp`,
+              ),
+            ),
+          );
+          whisper.on("close", (wcode) => {
+            if (wcode !== 0) {
+              reject(new MediaError("ENGINE_UNAVAILABLE", `whisper-cli exited ${wcode}`));
+              return;
+            }
+            resolve();
+          });
+        });
+      });
+      const raw = JSON.parse(readFileSync(output, "utf8")) as {
+        transcription?: Array<{ text?: string }>;
+        text?: string;
+      };
+      const text =
+        raw.transcription
+          ?.map((part) => part.text ?? "")
+          .join("")
+          .trim() ??
+        raw.text ??
+        "";
+      return { text };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+}
+
 export function createTranscriptionEngine(engine: string): TranscriptionEngine {
   if (engine === "mock") {
     return new MockTranscriptionEngine();
@@ -153,9 +248,16 @@ export function createTranscriptionEngine(engine: string): TranscriptionEngine {
     const binPath = process.env.WA_MLX_BIN ?? "mlx_whisper";
     return new MlxTranscriptionEngine(binPath);
   }
+  if (engine === "whisper-local") {
+    return new WhisperLocalTranscriptionEngine({
+      binPath: process.env.WA_WHISPER_BIN ?? "whisper-cli",
+      modelPath: process.env.WA_WHISPER_MODEL ?? "",
+      ffmpegPath: process.env.WA_FFMPEG_BIN ?? "ffmpeg",
+    });
+  }
   if (engine === "openai") {
     return new OpenAITranscriptionEngine({
-      baseUrl: process.env.WA_OPENAI_BASE_URL ?? "",
+      baseUrl: process.env.WA_OPENAI_BASE_URL ?? "https://api.openai.com/v1",
       apiKey: process.env.WA_OPENAI_API_KEY ?? "",
     });
   }
