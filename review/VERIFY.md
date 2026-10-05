@@ -514,3 +514,23 @@ Note: multiple lint-fix commits — webui-e2e unused vars, server.test String(ur
 
 Scope: git diff 25d6052^..HEAD (Gate B waves 2–7, 13 files, +248/−18).
 Checklist run: no comment slop / narration comments added; no console.* added; zero `as any`; zero `as unknown as` in src (one `as unknown[]` widen for JSON body input — matches module norms); one try/catch added = healthWithRetry retry loop (contract-named T136, mirrors retryUntil); no compatibility shims; SUBSCRIPTION_KINDS `as readonly string[]` widen matches the SUPPORTED_TRANSCRIPTION_ENGINES pattern. Verdict: CLEAN, no edits needed. (Gate D autoreview still required — this pass does not replace it.)
+
+### PHASE 7 — FINAL GATE BATTERY (2026-10-05T02:30:48Z)
+
+All gates re-run mechanically at HEAD (post Gate D corrections, version guard):
+- vp test: 997/997 (109 files) — PASS
+- vp check: 0 errors — PASS
+- vp test --coverage: EXIT 0 (floors green) — PASS
+- docs:coverage: 74/74 tools — PASS
+- env-doc-coverage: 38/38 env vars — PASS
+- accounting:check: EXIT 0 — PASS
+- docs:build: EXIT 0 — PASS
+- version-drift guard: NEW (scripts/version-drift.mjs) — root package.json was 0.10.0 (0.10-work leftover!), fixed to 0.9.0; guard checks root + 5 workspaces + bridge bin.ts payload + SERVER_INFO + device label + CHANGELOG heading; proven failing on injected 0.8.0; CI-wired beside no-publish guard; t140 test — PASS
+- 8-platform sandbox registration: fresh $HOME, install all 8 (claude-code, claude-desktop, cursor, codex, pi, hermes, grok, antigravity) → ALL read-back verified (antigravity correctly at ~/.gemini/antigravity) — PASS
+- Tarball repack: sha256 4f38971fb70da8152db612c207db4857057c4d9362a2f1b7e24e0398a225f9a2 (5,504,429 bytes) — supersedes 574ef43f8e72 (root-version fix changed the pack); on-record update applied
+- Fresh-container Docker install: FRESH-CONTAINER INSTALL TEST: PASS
+- webui-e2e on current daemon build: PASS (chats → open chat → send → bubble visible → composer cleared, zero console errors)
+- webui-dogfood: EXIT 0, all routes render
+- Live smoke (careful mode): send to Test group → message_id 3EB0090C9CDD510CECA3DF → store read-back verified; daemon connected, loggedIn, reconnects 0
+- Live store: migrations V21 (write_seq), transcripts.kind present
+- CI: billing-blocked (owner) — compensating local gates above; BLOCKED.md carries it
