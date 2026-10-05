@@ -365,6 +365,14 @@ export function writeTranscriptionSection(
   if (dataDir === undefined) {
     throw new Error("config not available: data dir not attached");
   }
+  if (
+    section.engine !== undefined &&
+    !(SUPPORTED_TRANSCRIPTION_ENGINES as readonly string[]).includes(section.engine)
+  ) {
+    throw new Error(
+      `unsupported transcription engine: ${section.engine} (supported: ${SUPPORTED_TRANSCRIPTION_ENGINES.join(", ")})`,
+    );
+  }
   const config = readBridgeConfig(dataDir);
   const merged = { ...config.transcription, ...section };
   if (section.api_key === "") {
@@ -426,7 +434,7 @@ export function saveTranscript(
 ): void {
   store.db
     .prepare(
-      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, kind, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language, kind = excluded.kind",
+      "INSERT INTO transcripts (chat_jid, message_id, engine, text, language, kind, created_at, write_seq) VALUES (?, ?, ?, ?, ?, ?, ?, 1) ON CONFLICT(chat_jid, message_id, engine) DO UPDATE SET text = excluded.text, language = excluded.language, kind = excluded.kind, created_at = excluded.created_at, write_seq = transcripts.write_seq + 1",
     )
     .run(chatJid, messageId, engine, text, language ?? null, kind, new Date().toISOString());
 }

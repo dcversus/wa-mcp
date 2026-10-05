@@ -8,5 +8,4 @@ test("exports package identity matching package.json version", async () => {
   };
   expect(name).toBe("@wa-mcp/web-ui");
   expect(version).toBe(pkg.version);
-  expect(version).toBe("0.9.0");
 });

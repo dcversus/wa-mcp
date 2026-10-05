@@ -1357,7 +1357,7 @@ export const TOOLS: ToolDef[] = [
     description:
       "Read the account's current privacy settings (lastSeen, online, profilePic, status, groupAdd, call, messages, readReceipts).",
     inputSchema: { type: "object", properties: {} },
-    handler: async (toolCtx, args) => {
+    handler: async (toolCtx) => {
       const payload = (await bridgeFetch(toolCtx, "/api/privacy")) as Record<string, unknown>;
       return textResult(payload);
     },

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { realpathSync } from "node:fs";
-import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import {
   handleRpcLine,
@@ -55,7 +54,7 @@ export async function handleStream(
           id: null,
           error: {
             code: -32600,
-            message: `request too large: ${trimmed.length} bytes exceeds the ${JSON_RPC_LINE_CAP} line cap`,
+            message: `request too large: ${trimmed.length} characters exceeds the ${JSON_RPC_LINE_CAP} line cap`,
           },
         }),
       );
@@ -126,6 +125,57 @@ async function pumpNotifications(ctx: ServerContext, write: (line: string) => vo
   }
 }
 
+/** Byte-counting line reader: unlike readline, memory stays bounded at the
+ * cap — an oversized line is dropped as soon as it EXCEEDS the cap while
+ * still streaming, instead of being buffered whole and rejected afterwards. */
+export async function readCappedLines(
+  input: NodeJS.ReadableStream & {
+    [Symbol.asyncIterator](): AsyncIterableIterator<string | Buffer>;
+  },
+  cap: number,
+  onLine: (line: string) => void,
+  ctx: ServerContext,
+): Promise<void> {
+  let buffer = "";
+  let dropping = false;
+  const oversized = (): void => {
+    onLine(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32600, message: `line exceeds ${cap} characters — dropping` },
+      }),
+    );
+  };
+  for await (const chunk of input) {
+    buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    let newlineIndex = buffer.indexOf("\n");
+    while (newlineIndex !== -1) {
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      if (!dropping) {
+        await handleStream([line], onLine, ctx);
+      }
+      dropping = false;
+      newlineIndex = buffer.indexOf("\n");
+    }
+    if (buffer.length > cap) {
+      if (!dropping) {
+        oversized();
+      }
+      dropping = true;
+      buffer = "";
+    }
+  }
+  if (buffer.length > 0 && !dropping) {
+    if (buffer.length > cap) {
+      oversized();
+    } else {
+      await handleStream([buffer], onLine, ctx);
+    }
+  }
+}
+
 export async function main(args: string[], env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const config = parseMcpConfig(args, env);
   if (config.token === undefined || config.token.length === 0) {
@@ -139,9 +189,9 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
     token: config.token,
     fetchFn: fetch,
   };
-  const rl = createInterface({ input: process.stdin });
-  await handleStream(
-    rl,
+  await readCappedLines(
+    process.stdin,
+    JSON_RPC_LINE_CAP,
     (line) => {
       process.stdout.write(`${line}\n`);
     },

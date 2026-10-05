@@ -124,4 +124,4 @@ deferred — see deviations.
 - Dogfood offer (14-day): delivered to owner 2026-10-04; awaiting decision.
 
 ## E2E probe discipline (Gate B wave 4, 2026-10-05)
-webui-e2e bootstraps through the SHARED pairing-surface rate bucket (/health + /api/ui-token, 120/min per IP). Orchestrator curl probes within ~60s of an e2e run starve the browser bootstrap → deterministic "no open chat row found". Not a product defect. RULE: no manual /health or /api/* probes for 60s before any e2e/dogfood run; if e2e fails, check the bucket first (wait 70s, re-run once cleanly) before treating it as a regression.
+webui-e2e bootstraps through the SHARED pairing-surface rate bucket (/health + /api/qr, 120/min per IP; T138 moved bootstrap-token /api/ui-token exchanges to their own 10/min bucket). Orchestrator curl probes within ~60s of an e2e run starve the browser bootstrap → deterministic "no open chat row found". Not a product defect. RULE: no manual /health or /api/* probes for 60s before any e2e/dogfood run; if e2e fails, check the bucket first (wait 70s, re-run once cleanly) before treating it as a regression.

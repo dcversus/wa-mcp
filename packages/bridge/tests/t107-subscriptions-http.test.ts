@@ -232,3 +232,33 @@ test("POST /api/subscriptions rejects an unknown kind with 400", async () => {
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
+
+test("POST /api/subscriptions accepts kinds that actually dispatch (message) and rejects the rest", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t107-vocab-"));
+  const store = openStore(dataDir);
+  try {
+    const bridge = await createHttpServer(stubHandle(createEventBus()), {
+      token: "t107-token",
+      store,
+      subscriptionsDir: join(dataDir, "subs"),
+    });
+    const ok = await fetch(url(bridge, "/api/subscriptions"), {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
+      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["message"] }),
+    });
+    expect(ok.status).toBe(201);
+    const bad = await fetch(url(bridge, "/api/subscriptions"), {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
+      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["reaction"] }),
+    });
+    expect(bad.status).toBe(400);
+    const body = (await bad.json()) as { error?: { message?: string } };
+    expect(body.error?.message).toContain("reaction dispatch is not implemented");
+    await bridge.close();
+  } finally {
+    store.close();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});

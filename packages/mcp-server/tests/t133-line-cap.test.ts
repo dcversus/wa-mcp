@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { handleStream, JSON_RPC_LINE_CAP } from "../src/bin.ts";
+import { handleStream, readCappedLines, JSON_RPC_LINE_CAP } from "../src/bin.ts";
 import type { ServerContext } from "../src/server.ts";
 
 function makeCtx(): ServerContext {
@@ -35,4 +35,32 @@ test("a normal-size line still flows", async () => {
   expect(writes.length).toBe(1);
   const parsed = JSON.parse(writes[0]!) as { id?: number };
   expect(parsed.id).toBe(2);
+});
+
+test("readCappedLines drops an oversized line DURING streaming (bounded memory)", async () => {
+  const writes: string[] = [];
+  const chunks: string[] = [];
+  const filler = "x".repeat(JSON_RPC_LINE_CAP + 5);
+  for (let i = 0; i < filler.length; i += 1000) {
+    chunks.push(filler.slice(i, i + 1000));
+  }
+  chunks.push("\n");
+  chunks.push(JSON.stringify({ jsonrpc: "2.0", id: 7, method: "ping" }) + "\n");
+  const input = (async function* generate() {
+    for (const chunk of chunks) {
+      yield chunk;
+    }
+  })();
+  await readCappedLines(
+    input as unknown as NodeJS.ReadableStream,
+    JSON_RPC_LINE_CAP,
+    (line) => {
+      writes.push(line);
+    },
+    makeCtx(),
+  );
+  const oversized = writes.find((line) => line.includes("exceeds"));
+  expect(oversized).toContain("-32600");
+  const ping = writes.find((line) => line.includes('"id":7'));
+  expect(ping).toContain("result");
 });

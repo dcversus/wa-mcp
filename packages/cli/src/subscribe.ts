@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { DISPATCHED_SUBSCRIPTION_KINDS } from "@wa-mcp/shared";
 import { dirname } from "node:path";
 
 export interface SubscribeDeps {
@@ -23,11 +24,12 @@ export async function runSubscribe(deps: SubscribeDeps, args: SubscribeArgs): Pr
     deps.print("subscribe: --chat <jid> or --all is required");
     return 1;
   }
-  const KNOWN_KINDS = ["message", "reaction", "rule"];
   if (args.kind !== undefined) {
-    for (const kind of args.kind.split(",")) {
-      if (!KNOWN_KINDS.includes(kind)) {
-        deps.print(`subscribe: unknown kind '${kind}' — kinds: ${KNOWN_KINDS.join(", ")}`);
+    for (const kind of args.kind.split(",").map((entry) => entry.trim())) {
+      if (!(DISPATCHED_SUBSCRIPTION_KINDS as readonly string[]).includes(kind)) {
+        deps.print(
+          `subscribe: kind '${kind}' is not filterable — only ${DISPATCHED_SUBSCRIPTION_KINDS.join(", ")} dispatch today (reaction dispatch is not implemented)`,
+        );
         return 1;
       }
     }

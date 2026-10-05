@@ -257,7 +257,7 @@ export async function main(argv: string[]): Promise<void> {
     command === "unsubscribe" ||
     (command === "inbox" && positionals[0] === "drain")
   ) {
-    const token = flags.token ?? readToken(DEFAULT_DATA_DIR) ?? "";
+    const token = flags.token ?? readToken(dataDir) ?? "";
     if (token.length === 0) {
       console.error("no bridge token found — start the bridge once or pass --token");
       process.exitCode = 1;

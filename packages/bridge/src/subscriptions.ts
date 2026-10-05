@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Store } from "./store/schema.ts";
 
+export { DISPATCHED_SUBSCRIPTION_KINDS } from "@wa-mcp/shared";
+
 export interface SubscriptionFilters {
   chatJid: string | null;
   fromJid: string | null;

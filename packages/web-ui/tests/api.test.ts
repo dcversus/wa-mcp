@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createApiClient } from "../src/api.ts";
 import { healthWithRetry } from "../src/preflight.ts";
+import { ApiError } from "../src/api.ts";
 
 /** request bodies are strings by construction (createApiClient JSON.stringify's them) */
 function bodyOf(call: { init?: { body?: unknown } } | undefined): string {
@@ -325,18 +326,18 @@ test("C1 — search sends the bridge's q param (query was silently ignored)", as
   expect(calls[0]?.url).toBe("http://bridge:8080/api/search?q=pizza&limit=5");
 });
 
-test("healthWithRetry recovers after a 429 then succeeds", async () => {
+test("healthWithRetry recovers after ApiError 429s then succeeds", async () => {
   let calls = 0;
   const client = {
     getHealth: async () => {
       calls += 1;
       if (calls < 3) {
-        throw new Error("rate limit exceeded");
+        throw new ApiError(429, "rate limit exceeded");
       }
       return { connected: true, uiBootstrapToken: "tok" };
     },
   };
-  const health = await healthWithRetry(client as unknown as Parameters<typeof healthWithRetry>[0], {
+  const health = await healthWithRetry(client, {
     attempts: 5,
     delayMs: 1,
   });
@@ -349,13 +350,50 @@ test("healthWithRetry gives up after the budget and returns {}", async () => {
   const client = {
     getHealth: async () => {
       calls += 1;
-      throw new Error("rate limit exceeded");
+      throw new ApiError(429, "rate limit exceeded");
     },
   };
-  const health = await healthWithRetry(client as unknown as Parameters<typeof healthWithRetry>[0], {
+  const health = await healthWithRetry(client, {
     attempts: 3,
     delayMs: 1,
   });
   expect(calls).toBe(3);
   expect(health).toEqual({});
+});
+
+test("healthWithRetry does NOT retry non-429 errors (bridge down fails fast)", async () => {
+  let calls = 0;
+  const client = {
+    getHealth: async () => {
+      calls += 1;
+      throw new ApiError(503, "bridge returned 503");
+    },
+  };
+  const health = await healthWithRetry(client, {
+    attempts: 5,
+    delayMs: 50,
+  });
+  expect(calls).toBe(1);
+  expect(health).toEqual({});
+});
+
+test("healthWithRetry honors retry-after when the server sends it", async () => {
+  const started = Date.now();
+  let calls = 0;
+  const client = {
+    getHealth: async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw new ApiError(429, "rate limit exceeded", 30);
+      }
+      return { connected: true };
+    },
+  };
+  const health = await healthWithRetry(client, {
+    attempts: 3,
+    delayMs: 10_000,
+  });
+  expect(calls).toBe(2);
+  expect(health.connected).toBe(true);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(25);
 });

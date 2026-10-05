@@ -4346,3 +4346,25 @@ describe("T137 — dead /api/download route removed", () => {
     expect(body.error?.code).toBe("NOT_FOUND");
   });
 });
+
+describe("T138 — exchange limiter is separate and small", () => {
+  test("11 exchanges in a minute are capped, UI token traffic is not affected", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t138-store-")));
+    openedStores.push(store);
+    const bridge = await startServer({ store, uiBootstrapToken: "boot-tok-t138" });
+    const exchange = async (): Promise<number> => {
+      const res = await fetch(url(bridge, "/api/ui-token"), {
+        headers: { authorization: "Bearer " + "boot-tok-t138" },
+      });
+      return res.status;
+    };
+    for (let i = 0; i < 10; i += 1) {
+      expect(await exchange()).toBe(200);
+    }
+    expect(await exchange()).toBe(429);
+    const chats = await fetch(url(bridge, "/api/chats"), {
+      headers: { authorization: `Bearer ${"test-token"}` },
+    });
+    expect(chats.status).toBe(200);
+  });
+});

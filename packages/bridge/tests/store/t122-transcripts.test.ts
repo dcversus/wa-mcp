@@ -71,3 +71,20 @@ test("listMessages surfaces the LATEST transcript when engines disagree", () => 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("same-engine re-transcribe refreshes created_at so latest-wins still holds", () => {
+  const { store, dir } = makeStore();
+  try {
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "old mock text");
+    saveTranscript(store, "chat1@g.us", "m1", "openai", "openai text");
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "fresh mock text");
+    const rows = listMessages(store, { chatJid: "chat1@g.us", limit: 10 });
+    const m1Row = rows.find((row) => (row as { id?: string }).id === "m1") as {
+      transcript?: { text?: string };
+    };
+    expect(m1Row?.transcript?.text).toBe("fresh mock text");
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

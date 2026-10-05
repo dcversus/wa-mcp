@@ -130,3 +130,40 @@ test("subscribe rejects an unknown kind filter with the known kinds listed", asy
   expect(printed.join("\n")).toContain("message");
   expect(printed.join("\n")).toContain("reaction");
 });
+
+test("subscribe reads the bridge token from --data-dir (not the default dir)", async () => {
+  const { main } = await import("../src/bin.ts");
+  const dir = mkdtempSync(join(tmpdir(), "t113-datadir-"));
+  writeFileSync(join(dir, "token"), "dir-token\n");
+  const errors: string[] = [];
+  const origErr = console.error;
+  console.error = (line: unknown) => errors.push(String(line));
+  try {
+    await main([
+      "subscribe",
+      "--chat",
+      "12345@s.whatsapp.net",
+      "--data-dir",
+      dir,
+      "--bridge-url",
+      "http://127.0.0.1:1",
+    ]).catch(() => undefined);
+  } finally {
+    console.error = origErr;
+  }
+  expect(errors.some((line) => line.includes("no bridge token"))).toBe(false);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("subscribe --kind reaction is rejected as not-yet-dispatched", async () => {
+  const { deps, printed } = mkDeps(() => new Response("{}", { status: 201 }));
+  const exit = await runSubscribe(deps, {
+    baseUrl: "http://127.0.0.1:8080",
+    token: "t",
+    chat: "12345@s.whatsapp.net",
+    all: false,
+    kind: "reaction",
+  });
+  expect(exit).toBe(1);
+  expect(printed.join("\n")).toContain("not implemented");
+});

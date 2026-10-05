@@ -54,6 +54,7 @@ import {
   deleteSubscription,
   listSubscriptions,
   matchSubscription,
+  DISPATCHED_SUBSCRIPTION_KINDS,
   subscriptionDir,
 } from "./subscriptions.ts";
 import { openInbox } from "./inbox.ts";
@@ -97,7 +98,6 @@ import {
   readBridgeConfig,
   writeTranscriptionSection,
   extractAudio,
-  SUPPORTED_TRANSCRIPTION_ENGINES,
 } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
@@ -189,12 +189,19 @@ const HEALTH_RATE = { capacity: 120, refillPerMinute: 120 };
  * health bucket: generous transport, no engine risk (sends stay guarded by
  * the T82 send-guard). */
 const UI_RATE = { capacity: 240, refillPerMinute: 240 };
+/** T138: bootstrap exchanges get their own small bucket — one exchange per
+ * browser session, 10/min is generous; prevents any local process from
+ * draining the UI's own 240/min budget through the exchange route. */
+const EXCHANGE_RATE = { capacity: 10, refillPerMinute: 10 };
 
 /** ADR 0012: the pairing surface serves one flow — the pairing page polls
  * /health and /api/qr alternately at ~3s. T75: it rides the same generous
  * bucket as /health; engine-side abuse is already capped by the T56 pairing
  * budget, so transport generosity adds no engine risk, and the 60/min API
- * bucket stays entirely for authenticated API work. */
+ * bucket stays entirely for authenticated API work.
+ * T138: /api/ui-token exchanges with the bootstrap token moved OFF this
+ * bucket to their own 10/min EXCHANGE_RATE — the shared health bucket let
+ * tab polling starve fresh UI sessions' bootstrap. */
 const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   "/api/qr",
   "/api/pairing-code",
@@ -467,6 +474,10 @@ export async function createHttpServer(
   const checkRate = createRateLimiter(rate.capacity, rate.refillPerMinute);
   const checkHealthRate = createRateLimiter(HEALTH_RATE.capacity, HEALTH_RATE.refillPerMinute);
   const checkUiRate = createRateLimiter(UI_RATE.capacity, UI_RATE.refillPerMinute);
+  const checkExchangeRate = createRateLimiter(
+    EXCHANGE_RATE.capacity,
+    EXCHANGE_RATE.refillPerMinute,
+  );
   const subscriptions = (() => {
     if (opts.subscriptionsDir === undefined || opts.store === undefined) {
       return null;
@@ -2357,12 +2368,9 @@ export async function createHttpServer(
         ? `${ip}:${createHash("sha256").update(bearer).digest("hex").slice(0, 16)}`
         : `${ip}:anon`;
     const bootstrapExchange =
-      path === "/api/ui-token" &&
-      bearer !== null &&
-      uiBootstrapToken !== null &&
-      tokenMatches(bearer, uiBootstrapToken);
+      path === "/api/ui-token" && bearer !== null && tokenMatches(bearer, uiBootstrapToken);
     const gate = bootstrapExchange
-      ? checkUiRate(ip, now())
+      ? checkExchangeRate(ip, now())
       : path === "/health" || PAIRING_SURFACE.has(path)
         ? checkHealthRate(ip, now())
         : path === "/events"
@@ -3502,20 +3510,20 @@ export async function createHttpServer(
             validationError(res, "chat_jid or all_chats required");
             return;
           }
-          const SUBSCRIPTION_KINDS = ["message", "reaction", "rule"] as const;
-          const requestedKinds = Array.isArray(input.kinds)
-            ? (input.kinds as unknown[])
-            : input.kinds === undefined
-              ? []
-              : String(input.kinds).split(",");
+          if (input.kinds !== undefined && !Array.isArray(input.kinds)) {
+            validationError(res, "kinds must be an array");
+            return;
+          }
+          const requestedKinds = (Array.isArray(input.kinds) ? input.kinds : []) as unknown[];
           for (const kind of requestedKinds) {
             if (
               typeof kind !== "string" ||
-              !(SUBSCRIPTION_KINDS as readonly string[]).includes(kind)
+              !(DISPATCHED_SUBSCRIPTION_KINDS as readonly string[]).includes(kind)
             ) {
+              const implemented = DISPATCHED_SUBSCRIPTION_KINDS.join(", ");
               validationError(
                 res,
-                `kinds must be from: ${SUBSCRIPTION_KINDS.join(", ")} (got: ${String(kind)})`,
+                `kinds must be one of: ${implemented} (reaction dispatch is not implemented — got: ${String(kind)})`,
               );
               return;
             }
@@ -4147,15 +4155,8 @@ export async function createHttpServer(
             const value = section[key];
             return typeof value === "string" ? value : undefined;
           };
-          const engine = pick("engine");
-          if (
-            engine !== undefined &&
-            !(SUPPORTED_TRANSCRIPTION_ENGINES as readonly string[]).includes(engine)
-          ) {
-            validationError(
-              res,
-              `unsupported transcription engine: ${engine} (supported: ${SUPPORTED_TRANSCRIPTION_ENGINES.join(", ")})`,
-            );
+          if (section.engine !== undefined && typeof section.engine !== "string") {
+            validationError(res, "engine must be a string");
             return;
           }
           try {
@@ -4166,12 +4167,12 @@ export async function createHttpServer(
               model: pick("model"),
             });
           } catch (err) {
-            sendJson(res, 500, {
-              error: {
-                code: "INTERNAL",
-                message: err instanceof Error ? err.message : "config write failed",
-              },
-            });
+            const message = err instanceof Error ? err.message : "config write failed";
+            if (message.startsWith("unsupported transcription engine")) {
+              validationError(res, message);
+            } else {
+              sendJson(res, 500, { error: { code: "INTERNAL", message } });
+            }
             return;
           }
           sendJson(res, 200, { saved: true });

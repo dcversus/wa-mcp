@@ -68,11 +68,13 @@ export interface ApiClient {
  * error object shaped like a success body. */
 export class ApiError extends Error {
   readonly status: number;
+  readonly retryAfterMs: number | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, retryAfterMs: number | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -122,7 +124,12 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
         (parsed as { error?: { message?: unknown } }).error?.message !== undefined
           ? String((parsed as { error: { message: unknown } }).error.message)
           : `bridge returned ${response.status}`;
-      throw new ApiError(response.status, message);
+      const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterMs =
+        retryAfterHeader !== null && Number.isFinite(Number(retryAfterHeader))
+          ? Math.ceil(Number(retryAfterHeader) * 1000)
+          : null;
+      throw new ApiError(response.status, message, retryAfterMs);
     }
     return parsed as T;
   };
