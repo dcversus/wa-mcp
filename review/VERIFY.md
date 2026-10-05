@@ -495,3 +495,11 @@ T121-T130 all landed:
 
 Gates: suite 962/962 → (final count after T129/T130 commits), vp check 0 errors, docs:build EXIT 0, docs-coverage 74/74, accounting:check pass.
 Note: multiple lint-fix commits — webui-e2e unused vars, server.test String(url), safety.test sort-compare, read_document annotate(). webui-e2e re-run PASS after edits.
+
+### PHASE 5 CLOSED — full documentation (2026-10-05T01:12:50Z)
+
+- T131: configuration.md rewritten from source census (38 env vars, 7 groups incl. Cloud skeleton + media auto-download + engines); scripts/env-doc-coverage.ts fails on undocumented/stale vars; CI-wired (audit job); drift-guard test. OK 38/38.
+- Opus drafting dispatch #2 (1 dispatch, 3 pages): security.md expanded (15KB, 50 src anchors, threat model + ADR 0012 mechanics + rate-limit keying), troubleshooting.md rewritten as symptom→cause→fix matrix seeded from every verified incident, diagnostics.md NEW (doctor/--engines, /health shape, logs, pump, event recording, store inspection, rate limits). Opus corrected the brief 8× — ALL verified against source before landing (incl. http.ts:2360 bucket key = IP+sha256(token); /health flat reconnects; pump → /api/mcp-notify). 14 VERIFY-MARKERs resolved mechanically; 3 real hardening gaps documented as known 0.9 gaps (non-constant-time webhook verify_token, DNS-rebinding window, MCP session no-TTL).
+- T132: docs/getting-started/desktop.md NEW (web-first path: zero-action bootstrap, QR + phone-form pairing, no-terminal claims drift-guarded 4/4); sidebar: Desktop / Headless CLI / Docker / platforms.
+- AGENTS.md: how to add an MCP tool (registry order!), how to add an engine (error contract, doctor, doc drift-guards), how to run the gates; CLAUDE.md pointer.
+- Gates: suite 972/972 (108 files), vp check 0, docs:build EXIT 0, docs-coverage 74/74, env-doc-coverage 38/38.
