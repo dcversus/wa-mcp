@@ -16,6 +16,7 @@ import {
   uninstallRegistrations,
 } from "./service.ts";
 import { runDoctor } from "./doctor.ts";
+import { drainInbox, runSubscribe, runUnsubscribe } from "./subscribe.ts";
 import { installSkills } from "./skills.ts";
 import { runPair } from "./pair.ts";
 import { runImport } from "./import-store.ts";
@@ -140,6 +141,57 @@ export async function main(argv: string[]): Promise<void> {
       console.error(`pair failed: ${err instanceof Error ? err.message : String(err)}`);
       process.exitCode = 1;
     }
+    return;
+  }
+  if (
+    command === "subscribe" ||
+    command === "unsubscribe" ||
+    (command === "inbox" && positionals[0] === "drain")
+  ) {
+    const token = flags.token ?? readToken(DEFAULT_DATA_DIR) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    const baseUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+    const subscribeDeps = { fetchFn: fetch, print: console.log };
+    if (command === "subscribe") {
+      const exit = await runSubscribe(subscribeDeps, {
+        baseUrl,
+        token,
+        chat: flags.chat as string | undefined,
+        all: flags.all === "true" || flags.all === "",
+        kind: flags.kind as string | undefined,
+      });
+      if (exit !== 0) {
+        process.exitCode = exit;
+      }
+      return;
+    }
+    if (command === "unsubscribe") {
+      const id = positionals[0];
+      if (id === undefined) {
+        console.error("unsubscribe: subscription id required");
+        process.exitCode = 1;
+        return;
+      }
+      const exit = await runUnsubscribe(subscribeDeps, { baseUrl, token, id });
+      if (exit !== 0) {
+        process.exitCode = exit;
+      }
+      return;
+    }
+    const inboxPath = flags.inbox as string | undefined;
+    if (inboxPath === undefined) {
+      console.error("inbox drain: --inbox <path> required");
+      process.exitCode = 1;
+      return;
+    }
+    const statePath = (flags.state as string | undefined) ?? `${inboxPath}.cursor`;
+    const result = drainInbox(inboxPath, statePath);
+    console.log(result.summary);
+    process.exitCode = result.exit;
     return;
   }
   if (command === "skills" && positionals[0] === "install") {
