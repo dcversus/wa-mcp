@@ -444,3 +444,20 @@ no checkbox is claimed without evidence.
 - T113: CLI subscribe/unsubscribe/inbox drain. LIVE E2E (contract sequence): CLI subscribe → send → inbox 1 line → drain exit 2 "1 new: <chat>: <snippet>" → second drain exit 0. Byte-cursor with rotation reset.
 - T115: hook installer (install --hooks claude|codex [--remove]). Marker ownership; merge preserves user hooks/permissions/env/order; idempotent; .bak timestamped; refuses unparseable JSON. LIVE temp-home check: only FileChanged+asyncRewake added, user entries intact, REAL ~/.claude/settings.json verified clean.
 - Suite 914/914 (92 files), check clean, pushed.
+
+### PHASE 2 CLOSED — SIMPLE agent notifications complete (2026-10-05T00:23:25Z)
+
+T105-T117 all landed, live-verified:
+- N1 MCP-native push: resources/subscribe+unsubscribe, notifications/resources/updated (wa://unread|chats|health), notifications/message (connection + rules), notifications/tools/list_changed; capability subscribe:true advertised.
+- N2 Inbox files: ~/.wa-mcp/subs/<id>/inbox.jsonl JSONL (ts,kind,chat,from,text≤280,media), bounded 2-file rotation, dropped counter in /health.
+- N3 Three surfaces, one registry: web UI #/subscriptions panel; MCP subscribe_events/unsubscribe_events (73 tools); CLI subscribe/unsubscribe/inbox drain.
+- N4 Hook installer: install --hooks claude|codex [--remove]; marker ownership, merge-safe, idempotent, .bak-<ts>, refuses bad JSON; FileChanged matcher=inbox path + asyncRewake exit-2 variant.
+- N5 Rules deliver [mcp,file,ui] (V19 defensive migration; ui→wa.rule on /events; file→kind:rule inbox line; validation 400s).
+- N6 Cookbook docs/cookbook/react-to-messages.md + drift-guard test + nav; docs:build EXIT 0 (parity.md dead link fixed).
+
+LIVE FINAL CHAIN: CLI subscribe db6be1ff5d73 → send → inbox 1 line → drain '1 new: 120363428874442773@g.us: phase2 final live proof' exit 2 → unsubscribe exit 0.
+Transport live proofs: stdio push frame on stdout (T110), /api/mcp-notify frames (T108), webui-e2e PASS.
+
+Bugs caught live this phase: Baileys proto getters (media false-positive), doubled subs path, main ctx missing fetchFn (pump dead in real binary), V19 ALTER on pre-table stores, 11 type errors swept.
+
+Suite 925/925 (95 files), vp check 0 errors. zai 429-blocked throughout — orchestrator-implemented per BLOCKED.md.
