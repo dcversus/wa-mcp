@@ -25,6 +25,12 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 | 17 | deleted subscriptions retain InboxWriter in closure Map (memory) | no inboxes.delete on DELETE route | Gate B w2 commit | t107+t116 green |
 | 18 | settingsHtml interpolates bridgeUrl/token without escaping (attribute injection) | RED test: script tag passes through | Gate B w3 commit | web-ui 117 |
 | 19 | stdio JSON-RPC reader has no line cap (unbounded memory) | RED test: >4MB line processed | Gate B w3 commit | mcp 115 |
+| 20 | /api/config PUT accepts ANY engine string (live saved "rm -rf /tmp") | live PUT probe echoed it back; RED test | Gate B w5 commit | http 170/170 |
+| 21 | CLI subscribe/unsubscribe/inbox token read hardcoded DEFAULT_DATA_DIR, ignores --data-dir | live: --data-dir /tmp probe wrote sub to ~/.wa-mcp | Gate B w5 commit | cli 84/84 |
+| 22 | subscription kinds never validated — live accepted --kind bogus (unmatchable sub) | live probe created sub with kinds:["bogus"]; RED server+client tests | Gate B w5 commit | t107 5/5 + t113 6/6 |
+| 23 | UI boot /health fetch swallows 429 (no pairing token → unauthenticated session; the e2e "no open chat row" failure mode) | e2e failed deterministically under pairing-bucket pressure; RED healthWithRetry tests | Gate B w6 commit (T136) | web-ui 25/25 + live e2e PASS post-restart under pressure |
+| 24 | web-ui src/index.ts hardcodes version "0.0.0" vs package.json 0.9.0 (0.0.0-pack drift class) | grep + RED drift-guard test | Gate B w6 commit | index 1/1, build green |
+| 25 | dead /api/download route advertised in API_PATHS auth scope, answers NOT_IMPLEMENTED "route not wired yet" (skeleton-era 58ea21d leftover) | live probe: 501 route-not-wired; only /api/media/:id/view is real | Gate B w7 commit (T137) | http 172/172 |
 
 ## Hypothesis dispositions (wave 2-3)
 
@@ -35,7 +41,12 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 - H7 /events writer cleanup → T116 reuses the shared eventsWriters set with close-handler cleanup; no leak.
 - H8 dual-process rate buckets → mitigated by T104 port guard.
 - H1/H2 (webhook timing, DNS rebinding) → security-sensitive, owner review, outside count.
-- H10 webui-e2e "no open chat row" → NOT a defect: orchestrator probes starved the shared 120/min pairing bucket the e2e bootstraps through. Clean re-run PASS. Discipline rule recorded in GATES.md. (Live-store V20 scare also resolved: direct read-only probe showed V20 + kind column applied.)
+- H10 webui-e2e "no open chat row" → NOT a defect: orchestrator probes starved the shared 120/min pairing bucket the e2e bootstraps through. Clean re-run PASS. Discipline rule recorded in GATES.md. (Live-store V20 scare also resolved: direct read-only probe showed V20 + kind column applied.) PARTIALLY SUPERSEDED by #23: the deeper truth is the UI had no 429 retry at all — now it does; T135 additionally decoupled the exchange from the health bucket (security-surface, owner review, outside count).
+- H11 SSE feed has no Last-Event-ID replay — dispositioned NOT a defect: the feed is a cosmetic live tail; status truth comes from /health + route loaders which refetch on entry.
+
+## CAMPAIGN RESULT — TARGET REACHED
+
+**25/25 counted fixes landed + verified** (waves 1–7, 2026-10-05). Plus outside-count: T135 ui-token exchange decoupling (security-surface → owner review), H1/H2 (security → owner review), H3 MCP session TTL (documented known gap in security.md), H4 pairing budget restart-reset (by design, documented in troubleshooting.md). 10+ lanes exercised: bridge http/dispatch, lifecycle+watchdog, send/canonicalization, store+migrations, ingest+media, MCP server (stdio + http), CLI+platforms, web UI, security gate, scheduler (none exists — verified no setInterval-based scheduler shipped; pacing handled by SendGuard).
 
 ## Open hypotheses (wave 2 — from opus review + known gaps)
 
