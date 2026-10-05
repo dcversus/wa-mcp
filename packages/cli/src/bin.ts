@@ -49,7 +49,7 @@ export async function main(argv: string[]): Promise<void> {
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
   if (command === "config") {
-    const [action, ...rest] = args.slice(1);
+    const [action, ...rest] = argv.slice(1);
     const { CONFIG_KEYS, loadConfig, maskSecret, setConfigValue, unsetConfigValue } =
       await import("./config-store.ts");
     const setGet = (key: string): string | undefined => {
