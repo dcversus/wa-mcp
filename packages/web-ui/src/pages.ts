@@ -416,8 +416,8 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[]): string {
   return `<section id="subscriptions-page"><h2>Subscriptions</h2>
 <form id="subscription-form">
 <label>chat jid<input name="chat_jid" placeholder="1203…@g.us" /></label>
-<label><input type="checkbox" name="all_chats" /> all chats</label>
-<label><input type="checkbox" name="include_media" /> include media</label>
+<label class="check-row"><input type="checkbox" name="all_chats" /> all chats</label>
+<label class="check-row"><input type="checkbox" name="include_media" /> include media</label>
 <label>kinds<input name="kinds" placeholder="message" /></label>
 <button type="submit" id="create-subscription">subscribe</button>
 </form>
