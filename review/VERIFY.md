@@ -503,3 +503,9 @@ Note: multiple lint-fix commits — webui-e2e unused vars, server.test String(ur
 - T132: docs/getting-started/desktop.md NEW (web-first path: zero-action bootstrap, QR + phone-form pairing, no-terminal claims drift-guarded 4/4); sidebar: Desktop / Headless CLI / Docker / platforms.
 - AGENTS.md: how to add an MCP tool (registry order!), how to add an engine (error contract, doctor, doc drift-guards), how to run the gates; CLAUDE.md pointer.
 - Gates: suite 972/972 (108 files), vp check 0, docs:build EXIT 0, docs-coverage 74/74, env-doc-coverage 38/38.
+
+### GATE A — test-audit sweep (2026-10-05T01:14:16Z)
+- Mechanical sweeps: assertion-free bodies (0 suspects — every test has expects), self-comparisons/identity (0), string-grep source tests (only doc-drift tests, which ARE their contract per plan), test-only exports (12 flagged → all justified: types, DI engine classes, installer-ownership marker; 1 genuine junk found).
+- FIXED: BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY — exported const never read in production, only consumer a test asserting it truthy ('capability test that restates declared flags'). Removed const + assertion; the REAL behavior test (proto shells for business-account delivery, build.test.ts:146-162) kept. build tests 21/21.
+- Mock-implements-behavior scan: no direct mockReturnValue(expected) patterns; the proven killer class (http.test.ts:108 fetchHistory) was fixed in the T108 era and the fixtures-replay test now covers real ingest.
+- Authoring gate: applied to all Phase 2-5 tests at write time (distinct contracts, owner boundaries, no test-only seams introduced except doctor's whichFn/engine overrides — justified: CLI cannot spawn real binaries in CI).

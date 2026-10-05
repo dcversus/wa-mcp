@@ -14,7 +14,6 @@ import {
   buildReactionMessage,
   buildStatusTextMessage,
   buildTextMessage,
-  BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY,
   type MediaKind,
 } from "../../src/send/build.ts";
 
@@ -160,7 +159,6 @@ test("buttons and lists build proto shells for business-account delivery", async
   if (!listMessage) throw new Error("expected listMessage");
   expect(listMessage.title).toBe("Menu");
   expect((listMessage.sections ?? [])[0]?.rows?.[0]?.title).toBe("Pizza");
-  expect(BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY).toBe(true);
 });
 
 describe("T84 line99 — poll validation", () => {

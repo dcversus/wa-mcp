@@ -17,8 +17,6 @@ export interface TextMessageInput {
 
 export type MediaKind = "image" | "video" | "audio" | "document" | "sticker";
 
-export const BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY = true;
-
 const GENERATION_OPTIONS = {
   logger: pino({ level: "silent" }),
   upload: (async () => {
