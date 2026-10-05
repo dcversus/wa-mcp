@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
-import { mkdirSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { EventEmitter } from "node:events";
 import { addSendRule } from "../src/store/send-rules.ts";
@@ -4243,5 +4243,52 @@ describe("T100 — group chatModify carries the sender participant", () => {
     const body = (await res.json()) as { error: { code: string; message: string; hint?: string } };
     expect(body.error.code).toBe("GROUP_CHAT_MODIFY_FAILED");
     expect(body.error.message).toContain("participant");
+  });
+});
+
+describe("T124 — /api/config", () => {
+  test("GET returns transcription settings with a masked key", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t124-"));
+    writeFileSync(
+      join(dataDir, "config.json"),
+      JSON.stringify({ transcription: { engine: "openai", api_key: "sk-test-full-secret-value" } }),
+      { mode: 0o600 },
+    );
+    const bridge = await startServer({ dataDir });
+    const res = await fetch(url(bridge, "/api/config"), {
+      headers: { authorization: "Bearer test-token" },
+    });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain("openai");
+    expect(text).not.toContain("sk-test-full-secret-value");
+    expect(text).toContain("…");
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  test("PUT writes the transcription section and empty key keeps the saved one", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t124-"));
+    const bridge = await startServer({ dataDir });
+    const put = (transcription: Record<string, string>) =>
+      fetch(url(bridge, "/api/config"), {
+        method: "PUT",
+        headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+        body: JSON.stringify({ transcription }),
+      });
+    const first = await put({ engine: "openai", api_key: "sk-keep-me-123456" });
+    expect(first.status).toBe(200);
+    await put({ engine: "mock", api_key: "" });
+    const saved = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")) as {
+      transcription?: { engine?: string; api_key?: string };
+    };
+    expect(saved.transcription?.engine).toBe("mock");
+    expect(saved.transcription?.api_key).toBe("sk-keep-me-123456");
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  test("/api/config requires auth", async () => {
+    const bridge = await startServer();
+    const res = await fetch(url(bridge, "/api/config"));
+    expect(res.status).toBe(401);
   });
 });

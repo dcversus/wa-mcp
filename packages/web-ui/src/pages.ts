@@ -236,6 +236,31 @@ export function settingsHtml(settings: { bridgeUrl: string; token: string }): st
   return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${settings.bridgeUrl}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" value="${settings.token}" /></label><button type="submit">Save</button></form>`;
 }
 
+export interface TranscriptionSettingsView {
+  engine?: string;
+  baseUrl?: string;
+  model?: string;
+  apiKeyMasked?: string;
+}
+
+export function transcriptionSettingsHtml(view: TranscriptionSettingsView): string {
+  const engine = view.engine ?? "";
+  const engines = ["mock", "openai", "mlx", "whisper-local"];
+  const options = engines
+    .map(
+      (name) =>
+        `<option value="${escapeHtml(name)}"${name === engine ? " selected" : ""}>${escapeHtml(name)}</option>`,
+    )
+    .join("");
+  return `<form id="transcription-form"><h3>Transcription</h3>
+<label>Engine<select id="transcription-engine">${options}</select></label>
+<label>Base URL<input id="transcription-base-url" value="${escapeHtml(view.baseUrl ?? "")}" placeholder="https://api.openai.com/v1" /></label>
+<label>Model<input id="transcription-model" value="${escapeHtml(view.model ?? "")}" placeholder="whisper-1" /></label>
+<label>API key<input id="transcription-api-key" type="password" placeholder="${escapeHtml(view.apiKeyMasked ?? "not set")}" /></label>
+<p class="hint">leave the key field empty to keep the saved key; engines and keys are stored in the bridge config file</p>
+</form>`;
+}
+
 export function pairingHtml(settings: { bridgeUrl: string; token: string }): string {
   return `<div id="pairing">${settingsHtml(settings)}<p id="qr-status">save the bridge token above to load the QR</p></div>`;
 }

@@ -15,6 +15,7 @@ import {
   groupsPageHtml,
   messageListHtml,
   settingsHtml,
+  transcriptionSettingsHtml,
   statusDashboardHtml,
   unreadHtml,
   guardLoader,
@@ -376,7 +377,28 @@ const loaders: {
     const payload = (await client.getUnread()) as { unread: Parameters<typeof unreadHtml>[0] };
     return unreadHtml(payload.unread);
   },
-  settings: async () => settingsHtml(settings),
+  settings: async () => {
+    const emptyConfig: {
+      transcription?: {
+        engine?: string;
+        base_url?: string;
+        model?: string;
+        api_key?: string;
+        api_key_set?: boolean;
+      };
+    } = { transcription: {} };
+    const config = await client.getConfig().catch(() => emptyConfig);
+    const section = config.transcription ?? {};
+    return (
+      settingsHtml(settings) +
+      transcriptionSettingsHtml({
+        engine: section.engine,
+        baseUrl: section.base_url,
+        model: section.model,
+        apiKeyMasked: section.api_key_set === true ? section.api_key : undefined,
+      })
+    );
+  },
   subscriptions: async () => {
     const payload = (await client.listSubscriptions().catch(() => ({ subscriptions: [] }))) as {
       subscriptions?: Array<{
@@ -468,6 +490,7 @@ function bindRoute(): void {
   }
   if (hash === "#/settings") {
     bindSettingsForm();
+    bindTranscriptionForm();
   }
 }
 
@@ -821,6 +844,7 @@ function bindMarkRead(): void {
 
 function bindPairingFlow(): void {
   bindSettingsForm();
+  bindTranscriptionForm();
   const phoneForm = document.getElementById("phone-form") as HTMLFormElement | null;
   phoneForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -874,6 +898,38 @@ async function rerenderPairing(): Promise<void> {
     app.innerHTML = pairingHtml(pairingView);
     bindPairingFlow();
   }
+}
+
+function bindTranscriptionForm(): void {
+  const form = document.getElementById("transcription-form") as HTMLFormElement | null;
+  if (form === null) {
+    return;
+  }
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const engine = (document.getElementById("transcription-engine") as HTMLInputElement).value;
+    const baseUrl = (document.getElementById("transcription-base-url") as HTMLInputElement).value;
+    const model = (document.getElementById("transcription-model") as HTMLInputElement).value;
+    const apiKey = (document.getElementById("transcription-api-key") as HTMLInputElement).value;
+    void client
+      .saveConfig({
+        transcription: {
+          engine,
+          base_url: baseUrl,
+          model,
+          api_key: apiKey,
+        },
+      })
+      .then(() => {
+        location.reload();
+      })
+      .catch((err: unknown) => {
+        const hint = document.querySelector("#transcription-form .hint");
+        if (hint !== null) {
+          hint.textContent = `save failed: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      });
+  });
 }
 
 function bindSettingsForm(): void {

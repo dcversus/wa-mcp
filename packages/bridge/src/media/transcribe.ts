@@ -270,6 +270,58 @@ export function resolveTranscriptionSettings(
   };
 }
 
+export function readBridgeConfig(dataDir: string | undefined): {
+  transcription?: {
+    engine?: string;
+    api_key?: string;
+    base_url?: string;
+    model?: string;
+  };
+} {
+  if (dataDir === undefined) {
+    return {};
+  }
+  try {
+    return JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")) as {
+      transcription?: {
+        engine?: string;
+        api_key?: string;
+        base_url?: string;
+        model?: string;
+      };
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function writeTranscriptionSection(
+  dataDir: string | undefined,
+  section: {
+    engine?: string;
+    api_key?: string;
+    base_url?: string;
+    model?: string;
+  },
+): void {
+  if (dataDir === undefined) {
+    throw new Error("config not available: data dir not attached");
+  }
+  const config = readBridgeConfig(dataDir);
+  const merged = { ...config.transcription, ...section };
+  if (section.api_key === "") {
+    const existing = config.transcription?.api_key;
+    if (existing !== undefined && existing.length > 0) {
+      merged.api_key = existing;
+    } else {
+      delete merged.api_key;
+    }
+  }
+  config.transcription = merged;
+  const path = join(dataDir, "config.json");
+  writeFileSync(path, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+}
+
 export function createTranscriptionEngine(
   engine: string,
   overrides: { apiKey?: string; baseUrl?: string; model?: string } = {},

@@ -92,6 +92,8 @@ import {
   saveTranscript,
   getTranscript,
   resolveTranscriptionSettings,
+  readBridgeConfig,
+  writeTranscriptionSection,
 } from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
@@ -3995,6 +3997,60 @@ export async function createHttpServer(
             return;
           }
           sendJson(res, 200, { unread: getUnreadCounts(opts.store) });
+          return;
+        }
+        if (path === "/api/config" && req.method === "GET") {
+          const config = readBridgeConfig(opts.dataDir);
+          const section = config.transcription ?? {};
+          const maskedKey =
+            section.api_key !== undefined && section.api_key.length > 0
+              ? `${section.api_key.slice(0, 3)}…${section.api_key.slice(-4)}`
+              : undefined;
+          sendJson(res, 200, {
+            transcription: {
+              engine: section.engine ?? "mock",
+              base_url: section.base_url,
+              model: section.model,
+              api_key: maskedKey,
+              api_key_set: maskedKey !== undefined,
+            },
+          });
+          return;
+        }
+        if (path === "/api/config" && req.method === "PUT") {
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(body.toString("utf8")) as unknown;
+          } catch {
+            validationError(res, "body must be valid JSON");
+            return;
+          }
+          const section = (parsed as { transcription?: Record<string, unknown> }).transcription;
+          if (section === undefined || typeof section !== "object") {
+            validationError(res, "transcription section is required");
+            return;
+          }
+          const pick = (key: string): string | undefined => {
+            const value = section[key];
+            return typeof value === "string" ? value : undefined;
+          };
+          try {
+            writeTranscriptionSection(opts.dataDir, {
+              engine: pick("engine"),
+              api_key: pick("api_key") ?? "",
+              base_url: pick("base_url"),
+              model: pick("model"),
+            });
+          } catch (err) {
+            sendJson(res, 500, {
+              error: {
+                code: "INTERNAL",
+                message: err instanceof Error ? err.message : "config write failed",
+              },
+            });
+            return;
+          }
+          sendJson(res, 200, { saved: true });
           return;
         }
         if (path === "/api/qr") {

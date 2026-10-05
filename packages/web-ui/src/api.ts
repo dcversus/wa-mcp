@@ -30,6 +30,18 @@ export interface ApiClient {
   groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
   listSubscriptions(): Promise<{ subscriptions: unknown[] }>;
+  getConfig(): Promise<{
+    transcription?: {
+      engine?: string;
+      base_url?: string;
+      model?: string;
+      api_key?: string;
+      api_key_set?: boolean;
+    };
+  }>;
+  saveConfig(body: {
+    transcription: { engine?: string; base_url?: string; model?: string; api_key?: string };
+  }): Promise<{ saved: boolean }>;
   createSubscription(body: {
     chat_jid?: string;
     all_chats?: boolean;
@@ -158,6 +170,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
     listSubscriptions: () => jsonCall("/api/subscriptions"),
+    getConfig: () => jsonCall("/api/config"),
+    saveConfig: (body) => jsonCall("/api/config", { method: "PUT", json: body }),
     createSubscription: (body) => post("/api/subscriptions", body),
     deleteSubscription: (id) =>
       jsonCall(`/api/subscriptions/${encodeURIComponent(id)}`, { method: "DELETE" }),
