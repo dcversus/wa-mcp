@@ -29,6 +29,14 @@ export interface ApiClient {
   groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
   groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
+  listSubscriptions(): Promise<{ subscriptions: unknown[] }>;
+  createSubscription(body: {
+    chat_jid?: string;
+    all_chats?: boolean;
+    kinds?: string[];
+    include_media?: boolean;
+  }): Promise<{ id: string; inboxPath: string }>;
+  deleteSubscription(id: string): Promise<void>;
   deleteNotification(id: string): Promise<unknown>;
   profile(): Promise<unknown>;
   privacy(): Promise<unknown>;
@@ -149,6 +157,10 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
+    listSubscriptions: () => jsonCall("/api/subscriptions"),
+    createSubscription: (body) => post("/api/subscriptions", body),
+    deleteSubscription: (id) =>
+      jsonCall(`/api/subscriptions/${encodeURIComponent(id)}`, { method: "DELETE" }),
     deleteNotification: (id) =>
       jsonCall(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }),
     profile: () => jsonCall("/api/profile"),

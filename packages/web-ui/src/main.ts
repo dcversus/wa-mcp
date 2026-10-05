@@ -18,6 +18,7 @@ import {
   statusDashboardHtml,
   unreadHtml,
   guardLoader,
+  subscriptionsPageHtml,
 } from "./pages.ts";
 import {
   pairingHtml,
@@ -376,6 +377,23 @@ const loaders: {
     return unreadHtml(payload.unread);
   },
   settings: async () => settingsHtml(settings),
+  subscriptions: async () => {
+    const payload = (await client.listSubscriptions().catch(() => ({ subscriptions: [] }))) as {
+      subscriptions?: Array<{
+        id: string;
+        chatJid: string | null;
+        allChats: boolean;
+        kinds: string[];
+        includeMedia: boolean;
+      }>;
+    };
+    return subscriptionsPageHtml(
+      (payload.subscriptions ?? []).map((sub) => ({
+        ...sub,
+        inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
+      })),
+    );
+  },
   health: async () =>
     statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
@@ -420,6 +438,10 @@ function bindRoute(): void {
   }
   if (hash === "#/contacts") {
     bindContactsControls();
+    return;
+  }
+  if (hash === "#/subscriptions") {
+    bindSubscriptionsControls();
     return;
   }
   if (hash === "#/groups") {
@@ -883,3 +905,42 @@ window.addEventListener("hashchange", () => {
   void renderCurrent();
 });
 void renderCurrent();
+
+function bindSubscriptionsControls(): void {
+  document.getElementById("subscription-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const data = new FormData(form);
+    const allChats = data.get("all_chats") === "on";
+    const chatJid = String(data.get("chat_jid") ?? "").trim();
+    if (!allChats && chatJid.length === 0) {
+      return;
+    }
+    const kinds = String(data.get("kinds") ?? "message")
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    await client.createSubscription({
+      ...(allChats ? { all_chats: true } : { chat_jid: chatJid }),
+      kinds,
+      include_media: data.get("include_media") === "on",
+    });
+    await renderCurrent();
+  });
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".delete-subscription")) {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.subId;
+      if (id === undefined) {
+        return;
+      }
+      await client.deleteSubscription(id);
+      await renderCurrent();
+    });
+  }
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".copy-hook")) {
+    button.addEventListener("click", () => {
+      const snippet = button.parentElement?.querySelector("code")?.textContent ?? "";
+      void navigator.clipboard?.writeText(snippet);
+    });
+  }
+}

@@ -1,5 +1,6 @@
 import {
   contactsPageHtml,
+  subscriptionsPageHtml,
   groupsPageHtml,
   navHtml,
   notFoundHtml,
@@ -28,6 +29,7 @@ export type Route =
   | "settings"
   | "health"
   | "events"
+  | "subscriptions"
   | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
@@ -41,6 +43,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "settings", pattern: "settings" },
   { route: "health", pattern: "health" },
   { route: "events", pattern: "events" },
+  { route: "subscriptions", pattern: "subscriptions" },
   { route: "pairing", pattern: "pairing" },
 ];
 
@@ -82,7 +85,9 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
         ? async () => contactsPageHtml([])
         : match.route === "groups"
           ? async () => groupsPageHtml([])
-          : undefined);
+          : match.route === "subscriptions"
+            ? async () => subscriptionsPageHtml([])
+            : undefined);
   if (loader === undefined) {
     dom.setApp("<p>not implemented</p>");
     return;

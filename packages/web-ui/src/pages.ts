@@ -23,6 +23,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "groups", label: "Groups", href: "#/groups" },
   { id: "profile", label: "Profile", href: "#/profile" },
+  { id: "subscriptions", label: "Subscriptions", href: "#/subscriptions" },
   { id: "pairing", label: "Pairing", href: "#/pairing" },
   { id: "settings", label: "Settings", href: "#/settings" },
 ];
@@ -361,4 +362,39 @@ export function guardLoader(
       return errorBannerHtml(`could not load this page: ${message}`);
     }
   };
+}
+
+export interface SubscriptionRow {
+  id: string;
+  chatJid: string | null;
+  allChats: boolean;
+  kinds: string[];
+  includeMedia: boolean;
+  inboxPath: string;
+}
+
+export function hookSnippet(subId: string): string {
+  return `wa-mcp inbox drain --sub ${subId}`;
+}
+
+export function subscriptionsPageHtml(subs: SubscriptionRow[]): string {
+  const rows = subs
+    .map(
+      (sub) => `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
+<div><code>${escapeHtml(sub.id)}</code> — ${escapeHtml(sub.allChats ? "all chats" : (sub.chatJid ?? "?"))}${sub.includeMedia ? " · media" : ""} · ${escapeHtml(sub.kinds.join(","))}</div>
+<div class="inbox-path"><code>${escapeHtml(sub.inboxPath)}</code></div>
+<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.id))}</code> <button class="copy-hook" type="button">copy</button></div>
+<button class="delete-subscription" type="button" data-sub-id="${escapeHtml(sub.id)}">remove</button>
+</li>`,
+    )
+    .join("");
+  return `<section id="subscriptions-page"><h2>Subscriptions</h2>
+<form id="subscription-form">
+<label>chat jid<input name="chat_jid" placeholder="1203…@g.us" /></label>
+<label><input type="checkbox" name="all_chats" /> all chats</label>
+<label><input type="checkbox" name="include_media" /> include media</label>
+<label>kinds<input name="kinds" placeholder="message" /></label>
+<button type="submit" id="create-subscription">subscribe</button>
+</form>
+<ul id="subscription-list">${rows}</ul></section>`;
 }
