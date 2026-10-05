@@ -122,3 +122,6 @@ deferred — see deviations.
 - CI matrix: still BLOCKED — GitHub billing (fresh evidence run 37200516247, 2026-10-04 14:59). node:20 deviation unchanged (floor >=22.5.0, owner ratification pending).
 - Publish: NOT PERFORMED (by design) — §11 deferred items remain unchecked per contract.
 - Dogfood offer (14-day): delivered to owner 2026-10-04; awaiting decision.
+
+## E2E probe discipline (Gate B wave 4, 2026-10-05)
+webui-e2e bootstraps through the SHARED pairing-surface rate bucket (/health + /api/ui-token, 120/min per IP). Orchestrator curl probes within ~60s of an e2e run starve the browser bootstrap → deterministic "no open chat row found". Not a product defect. RULE: no manual /health or /api/* probes for 60s before any e2e/dogfood run; if e2e fails, check the bucket first (wait 70s, re-run once cleanly) before treating it as a regression.

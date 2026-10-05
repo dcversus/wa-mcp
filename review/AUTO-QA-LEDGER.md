@@ -35,6 +35,7 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 - H7 /events writer cleanup → T116 reuses the shared eventsWriters set with close-handler cleanup; no leak.
 - H8 dual-process rate buckets → mitigated by T104 port guard.
 - H1/H2 (webhook timing, DNS rebinding) → security-sensitive, owner review, outside count.
+- H10 webui-e2e "no open chat row" → NOT a defect: orchestrator probes starved the shared 120/min pairing bucket the e2e bootstraps through. Clean re-run PASS. Discipline rule recorded in GATES.md. (Live-store V20 scare also resolved: direct read-only probe showed V20 + kind column applied.)
 
 ## Open hypotheses (wave 2 — from opus review + known gaps)
 
