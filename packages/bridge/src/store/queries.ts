@@ -145,7 +145,7 @@ function attachTranscripts(store: Store, rows: MessageRow[]): void {
   const placeholders = ids.map(() => "?").join(",");
   const saved = store.db
     .prepare(
-      `SELECT message_id, engine, kind, text, language FROM transcripts WHERE message_id IN (${placeholders})`,
+      `SELECT message_id, engine, kind, text, language FROM transcripts WHERE message_id IN (${placeholders}) ORDER BY created_at DESC, rowid DESC`,
     )
     .all(...ids) as Array<{
     message_id: string;

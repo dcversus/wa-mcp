@@ -56,3 +56,18 @@ test("listMessages surfaces saved transcripts", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("listMessages surfaces the LATEST transcript when engines disagree", () => {
+  const { store, dir } = makeStore();
+  try {
+    saveTranscript(store, "chat1@g.us", "m1", "mock", "stale mock text", undefined);
+    saveTranscript(store, "chat1@g.us", "m1", "openai", "fresh real text", undefined);
+    const rows = listMessages(store, { chatJid: "chat1@g.us", limit: 10 });
+    const m1 = rows.find((row) => row.id === "m1");
+    expect(m1?.transcript?.text).toBe("fresh real text");
+    expect(m1?.transcript?.engine).toBe("openai");
+  } finally {
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

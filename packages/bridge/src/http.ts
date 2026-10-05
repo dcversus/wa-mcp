@@ -553,6 +553,9 @@ export async function createHttpServer(
     return {
       unsubscribeBus,
       writer,
+      evict(id: string): void {
+        inboxes.delete(id);
+      },
       dropped(): number {
         let total = 0;
         for (const inbox of inboxes.values()) {
@@ -3524,6 +3527,7 @@ export async function createHttpServer(
             return;
           }
           if (deleteSubscription(opts.store as Store, subDelete[1] as string)) {
+            subscriptions?.evict(subDelete[1] as string);
             res.writeHead(204);
             res.end();
             return;
