@@ -56,3 +56,52 @@ lines.
   `signalRepository.lidMapping` (FULL jids only — see send.ts comments).
 - Pairing attempts are budgeted (3 without pairing → pairing-blocked);
   WhatsApp's anti-abuse cooldown resets on every attempt.
+
+## How to add an MCP tool
+
+1. `packages/mcp-server/src/tools.ts` — insert the tool object in registry
+   order (the ordered name arrays in `tests/tools.test.ts` and
+   `tests/server.test.ts` match SOURCE ORDER; insert at the matching
+   position, not the end). Read-only tools wrap with
+   `annotate(tool, { readOnlyHint: true })`.
+2. Handler shape: `bridgeFetch(toolCtx, "/api/…")` + `textResult(payload)` —
+   input validation via `requireString`.
+3. Extend the ordered name arrays in both test files
+   (`tools.test.ts`, `server.test.ts`) + any count assertions.
+4. `pnpm run docs:gen` regenerates `docs/reference/tools.md`;
+   `pnpm run docs:coverage` must report the new count.
+5. If the tool mutates subscription/registry state, emit
+   `notifications/tools/list_changed` (see T111).
+
+## How to add a transcription/OCR engine
+
+1. `packages/bridge/src/media/transcribe.ts` — implement
+   `TranscriptionEngine`; throw `MediaError("ENGINE_NOT_CONFIGURED", …)` for
+   missing config (message must name the env var / config key) and
+   `MediaError("ENGINE_UNAVAILABLE", …)` for missing binaries (message must
+   name the install command).
+2. Add the name to `SUPPORTED_TRANSCRIPTION_ENGINES` and the factory
+   (`createTranscriptionEngine`) — config.json values flow through
+   `resolveTranscriptionSettings` (env wins over file).
+3. External binaries: spawn via injectable `spawnFn` for tests, always clean
+   temp dirs in `finally`, cap sizes.
+4. `doctor --engines` (`packages/cli/src/doctor.ts`): optional engines never
+   fail the check; a SELECTED engine with a missing binary/model fails with
+   the fix hint.
+5. Update `docs/cookbook/media-understanding.md` (drift-guard:
+   `packages/cli/tests/t130-media-docs.test.ts` asserts the engine list
+   matches the doc) + the env table in `docs/configuration.md`
+   (`pnpm run env-doc-coverage` enforces).
+
+## How to run the gates
+
+- `vp check` — format + lint + types (must exit 0)
+- `vp test` — full suite (all packages)
+- `vp test --coverage` — coverage floors (bridge/mcp-server ≥80, shared ≥90)
+- `pnpm run docs:coverage` — every MCP tool documented
+- `pnpm run env-doc-coverage` — every env var documented
+- `pnpm run accounting:check` — census counts
+- `pnpm run docs:build` — VitePress build (dead links fail)
+- `scripts/webui-e2e.mjs` — browser e2e against the live daemon
+- Live smoke rules: `review/GATES.md` (Test group + owner + Vasilisa only,
+  spaced sends, never auto-retry pairing)

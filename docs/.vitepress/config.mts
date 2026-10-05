@@ -19,6 +19,9 @@ export default defineConfig({
     ],
     sidebar: [
       { text: "Getting started", link: "/getting-started/" },
+      { text: "Desktop (web-first)", link: "/getting-started/desktop" },
+      { text: "Headless CLI", link: "/getting-started/index" },
+      { text: "Docker", link: "/getting-started/docker" },
       { text: "Per-platform install", link: "/getting-started/platforms" },
       { text: "Tool reference", link: "/reference/tools" },
       { text: "React to messages", link: "/cookbook/react-to-messages" },
