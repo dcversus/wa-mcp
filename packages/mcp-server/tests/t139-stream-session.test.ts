@@ -1,10 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import {
-  handleStream,
-  readCappedLines,
-  JSON_RPC_LINE_CAP,
-  type ServerContext,
-} from "../src/bin.ts";
+import { handleStream, readCappedLines, JSON_RPC_LINE_CAP } from "../src/bin.ts";
+import type { ServerContext } from "../src/server.ts";
 
 function makeCtx(): ServerContext {
   return {
