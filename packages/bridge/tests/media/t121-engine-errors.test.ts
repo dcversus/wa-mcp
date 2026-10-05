@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import {
   createTranscriptionEngine,
@@ -58,5 +61,33 @@ test("openai engine factory with key set does not throw", () => {
     } else {
       process.env.WA_OPENAI_API_KEY = prevKey;
     }
+  }
+});
+
+test("resolveTranscriptionSettings: config.json fallback, env wins", async () => {
+  const { resolveTranscriptionSettings } = await import("../../src/media/transcribe.ts");
+  const dir = mkdtempSync(join(tmpdir(), "wa-mcp-t123b-"));
+  try {
+    writeFileSync(
+      join(dir, "config.json"),
+      JSON.stringify({
+        transcription: {
+          engine: "mock",
+          api_key: "sk-file-key-123456",
+          base_url: "https://file.example/v1",
+        },
+      }),
+    );
+    const fromFile = resolveTranscriptionSettings(dir, {});
+    expect(fromFile.engine).toBe("mock");
+    expect(fromFile.apiKey).toBe("sk-file-key-123456");
+    expect(fromFile.baseUrl).toBe("https://file.example/v1");
+    const fromEnv = resolveTranscriptionSettings(dir, { WA_TRANSCRIBE_ENGINE: "mlx" });
+    expect(fromEnv.engine).toBe("mlx");
+    const neither = resolveTranscriptionSettings(undefined, {});
+    expect(neither.engine).toBe("mock");
+    expect(neither.apiKey).toBe("");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

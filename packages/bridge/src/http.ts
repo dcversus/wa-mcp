@@ -87,7 +87,12 @@ import {
 } from "./media/resolve.ts";
 import { downloadMessageMedia } from "./media/download.ts";
 import { viewMedia } from "./media/view.ts";
-import { createTranscriptionEngine, saveTranscript, getTranscript } from "./media/transcribe.ts";
+import {
+  createTranscriptionEngine,
+  saveTranscript,
+  getTranscript,
+  resolveTranscriptionSettings,
+} from "./media/transcribe.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
   TOOLS,
@@ -109,6 +114,7 @@ import type { SendGuard } from "./send/safety.ts";
 
 export interface HttpServerOptions {
   token: string;
+  dataDir?: string;
   host?: string;
   port?: number;
   version?: string;
@@ -2066,7 +2072,8 @@ export async function createHttpServer(
       validationError(res, "message_id is required");
       return;
     }
-    const engineName = process.env.WA_TRANSCRIBE_ENGINE ?? "mock";
+    const settings = resolveTranscriptionSettings(opts.dataDir);
+    const engineName = settings.engine;
     void (async () => {
       const original = fetchMessageFromStore(store, messageId);
       if (original === null) {
@@ -2097,7 +2104,11 @@ export async function createHttpServer(
         });
         buffer = await readFile(downloaded.path);
       }
-      const engine = createTranscriptionEngine(engineName);
+      const engine = createTranscriptionEngine(engineName, {
+        apiKey: settings.apiKey,
+        baseUrl: settings.baseUrl,
+        model: settings.model,
+      });
       const mime =
         row?.media_type !== null && row?.media_type !== undefined && row.media_type.length > 0
           ? row.media_type

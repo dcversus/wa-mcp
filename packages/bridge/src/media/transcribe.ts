@@ -240,7 +240,40 @@ export class WhisperLocalTranscriptionEngine implements TranscriptionEngine {
   }
 }
 
-export function createTranscriptionEngine(engine: string): TranscriptionEngine {
+interface FileConfig {
+  transcription?: {
+    engine?: string;
+    api_key?: string;
+    base_url?: string;
+    model?: string;
+  };
+}
+
+export function resolveTranscriptionSettings(
+  dataDir: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): { engine: string; apiKey: string; baseUrl: string; model?: string } {
+  let fileConfig: FileConfig = {};
+  if (dataDir !== undefined) {
+    try {
+      fileConfig = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")) as FileConfig;
+    } catch {
+      fileConfig = {};
+    }
+  }
+  const section = fileConfig.transcription ?? {};
+  return {
+    engine: env.WA_TRANSCRIBE_ENGINE ?? section.engine ?? "mock",
+    apiKey: env.WA_OPENAI_API_KEY ?? section.api_key ?? "",
+    baseUrl: env.WA_OPENAI_BASE_URL ?? section.base_url ?? "https://api.openai.com/v1",
+    model: env.WA_OPENAI_MODEL ?? section.model,
+  };
+}
+
+export function createTranscriptionEngine(
+  engine: string,
+  overrides: { apiKey?: string; baseUrl?: string; model?: string } = {},
+): TranscriptionEngine {
   if (engine === "mock") {
     return new MockTranscriptionEngine();
   }
@@ -257,8 +290,9 @@ export function createTranscriptionEngine(engine: string): TranscriptionEngine {
   }
   if (engine === "openai") {
     return new OpenAITranscriptionEngine({
-      baseUrl: process.env.WA_OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-      apiKey: process.env.WA_OPENAI_API_KEY ?? "",
+      baseUrl: overrides.baseUrl ?? process.env.WA_OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+      apiKey: overrides.apiKey ?? process.env.WA_OPENAI_API_KEY ?? "",
+      model: overrides.model,
     });
   }
   throw new Error(

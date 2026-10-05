@@ -48,6 +48,76 @@ export async function main(argv: string[]): Promise<void> {
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+  if (command === "config") {
+    const [action, ...rest] = args.slice(1);
+    const { CONFIG_KEYS, loadConfig, maskSecret, setConfigValue, unsetConfigValue } =
+      await import("./config-store.ts");
+    const setGet = (key: string): string | undefined => {
+      const entry = (loadConfig(dataDir).transcription ?? {}) as Record<string, string | undefined>;
+      const field = key.split(".")[1];
+      return field === undefined ? undefined : entry[field];
+    };
+    if (action === "set") {
+      const key = rest[0];
+      const value = rest[1];
+      if (key === undefined || value === undefined) {
+        console.error("config set <key> <value> — keys: " + CONFIG_KEYS.join(", "));
+        process.exitCode = 1;
+        return;
+      }
+      if (!(CONFIG_KEYS as readonly string[]).includes(key)) {
+        console.error("unknown key: " + key + " — allowed: " + CONFIG_KEYS.join(", "));
+        process.exitCode = 1;
+        return;
+      }
+      setConfigValue(dataDir, key as (typeof CONFIG_KEYS)[number], value);
+      console.log("set " + key);
+      return;
+    }
+    if (action === "get") {
+      const key = rest[0];
+      if (key === undefined || !(CONFIG_KEYS as readonly string[]).includes(key)) {
+        console.error("config get <key> — allowed: " + CONFIG_KEYS.join(", "));
+        process.exitCode = 1;
+        return;
+      }
+      const value = setGet(key);
+      if (value === undefined) {
+        console.log(key + ": (unset)");
+      } else if (key.endsWith("api_key")) {
+        console.log(key + ": " + maskSecret(value));
+      } else {
+        console.log(key + ": " + value);
+      }
+      return;
+    }
+    if (action === "unset") {
+      const key = rest[0];
+      if (key === undefined || !(CONFIG_KEYS as readonly string[]).includes(key)) {
+        console.error("config unset <key> — allowed: " + CONFIG_KEYS.join(", "));
+        process.exitCode = 1;
+        return;
+      }
+      unsetConfigValue(dataDir, key as (typeof CONFIG_KEYS)[number]);
+      console.log("unset " + key);
+      return;
+    }
+    if (action === "list" || action === undefined) {
+      const entry = (loadConfig(dataDir).transcription ?? {}) as Record<string, string | undefined>;
+      for (const key of CONFIG_KEYS) {
+        const field = key.split(".")[1];
+        const value = field === undefined ? undefined : entry[field];
+        const shown =
+          value === undefined ? "(unset)" : key.endsWith("api_key") ? maskSecret(value) : value;
+        console.log(key + ": " + shown);
+      }
+      return;
+    }
+    console.error("config: unknown action " + action + " — use set|get|unset|list");
+    process.exitCode = 1;
+    return;
+  }
+
   if (command === "install" && flags.hooks !== undefined) {
     const target = flags.hooks;
     if (target !== "claude" && target !== "codex") {
@@ -377,7 +447,7 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--service [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--service [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
 }
 

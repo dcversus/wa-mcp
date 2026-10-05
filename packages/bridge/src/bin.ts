@@ -284,6 +284,7 @@ export async function main(
   // exposes it); scoped to /api/qr + /api/pairing-code + /api/pair/resume
   const pairingToken = randomBytes(24).toString("hex");
   const server = await createHttpServer(handle, {
+    dataDir,
     token,
     pairingToken,
     host: config.host,
