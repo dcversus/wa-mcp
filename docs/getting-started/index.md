@@ -17,6 +17,14 @@ wa-mcp start              # bridge spawns detached; QR prints to stderr
 
 Scan the QR with your phone (WhatsApp → Linked devices). The session persists in `~/.wa-mcp/auth/` — restarts do not re-pair. The same QR is available in the web UI at `#/pairing`.
 
+No camera? Pair with an 8-digit code instead — same flow, phone-first:
+
+```sh
+wa-mcp pair --code +358497773518
+```
+
+Enter the printed code on your phone (WhatsApp → Linked devices → **Link with phone number instead**); the command waits and reports `paired: bridge connected to WhatsApp` once the phone accepts. In the web UI the same option is the phone-number form on the `#/pairing` page — no terminal needed. The code path never touches the pairing-attempt budget differently from QR: one link is one attempt either way.
+
 ## First send
 
 ```sh

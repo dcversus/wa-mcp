@@ -68,21 +68,21 @@ export async function runPair(deps: PairDeps): Promise<0 | 1 | 2> {
     deps.print(
       "enter this code on your phone: WhatsApp → Linked devices → Link with phone number instead",
     );
-    return 0;
-  }
-
-  const qr = await bridgeJson(deps, "/api/qr");
-  const qrValue = typeof qr.qr === "string" ? qr.qr : null;
-  if (qrValue !== null) {
-    const renderQr =
-      deps.renderQr ??
-      (async (text: string) => {
-        const { default: QRCode } = await import("qrcode");
-        return QRCode.toString(text, { type: "terminal", small: true });
-      });
-    deps.print("scan this QR with your phone (WhatsApp → Linked devices):");
-    deps.print(await renderQr(qrValue));
-    deps.print(`or paste this link on your phone to link without scanning: ${qrValue}`);
+    deps.print("waiting for your phone to enter the code…");
+  } else {
+    const qr = await bridgeJson(deps, "/api/qr");
+    const qrValue = typeof qr.qr === "string" ? qr.qr : null;
+    if (qrValue !== null) {
+      const renderQr =
+        deps.renderQr ??
+        (async (text: string) => {
+          const { default: QRCode } = await import("qrcode");
+          return QRCode.toString(text, { type: "terminal", small: true });
+        });
+      deps.print("scan this QR with your phone (WhatsApp → Linked devices):");
+      deps.print(await renderQr(qrValue));
+      deps.print(`or paste this link on your phone to link without scanning: ${qrValue}`);
+    }
   }
 
   while (Date.now() < deadline) {

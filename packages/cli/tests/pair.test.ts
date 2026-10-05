@@ -138,7 +138,8 @@ test("default renderer draws a terminal qr for the real wa.me url", async () => 
   expect(deps.writes.some((line) => line.includes("wa.me/settings/linked_devices"))).toBe(true);
 });
 
-test("code path prints the formatted pairing code", async () => {
+test("code path prints the formatted pairing code and waits for pairing", async () => {
+  let healthCalls = 0;
   const deps = makeDeps({
     codePhone: "358497773518",
     fetchFn: (async (url: string | URL, init?: RequestInit) => {
@@ -147,12 +148,19 @@ test("code path prints the formatted pairing code", async () => {
         void init;
         return new Response(JSON.stringify({ code: "ABCD-1234" }), { status: 200 });
       }
+      if (urlText.endsWith("/health")) {
+        healthCalls += 1;
+        return new Response(JSON.stringify({ status: "qr", connected: healthCalls >= 2 }), {
+          status: 200,
+        });
+      }
       return new Response(JSON.stringify({ status: "qr", connected: false }), { status: 200 });
     }) as unknown as typeof fetch,
   });
   const exit = await runPair(deps);
   expect(exit).toBe(0);
   expect(deps.writes.some((line) => line.includes("ABCD-1234"))).toBe(true);
+  expect(deps.writes.some((line) => line.includes("paired"))).toBe(true);
 });
 
 test("timeout exits 1 with a hint", async () => {
