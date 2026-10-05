@@ -204,13 +204,7 @@ const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   // holds it after the first pairing).
   "/api/ui-token",
 ]);
-const API_PATHS = new Set([
-  "/api/messages",
-  "/api/chats",
-  "/api/send",
-  "/events",
-  "/mcp",
-]);
+const API_PATHS = new Set(["/api/messages", "/api/chats", "/api/send", "/events", "/mcp"]);
 
 function sepChar(): string {
   return process.platform === "win32" ? "\\" : "/";
