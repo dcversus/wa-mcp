@@ -509,3 +509,8 @@ Note: multiple lint-fix commits — webui-e2e unused vars, server.test String(ur
 - FIXED: BUTTONS_AND_LISTS_SENDING_IS_BUSINESS_ACCOUNT_ONLY — exported const never read in production, only consumer a test asserting it truthy ('capability test that restates declared flags'). Removed const + assertion; the REAL behavior test (proto shells for business-account delivery, build.test.ts:146-162) kept. build tests 21/21.
 - Mock-implements-behavior scan: no direct mockReturnValue(expected) patterns; the proven killer class (http.test.ts:108 fetchHistory) was fixed in the T108 era and the fixtures-replay test now covers real ingest.
 - Authoring gate: applied to all Phase 2-5 tests at write time (distinct contracts, owner boundaries, no test-only seams introduced except doctor's whichFn/engine overrides — justified: CLI cannot spawn real binaries in CI).
+
+### PHASE 6 GATE C — deslop pass (2026-10-05T06:20Z)
+
+Scope: git diff 25d6052^..HEAD (Gate B waves 2–7, 13 files, +248/−18).
+Checklist run: no comment slop / narration comments added; no console.* added; zero `as any`; zero `as unknown as` in src (one `as unknown[]` widen for JSON body input — matches module norms); one try/catch added = healthWithRetry retry loop (contract-named T136, mirrors retryUntil); no compatibility shims; SUBSCRIPTION_KINDS `as readonly string[]` widen matches the SUPPORTED_TRANSCRIPTION_ENGINES pattern. Verdict: CLEAN, no edits needed. (Gate D autoreview still required — this pass does not replace it.)
