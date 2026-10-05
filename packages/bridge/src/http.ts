@@ -2363,8 +2363,14 @@ export async function createHttpServer(
       bearer !== null
         ? `${ip}:${createHash("sha256").update(bearer).digest("hex").slice(0, 16)}`
         : `${ip}:anon`;
-    const gate =
-      path === "/health" || PAIRING_SURFACE.has(path)
+    const bootstrapExchange =
+      path === "/api/ui-token" &&
+      bearer !== null &&
+      uiBootstrapToken !== null &&
+      tokenMatches(bearer, uiBootstrapToken);
+    const gate = bootstrapExchange
+      ? checkUiRate(ip, now())
+      : path === "/health" || PAIRING_SURFACE.has(path)
         ? checkHealthRate(ip, now())
         : path === "/events"
           ? null

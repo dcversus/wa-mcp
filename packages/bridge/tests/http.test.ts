@@ -4318,3 +4318,19 @@ describe("T134 — /api/config engine validation", () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 });
+
+describe("T135 — ui-token exchange decoupled from the /health bucket", () => {
+  test("exhausting the health bucket still allows a bootstrap-token exchange", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t135-"));
+    const bridge = await startServer({ dataDir, uiBootstrapToken: "boot-tok-t135" });
+    const boot = "boot-tok-t135";
+    for (let i = 0; i < 130; i += 1) {
+      await fetch(url(bridge, "/health"));
+    }
+    const res = await fetch(url(bridge, "/api/ui-token"), {
+      headers: { authorization: `Bearer ${boot}` },
+    });
+    expect(res.status).toBe(200);
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+});
