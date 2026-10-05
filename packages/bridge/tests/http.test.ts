@@ -4368,3 +4368,57 @@ describe("T138 — exchange limiter is separate and small", () => {
     expect(chats.status).toBe(200);
   });
 });
+
+describe("T142-W3 — GET /api/me mirrors the logged-in identity", () => {
+  test("returns pn + own pushName from the newest fromMe row", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-meweb-")));
+    openedStores.push(store);
+    store.db
+      .prepare(
+        "INSERT INTO messages (id, chat_jid, sender_jid, sender_name, timestamp, content, is_from_me) VALUES (?, ?, ?, ?, ?, ?, 1)",
+      )
+      .run(
+        "ME1",
+        "358400000099@s.whatsapp.net",
+        "358497773518@s.whatsapp.net",
+        "2026-06-01T00:00:00Z",
+        "mine",
+      );
+    store.db.prepare("UPDATE messages SET sender_name = 'Vasilisa' WHERE id = 'ME1'").run();
+    const socket = makeFakeSocket();
+    (socket as { user?: unknown }).user = {
+      id: "358497773518@s.whatsapp.net",
+      name: "Vasilisa",
+    };
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/me"), { headers: authHeader });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      pn: string | null;
+      name: string | null;
+      status: string | null;
+    };
+    expect(body.pn).toBe("358497773518@s.whatsapp.net");
+    expect(body.name).toBe("Vasilisa");
+    expect(body.status).toBeNull();
+  });
+
+  test("returns nulls when not connected and no fromMe rows exist", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-meweb2-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connecting", null, undefined as never), {
+      token: "test-token",
+      store,
+    });
+    created.push(bridge);
+    const res = await fetch(url(bridge, "/api/me"), { headers: authHeader });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { pn: string | null; name: string | null };
+    expect(body.pn).toBeNull();
+    expect(body.name).toBeNull();
+  });
+});

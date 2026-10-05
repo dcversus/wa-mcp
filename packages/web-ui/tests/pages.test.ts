@@ -241,8 +241,10 @@ describe("T51-C/D profile + groups participants", () => {
     expect(html).toContain("358999@s.whatsapp.net");
     expect(html).toContain('data-unblock-jid="358999@s.whatsapp.net"');
     expect(html).toContain('id="block-form"');
-    expect(html).toContain('id="privacy-form"');
-    expect(html).toContain('id="name-form"');
+    // T142-W3: the privacy/name forms moved into the native-style mirror
+    // (data-privacy-key selects + me-card fields)
+    expect(html).toContain('data-privacy-key="last"');
+    expect(html).toContain('id="me-name"');
   });
 
   test("profilePageHtml escapes blocklist entries", () => {
@@ -519,4 +521,21 @@ test("C3 — retryUntil polls until the check passes or attempts run out", async
   expect(calls).toBe(3);
   const failed = await retryUntil(async () => false, { attempts: 3, delayMs: 1 });
   expect(failed).toBe(false);
+});
+
+test("T142-W3 — profilePageHtml mirrors native WhatsApp: me-card + privacy rows", () => {
+  const html = profilePageHtml({
+    blocklist: ["358999@s.whatsapp.net"],
+    me: { pn: "358497773518@s.whatsapp.net", name: "Vasilisa", status: null },
+    privacy: { last: "all", online: "match_last_seen", profile: "all", groupadd: "contacts" },
+  });
+  expect(html).toContain('id="me-name"');
+  expect(html).toContain('id="me-phone"');
+  expect(html).toContain('id="me-status"');
+  expect(html).toContain('id="save-name"');
+  expect(html).toContain('id="save-status"');
+  expect(html).toContain("358497773518@s.whatsapp.net");
+  expect(html).toContain('data-privacy-key="last"');
+  expect(html).toContain('data-privacy-key="calladd"');
+  expect(html).toContain("358999@s.whatsapp.net");
 });

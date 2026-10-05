@@ -17,6 +17,7 @@ export interface ApiClient {
   /** ADR 0012: exchange the scoped pairing token for the daemon token.
    * Reachable only from a loopback, same-origin page. */
   uiToken(): Promise<{ token?: string }>;
+  getMe(): Promise<{ pn?: string | null; name?: string | null; status?: string | null }>;
   markRead(chatJid: string, messageIds: string[]): Promise<unknown>;
   pairingCode(phone: string): Promise<{ code?: string; error?: { code: string; message: string } }>;
   resumePairing(): Promise<{ resumed: boolean }>;
@@ -152,6 +153,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     getUnread: () => jsonCall("/api/unread"),
     getHealth: () => jsonCall("/health"),
     uiToken: () => jsonCall("/api/ui-token"),
+    getMe: () => jsonCall("/api/me"),
     markRead: (chatJid, messageIds) =>
       post("/api/read", { chat_jid: chatJid, message_ids: messageIds }),
     pairingCode: (phone) => post("/api/pairing-code", { phone }),

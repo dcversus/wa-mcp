@@ -10,7 +10,6 @@ import {
   eventsPageHtml,
   groupMetaFormHtml,
   groupParticipantsHtml,
-  privacyMatrixHtml,
   profilePageHtml,
   contactsPageHtml,
   groupsPageHtml,
@@ -38,6 +37,7 @@ import {
   savePairingToken,
   saveSettings,
   type WebSettings,
+  shouldExchange,
 } from "./state.ts";
 
 let settings: WebSettings = loadSettings(localStorage);
@@ -64,17 +64,21 @@ let pairingView: PairingView = {
 async function syncPairingToken(): Promise<void> {
   const health = (await healthWithRetry(client, { attempts: 5, delayMs: 1200 })) as PairingHealth;
   adoptPairingToken(health);
-  if (health.loggedIn === true) {
-    await exchangeAccountToken();
-  }
+  await exchangeAccountToken(health.loggedIn === true);
 }
 
 // ADR 0012: one exchange attempt per page load — a 401/403 (unpaired daemon,
 // or the UI reached from a non-loopback origin) leaves the UI on the pairing
 // flow instead of retrying in a loop.
 let accountTokenExchanged = false;
-async function exchangeAccountToken(): Promise<void> {
-  if (accountTokenExchanged || settings.token.length > 0) {
+async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
+  if (
+    !shouldExchange({
+      loggedIn,
+      token: settings.token,
+      latched: accountTokenExchanged,
+    })
+  ) {
     return;
   }
   accountTokenExchanged = true;
@@ -86,7 +90,9 @@ async function exchangeAccountToken(): Promise<void> {
       client = createClient();
     }
   } catch {
-    // pairing not finished yet, or non-loopback view — pairing flow handles it
+    // T142-W1: a failed attempt clears the latch — a later loggedIn sync
+    // retries instead of stranding the owner on 401s
+    accountTokenExchanged = false;
   }
 }
 
@@ -323,17 +329,17 @@ const loaders: {
     return contactsPageHtml(payload.contacts ?? []);
   },
   profile: async () => {
-    const [blockPayload, privacy] = await Promise.all([
+    const [blockPayload, privacy, me] = await Promise.all([
       client.blocklist().catch(() => ({ blocklist: [] })),
       client.privacy().catch(() => ({})),
+      client.getMe().catch(() => ({ pn: null, name: null, status: null })),
     ]);
     const page = profilePageHtml({
       blocklist: (blockPayload as { blocklist?: string[] }).blocklist ?? [],
+      me: me as { pn: string | null; name: string | null; status: string | null },
+      privacy: (privacy as { privacy?: Record<string, string> }).privacy ?? {},
     });
-    const matrix = privacyMatrixHtml(
-      (privacy as { privacy?: Record<string, string> }).privacy ?? {},
-    );
-    return page.replace("</section>", `${matrix}</section>`);
+    return page;
   },
   groups: async () => {
     const payload = (await client.getChats()) as {
@@ -410,12 +416,18 @@ const loaders: {
         includeMedia: boolean;
       }>;
     };
-    return subscriptionsPageHtml(
-      (payload.subscriptions ?? []).map((sub) => ({
-        ...sub,
-        inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
-      })),
-    );
+    const rows = (payload.subscriptions ?? []).map((sub) => ({
+      ...sub,
+      inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
+    }));
+    activeSubRows = rows.map((row) => ({ id: row.id, chatJid: row.chatJid }));
+    const chats = await client.getChats();
+    const chatRows = (
+      chats as { chats: Array<{ jid: string; name: string | null; unreadCount: number }> }
+    ).chats
+      .filter((c) => !c.jid.endsWith("@lid"))
+      .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
+    return subscriptionsPageHtml(rows, chatRows);
   },
   health: async () =>
     statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
@@ -963,7 +975,33 @@ window.addEventListener("hashchange", () => {
 });
 void renderCurrent();
 
+let activeSubRows: Array<{ id: string; chatJid: string | null }> = [];
+
+async function deleteSubscriptionForChat(chatJid: string): Promise<void> {
+  const match = activeSubRows.find((row) => row.chatJid === chatJid);
+  if (match === undefined) {
+    return;
+  }
+  await client.deleteSubscription(match.id);
+}
+
 function bindSubscriptionsControls(): void {
+  document.getElementById("sub-chat-picker")?.addEventListener("change", async (event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.type !== "checkbox") {
+      return;
+    }
+    const chatJid = target.dataset.chatJid;
+    if (chatJid === undefined || chatJid.length === 0) {
+      return;
+    }
+    if (target.checked) {
+      await client.createSubscription({ chat_jid: chatJid, kinds: ["message"] });
+    } else {
+      await deleteSubscriptionForChat(chatJid);
+    }
+    await renderCurrent();
+  });
   document.getElementById("subscription-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget as HTMLFormElement;

@@ -60,6 +60,25 @@ export function loadPairingToken(storage: SettingsStorage): string {
   return storage.getItem(PAIRING_TOKEN_KEY) ?? "";
 }
 
+export interface ExchangeState {
+  loggedIn: boolean;
+  token: string;
+  latched: boolean;
+}
+
+/** T142-W1: decide whether to attempt the ui-token exchange. A failure
+ * latches only until the daemon reports loggedIn — then the owner-rule
+ * retry kicks in. An existing session token means never exchange. */
+export function shouldExchange(state: ExchangeState): boolean {
+  if (state.token.length > 0) {
+    return false;
+  }
+  if (state.latched && !state.loggedIn) {
+    return false;
+  }
+  return true;
+}
+
 /** Priority: saved session token wins; the ephemeral pairing token is the
  * fallback so pairing pages work before any token is stored. */
 export function effectiveToken(settings: WebSettings, pairingToken: string): string {

@@ -307,17 +307,59 @@ export function healthHtml(health: Record<string, unknown>): string {
     .join("")}</dl>`;
 }
 
-export function profilePageHtml(input: { blocklist: string[] }): string {
+export interface MeInfo {
+  pn: string | null;
+  name: string | null;
+  status: string | null;
+}
+
+const PRIVACY_ROWS: Array<{ key: string; label: string; values: string[] }> = [
+  { key: "last", label: "last seen", values: ["all", "contacts", "contact_blacklist", "none"] },
+  { key: "online", label: "online", values: ["all", "match_last_seen"] },
+  { key: "profile", label: "profile photo", values: ["all", "contacts", "none"] },
+  { key: "status", label: "about", values: ["all", "contacts", "none"] },
+  { key: "groupadd", label: "groups", values: ["all", "contacts", "contact_blacklist"] },
+  { key: "calladd", label: "calls", values: ["all", "known"] },
+  { key: "messages", label: "who can message", values: ["all", "contacts"] },
+  { key: "readreceipts", label: "read receipts", values: ["all", "none"] },
+];
+
+export function profilePageHtml(input: {
+  blocklist: string[];
+  me?: { pn: string | null; name: string | null; status: string | null };
+  privacy?: Record<string, string>;
+}): string {
   const entries = input.blocklist
     .map(
       (jid) =>
         `<li data-blocked-jid="${escapeHtml(jid)}"><code>${escapeHtml(jid)}</code> <button data-unblock-jid="${escapeHtml(jid)}">unblock</button></li>`,
     )
     .join("");
+  const me = input.me ?? { pn: null, name: null, status: null };
+  const initial = (me.name ?? "?").charAt(0).toUpperCase();
+  const privacyRows = PRIVACY_ROWS.map(
+    (
+      row,
+    ) => `<div class="privacy-row"><label>${escapeHtml(row.label)}<select data-privacy-key="${row.key}">
+${row.values
+  .map(
+    (value) =>
+      `<option value="${value}"${(input.privacy ?? {})[row.key] === value ? " selected" : ""}>${escapeHtml(value)}</option>`,
+  )
+  .join("")}
+</select></label></div>`,
+  ).join("");
   return `<section id="profile-page"><h2>Profile</h2>
-<form id="name-form"><label>display name<input name="name" placeholder="new display name" /></label><button type="submit">set name</button></form>
+<div class="me-card"><span class="avatar">${escapeHtml(initial)}</span>
+<div class="me-fields">
+<label>display name<input id="me-name" value="${escapeHtml(me.name ?? "")}" /></label>
+<label>phone<code id="me-phone">${escapeHtml(me.pn ?? "—")}</code></label>
+<label>about / status<input id="me-status" value="${escapeHtml(me.status ?? "")}" placeholder="—" /></label>
+<button id="save-name" type="button">save name</button>
+<button id="save-status" type="button">save status</button>
+</div></div>
 <h3>privacy</h3>
-<form id="privacy-form"><label>read receipts<select name="privacy_value"><option value="all">all</option><option value="none">none</option></select></label><button type="submit">apply</button></form>
+<div class="privacy-settings">${privacyRows}</div>
 <h3>blocked contacts</h3>
 <form id="block-form"><label>block a JID<input name="chat_jid" placeholder="358…@s.whatsapp.net" /></label><button type="submit">block</button></form>
 <ul class="blocklist">${entries}</ul></section>`;
@@ -433,7 +475,13 @@ export function hookSnippet(subId: string): string {
   return `wa-mcp inbox drain --sub ${subId}`;
 }
 
-export function subscriptionsPageHtml(subs: SubscriptionRow[]): string {
+export interface ChatPick {
+  jid: string;
+  name: string | null;
+  unreadCount: number;
+}
+
+export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[] = []): string {
   const rows = subs
     .map(
       (sub) => `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
@@ -444,7 +492,20 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[]): string {
 </li>`,
     )
     .join("");
+  const subscribed = new Set(subs.filter((s) => !s.allChats).map((s) => s.chatJid));
+  const picker =
+    chats.length > 0
+      ? `<ul id="sub-chat-picker">${chats
+          .map(
+            (chat) => `<li class="sub-chat-row" data-chat-jid="${escapeHtml(chat.jid)}">
+<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${subscribed.has(chat.jid) ? " checked" : ""} /> <span class="avatar">${initials(chat.name ?? chat.jid)}</span> <span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span> <code class="inbox-path">${escapeHtml(chat.jid)}</code></label>
+</li>`,
+          )
+          .join("")}</ul>`
+      : emptyState("No chats yet — they appear after messages arrive");
   return `<section id="subscriptions-page"><h2>Subscriptions</h2>
+${picker}
+<details><summary>Advanced</summary>
 <form id="subscription-form">
 <label>chat jid<input name="chat_jid" placeholder="1203…@g.us" /></label>
 <label class="check-row"><input type="checkbox" name="all_chats" /> all chats</label>
@@ -452,5 +513,6 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[]): string {
 <label>kinds<input name="kinds" placeholder="message" /></label>
 <button type="submit" id="create-subscription">subscribe</button>
 </form>
+</details>
 <ul id="subscription-list">${rows}</ul></section>`;
 }

@@ -55,3 +55,42 @@ test("createSubscription posts selected chats via the api client", async () => {
   expect(calls.at(-1)?.method).toBe("DELETE");
   expect(calls.at(-1)?.path).toBe("/api/subscriptions/new1");
 });
+
+test("T142-W2 — the picker renders chats as per-row toggles with jids", () => {
+  const chats = [
+    { jid: "120363428874442773@g.us", name: "Test Group", unreadCount: 0 },
+    { jid: "358497773518@s.whatsapp.net", name: "V", unreadCount: 0 },
+  ];
+  const html = subscriptionsPageHtml([], chats);
+  expect(html).toContain('id="sub-chat-picker"');
+  expect(html).toContain('class="sub-chat-row"');
+  expect(html).toContain('data-chat-jid="120363428874442773@g.us"');
+  expect(html).toContain('data-chat-jid="358497773518@s.whatsapp.net"');
+  expect(html).toContain("Test Group");
+});
+
+test("T142-W2 — the advanced form stays inside details with its ids intact", () => {
+  const html = subscriptionsPageHtml(
+    [
+      {
+        id: "abc12345",
+        chatJid: "358400000001@s.whatsapp.net",
+        allChats: false,
+        kinds: ["message"],
+        includeMedia: true,
+        inboxPath: "/x",
+      },
+    ],
+    [{ jid: "358497773518@s.whatsapp.net", name: "V", unreadCount: 0 }],
+  );
+  expect(html).toContain("<details");
+  expect(html).toContain('id="subscription-form"');
+  expect(html).toContain('id="subscription-list"');
+  expect(html).toContain('class="subscription-row"');
+  expect(html).toContain('data-sub-id="abc12345"');
+});
+
+test("T142-W2 — empty chats shows the empty state", () => {
+  const html = subscriptionsPageHtml([], []);
+  expect(html).toContain("No chats yet");
+});
