@@ -48,6 +48,17 @@ function isOurs(entry: HookEntry): boolean {
   return entry.hooks.some((hook) => hook.command.includes(HOOK_MARKER));
 }
 
+function ourInboxPaths(entry: HookEntry): string[] {
+  return entry.hooks
+    .map((hook) => hook.command)
+    .filter((command) => command.includes(HOOK_MARKER))
+    .map((command) => {
+      const at = command.indexOf("--inbox ");
+      return at >= 0 ? command.slice(at + "--inbox ".length).trim() : "";
+    })
+    .filter((path) => path.length > 0);
+}
+
 export function mergeHooks(
   existing: HooksSettings,
   ours: Record<string, HookEntry[]>,
@@ -55,7 +66,10 @@ export function mergeHooks(
   const result: HooksSettings = { ...existing };
   const merged: Record<string, HookEntry[]> = { ...result.hooks };
   for (const [event, entries] of Object.entries(ours)) {
-    const kept = (merged[event] ?? []).filter((entry) => !isOurs(entry));
+    const incoming = new Set(entries.flatMap((entry) => ourInboxPaths(entry)));
+    const kept = (merged[event] ?? []).filter(
+      (entry) => !isOurs(entry) || !ourInboxPaths(entry).some((path) => incoming.has(path)),
+    );
     merged[event] = [
       ...kept,
       ...entries.map((entry) => JSON.parse(JSON.stringify(entry)) as HookEntry),
@@ -65,14 +79,22 @@ export function mergeHooks(
   return result;
 }
 
-export function removeHooks(existing: HooksSettings): HooksSettings {
+export function removeHooks(existing: HooksSettings, inboxPath?: string): HooksSettings {
   const result: HooksSettings = { ...existing };
   if (result.hooks === undefined) {
     return result;
   }
   const cleaned: Record<string, HookEntry[]> = {};
   for (const [event, entries] of Object.entries(result.hooks)) {
-    const kept = entries.filter((entry) => !isOurs(entry));
+    const kept = entries.filter((entry) => {
+      if (!isOurs(entry)) {
+        return true;
+      }
+      if (inboxPath === undefined) {
+        return false;
+      }
+      return !ourInboxPaths(entry).includes(inboxPath);
+    });
     if (kept.length > 0) {
       cleaned[event] = kept;
     }
@@ -94,7 +116,7 @@ export interface InstallHooksResult {
 export function installHooksFile(
   settingsPath: string,
   ours: Record<string, HookEntry[]>,
-  opts: { now?: () => string; remove?: boolean } = {},
+  opts: { now?: () => string; remove?: boolean; removeInboxPath?: string } = {},
 ): InstallHooksResult {
   const now = opts.now ?? (() => new Date().toISOString().replace(/[:.]/g, "-"));
   let existing: HooksSettings = {};
@@ -105,7 +127,8 @@ export function installHooksFile(
       return { ok: false, message: `refusing: ${settingsPath} is not valid JSON` };
     }
   }
-  const updated = opts.remove === true ? removeHooks(existing) : mergeHooks(existing, ours);
+  const updated =
+    opts.remove === true ? removeHooks(existing, opts.removeInboxPath) : mergeHooks(existing, ours);
   const backupPath = `${settingsPath}.bak-${now()}`;
   if (existsSync(settingsPath)) {
     renameSync(settingsPath, backupPath);

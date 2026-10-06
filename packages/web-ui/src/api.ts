@@ -10,7 +10,11 @@ export interface ApiClientOptions {
 export interface ApiClient {
   getChats(): Promise<unknown>;
   getMessages(chatJid: string, limit?: number): Promise<unknown>;
-  sendMessage(chatJid: string, text: string): Promise<{ message_id: string }>;
+  sendMessage(
+    chatJid: string,
+    text: string,
+    opts?: { replyToMessageId?: string },
+  ): Promise<{ message_id: string }>;
   getQr(): Promise<{ qr: string | null; png: string | null }>;
   getUnread(): Promise<{ unread: Array<{ chatJid: string; unreadCount: number }> }>;
   getHealth(): Promise<Record<string, unknown>>;
@@ -150,7 +154,14 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       }
       return jsonCall(`/api/messages?${params.toString()}`);
     },
-    sendMessage: (chatJid, text) => post("/api/send", { chat_jid: chatJid, text }),
+    sendMessage: (chatJid, text, opts) =>
+      post("/api/send", {
+        chat_jid: chatJid,
+        text,
+        ...(opts?.replyToMessageId !== undefined
+          ? { reply_to_message_id: opts.replyToMessageId }
+          : {}),
+      }),
     getQr: () => jsonCall("/api/qr"),
     getUnread: () => jsonCall("/api/unread"),
     getHealth: () => jsonCall("/health"),

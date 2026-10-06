@@ -8,6 +8,10 @@ export interface InboxEvent {
   from: string;
   text: string;
   media: boolean;
+  id?: string;
+  chatName?: string | null;
+  senderName?: string | null;
+  fromMe?: boolean;
 }
 
 export interface InboxWriter {

@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape.ts";
+import { formatWhen } from "./pages.ts";
 
 export interface FeedLine {
   at: number;
@@ -74,7 +75,7 @@ export function feedHtml(feed: FeedLine[]): string {
   return feed
     .map(
       (line) =>
-        `<li><time>${new Date(line.at).toISOString()}</time> <strong>${escapeHtml(line.type)}</strong> <span>${escapeHtml(line.detail)}</span></li>`,
+        `<li><time>${escapeHtml(formatWhen(line.at))}</time> <strong>${escapeHtml(line.type)}</strong> <span>${escapeHtml(line.detail)}</span></li>`,
     )
     .join("");
 }

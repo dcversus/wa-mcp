@@ -20,6 +20,7 @@ import {
   unreadHtml,
   guardLoader,
   subscriptionsPageHtml,
+  replyPreviewHtml,
 } from "./pages.ts";
 import {
   pairedIdentityText,
@@ -33,6 +34,7 @@ import {
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
 import { escapeHtml } from "./escape.ts";
 import { routeKind } from "./router.ts";
+import { formatWhen } from "./pages.ts";
 import { createPairingPoller, type PairingPoller } from "./pairing-poll.ts";
 import {
   effectiveToken,
@@ -232,34 +234,24 @@ function startEventsLive(): void {
           list.innerHTML = eventsLines
             .map(
               (l) =>
-                `<li><time>${new Date(l.at).toISOString()}</time> <strong>${l.type}</strong></li>`,
+                `<li><time>${escapeHtml(formatWhen(l.at))}</time> <strong>${escapeHtml(l.type)}</strong></li>`,
             )
             .join("");
         }
       },
     });
   }
-  if (eventsPoll === null) {
-    eventsPoll = setInterval(() => {
-      if (location.hash === "#/events") void renderCurrent();
-    }, 5_000);
-  }
 }
 
 function stopEventsLive(): void {
   eventsStream?.close();
   eventsStream = null;
-  if (eventsPoll !== null) {
-    clearInterval(eventsPoll);
-    eventsPoll = null;
-  }
 }
 
 // ---- live status feed (T52): bounded SSE feed + 5s health poll
 let statusFeed: FeedLine[] = [];
 let statusStream: { close(): void } | null = null;
 let statusPoll: ReturnType<typeof setInterval> | null = null;
-let eventsPoll: ReturnType<typeof setInterval> | null = null;
 
 function startStatusLive(): void {
   if (statusStream === null && typeof EventSource === "function") {
@@ -383,12 +375,9 @@ async function renderCurrent(): Promise<void> {
 const loaders: {
   [R in Route]: (params: Record<string, string>) => Promise<string>;
 } = {
-  events: async () => eventsPageHtml(eventsFeedLines()),
+  events: async () => eventsPageHtml(eventsFeedLines(), { paused: eventsPaused }),
   status: async () => {
-    const [health, notifications] = await Promise.all([
-      client.getHealth(),
-      client.notifications().catch(() => ({ rules: [] })),
-    ]);
+    const [health, notifications] = await Promise.all([client.getHealth(), client.notifications()]);
     return statusDashboardHtml({
       health,
       notifications:
@@ -401,13 +390,13 @@ const loaders: {
     const payload = (await client.contacts(contactsQuery)) as {
       contacts?: Array<{ jid: string; name: string | null }>;
     };
-    return contactsPageHtml(payload.contacts ?? []);
+    return contactsPageHtml(payload.contacts ?? [], contactsQuery);
   },
   profile: async () => {
     const [blockPayload, privacy, me] = await Promise.all([
-      client.blocklist().catch(() => ({ blocklist: [] })),
-      client.privacy().catch(() => ({})),
-      client.getMe().catch(() => ({ pn: null, name: null, status: null })),
+      client.blocklist(),
+      client.privacy(),
+      client.getMe(),
     ]);
     const page = profilePageHtml({
       blocklist: (blockPayload as { blocklist?: string[] }).blocklist ?? [],
@@ -505,7 +494,7 @@ const loaders: {
     );
   },
   subscriptions: async () => {
-    const payload = (await client.listSubscriptions().catch(() => ({ subscriptions: [] }))) as {
+    const payload = (await client.listSubscriptions()) as {
       subscriptions?: Array<{
         id: string;
         chatJid: string | null;
@@ -522,7 +511,7 @@ const loaders: {
           ? sub.inboxPath
           : `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
     }));
-    const chatsPayload = (await client.getChats().catch(() => ({ chats: [] }))) as {
+    const chatsPayload = (await client.getChats()) as {
       chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
     };
     const chatRows = (chatsPayload.chats ?? [])
@@ -630,18 +619,28 @@ function bindSendBox(): void {
       return;
     }
     form.querySelector(".send-error")?.remove();
+    const quoted = replyToId;
     try {
-      await client.sendMessage(chatJid, replyToId !== null ? `> ${replyToId}\n${text}` : text);
+      await client.sendMessage(
+        chatJid,
+        text,
+        quoted !== null ? { replyToMessageId: quoted } : undefined,
+      );
       input.value = "";
       replyToId = null;
+      document.getElementById("reply-preview")?.remove();
       // re-fetch + re-render so the sent bubble appears immediately (T67)
       const payload = (await client.getMessages(chatJid, 50)) as {
         messages: Parameters<typeof messageListHtml>[1];
       };
       const app = document.getElementById("app");
       if (app !== null) {
-        app.innerHTML = messageListHtml(chatJid, payload.messages);
+        app.innerHTML = messageListHtml(chatJid, payload.messages, {
+          mediaToken: effectiveToken(settings, pairingToken),
+        });
         bindSendBox();
+        bindChatExtras();
+        input.focus();
         const scroller = app.querySelector(".messages");
         if (scroller !== null) {
           scroller.scrollTop = scroller.scrollHeight;
@@ -670,6 +669,10 @@ function bindContactsControls(): void {
     contactsQuery = (
       document.querySelector("#contact-search input[name=query]") as HTMLInputElement
     ).value;
+    void renderCurrent();
+  });
+  document.getElementById("clear-contacts-search")?.addEventListener("click", () => {
+    contactsQuery = "";
     void renderCurrent();
   });
   document.querySelectorAll("[data-alias-jid]").forEach((button) => {
@@ -704,12 +707,19 @@ function bindGroupsControls(): void {
       }
     });
   });
-  document.querySelectorAll("[data-group-jid]").forEach((item) => {
-    item.addEventListener("click", async (event) => {
-      if ((event.target as HTMLElement).closest("button, a")) {
+  document.querySelectorAll<HTMLButtonElement>(".group-info-toggle").forEach((toggle) => {
+    toggle.addEventListener("click", async () => {
+      const item = toggle.closest("[data-group-jid]") as HTMLElement | null;
+      if (item === null) {
         return;
       }
-      const jid = (item as HTMLElement).dataset.groupJid ?? "";
+      const jid = toggle.dataset.groupInfo ?? item.dataset.groupJid ?? "";
+      const open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", open ? "false" : "true");
+      if (open) {
+        document.getElementById("group-participants")?.remove();
+        return;
+      }
       const meta = (await client.groupInfo(jid).catch(() => null)) as {
         participants?: Array<{ id?: string; admin?: string | null }> | Array<string>;
         subject?: string;
@@ -883,10 +893,20 @@ function bindChatExtras(): void {
         return;
       }
       replyToId = (item as HTMLElement).dataset.id ?? null;
-      const input = document.querySelector("#app .send-box input") as HTMLInputElement | null;
-      if (input !== null) {
-        input.placeholder =
-          replyToId !== null ? `replying to ${replyToId.slice(0, 12)}…` : "message";
+      const form = document.querySelector("#app .send-box") as HTMLFormElement | null;
+      if (form !== null) {
+        document.getElementById("reply-preview")?.remove();
+        if (replyToId !== null) {
+          const sender = (item.querySelector(".sender") as HTMLElement | null)?.textContent ?? null;
+          const text = (item.querySelector(".text") as HTMLElement | null)?.textContent ?? null;
+          form.insertAdjacentHTML("beforebegin", replyPreviewHtml({ senderName: sender, text }));
+          document.getElementById("cancel-reply")?.addEventListener("click", () => {
+            replyToId = null;
+            document.getElementById("reply-preview")?.remove();
+          });
+        }
+        const input = form.querySelector("input[name=text]") as HTMLInputElement | null;
+        input?.focus();
       }
     });
   });

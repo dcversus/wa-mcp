@@ -23,7 +23,7 @@ describe("T67 layout pass", () => {
     expect(html).toContain(">TG<");
     expect(html).toContain('class="chat-main"');
     expect(html).toContain('class="unread-badge"');
-    expect(html).toContain("09:31");
+    expect(html).toMatch(/<time class="chat-time">[^<]+<\/time>/);
     expect(html).toContain("hello");
   });
 

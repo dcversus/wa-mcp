@@ -166,7 +166,7 @@ test("/health reports subscriptions {count, dropped}", async () => {
   }
 });
 
-test("LIVE-shaped upsert (top-level participant, extendedText, string ts, append) appends", async () => {
+test("W1 — a fromMe append writes nothing; a live notify from the group does", async () => {
   const dataDir = mkdtempSync(join(tmpdir(), "t107-"));
   const store = openStore(dataDir);
   const events = createEventBus();
@@ -204,6 +204,27 @@ test("LIVE-shaped upsert (top-level participant, extendedText, string ts, append
         type: "append",
       },
     } as never);
+    expect(readFileSync(inboxPath, "utf8").trim()).toBe("");
+    events.emit({
+      type: "messages.upsert",
+      payload: {
+        messages: [
+          {
+            key: {
+              remoteJid: "120363428874442773@g.us",
+              fromMe: false,
+              id: "3EB0764213F942527D3D99",
+              participant: "358400000002@s.whatsapp.net",
+            },
+            message: { extendedTextMessage: { text: "live inbound" } },
+            messageTimestamp: "1791156900",
+            status: "PENDING",
+          },
+        ],
+        type: "notify",
+      },
+    } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const lines = readFileSync(inboxPath, "utf8").trim().split("\n");
     expect(lines).toHaveLength(1);
     await bridge.close();

@@ -17,7 +17,7 @@ test("T141 — statusDashboardHtml renders semantic stat values, never [object O
   expect(html).toContain("<dd>2</dd>");
   expect(html).toContain("<dd>yes</dd>");
   expect(html).toContain("<dd>no</dd>");
-  expect(html).toContain("<dd>912</dd>");
+  expect(html).toContain("<dd>15 m</dd>");
 });
 
 test("T141 — healthHtml renders the same values escaped and readable", () => {
@@ -26,7 +26,7 @@ test("T141 — healthHtml renders the same values escaped and readable", () => {
   expect(html).toContain("1 / 3");
   expect(html).toContain("yes");
   expect(html).toContain("no");
-  expect(html).toContain("912");
+  expect(html).toContain("15 m");
 });
 
 test("T141 — unknown object keys render as k: v pairs", () => {

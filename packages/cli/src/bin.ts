@@ -140,7 +140,10 @@ export async function main(argv: string[]): Promise<void> {
         : inboxPath !== undefined
           ? renderCodexHooks(subId as string, inboxPath)
           : {};
-    const result = installHooksFile(settingsPath, ours, { remove });
+    const result = installHooksFile(settingsPath, ours, {
+      remove,
+      removeInboxPath: remove ? inboxPath : undefined,
+    });
     console.log(result.ok ? `${result.message}: ${settingsPath}` : result.message);
     if (result.ok === true && result.backupPath !== undefined) {
       console.log(`backup: ${result.backupPath}`);
@@ -301,7 +304,16 @@ export async function main(argv: string[]): Promise<void> {
     }
     const statePath = (flags.state as string | undefined) ?? `${inboxPath}.cursor`;
     const result = drainInbox(inboxPath, statePath);
-    console.log(result.summary);
+    if (result.exit === 2) {
+      for (const line of result.lines) {
+        console.error(line);
+      }
+      if (result.hint !== undefined) {
+        console.error(result.hint);
+      }
+    } else {
+      console.log(result.summary);
+    }
     process.exitCode = result.exit;
     return;
   }

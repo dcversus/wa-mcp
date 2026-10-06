@@ -61,6 +61,96 @@ export interface StatusDashboardInput {
   events: Array<{ type: string; at: number; detail?: string }>;
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function localParts(ms: number): { day: number; weekday: number; hhmm: string; key: string } {
+  const date = new Date(ms);
+  const day = date.getDate();
+  const weekday = date.getDay();
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return {
+    day,
+    weekday,
+    hhmm: `${hh}:${mm}`,
+    key: `${date.getFullYear()}-${date.getMonth()}-${day}`,
+  };
+}
+
+export function formatWhen(iso: string | number, now: number = Date.now()): string {
+  const ms = typeof iso === "number" ? iso : Date.parse(iso);
+  if (!Number.isFinite(ms)) {
+    return "—";
+  }
+  const current = localParts(now);
+  const target = localParts(ms);
+  if (target.key === current.key) {
+    return target.hhmm;
+  }
+  const days = Math.floor((currentMidnight(now) - currentMidnight(ms)) / 86_400_000);
+  if (days >= 1 && days <= 6) {
+    return WEEKDAYS[target.weekday] ?? "";
+  }
+  return `${target.day} ${MONTHS[new Date(ms).getMonth()] ?? ""}`;
+}
+
+function currentMidnight(ms: number): number {
+  const date = new Date(ms);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+export function formatDaySeparator(iso: string | number, now: number = Date.now()): string {
+  const ms = typeof iso === "number" ? iso : Date.parse(iso);
+  if (!Number.isFinite(ms)) {
+    return "";
+  }
+  const current = localParts(now);
+  const target = localParts(ms);
+  if (target.key === current.key) {
+    return "Today";
+  }
+  const days = Math.floor((currentMidnight(now) - currentMidnight(ms)) / 86_400_000);
+  if (days === 1) {
+    return "Yesterday";
+  }
+  return `${WEEKDAYS[target.weekday] ?? ""} ${target.day} ${MONTHS[new Date(ms).getMonth()] ?? ""}`;
+}
+
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return "—";
+  }
+  const totalMinutes = Math.floor(seconds / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days >= 1) {
+    return `${days} d ${hours} h`;
+  }
+  if (hours >= 1) {
+    return `${hours} h ${minutes} m`;
+  }
+  return `${minutes} m`;
+}
+
+export function formatRelative(iso: string | number, now: number = Date.now()): string {
+  const ms = typeof iso === "number" ? iso : Date.parse(iso);
+  if (!Number.isFinite(ms)) {
+    return "—";
+  }
+  return `${formatDuration(Math.max(0, Math.floor((now - ms) / 1000)))} ago`;
+}
+
+export function replyPreviewHtml(preview: {
+  senderName: string | null;
+  text: string | null;
+}): string {
+  const who = preview.senderName ?? "";
+  const what = (preview.text ?? "").slice(0, 80);
+  return `<div id="reply-preview" role="note"><span>Replying to <strong>${escapeHtml(who)}</strong>${what.length > 0 ? `: “${escapeHtml(what)}”` : ""}</span> <button id="cancel-reply" type="button" aria-label="cancel reply">✕</button></div>`;
+}
+
 export function formatStatValue(key: string, value: unknown): string {
   if (value === null || value === undefined) {
     return "—";
@@ -94,6 +184,12 @@ export function formatStatValue(key: string, value: unknown): string {
       .map(([k, v]) => `${k}: (${formatStatValue(k, v)})`)
       .join(", ");
   }
+  if (key === "uptime" && typeof value === "number") {
+    return formatDuration(value);
+  }
+  if (key === "lastDisconnectAt" && typeof value === "number") {
+    return formatRelative(value);
+  }
   if (typeof value === "string" || typeof value === "number") {
     return String(value);
   }
@@ -117,13 +213,16 @@ export function statusDashboardHtml(input: StatusDashboardInput): string {
   const feed = input.events
     .map(
       (event) =>
-        `<li><time>${new Date(event.at).toISOString()}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
+        `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
     )
     .join("");
   return `<section id="status-dashboard"><h2>Status</h2><dl class="stats">${fields}</dl><h3>pairing rules</h3><ul class="rules">${rules}</ul><h3>events</h3><ul class="events">${feed}</ul></section>`;
 }
 
-export function contactsPageHtml(contacts: Array<{ jid: string; name: string | null }>): string {
+export function contactsPageHtml(
+  contacts: Array<{ jid: string; name: string | null }>,
+  query = "",
+): string {
   const items = contacts
     .map(
       (contact) =>
@@ -131,8 +230,12 @@ export function contactsPageHtml(contacts: Array<{ jid: string; name: string | n
     )
     .join("");
   const empty =
-    contacts.length === 0 ? emptyState("No contacts yet — they appear after you chat") : "";
-  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
+    contacts.length === 0
+      ? query.length > 0
+        ? `<p class="empty">No contacts match “${escapeHtml(query)}” — <button id="clear-contacts-search" type="button">Clear search</button></p>`
+        : emptyState("No contacts yet — they appear after you chat")
+      : "";
+  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" value="${escapeHtml(query)}" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
 }
 
 export function groupsPageHtml(
@@ -141,7 +244,7 @@ export function groupsPageHtml(
   const items = groups
     .map(
       (group) =>
-        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button data-leave-jid="${escapeHtml(group.jid)}">leave</button></li>`,
+        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button class="group-info-toggle" data-group-info="${escapeHtml(group.jid)}" aria-expanded="false" type="button">info</button> <button data-leave-jid="${escapeHtml(group.jid)}">leave</button></li>`,
     )
     .join("");
   const empty =
@@ -176,9 +279,10 @@ export function chatListHtml(
       const badge =
         chat.unreadCount > 0 ? `<span class="unread-badge">${chat.unreadCount}</span>` : "";
       const preview = chat.lastMessage?.text ?? "";
-      const time = chat.lastMessage?.timestamp
-        ? `<time class="chat-time">${escapeHtml(chat.lastMessage.timestamp.slice(11, 16))}</time>`
-        : "";
+      const time =
+        chat.lastMessage?.timestamp !== undefined && chat.lastMessage.timestamp !== null
+          ? `<time class="chat-time">${escapeHtml(formatWhen(chat.lastMessage.timestamp))}</time>`
+          : "";
       const archivedTag = chat.archived ? ' data-archived="1"' : "";
       const name = chat.name ?? chat.jid;
       return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><a href="#/chat/${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</a></li>`;
@@ -223,7 +327,9 @@ export function messageListHtml(
   for (const message of sorted) {
     const day = dayKey(message.timestamp);
     if (day !== lastDay) {
-      items.push(`<li class="day-separator"><time>${escapeHtml(day)}</time></li>`);
+      items.push(
+        `<li class="day-separator"><time>${escapeHtml(formatDaySeparator(message.timestamp))}</time></li>`,
+      );
       lastDay = day;
     }
     let body: string;
@@ -258,7 +364,7 @@ export function messageListHtml(
             .join("")}</span>`
         : "";
     items.push(
-      `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(message.timestamp)}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button><button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button></li>`,
+      `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(formatWhen(message.timestamp))}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button><button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button></li>`,
     );
   }
   const list = items.join("");
@@ -274,7 +380,7 @@ export function contextViewHtml(
   const items = messages
     .map(
       (message) =>
-        `<li class="message ${message.isFromMe ? "from-me" : "from-them"}${message.id === targetId ? " context-target" : ""}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span><span class="text">${escapeHtml(message.content ?? "")}</span><time>${escapeHtml(message.timestamp)}</time></li>`,
+        `<li class="message ${message.isFromMe ? "from-me" : "from-them"}${message.id === targetId ? " context-target" : ""}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span><span class="text">${escapeHtml(message.content ?? "")}</span><time>${escapeHtml(formatWhen(message.timestamp))}</time></li>`,
     )
     .join("");
   return `<div id="context-view"><h3>context</h3><ul>${items}</ul></div>`;
@@ -377,7 +483,8 @@ export function profilePageHtml(input: {
     const live = (input.privacy ?? {})[row.key];
     const all =
       live !== undefined && live !== null && !options.includes(live) ? [live, ...options] : options;
-    return `<div class="privacy-row"><label>${escapeHtml(row.label)}<select data-privacy-key="${row.key}">
+    const unknown = live === undefined || live === null;
+    return `<div class="privacy-row"><label>${escapeHtml(row.label)}<select data-privacy-key="${row.key}"${unknown ? " disabled" : ""}>
 ${all
   .map(
     (value) =>
@@ -435,14 +542,14 @@ export interface FeedEntry {
   detail?: string;
 }
 
-export function eventsPageHtml(events: Array<FeedEntry>): string {
+export function eventsPageHtml(events: Array<FeedEntry>, opts: { paused?: boolean } = {}): string {
   const items = events
     .map(
       (event) =>
-        `<li><time>${new Date(event.at).toISOString()}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
+        `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
     )
     .join("");
-  return `<section id="events-page"><div class="events-header"><h2>Events</h2><button id="events-pause">pause</button><button id="events-clear">clear</button></div><ul id="events-feed">${items}</ul></section>`;
+  return `<section id="events-page"><div class="events-header"><h2>Events</h2><button id="events-pause">${opts.paused === true ? "resume" : "pause"}</button><button id="events-clear">clear</button></div><ul id="events-feed">${items}</ul></section>`;
 }
 
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */

@@ -273,7 +273,7 @@ button.primary:hover,
   border-color: var(--border);
 }
 
-.chat-list li.hide-archived[data-archived="true"] {
+.chat-list.hide-archived li[data-archived="1"] {
   display: none;
 }
 

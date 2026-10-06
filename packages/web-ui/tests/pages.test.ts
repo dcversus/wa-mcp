@@ -96,7 +96,7 @@ test("healthHtml renders status fields", () => {
   });
   expect(html).toContain("connected");
   expect(html).toContain("0.0.0");
-  expect(html).toContain("12");
+  expect(html).toContain("<dd>0 m</dd>");
 });
 
 test("sidebar nav lists the full section set with active state (T51)", () => {
@@ -353,8 +353,8 @@ describe("T68 media bubbles + day separators + banner", () => {
       },
     ]);
     expect(html).toContain('class="day-separator"');
-    expect(html).toContain("2026-10-02");
-    expect(html).toContain("2026-10-03");
+    expect(html).toContain("Fri 2 Oct");
+    expect(html).toContain("Sat 3 Oct");
   });
 });
 

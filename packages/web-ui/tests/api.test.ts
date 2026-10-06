@@ -64,6 +64,31 @@ test("sendMessage posts chat_jid and text", async () => {
   expect(JSON.parse(bodyOf(calls[0]))).toEqual({ chat_jid: "g@g.us", text: "hi" });
 });
 
+test("sendMessage carries reply_to_message_id when replying", async () => {
+  const { fetchFn, calls } = mockFetch({ message_id: "M2" });
+  const client = createApiClient({
+    baseUrl: "http://bridge:8080",
+    token: "tok",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
+  await client.sendMessage("g@g.us", "a reply", { replyToMessageId: "3EBORIG" });
+  const body = JSON.parse(bodyOf(calls[0])) as { reply_to_message_id?: string };
+  expect(body.reply_to_message_id).toBe("3EBORIG");
+});
+
+test("sendMessage without an option never adds reply_to_message_id", async () => {
+  const { fetchFn, calls } = mockFetch({ message_id: "M3" });
+  const client = createApiClient({
+    baseUrl: "http://bridge:8080",
+    token: "tok",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
+  await client.sendMessage("g@g.us", "plain");
+  expect(bodyOf(calls[0])).not.toContain("reply_to_message_id");
+});
+
 test("a 401 triggers the unauthorized callback", async () => {
   const { fetchFn } = mockFetch({}, 401);
   let redirected = false;

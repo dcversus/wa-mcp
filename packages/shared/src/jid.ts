@@ -76,3 +76,14 @@ export function isValidRecipientJid(jid: string): boolean {
   }
   return /^\d+$/.test(local);
 }
+
+const JID_SHAPE = /^[a-z0-9]{3,}(:\d+)?@(s\.whatsapp\.net|g\.us|lid)$/;
+const BROADCAST_SHAPE = /^[a-z]+@broadcast$/;
+
+export function isJid(value: unknown): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const trimmed = value.trim().toLowerCase();
+  return JID_SHAPE.test(trimmed) || BROADCAST_SHAPE.test(trimmed);
+}

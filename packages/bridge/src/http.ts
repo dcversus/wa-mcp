@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { AnyMessageContent, proto, WAMessage } from "baileys";
+import type { BaileysEventMap, AnyMessageContent, proto, WAMessage } from "baileys";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
@@ -23,7 +23,7 @@ import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { upsertGroupParticipants } from "./store/groups.ts";
-import { isValidRecipientJid } from "@wa-mcp/shared";
+import { isValidRecipientJid, isJid } from "@wa-mcp/shared";
 import {
   getUnreadCounts,
   markMessagesRead,
@@ -494,10 +494,15 @@ export async function createHttpServer(
       return fresh;
     };
     const unsubscribeBus = handle.events.subscribe((event) => {
-      if (event.type !== "messages.upsert" || event.payload.type === "notify") {
-        return;
+      if (event.type === "messages.upsert") {
+        void dispatchUpsert(event);
       }
-      const ruleMatches = evaluateRules(opts.store as Store, event);
+    });
+    async function dispatchUpsert(event: {
+      type: "messages.upsert";
+      payload: BaileysEventMap["messages.upsert"] & { pushName?: string | null };
+    }): Promise<void> {
+      const ruleMatches = evaluateRules(opts.store as Store, event as never);
       for (const match of ruleMatches) {
         if (match.deliver.includes("ui")) {
           const frame = `data: ${JSON.stringify({ type: "wa.rule", payload: { ruleId: match.ruleId, title: match.title, body: match.body } })}\n\n`;
@@ -522,9 +527,39 @@ export async function createHttpServer(
         }
       }
       const subs = listSubscriptions(opts.store as Store);
-      for (const upsert of event.payload.messages) {
-        const chatJid = upsert.key.remoteJid ?? "";
-        const fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+      for (const upsert of event.payload.messages ?? []) {
+        if (upsert.key.fromMe === true) {
+          continue;
+        }
+        let chatJid = upsert.key.remoteJid ?? "";
+        let fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+        try {
+          if (chatJid.endsWith("@lid")) {
+            chatJid = await canonicalChatJid(handle.socket, chatJid);
+          }
+          if (fromJid.endsWith("@lid")) {
+            fromJid = await canonicalChatJid(handle.socket, fromJid);
+          }
+        } catch {
+          chatJid = upsert.key.remoteJid ?? "";
+          fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+        }
+        const chatName = (opts.store as Store).db
+          .prepare("SELECT name FROM chats WHERE jid = ?")
+          .get(chatJid) as { name: string | null } | undefined;
+        const contactRow =
+          fromJid.length > 0
+            ? ((opts.store as Store).db
+                .prepare("SELECT name, pushname FROM contacts WHERE jid = ?")
+                .get(fromJid) as { name: string | null; pushname: string | null } | undefined)
+            : undefined;
+        const senderName =
+          (typeof event.payload.pushName === "string" && event.payload.pushName.length > 0
+            ? event.payload.pushName
+            : null) ??
+          contactRow?.name ??
+          contactRow?.pushname ??
+          null;
         const content = upsert.message ?? {};
         const text =
           (content as { conversation?: string }).conversation ??
@@ -551,11 +586,15 @@ export async function createHttpServer(
               from: fromJid,
               text,
               media,
+              id: typeof upsert.key.id === "string" ? upsert.key.id : undefined,
+              chatName: chatName?.name ?? null,
+              senderName,
+              fromMe: false,
             });
           }
         }
       }
-    });
+    }
     return {
       unsubscribeBus,
       writer,
@@ -1948,6 +1987,10 @@ export async function createHttpServer(
     if (route === "/api/block") {
       if (typeof input.jid !== "string" || input.jid.length === 0) {
         validationError(res, "jid is required");
+        return;
+      }
+      if (!isJid(input.jid)) {
+        validationError(res, "That doesn't look like a WhatsApp number or group");
         return;
       }
       if (typeof input.block !== "boolean") {
@@ -3525,6 +3568,10 @@ export async function createHttpServer(
           }
           if (input.chat_jid !== undefined && typeof input.chat_jid !== "string") {
             validationError(res, "chat_jid must be a string");
+            return;
+          }
+          if (typeof input.chat_jid === "string" && !isJid(input.chat_jid)) {
+            validationError(res, "That doesn't look like a WhatsApp number or group");
             return;
           }
           if (input.from_jid !== undefined && typeof input.from_jid !== "string") {

@@ -91,12 +91,22 @@ export async function runUnsubscribe(
 export interface DrainResult {
   exit: number;
   summary: string;
+  lines: string[];
+  stream: "stdout" | "stderr";
+  hint?: string;
 }
+
+const DRAIN_LINE_CAP = 20;
 
 export function drainInbox(inboxPath: string, statePath: string): DrainResult {
   const cursor = existsSync(statePath) ? Number(readFileSync(statePath, "utf8")) : 0;
   if (!existsSync(inboxPath)) {
-    return { exit: 1, summary: `no such inbox: ${inboxPath}` };
+    return {
+      exit: 1,
+      summary: `no such inbox: ${inboxPath}`,
+      lines: [],
+      stream: "stderr",
+    };
   }
   const size = statSync(inboxPath).size;
   let start = cursor;
@@ -106,7 +116,13 @@ export function drainInbox(inboxPath: string, statePath: string): DrainResult {
   const content = readFileSync(inboxPath, "utf8");
   const lines = content.split("\n").filter((line) => line.length > 0);
   let byteOffset = 0;
-  const newLines: Array<{ chat: string; text: string }> = [];
+  const newLines: Array<{
+    chat: string;
+    text: string;
+    id?: string;
+    chatName?: string | null;
+    senderName?: string | null;
+  }> = [];
   for (const line of lines) {
     const lineStart = byteOffset;
     byteOffset += line.length + 1;
@@ -114,21 +130,39 @@ export function drainInbox(inboxPath: string, statePath: string): DrainResult {
       continue;
     }
     try {
-      const parsed = JSON.parse(line) as { chat: string; text: string };
-      newLines.push({ chat: parsed.chat, text: parsed.text });
+      const parsed = JSON.parse(line) as {
+        chat: string;
+        text: string;
+        id?: string;
+        chatName?: string | null;
+        senderName?: string | null;
+      };
+      newLines.push(parsed);
     } catch {
       break;
     }
   }
   if (newLines.length === 0) {
-    return { exit: 0, summary: "inbox: 0 new" };
+    return { exit: 0, summary: "inbox: 0 new", lines: [], stream: "stdout" };
   }
   const first = newLines[0] as { chat: string; text: string };
   const snippet = first.text.slice(0, 60);
   const dir = dirname(statePath);
   if (!existsSync(dir)) {
-    return { exit: 0, summary: "inbox: state dir missing" };
+    return { exit: 0, summary: "inbox: state dir missing", lines: [], stream: "stdout" };
   }
   writeFileSync(statePath, String(Math.min(byteOffset, size)));
-  return { exit: 2, summary: `${newLines.length} new: ${first.chat}: ${snippet}` };
+  const last = newLines[newLines.length - 1] as { chat: string };
+  return {
+    exit: 2,
+    summary: `${newLines.length} new: ${first.chat}: ${snippet}`,
+    lines: newLines.slice(0, DRAIN_LINE_CAP).map((event) => {
+      const who = event.chatName ?? event.chat;
+      const sender = event.senderName ?? "";
+      const id = event.id ?? "";
+      return `${who}${sender.length > 0 ? ` — ${sender}` : ""}${id.length > 0 ? ` · ${id}` : ""}: ${event.text.slice(0, 60)}`;
+    }),
+    stream: "stderr",
+    hint: `more: list_messages chat_jid="${last.chat}"`,
+  };
 }
