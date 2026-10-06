@@ -116,3 +116,44 @@ addendum-1 posture.
 Mitigations: the daemon binds 127.0.0.1 by default; the kill switch exists;
 multi-user hosts should run the daemon under a dedicated user or set
 `WA_UI_BOOTSTRAP=0`.
+
+## Addendum 3 — S1 (R1-D4): the bootstrap token moves off /health (2026-10-07)
+
+**Context:** addendum 2 published `uiBootstrapToken` on unauthenticated
+`/health`. On a multi-user host any local process — including another OS
+user — could read it and mint a full UI token. That residual risk is not
+acceptable; the cookie delivers the same zero-action bootstrap to real
+browsers without advertising the credential to every local process.
+
+**Decision:**
+
+- `/health` no longer carries `uiBootstrapToken` (or `pairingToken` when
+  paired — unchanged from CR1). The pairing token is still published while
+  pairing is possible (pre-pair, the data-dir token file grants the same
+  capability anyway).
+- `GET /` (the UI shell) sets `wa-mcp-bootstrap=<token>` as an
+  `HttpOnly; SameSite=Strict; Path=/` cookie — ONLY for loopback
+  connections whose Host/Origin passes `hostOriginGuard` (which since S2
+  covers `/`, `/assets/*`, `/health` too, and runs BEFORE rate limiting).
+- `/api/ui-token` accepts the bootstrap token from EITHER the cookie
+  (browser path) or the `Authorization: Bearer` header (daemon-owned CLI
+  and tests — unchanged).
+- The web UI exchanges cookie-first (`fetch … credentials: "same-origin"`,
+  no bearer header) and falls back to the legacy bearer exchange only when
+  a retained pairing/bootstrap token exists in localStorage (older-daemon
+  migration path).
+- `WA_UI_BOOTSTRAP=0` still refuses the exchange entirely when paired.
+
+**Migration:** browsers that only ever talked to the old daemon get the
+cookie on their next `GET /` — no action. Clients that scraped
+`uiBootstrapToken` from `/health` (scripts, old tabs mid-session) must
+switch to the cookie flow or read `<dataDir>/ui-bootstrap-token` (0600)
+directly. The bearer exchange path is retained and is NOT deprecated.
+
+**Residual risk after S1:** `/health` is tokenless (status fields only,
+and now Host-guarded). A different-user local process can still read the
+0600 token file only by being the same user — the loopback HTTP surface no
+longer mints UI tokens for processes that cannot read the file. The
+cookie is reachable only by a fetch from a loopback same-origin page
+(HttpOnly keeps it from page script; SameSite=Strict + the Host/Origin
+guard keep foreign pages out).

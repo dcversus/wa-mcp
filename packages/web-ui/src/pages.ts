@@ -198,6 +198,7 @@ export function formatStatValue(key: string, value: unknown): string {
 
 export function statusDashboardHtml(input: StatusDashboardInput): string {
   const fields = Object.entries(input.health)
+    .filter(([key]) => !/token/i.test(key))
     .filter(([key]) => key !== "channel" || input.health.channel !== undefined)
     .map(
       ([key, value]) =>
@@ -402,7 +403,7 @@ export function unreadHtml(entries: Array<UnreadEntryView>): string {
 }
 
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" value="${escapeHtml(settings.token)}" /></label><button type="submit">Save</button></form>`;
+  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" type="password" value="${escapeHtml(settings.token)}" autocomplete="off" /></label><button id="reveal-token" type="button">show</button><button type="submit">Save</button></form>`;
 }
 
 export interface TranscriptionSettingsView {

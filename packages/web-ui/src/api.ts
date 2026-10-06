@@ -20,7 +20,7 @@ export interface ApiClient {
   getHealth(): Promise<Record<string, unknown>>;
   /** ADR 0012: exchange the scoped pairing token for the daemon token.
    * Reachable only from a loopback, same-origin page. */
-  uiToken(): Promise<{ token?: string }>;
+  uiToken(opts?: { useCookie?: boolean }): Promise<{ token?: string }>;
   getMe(): Promise<{ pn?: string | null; name?: string | null; status?: string | null }>;
   markRead(chatJid: string, messageIds: string[]): Promise<unknown>;
   pairingCode(phone: string): Promise<{ code?: string; error?: { code: string; message: string } }>;
@@ -89,12 +89,15 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
   const fetchFn = opts.fetchFn ?? fetch;
   const call = async (path: string, init?: RequestInit & { json?: unknown }): Promise<Response> => {
     const { json, ...rest } = init ?? {};
+    const callerHeaders = (rest.headers ?? {}) as Record<string, string | undefined>;
     const headers: Record<string, string> = {
       "content-type": "application/json",
-      authorization: `Bearer ${opts.token}`,
     };
-    if (rest.headers !== undefined) {
-      Object.assign(headers, rest.headers);
+    Object.assign(headers, callerHeaders);
+    if (callerHeaders.authorization === "") {
+      delete headers.authorization;
+    } else if (callerHeaders.authorization === undefined) {
+      headers.authorization = `Bearer ${opts.token}`;
     }
     let response: Response;
     try {
@@ -165,7 +168,11 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     getQr: () => jsonCall("/api/qr"),
     getUnread: () => jsonCall("/api/unread"),
     getHealth: () => jsonCall("/health"),
-    uiToken: () => jsonCall("/api/ui-token"),
+    uiToken: (opts) =>
+      jsonCall("/api/ui-token", {
+        credentials: opts?.useCookie === true ? "same-origin" : undefined,
+        headers: opts?.useCookie === true ? { authorization: "" } : undefined,
+      }),
     getMe: () => jsonCall("/api/me"),
     markRead: (chatJid, messageIds) =>
       post("/api/read", { chat_jid: chatJid, message_ids: messageIds }),

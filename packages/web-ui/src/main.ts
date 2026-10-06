@@ -108,7 +108,15 @@ async function exchangeAccountToken(loggedIn: boolean): Promise<void> {
   exchangeLatched = true;
   exchangeAttempts += 1;
   try {
-    const res = await client.uiToken();
+    let res: { token?: string };
+    try {
+      res = await client.uiToken({ useCookie: true });
+    } catch (cookieErr) {
+      if (pairingToken.length === 0) {
+        throw cookieErr;
+      }
+      res = await client.uiToken();
+    }
     if (typeof res.token === "string" && res.token.length > 0) {
       settings = { ...settings, token: res.token };
       saveSettings(localStorage, settings);
@@ -228,7 +236,7 @@ function startEventsLive(): void {
       token: effectiveToken(settings, pairingToken),
       onLine: (line) => {
         if (eventsPaused) return;
-        eventsLines.push(line);
+        eventsLines = appendEvent(eventsLines, line, 500);
         const list = document.querySelector("#events-feed");
         if (list !== null) {
           list.innerHTML = eventsLines
@@ -1149,6 +1157,16 @@ function bindSettingsForm(): void {
   if (form === null) {
     return;
   }
+  document.getElementById("reveal-token")?.addEventListener("click", () => {
+    const input = document.getElementById("token") as HTMLInputElement | null;
+    const reveal = document.getElementById("reveal-token") as HTMLButtonElement | null;
+    if (input === null || reveal === null) {
+      return;
+    }
+    const hidden = input.type === "password";
+    input.type = hidden ? "text" : "password";
+    reveal.textContent = hidden ? "hide" : "show";
+  });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const bridgeUrl = (document.getElementById("bridge-url") as HTMLInputElement).value;

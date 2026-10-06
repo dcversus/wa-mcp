@@ -268,7 +268,6 @@ test("health leaks no other data", async () => {
       "reconnects",
       "subscriptions",
       "status",
-      "uiBootstrapToken",
       "uptime",
       "version",
     ].sort(),
@@ -1456,9 +1455,9 @@ test("POST /api/media/{id} downloads and returns metadata; GET streams the file"
   created.push(bridge);
   const post = await fetch(url(bridge, "/api/media/PIC1"), { method: "POST", headers: authHeader });
   expect(post.status).toBe(200);
-  const meta = (await post.json()) as { path: string; mime: string; size: number };
+  const meta = (await post.json()) as { name: string; mime: string; size: number };
   expect(meta.mime).toBe("image/png");
-  expect(meta.path.endsWith("PIC1.png")).toBe(true);
+  expect(meta.name).toBe("PIC1.png");
   const get = await fetch(url(bridge, "/api/media/PIC1"), { headers: authHeader });
   expect(get.status).toBe(200);
   expect(get.headers.get("content-type")).toBe("image/png");
@@ -4020,16 +4019,32 @@ describe("T94-G — the owner rule: a fresh browser bootstraps on a PAIRED daemo
     });
   }
 
-  test("/health publishes the STABLE ui bootstrap token even when paired", async () => {
-    const bridge = await pairedWithBootstrap();
-    const body = (await (await fetch(url(bridge, "/health"))).json()) as {
-      uiBootstrapToken?: string;
-      pairingToken?: string;
-    };
-    // the pairing token stays hidden (CR1) — the bootstrap token is the
-    // owner-rule replacement: stable across boots, loopback+same-origin only
-    expect(body.uiBootstrapToken).toBe("boot-tok");
-    expect(body.pairingToken).toBeUndefined();
+  test("/health carries no tokens; the bootstrap token ships as a GET / cookie", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-shell-"));
+    try {
+      writeFileSync(join(dataDir, "index.html"), "<html></html>");
+      const bridge = await createHttpServer(stubHandle("connected", null, makeFakeSocket(), true), {
+        token: "test-token",
+        pairingToken: "pair-tok",
+        uiBootstrapToken: "boot-tok",
+        uiDir: dataDir,
+      });
+      const body = (await (await fetch(url(bridge, "/health"))).json()) as {
+        uiBootstrapToken?: string;
+        pairingToken?: string;
+      };
+      // S1 (R1-D4): /health publishes NEITHER token — the bootstrap token is
+      // delivered to loopback same-origin browsers as an HttpOnly cookie
+      expect(body.uiBootstrapToken).toBeUndefined();
+      expect(body.pairingToken).toBeUndefined();
+      const shell = await fetch(url(bridge, "/"));
+      const cookie = (shell.headers.get("set-cookie") ?? "").split(";")[0] as string;
+      expect(cookie).toBe("wa-mcp-bootstrap=boot-tok");
+      rmSync(dataDir, { recursive: true, force: true });
+    } catch (err) {
+      rmSync(dataDir, { recursive: true, force: true });
+      throw err;
+    }
   });
 
   test("the bootstrap token exchanges for a full-surface ui token when paired", async () => {

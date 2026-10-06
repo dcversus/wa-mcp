@@ -171,6 +171,7 @@ export interface BridgeHttp {
   readonly server: Server;
   readonly port: number;
   close(): Promise<void>;
+  limiterSizes(): { api: number; health: number; ui: number; exchange: number };
 }
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -281,32 +282,69 @@ function hostOriginGuard(req: IncomingMessage): string | null {
   return null;
 }
 
-function createRateLimiter(capacity: number, refillPerMinute: number) {
+export function createRateLimiter(capacity: number, refillPerMinute: number) {
   const buckets = new Map<string, TokenBucket>();
-  return (ip: string, now: number): { ok: boolean; retryAfterSeconds: number } => {
-    const bucket = buckets.get(ip) ?? { tokens: capacity, lastRefill: now };
-    bucket.tokens = Math.min(
-      capacity,
-      bucket.tokens + ((now - bucket.lastRefill) / 60_000) * refillPerMinute,
-    );
-    bucket.lastRefill = now;
-    const perSecond = refillPerMinute / 60;
-    if (bucket.tokens >= 1) {
-      bucket.tokens -= 1;
-      buckets.set(ip, bucket);
-      return { ok: true, retryAfterSeconds: 0 };
+  const TTL_MS = 600_000;
+  function sweep(now: number): void {
+    for (const [key, bucket] of buckets) {
+      if (now - bucket.lastRefill > TTL_MS) {
+        buckets.delete(key);
+      }
     }
-    const retryAfterSeconds =
-      perSecond <= 0 ? capacity : Math.ceil((1 - bucket.tokens) / perSecond);
-    buckets.set(ip, bucket);
-    return { ok: false, retryAfterSeconds };
+  }
+  return {
+    hit(ip: string, now: number): { ok: boolean; retryAfterSeconds: number } {
+      sweep(now);
+      const bucket = buckets.get(ip) ?? { tokens: capacity, lastRefill: now };
+      bucket.tokens = Math.min(
+        capacity,
+        bucket.tokens + ((now - bucket.lastRefill) / 60_000) * refillPerMinute,
+      );
+      bucket.lastRefill = now;
+      const perSecond = refillPerMinute / 60;
+      if (bucket.tokens >= 1) {
+        bucket.tokens -= 1;
+        buckets.set(ip, bucket);
+        return { ok: true, retryAfterSeconds: 0 };
+      }
+      const retryAfterSeconds =
+        perSecond <= 0 ? capacity : Math.ceil((1 - bucket.tokens) / perSecond);
+      buckets.set(ip, bucket);
+      return { ok: false, retryAfterSeconds };
+    },
+    size(): number {
+      return buckets.size;
+    },
   };
+}
+
+function isLoopbackIp(address: string | undefined): boolean {
+  if (address === undefined) {
+    return false;
+  }
+  const ip = address.replace(/^::ffff:/, "").toLowerCase();
+  return ip === "::1" || ip === "127.0.0.1";
+}
+
+function cookieValue(header: string | undefined, name: string): string | null {
+  if (header === undefined) {
+    return null;
+  }
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq > 0 && part.slice(0, eq).trim() === name) {
+      return part.slice(eq + 1).trim();
+    }
+  }
+  return null;
 }
 
 /** T73 C2: every response (UI shell, assets, JSON errors) carries a CSP that
  * defaults to self. `img-src data:` keeps the pairing QR working; the inline
  * style allowance covers the style attributes the vanilla UI renders with. */
-const CSP_HEADER = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'";
+const CSP_HEADER =
+  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'";
+const REFERRER_HEADER = "no-referrer";
 
 function sendJson(
   res: ServerResponse,
@@ -317,6 +355,7 @@ function sendJson(
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "content-security-policy": CSP_HEADER,
+    "referrer-policy": REFERRER_HEADER,
     ...headers,
   });
   res.end(JSON.stringify(payload));
@@ -2050,7 +2089,14 @@ export async function createHttpServer(
       }
       void readFile(row.media_path)
         .then((bytes) => {
-          res.writeHead(200, { "content-type": sniffMimeType(bytes) });
+          const name = (row.media_path ?? "media").split(/[\\/]/).pop() ?? "media";
+          res.writeHead(200, {
+            "content-type": sniffMimeType(bytes),
+            "x-content-type-options": "nosniff",
+            "content-security-policy": "sandbox",
+            "content-disposition": `inline; filename="${name}"`,
+            "referrer-policy": REFERRER_HEADER,
+          });
           res.end(bytes);
         })
         .catch(() => {
@@ -2084,7 +2130,11 @@ export async function createHttpServer(
         messageId: id,
       })
         .then((result) => {
-          sendJson(res, 200, { path: result.path, mime: result.mime, size: result.size });
+          sendJson(res, 200, {
+            name: result.path.split(/[\\/]/).pop() ?? "media",
+            mime: result.mime,
+            size: result.size,
+          });
         })
         .catch((err: unknown) => {
           if (err instanceof MediaError) {
@@ -2361,11 +2411,16 @@ export async function createHttpServer(
       });
   };
 
-  const serveStatic = (path: string, res: ServerResponse): void => {
+  const serveStatic = (path: string, res: ServerResponse, req?: IncomingMessage): void => {
     const uiDir = opts.uiDir;
     if (uiDir === undefined) {
       sendJson(res, 404, { error: { code: "NOT_FOUND", message: "web ui not configured" } });
       return;
+    }
+    const shellHeaders: Record<string, string> = { "referrer-policy": REFERRER_HEADER };
+    if (path === "/" && req !== undefined && isLoopbackIp(req.socket.remoteAddress)) {
+      shellHeaders["set-cookie"] =
+        `wa-mcp-bootstrap=${uiBootstrapToken}; HttpOnly; SameSite=Strict; Path=/`;
     }
     const relative = path === "/" ? "index.html" : path.slice(1);
     if (relative.includes("..") || relative.includes("\\")) {
@@ -2390,7 +2445,11 @@ export async function createHttpServer(
             : candidate.endsWith(".css")
               ? "text/css"
               : "application/octet-stream";
-        res.writeHead(200, { "content-type": mime, "content-security-policy": CSP_HEADER });
+        res.writeHead(200, {
+          "content-type": mime,
+          "content-security-policy": CSP_HEADER,
+          ...shellHeaders,
+        });
         res.end(bytes);
       })
       .catch(() => {
@@ -2406,6 +2465,20 @@ export async function createHttpServer(
     // open web UI would otherwise starve API probes and agent clients. /events
     // gets no bucket at all: a 429 makes EventSource reconnect on a tight
     // loop, re-burning the very bucket it was refused from.
+    if (
+      path.startsWith("/api/") ||
+      path === "/events" ||
+      path === "/mcp" ||
+      path === "/" ||
+      path.startsWith("/assets/") ||
+      path === "/health"
+    ) {
+      const guard = hostOriginGuard(req);
+      if (guard !== null) {
+        sendJson(res, 403, { error: { code: "FORBIDDEN_HOST", message: guard } });
+        return;
+      }
+    }
     const bearer =
       typeof req.headers.authorization === "string" &&
       req.headers.authorization.startsWith("Bearer ")
@@ -2416,21 +2489,30 @@ export async function createHttpServer(
     // 127.0.0.1, so a tokenless flood (401s) or another credential must not
     // starve legitimate traffic. /health stays unauthenticated with its own
     // per-IP bucket.
+    const knownBearer =
+      bearer !== null &&
+      (tokenMatches(bearer, opts.token) ||
+        tokenMatches(bearer, uiToken) ||
+        tokenMatches(bearer, pairingToken) ||
+        tokenMatches(bearer, uiBootstrapToken));
     const gateKey =
-      bearer !== null
+      bearer !== null && knownBearer
         ? `${ip}:${createHash("sha256").update(bearer).digest("hex").slice(0, 16)}`
         : `${ip}:anon`;
+    const cookieBootstrap = cookieValue(req.headers.cookie, "wa-mcp-bootstrap");
     const bootstrapExchange =
-      path === "/api/ui-token" && bearer !== null && tokenMatches(bearer, uiBootstrapToken);
+      path === "/api/ui-token" &&
+      ((bearer !== null && tokenMatches(bearer, uiBootstrapToken)) ||
+        (cookieBootstrap !== null && tokenMatches(cookieBootstrap, uiBootstrapToken)));
     const gate = bootstrapExchange
-      ? checkExchangeRate(ip, now())
+      ? checkExchangeRate.hit(ip, now())
       : path === "/health" || PAIRING_SURFACE.has(path)
-        ? checkHealthRate(ip, now())
+        ? checkHealthRate.hit(ip, now())
         : path === "/events"
           ? null
           : bearer !== null && tokenMatches(bearer, uiToken)
-            ? checkUiRate(ip, now())
-            : checkRate(gateKey, now());
+            ? checkUiRate.hit(ip, now())
+            : checkRate.hit(gateKey, now());
     if (gate !== null && !gate.ok) {
       sendJson(
         res,
@@ -2441,15 +2523,6 @@ export async function createHttpServer(
         },
       );
       return;
-    }
-    // T73 C1 (ADR 0012): refuse DNS-rebinding Hosts and cross-site Origins on
-    // the whole API surface before auth is even evaluated.
-    if (path.startsWith("/api/") || path === "/events" || path === "/mcp") {
-      const guard = hostOriginGuard(req);
-      if (guard !== null) {
-        sendJson(res, 403, { error: { code: "FORBIDDEN_HOST", message: guard } });
-        return;
-      }
     }
     if (req.method === "GET" && path === "/health") {
       const budget = handle.pairingBudget();
@@ -2466,9 +2539,6 @@ export async function createHttpServer(
         // any local process could read it here and exchange it for a
         // full-surface credential at /api/ui-token.
         pairingToken: handle.hasPairedAccount() ? undefined : pairingToken,
-        // T94-G: the STABLE bootstrap credential — the pairing token rotates
-        // per boot, so a paired daemon would strand fresh browsers without it
-        uiBootstrapToken,
         channel: opts.cloud ? "cloud" : "baileys",
         credentialsValid: opts.cloud ? opts.cloud.config.verifyToken.length > 0 : undefined,
         version: opts.version ?? "0.0.0",
@@ -2555,7 +2625,7 @@ export async function createHttpServer(
       }
     }
     if (req.method === "GET" && (path === "/" || path.startsWith("/assets/"))) {
-      serveStatic(path, res);
+      serveStatic(path, res, req);
       return;
     }
     // EventSource cannot set headers: the SSE endpoint may carry the token
@@ -2576,9 +2646,13 @@ export async function createHttpServer(
     // token via GET /api/ui-token (loopback Host + same-origin enforced above).
     const pairingTokenAuthorized =
       presented !== null && tokenMatches(presented, pairingToken) && PAIRING_SURFACE.has(path);
-    // T94-G: the STABLE bootstrap token opens exactly the exchange route
+    // T94-G: the STABLE bootstrap token opens exactly the exchange route —
+    // delivered to loopback same-origin browsers as an HttpOnly cookie, or
+    // presented as a bearer by the daemon-owned CLI (compat path).
     const bootstrapAuthorized =
-      presented !== null && tokenMatches(presented, uiBootstrapToken) && path === "/api/ui-token";
+      path === "/api/ui-token" &&
+      ((presented !== null && tokenMatches(presented, uiBootstrapToken)) ||
+        (cookieBootstrap !== null && tokenMatches(cookieBootstrap, uiBootstrapToken)));
     if (
       !pairingTokenAuthorized &&
       !bootstrapAuthorized &&
@@ -2885,7 +2959,10 @@ export async function createHttpServer(
               .prepare("SELECT media_path FROM messages WHERE id = ?")
               .get(messageId) as { media_path: string | null } | undefined;
             if (existing?.media_path) {
-              sendJson(res, 200, { path: existing.media_path, downloaded: false });
+              sendJson(res, 200, {
+                name: existing.media_path.split(/[\\/]/).pop() ?? "media",
+                downloaded: false,
+              });
               return;
             }
             void downloadMessageMedia(socket, original, {
@@ -2897,7 +2974,10 @@ export async function createHttpServer(
                 opts.store?.db
                   .prepare("UPDATE messages SET media_path = ? WHERE id = ?")
                   .run(downloaded.path, messageId);
-                sendJson(res, 200, { path: downloaded.path, downloaded: true });
+                sendJson(res, 200, {
+                  name: downloaded.path.split(/[\\/]/).pop() ?? "media",
+                  downloaded: true,
+                });
               })
               .catch((err: unknown) => {
                 opts.logger?.error({ err }, "forced media download failed");
@@ -3967,7 +4047,13 @@ export async function createHttpServer(
           const unreadOnly = params.get("unread") === "true";
           const text = exportMessages(opts.store, { chatJid, unreadOnly, format });
           const mime = format === "jsonl" ? "application/x-ndjson" : "text/plain; charset=utf-8";
-          res.writeHead(200, { "content-type": mime });
+          res.writeHead(200, {
+            "content-type": mime,
+            "x-content-type-options": "nosniff",
+            "content-security-policy": "sandbox",
+            "content-disposition": `inline; filename="export.${format}"`,
+            "referrer-policy": REFERRER_HEADER,
+          });
           res.end(text);
           return;
         }
@@ -4339,5 +4425,11 @@ export async function createHttpServer(
       new Promise<void>((resolve) => {
         server.close(() => resolve());
       }),
+    limiterSizes: () => ({
+      api: checkRate.size(),
+      health: checkHealthRate.size(),
+      ui: checkUiRate.size(),
+      exchange: checkExchangeRate.size(),
+    }),
   };
 }

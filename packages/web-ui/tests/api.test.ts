@@ -51,6 +51,33 @@ test("getMessages passes chat and limit params", async () => {
   expect(calls[0]?.url).toBe("http://bridge:8080/api/messages?chat_jid=g%40g.us&limit=25");
 });
 
+test("uiToken cookie mode sends same-origin credentials and no bearer", async () => {
+  const { fetchFn, calls } = mockFetch({ token: "T" });
+  const client = createApiClient({
+    baseUrl: "http://127.0.0.1:8080",
+    token: "stored",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
+  await client.uiToken({ useCookie: true });
+  expect(calls[0]?.init.credentials).toBe("same-origin");
+  const headers = (calls[0]?.init.headers ?? {}) as Record<string, string>;
+  expect(headers.authorization).toBeUndefined();
+});
+
+test("uiToken default mode keeps the bearer exchange", async () => {
+  const { fetchFn, calls } = mockFetch({ token: "T" });
+  const client = createApiClient({
+    baseUrl: "http://127.0.0.1:8080",
+    token: "stored",
+    fetchFn,
+    onUnauthorized: () => {},
+  });
+  await client.uiToken();
+  const headers = (calls[0]?.init.headers ?? {}) as Record<string, string>;
+  expect(headers.authorization).toBe("Bearer stored");
+});
+
 test("sendMessage posts chat_jid and text", async () => {
   const { fetchFn, calls } = mockFetch({ message_id: "M1" });
   const client = createApiClient({
