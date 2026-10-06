@@ -190,6 +190,118 @@ test("T154 W2 — an @lid chat is canonicalized before matching", async () => {
   }
 });
 
+test("T154 W1b — an old backlog append without fromMe is not re-delivered (age gate)", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t154-"));
+  const store = openStore(dataDir);
+  const events = createEventBus();
+  try {
+    const bridge = await createHttpServer(stubHandle(events), {
+      token: "t154-token",
+      store,
+      subscriptionsDir: dataDir,
+    });
+    const inboxPath = await subscribe(bridge, "120363428874442773@g.us");
+    events.emit({
+      type: "messages.upsert",
+      payload: {
+        type: "append",
+        messages: [
+          {
+            key: { remoteJid: "120363428874442773@g.us", id: "OLDSYNC" },
+            message: { conversation: "old own message" },
+            messageTimestamp: 1_759_000_000,
+          },
+        ],
+      },
+    } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(readFileSync(inboxPath, "utf8").trim()).toBe("");
+    await bridge.close();
+    store.close();
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("T154 W1b — backlog newer than the subscription still delivers on append", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t154-"));
+  const store = openStore(dataDir);
+  const events = createEventBus();
+  try {
+    const bridge = await createHttpServer(stubHandle(events), {
+      token: "t154-token",
+      store,
+      subscriptionsDir: dataDir,
+    });
+    const inboxPath = await subscribe(bridge, "120363428874442773@g.us");
+    events.emit({
+      type: "messages.upsert",
+      payload: {
+        type: "append",
+        messages: [
+          {
+            key: {
+              remoteJid: "120363428874442773@g.us",
+              fromMe: false,
+              id: "NEWBACKLOG",
+              participant: "358400000002@s.whatsapp.net",
+            },
+            message: { conversation: "genuine backlog" },
+            messageTimestamp: Math.floor(Date.now() / 1000) + 60,
+          },
+        ],
+      },
+    } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const lines = readFileSync(inboxPath, "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect((JSON.parse(lines[0] as string) as { id?: string }).id).toBe("NEWBACKLOG");
+    await bridge.close();
+    store.close();
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("T154 W1b — the age gate is append-only: an old notify still delivers", async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), "t154-"));
+  const store = openStore(dataDir);
+  const events = createEventBus();
+  try {
+    const bridge = await createHttpServer(stubHandle(events), {
+      token: "t154-token",
+      store,
+      subscriptionsDir: dataDir,
+    });
+    const inboxPath = await subscribe(bridge, "120363428874442773@g.us");
+    events.emit({
+      type: "messages.upsert",
+      payload: {
+        type: "notify",
+        messages: [
+          {
+            key: {
+              remoteJid: "120363428874442773@g.us",
+              fromMe: false,
+              id: "OLDNOTIFY",
+              participant: "358400000002@s.whatsapp.net",
+            },
+            message: { conversation: "old ts live" },
+            messageTimestamp: 1_759_000_000,
+          },
+        ],
+      },
+    } as never);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const lines = readFileSync(inboxPath, "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    await bridge.close();
+    store.close();
+  } finally {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
 test("T154 W2 — the inbox line carries id, names and fromMe", async () => {
   const dataDir = mkdtempSync(join(tmpdir(), "t154-"));
   const store = openStore(dataDir);

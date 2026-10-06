@@ -574,10 +574,19 @@ export async function createHttpServer(
           "stickerMessage",
         ];
         const media = presentKeys.some((k) => mediaKeys.includes(k));
+        const rawTs = upsert.messageTimestamp;
+        const tsMs =
+          Number(
+            typeof rawTs === "object" && rawTs !== null && "toNumber" in (rawTs as object)
+              ? (rawTs as { toNumber(): number }).toNumber()
+              : rawTs,
+          ) * 1000;
+        const isBacklog = event.payload.type === "append";
         for (const sub of subs) {
           if (
             matchSubscription(sub, { chatJid, fromJid, kind: "message", hasMedia: media }) &&
-            (sub.includeMedia || !media)
+            (sub.includeMedia || !media) &&
+            !(isBacklog && tsMs < Date.parse(sub.createdAt))
           ) {
             writer(sub.id).append({
               ts: new Date().toISOString(),
