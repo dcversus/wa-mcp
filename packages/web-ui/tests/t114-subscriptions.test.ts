@@ -30,7 +30,7 @@ test("hook snippet contains 'wa-mcp inbox drain --inbox <path>' and is HTML-esca
 
 test("delete button carries the sub id; create form posts selected chat", () => {
   const html = subscriptionsPageHtml([row]);
-  expect(html).toContain('class="delete-subscription"');
+  expect(html).toContain("delete-subscription");
   expect(html).toContain('data-sub-id="abc123"');
   expect(html).toContain('id="subscription-form"');
   expect(html).toContain('name="chat_jid"');

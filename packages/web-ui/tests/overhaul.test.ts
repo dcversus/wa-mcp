@@ -45,7 +45,7 @@ describe("T67 empty states + 404", () => {
     expect(populated).toContain('id="contacts-list"');
     expect(populated).toContain('data-alias-jid="1@s.whatsapp.net"');
     const empty = contactsPageHtml([]);
-    expect(empty).toContain("No contacts yet — they appear after you chat");
+    expect(empty).toContain("No contacts yet. They appear once your phone syncs.");
   });
 
   test("groups page renders subject/description editing + empty state", () => {
@@ -94,7 +94,7 @@ describe("T67 privacy — superseded by the native-style profile mirror (T142-W3
     const lastSelect = (html.match(/<select data-privacy-key="last">[\s\S]*?<\/select>/) ?? [
       "",
     ])[0];
-    expect(lastSelect).toContain('<option value="contacts" selected>contacts</option>');
+    expect(lastSelect).toContain('<option value="contacts" selected>My contacts</option>');
     expect(lastSelect).not.toContain('value="contact_blacklist" selected');
   });
 

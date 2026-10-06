@@ -99,17 +99,17 @@ export function pairingHtml(view: PairingView): string {
       : "";
   const head = `<h2>Pairing</h2>${intro}<p class="hint">${METHOD_HINT}</p>`;
   if (view.pane === "paired") {
-    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">paired as <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/chats">Chats</a></p>${agentConnectHtml()}</section>`;
+    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">Linked to <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/chats">Chats</a></p><p><button id="unlink-device" class="danger" type="button">Unlink this computer</button></p><p class="hint">unpairing signs this computer out of WhatsApp — you will need to scan the QR again</p>${agentConnectHtml()}</section>`;
   }
   if (view.pane === "error") {
-    return `<section id="pairing" class="pane pane-error">${head}<p class="danger">pairing error: ${escapeHtml(view.error ?? "unknown error")}</p><button id="pairing-retry" type="button">try again</button></section>`;
+    return `<section id="pairing" class="pane pane-error">${head}<p class="danger">Couldn't link your phone: ${escapeHtml(view.error ?? "unknown error")}</p><button id="pairing-retry" type="button">try again</button></section>`;
   }
   if (view.pane === "blocked") {
     const attempts = view.health.pairingAttempts ?? { used: 0, limit: 0 };
     return `<section id="pairing" class="pane pane-blocked">${head}
 <div class="blocked-box">
 <p class="danger">pairing attempts exhausted — ${attempts.used} of ${attempts.limit} registrations without pairing.</p>
-<p>WhatsApp's anti-abuse cooldown resets on every attempt, so retrying now deepens the lockout. Wait for the cooldown to clear, then resume — or restart the daemon.</p>
+<p>Linking is paused to protect your number. WhatsApp's anti-abuse cooldown resets on every attempt — wait for the cooldown to clear, then resume.</p>
 <button id="resume-pairing" data-resume="1">Resume pairing</button>
 </div></section>`;
   }

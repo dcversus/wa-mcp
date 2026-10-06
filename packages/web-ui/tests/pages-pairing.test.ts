@@ -112,7 +112,7 @@ test("pairingHtml connecting + paired + error panes", () => {
     countdownPct: 0,
     me: "Versus",
   });
-  expect(paired).toContain("paired as");
+  expect(paired).toContain("Linked to");
   expect(paired).toContain("Versus");
   const errored = pairingHtml({
     pane: "error",

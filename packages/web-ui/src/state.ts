@@ -179,6 +179,37 @@ export const PRIVACY_READ_TO_WRITE: Record<string, string> = {
   messages: "messages",
 };
 
+export function formatPhone(jid: string): string {
+  const local = jid.split("@")[0] ?? "";
+  const digits = local.split(":")[0] ?? "";
+  if (!/^\d{8,15}$/.test(digits)) {
+    return jid;
+  }
+  if (digits.length === 12) {
+    return `+${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+  }
+  const groups = digits.match(/.{1,4}/g) ?? [digits];
+  return `+${groups.join(" ")}`;
+}
+
+export function displayName(
+  jid: string,
+  contacts: Record<string, string | null> = {},
+  aliases: Record<string, string> = {},
+): string {
+  if (contacts[jid] !== undefined && contacts[jid] !== null && contacts[jid] !== "") {
+    return contacts[jid] as string;
+  }
+  if (aliases[jid] !== undefined && aliases[jid] !== "") {
+    return aliases[jid];
+  }
+  const personal = jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
+  if (personal) {
+    return formatPhone(jid);
+  }
+  return "Unknown";
+}
+
 export interface LinkGateInput {
   loggedIn: boolean;
   contactsWarm: boolean;

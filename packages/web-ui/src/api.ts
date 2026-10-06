@@ -34,6 +34,7 @@ export interface ApiClient {
   groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
   groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
+  logout(): Promise<unknown>;
   listSubscriptions(): Promise<{ subscriptions: unknown[] }>;
   getConfig(): Promise<{
     transcription?: {
@@ -201,6 +202,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
+    logout: () => jsonCall("/api/logout", { method: "POST" }),
     listSubscriptions: () => jsonCall("/api/subscriptions"),
     getConfig: () => jsonCall("/api/config"),
     saveConfig: (body) => jsonCall("/api/config", { method: "PUT", json: body }),

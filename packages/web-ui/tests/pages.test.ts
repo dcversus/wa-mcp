@@ -102,17 +102,18 @@ test("healthHtml renders status fields", () => {
 test("sidebar nav lists the full section set with active state (T51)", () => {
   const html = navHtml("chats");
   for (const section of [
-    "Status",
     "Chats",
-    "Unread",
     "Contacts",
-    "Groups",
-    "Pairing",
+    "Connect agent",
+    "Agent alerts",
+    "Profile",
+    "Connection",
     "Settings",
+    "Link phone",
   ]) {
     expect(html).toContain(section);
   }
-  expect(html).toContain('class="active" data-nav="chats"');
+  expect(html).toContain('class="active" aria-current="page" data-nav="chats"');
 });
 
 test("status dashboard renders health fields with escaping (T51)", () => {
@@ -129,7 +130,7 @@ test("status dashboard renders health fields with escaping (T51)", () => {
     events: [{ type: "connection.update", at: 1, detail: "<script>x</script>" }],
   });
   expect(html).toContain("qr");
-  expect(html).toContain("pairing rules");
+  expect(html).toContain("Recent activity");
   expect(html).not.toContain("<script>x</script>");
   expect(html).toContain("&lt;script&gt;");
 });
@@ -267,7 +268,7 @@ describe("T51-C/D profile + groups participants", () => {
 
 test("settingsHtml marks the token field optional (T54 revised)", () => {
   const html = settingsHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
-  expect(html).toContain("optional");
+  expect(html).toContain("Access key");
   expect(html).not.toContain("cat ~");
 });
 
@@ -555,5 +556,5 @@ test("T106-major4 — privacy rows derive from state privacyOptionsFor; live val
   expect(html).toContain('<option value="nobody" selected>nobody</option>');
   expect(html).toContain('<option value="contact_blacklist" selected');
   // groupadd: none is a legal option and shows selected for the live value
-  expect(html).toContain('<option value="none" selected>none</option>');
+  expect(html).toContain('<option value="none" selected>Nobody</option>');
 });

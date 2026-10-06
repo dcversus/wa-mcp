@@ -1,4 +1,6 @@
 import { escapeHtml } from "./escape.ts";
+import { ApiError } from "./api.ts";
+import { formatPhone } from "./state.ts";
 import { privacyOptionsFor } from "./state.ts";
 
 export function initials(name: string): string {
@@ -18,23 +20,35 @@ export function emptyState(text: string): string {
 }
 
 const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
-  { id: "status", label: "Status", href: "#/status" },
   { id: "chats", label: "Chats", href: "#/chats" },
-  { id: "unread", label: "Unread", href: "#/unread" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
-  { id: "groups", label: "Groups", href: "#/groups" },
+  { id: "connect", label: "Connect agent", href: "#/connect" },
+  { id: "subscriptions", label: "Agent alerts", href: "#/subscriptions" },
   { id: "profile", label: "Profile", href: "#/profile" },
-  { id: "subscriptions", label: "Subscriptions", href: "#/subscriptions" },
-  { id: "pairing", label: "Pairing", href: "#/pairing" },
+  { id: "status", label: "Connection", href: "#/status" },
   { id: "settings", label: "Settings", href: "#/settings" },
+  { id: "pairing", label: "Link phone", href: "#/pairing" },
 ];
+
+export const NAV_TITLES: Record<string, string> = {
+  chats: "Chats",
+  chat: "Chat",
+  contacts: "Contacts",
+  connect: "Connect agent",
+  subscriptions: "Agent alerts",
+  profile: "Profile",
+  status: "Connection",
+  settings: "Settings",
+  pairing: "Link phone",
+};
 
 export function navHtml(active: string, version = "0.9.0"): string {
   const groups: Array<{ label: string; keys: string[] }> = [
-    { label: "chats", keys: ["chats", "unread"] },
-    { label: "people", keys: ["contacts", "groups", "profile"] },
-    { label: "automations", keys: ["subscriptions"] },
-    { label: "system", keys: ["status", "pairing", "settings"] },
+    { label: "Messages", keys: ["chats"] },
+    { label: "People", keys: ["contacts"] },
+    { label: "Agent", keys: ["connect", "subscriptions"] },
+    { label: "Me", keys: ["profile"] },
+    { label: "System", keys: ["status", "settings", "pairing"] },
   ];
   const brand = `<div class="brand"><strong>wa-mcp</strong><span class="version">v${version}</span></div>`;
   const links = groups
@@ -46,13 +60,14 @@ export function navHtml(active: string, version = "0.9.0"): string {
           if (section === undefined) {
             return "";
           }
-          return `<a href="${section.href}"${section.id === active ? ' class="active"' : ""} data-nav="${section.id}">${section.label}</a>`;
+          const isActive = section.id === active;
+          return `<a href="${section.href}"${isActive ? ' class="active" aria-current="page"' : ""} data-nav="${section.id}">${section.label}</a>`;
         })
         .join("");
       return label + links;
     })
     .join("");
-  return `${brand}${links}`;
+  return `<nav aria-label="Main">${brand}${links}</nav>`;
 }
 
 export interface StatusDashboardInput {
@@ -196,7 +211,11 @@ export function formatStatValue(key: string, value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function statusDashboardHtml(input: StatusDashboardInput): string {
+export function statusDashboardHtml(
+  input: StatusDashboardInput & {
+    me?: { name: string | null; pn: string | null } | null;
+  },
+): string {
   const fields = Object.entries(input.health)
     .filter(([key]) => !/token/i.test(key))
     .filter(([key]) => key !== "channel" || input.health.channel !== undefined)
@@ -205,19 +224,27 @@ export function statusDashboardHtml(input: StatusDashboardInput): string {
         `<div class="stat"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(formatStatValue(key, value))}</dd></div>`,
     )
     .join("");
-  const rules = input.notifications
-    .map(
-      (rule) =>
-        `<li data-rule-id="${escapeHtml(rule.id)}"><span>${escapeHtml(rule.chat_jid ?? "*")}</span> <code>${escapeHtml(rule.pattern ?? "")}</code> <button data-delete-rule="${escapeHtml(rule.id)}">delete</button></li>`,
-    )
-    .join("");
   const feed = input.events
     .map(
       (event) =>
         `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
     )
     .join("");
-  return `<section id="status-dashboard"><h2>Status</h2><dl class="stats">${fields}</dl><h3>pairing rules</h3><ul class="rules">${rules}</ul><h3>events</h3><ul class="events">${feed}</ul></section>`;
+  const linked = input.health.loggedIn === true;
+  const who = input.me ?? null;
+  const identity =
+    who !== null && who.name !== null && who.pn !== null
+      ? `${who.name} (${formatPhone(who.pn)})`
+      : (who?.name ?? (who?.pn != null ? formatPhone(who.pn) : "this account"));
+  const subs = input.health.subscriptions;
+  const subCount =
+    typeof subs === "object" && subs !== null
+      ? Number((subs as { count?: unknown }).count ?? 0)
+      : 0;
+  const card = linked
+    ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${input.health.connected === true ? " · online" : " · reconnecting"}${typeof input.health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(input.health.lastDisconnectAt))}` : ""}${typeof input.health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(input.health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
+    : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
+  return `<section id="status-dashboard"><h1>Connection</h1>${card}<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details><h3>Recent activity</h3><ul class="events">${feed.length > 0 ? feed : `<li>${emptyState("No recent activity")}</li>`}</ul><p class="hint">Notification rules have moved — <a href="#/subscriptions">Agent alerts</a></p></section>`;
 }
 
 export function contactsPageHtml(
@@ -227,16 +254,16 @@ export function contactsPageHtml(
   const items = contacts
     .map(
       (contact) =>
-        `<li data-contact-jid="${escapeHtml(contact.jid)}"><span class="contact-name">${escapeHtml(contact.name ?? contact.jid)}</span> <code>${escapeHtml(contact.jid)}</code> <button data-alias-jid="${escapeHtml(contact.jid)}">set alias</button></li>`,
+        `<li data-contact-jid="${escapeHtml(contact.jid)}"><span class="contact-name">${escapeHtml(contact.name ?? contact.jid)}</span> <details><summary>details</summary><code>${escapeHtml(contact.jid)}</code></details> <button data-alias-jid="${escapeHtml(contact.jid)}">Rename</button></li>`,
     )
     .join("");
   const empty =
     contacts.length === 0
       ? query.length > 0
         ? `<p class="empty">No contacts match “${escapeHtml(query)}” — <button id="clear-contacts-search" type="button">Clear search</button></p>`
-        : emptyState("No contacts yet — they appear after you chat")
+        : emptyState("No contacts yet. They appear once your phone syncs.")
       : "";
-  return `<section id="contacts-page"><form id="contact-search"><input name="query" placeholder="search contacts" value="${escapeHtml(query)}" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
+  return `<section id="contacts-page"><h1>Contacts</h1><form id="contact-search"><input name="query" placeholder="Search contacts" aria-label="Search contacts" value="${escapeHtml(query)}" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
 }
 
 export function groupsPageHtml(
@@ -245,12 +272,12 @@ export function groupsPageHtml(
   const items = groups
     .map(
       (group) =>
-        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button class="group-info-toggle" data-group-info="${escapeHtml(group.jid)}" aria-expanded="false" type="button">info</button> <button data-leave-jid="${escapeHtml(group.jid)}">leave</button></li>`,
+        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button class="group-info-toggle" data-group-info="${escapeHtml(group.jid)}" aria-expanded="false" type="button">info</button> <button class="danger" data-leave-jid="${escapeHtml(group.jid)}" data-group-name="${escapeHtml(group.name ?? group.jid)}">Leave group</button></li>`,
     )
     .join("");
   const empty =
     groups.length === 0 ? emptyState("No groups yet — create one or ask to be added") : "";
-  return `<section id="groups-page"><form id="group-create"><input name="subject" placeholder="group subject" /><button type="submit">create group</button></form><ul id="groups-list">${items}</ul>${empty}</section>`;
+  return `<section id="groups-page"><h1>Groups</h1><form id="group-create"><input name="subject" placeholder="New group name" aria-label="New group name" /><button class="primary" type="submit">Create group</button></form><ul id="groups-list">${items}</ul>${empty}</section>`;
 }
 
 export interface ChatSummaryView {
@@ -266,16 +293,40 @@ export function chatListHtml(
       archived?: boolean;
     }
   >,
-  opts: { showArchived?: boolean; query?: string; syncing?: boolean } = {},
+  opts: {
+    showArchived?: boolean;
+    query?: string;
+    syncing?: boolean;
+    filter?: "all" | "unread" | "groups" | "archived";
+  } = {},
 ): string {
+  const filter = opts.filter ?? "all";
+  const tabs = (["all", "unread", "groups", "archived"] as const)
+    .map(
+      (tab) =>
+        `<button class="chat-tab${filter === tab ? " active" : ""}" data-chat-filter="${tab}" type="button">${tab === "all" ? "All" : tab === "unread" ? "Unread" : tab === "groups" ? "Groups" : "Archived"}</button>`,
+    )
+    .join("");
   if (chats.length === 0) {
     const note =
       opts.syncing === true
         ? `<div class="spinner"></div><p>Syncing your chats from your phone… keep WhatsApp open on your phone</p>`
-        : emptyState("No chats yet — they appear after your first message");
-    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${note}</section>`;
+        : emptyState("No chats yet. They appear here once your phone finishes syncing.");
+    return `<section id="chats-page"><h1>Chats</h1><nav class="chat-tabs" aria-label="Chat filters">${tabs}</nav><form id="chat-search"><input name="query" placeholder="Search chats" aria-label="Search chats" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> Show archived chats</label>${note}</section>`;
   }
-  const items = chats
+  const visible = chats.filter((chat) => {
+    if (filter === "unread") {
+      return chat.unreadCount > 0;
+    }
+    if (filter === "groups") {
+      return chat.jid.endsWith("@g.us");
+    }
+    if (filter === "archived") {
+      return chat.archived === true;
+    }
+    return true;
+  });
+  const shown = visible
     .map((chat) => {
       const badge =
         chat.unreadCount > 0 ? `<span class="unread-badge">${chat.unreadCount}</span>` : "";
@@ -286,10 +337,14 @@ export function chatListHtml(
           : "";
       const archivedTag = chat.archived ? ' data-archived="1"' : "";
       const name = chat.name ?? chat.jid;
-      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><a href="#/chat/${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</a></li>`;
+      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><a href="#/chat/${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name" dir="auto">${escapeHtml(name)}</span>${time}</span><span class="chat-preview" dir="auto">${escapeHtml(preview)}</span></span>${badge}</a></li>`;
     })
     .join("");
-  return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
+  const emptyNote =
+    shown.length === 0
+      ? emptyState(filter === "unread" ? "Nothing unread" : "No chats match this filter")
+      : "";
+  return `<section id="chats-page"><h1>Chats</h1><nav class="chat-tabs" aria-label="Chat filters">${tabs}</nav><form id="chat-search"><input name="query" placeholder="Search chats" aria-label="Search chats" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> Show archived chats</label><ul class="chat-list${opts.showArchived || filter === "archived" ? "" : " hide-archived"}">${shown}</ul>${emptyNote}</section>`;
 }
 
 export interface MessageView {
@@ -365,11 +420,11 @@ export function messageListHtml(
             .join("")}</span>`
         : "";
     items.push(
-      `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text">${body}</span>${reactions}<time>${escapeHtml(formatWhen(message.timestamp))}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">context</button><button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button></li>`,
+      `<li class="message ${message.isFromMe ? "from-me" : "from-them"}" data-id="${escapeHtml(message.id)}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span>${quote}<span class="text" dir="auto">${body}</span>${reactions}<time>${escapeHtml(formatWhen(message.timestamp))}</time><button class="context-btn" data-context-id="${escapeHtml(message.id)}">Show nearby messages</button>${message.mediaType ? `<button class="media-btn" data-download-id="${escapeHtml(message.id)}">Save file</button>` : ""}</li>`,
     );
   }
   const list = items.join("");
-  return `<div class="messages" data-chat-jid="${escapeHtml(chatJid)}"><ul>${list}</ul><form class="send-box" data-chat-jid="${escapeHtml(chatJid)}"><input name="text" /><button type="submit">Send</button></form></div>`;
+  return `<div class="messages" data-chat-jid="${escapeHtml(chatJid)}"><ul>${list}</ul><form class="send-box" data-chat-jid="${escapeHtml(chatJid)}"><input name="text" placeholder="Type a message" aria-label="Type a message" /><button class="primary" type="submit">Send</button></form></div>`;
 }
 
 export function contextViewHtml(
@@ -384,7 +439,7 @@ export function contextViewHtml(
         `<li class="message ${message.isFromMe ? "from-me" : "from-them"}${message.id === targetId ? " context-target" : ""}"><span class="sender">${escapeHtml(message.senderName ?? "")}</span><span class="text">${escapeHtml(message.content ?? "")}</span><time>${escapeHtml(formatWhen(message.timestamp))}</time></li>`,
     )
     .join("");
-  return `<div id="context-view"><h3>context</h3><ul>${items}</ul></div>`;
+  return `<div id="context-view"><h3>Around this message</h3><ul>${items}</ul></div>`;
 }
 
 export interface UnreadEntryView {
@@ -392,18 +447,24 @@ export interface UnreadEntryView {
   unreadCount: number;
 }
 
-export function unreadHtml(entries: Array<UnreadEntryView>): string {
+export function unreadHtml(
+  entries: Array<UnreadEntryView>,
+  resolveName?: (jid: string) => string | null,
+): string {
+  if (entries.length === 0) {
+    return `<section id="unread-page"><h1>Unread</h1>${emptyState("Nothing unread")}</section>`;
+  }
   const items = entries
-    .map(
-      (entry) =>
-        `<li><a href="#/chat/${escapeHtml(entry.chatJid)}">${escapeHtml(entry.chatJid)}</a><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark read</button></li>`,
-    )
+    .map((entry) => {
+      const name = resolveName?.(entry.chatJid) ?? entry.chatJid;
+      return `<li><a href="#/chat/${escapeHtml(entry.chatJid)}">${escapeHtml(name)}</a><details><summary>details</summary><code>${escapeHtml(entry.chatJid)}</code></details><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark as read</button></li>`;
+    })
     .join("");
-  return `<ul class="unread-list">${items}</ul><button id="mark-all-read">mark all read</button>`;
+  return `<section id="unread-page"><h1>Unread</h1><ul class="unread-list">${items}</ul><button id="mark-all-read">Mark all as read</button></section>`;
 }
 
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<form id="settings-form"><label>Bridge URL<input id="bridge-url" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Token (optional — the UI uses the daemon's ephemeral token automatically)<input id="token" type="password" value="${escapeHtml(settings.token)}" autocomplete="off" /></label><button id="reveal-token" type="button">show</button><button type="submit">Save</button></form>`;
+  return `<section id="settings-page"><h1>Settings</h1><form id="settings-form"><label>Server address<input id="bridge-url" aria-label="Server address" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Access key — filled in automatically; only change this if support asks you to<input id="token" type="password" aria-label="Access key" value="${escapeHtml(settings.token)}" autocomplete="off" /></label><button id="reveal-token" type="button">show</button><button class="primary" type="submit">Save</button></form></section>`;
 }
 
 export interface TranscriptionSettingsView {
@@ -456,15 +517,24 @@ export interface MeInfo {
 }
 
 const PRIVACY_ROWS: Array<{ key: string; label: string }> = [
-  { key: "last", label: "last seen" },
-  { key: "online", label: "online" },
-  { key: "profile", label: "profile photo" },
-  { key: "status", label: "about" },
-  { key: "groupadd", label: "groups" },
-  { key: "calladd", label: "calls" },
-  { key: "messages", label: "who can message" },
-  { key: "readreceipts", label: "read receipts" },
+  { key: "last", label: "Last seen" },
+  { key: "online", label: "Online" },
+  { key: "profile", label: "Profile photo" },
+  { key: "status", label: "About" },
+  { key: "groupadd", label: "Who can add me to groups" },
+  { key: "calladd", label: "Who can call me" },
+  { key: "messages", label: "Who can message me" },
+  { key: "readreceipts", label: "Read receipts" },
 ];
+
+const PRIVACY_LABELS: Record<string, string> = {
+  all: "Everyone",
+  contacts: "My contacts",
+  contact_blacklist: "My contacts except…",
+  none: "Nobody",
+  match_last_seen: "Same as last seen",
+  known: "People I know",
+};
 
 export function profilePageHtml(input: {
   blocklist: string[];
@@ -489,12 +559,12 @@ export function profilePageHtml(input: {
 ${all
   .map(
     (value) =>
-      `<option value="${escapeHtml(value)}"${value === live ? " selected" : ""}>${escapeHtml(value)}</option>`,
+      `<option value="${escapeHtml(value)}"${value === live ? " selected" : ""}>${escapeHtml(PRIVACY_LABELS[value] ?? value)}</option>`,
   )
   .join("")}
 </select></label></div>`;
   }).join("");
-  return `<section id="profile-page"><h2>Profile</h2>
+  return `<section id="profile-page"><h1>Profile</h1>
 <div class="me-card"><span class="avatar">${escapeHtml(initial)}</span>
 <div class="me-fields">
 <label>display name<input id="me-name" value="${escapeHtml(me.name ?? "")}" /></label>
@@ -507,7 +577,7 @@ ${all
 <h3>privacy</h3>
 <div class="privacy-settings">${privacyRows}</div>
 <h3>blocked contacts</h3>
-<form id="block-form"><label>block a JID<input name="chat_jid" placeholder="358…@s.whatsapp.net" /></label><button type="submit">block</button></form>
+<form id="block-form"><label>Block a number<input name="chat_jid" placeholder="+44 7700 900123" aria-label="Block a number" /></label><button class="danger" type="submit">Block</button></form>
 <ul class="blocklist">${entries}</ul></section>`;
 }
 
@@ -550,7 +620,7 @@ export function eventsPageHtml(events: Array<FeedEntry>, opts: { paused?: boolea
         `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
     )
     .join("");
-  return `<section id="events-page"><div class="events-header"><h2>Events</h2><button id="events-pause">${opts.paused === true ? "resume" : "pause"}</button><button id="events-clear">clear</button></div><ul id="events-feed">${items}</ul></section>`;
+  return `<section id="events-page"><div class="events-header"><h1>Events</h1><button id="events-pause">${opts.paused === true ? "resume" : "pause"}</button><button id="events-clear">clear</button></div><ul id="events-feed">${items.length > 0 ? items : `<li>${emptyState("No recent activity")}</li>`}</ul></section>`;
 }
 
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */
@@ -567,7 +637,7 @@ export function bridgeDownBanner(bridgeUrl: string): string {
 /** T93-C1: a visible, escaped failure surface — a failed page load shows a
  * banner instead of crashing the render pipeline or rendering a blank page. */
 export function errorBannerHtml(message: string): string {
-  return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)}</div>`;
+  return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)} <button class="banner-retry" type="button">Retry</button></div>`;
 }
 
 /** T93-C1: wrap any page loader so an ApiError (or any throw) renders the
@@ -579,6 +649,17 @@ export function guardLoader(
     try {
       return await loader(params);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 429 && err.retryAfterMs !== null) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(err.retryAfterMs as number, 5_000)),
+        );
+        try {
+          return await loader(params);
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          return errorBannerHtml(`could not load this page: ${retryMessage}`);
+        }
+      }
       const message = err instanceof Error ? err.message : String(err);
       return errorBannerHtml(`could not load this page: ${message}`);
     }
@@ -623,16 +704,42 @@ export interface ChatPick {
   unreadCount: number;
 }
 
-export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[] = []): string {
-  const rows = subs
+function rulesSection(opts: {
+  rules?: Array<{ id: string; chat_jid?: string | null; pattern?: string | null }>;
+  resolveName?: (jid: string) => string | null;
+}): string {
+  const rules = opts.rules ?? [];
+  if (rules.length === 0) {
+    return "";
+  }
+  const items = rules
     .map(
-      (sub) => `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
-<div><code>${escapeHtml(sub.id)}</code> — ${escapeHtml(sub.allChats ? "all chats" : (sub.chatJid ?? "?"))}${sub.includeMedia ? " · media" : ""} · ${escapeHtml(sub.kinds.join(","))}</div>
-<div class="inbox-path"><code>${escapeHtml(sub.inboxPath)}</code></div>
-<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.inboxPath))}</code> <button class="copy-hook" type="button">copy</button></div>
-<button class="delete-subscription" type="button" data-sub-id="${escapeHtml(sub.id)}">remove</button>
-</li>`,
+      (rule) =>
+        `<li data-rule-id="${escapeHtml(rule.id)}"><span>${escapeHtml(opts.resolveName?.(rule.chat_jid ?? "") ?? rule.chat_jid ?? "All chats")}</span> <code>${escapeHtml(rule.pattern ?? "")}</code> <button class="danger" data-delete-rule="${escapeHtml(rule.id)}">Delete</button></li>`,
     )
+    .join("");
+  return `<h3>Notification rules</h3><ul class="rules">${items}</ul>`;
+}
+
+export function subscriptionsPageHtml(
+  subs: SubscriptionRow[],
+  chats: ChatPick[] = [],
+  opts: {
+    rules?: Array<{ id: string; chat_jid?: string | null; pattern?: string | null }>;
+    resolveName?: (jid: string) => string | null;
+  } = {},
+): string {
+  const rows = subs
+    .map((sub) => {
+      const who = sub.allChats
+        ? "All chats"
+        : (opts.resolveName?.(sub.chatJid ?? "") ?? sub.chatJid ?? "?");
+      return `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
+<div><strong>${escapeHtml(who)}</strong> — new messages${sub.includeMedia ? " · with photos & files" : ""} <details><summary>details</summary><code>${escapeHtml(sub.id)}</code> · <code>${escapeHtml(sub.inboxPath)}</code></details></div>
+<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.inboxPath))}</code> <button class="copy-hook" type="button">Copy</button></div>
+<button class="delete-subscription danger" type="button" data-sub-id="${escapeHtml(sub.id)}">Stop watching</button>
+</li>`;
+    })
     .join("");
   const allChatsSub = subs.find((s) => s.allChats);
   const subscribed = new Set(subs.filter((s) => !s.allChats).map((s) => s.chatJid));
@@ -641,16 +748,19 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[]
     const bGroup = b.jid.endsWith("@g.us") ? 0 : 1;
     return aGroup - bGroup || (a.name ?? a.jid).localeCompare(b.name ?? b.jid);
   });
+  const watched = sortedChats.filter(
+    (chat) => allChatsSub !== undefined || subscribed.has(chat.jid),
+  ).length;
   const allChatsNote =
     allChatsSub !== undefined
-      ? '<p class="hint">all-chats subscription active — manage it in Advanced</p>'
+      ? '<p class="hint">Your agent is watching all chats. Change this under "More options".</p>'
       : "";
   const globalMedia =
-    '<label class="check-row"><input type="checkbox" id="sub-include-media" /> include media</label>';
+    '<label class="check-row"><input type="checkbox" id="sub-include-media" /> Include photos, voice notes and files</label>';
   const picker =
     sortedChats.length > 0
       ? `${allChatsNote}${globalMedia}<input id="sub-chat-filter" type="search" placeholder="filter chats…" aria-label="filter chats" autocomplete="off" />
-<div class="picker-count" data-picker-count="${sortedChats.length}">${sortedChats.length} chats — ${subscribed.size} subscribed</div>
+<div class="picker-count" data-picker-count="${sortedChats.length}">Your agent watches ${watched} of ${sortedChats.length} chats</div>
 <ul id="sub-chat-picker">${sortedChats
           .map((chat) => {
             const checked = allChatsSub !== undefined || subscribed.has(chat.jid);
@@ -665,17 +775,18 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[]
 </li>`;
           })
           .join("")}</ul>`
-      : emptyState("No chats yet — they appear after messages arrive");
-  return `<section id="subscriptions-page"><h2>Subscriptions</h2>
+      : emptyState("No chats yet. They appear here once your phone finishes syncing.");
+  return `<section id="subscriptions-page"><h1>Agent alerts</h1>
+<p class="hint">tick a chat and your agent gets its messages as they arrive</p>
 ${picker}
-<details><summary>Advanced</summary>
+<details><summary>More options</summary>
 <form id="subscription-form">
-<label>chat jid<input name="chat_jid" placeholder="1203…@g.us" /></label>
+<label>chat jid<input name="chat_jid" placeholder="1203…@g.us" aria-label="chat jid" /></label>
 <label class="check-row"><input type="checkbox" name="all_chats" /> all chats</label>
 <label class="check-row"><input type="checkbox" name="include_media" /> include media</label>
 <label>kinds<input name="kinds" placeholder="message" /></label>
-<button type="submit" id="create-subscription">subscribe</button>
+<button class="primary" type="submit" id="create-subscription">Start watching</button>
 </form>
 </details>
-<ul id="subscription-list">${rows}</ul>${agentConnectHtml()}</section>`;
+<ul id="subscription-list">${rows}</ul>${rulesSection(opts)}${agentConnectHtml()}</section>`;
 }

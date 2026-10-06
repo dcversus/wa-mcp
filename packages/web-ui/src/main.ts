@@ -20,6 +20,7 @@ import {
   unreadHtml,
   guardLoader,
   subscriptionsPageHtml,
+  agentConnectHtml,
   replyPreviewHtml,
 } from "./pages.ts";
 import {
@@ -45,6 +46,7 @@ import {
   type WebSettings,
   applyExchangeFailure,
   pickerToggleAction,
+  displayName,
   firstRunGate,
   shouldClearStaleToken,
   shouldExchange,
@@ -296,6 +298,20 @@ function stopStatusLive(): void {
 
 // ---- chat experience state (T51-B)
 let chatsShowArchived = false;
+let chatsFilter: "all" | "unread" | "groups" | "archived" = "all";
+let identityContacts: Record<string, string | null> = {};
+const resolveName = (jid: string): string | null => {
+  const viaIdentity = displayName(jid, identityContacts);
+  return viaIdentity === "Unknown" ? null : viaIdentity;
+};
+async function loadIdentity(): Promise<void> {
+  const payload = (await client.contacts("")) as {
+    contacts?: Array<{ jid: string; name: string | null }>;
+  };
+  identityContacts = Object.fromEntries(
+    (payload.contacts ?? []).map((contact) => [contact.jid, contact.name]),
+  );
+}
 let chatSearchQuery = "";
 let contactsQuery = "";
 let replyToId: string | null = null;
@@ -337,6 +353,9 @@ function dom() {
     },
     setApp: (html: string) => {
       app.innerHTML = html;
+    },
+    setTitle: (title: string) => {
+      document.title = title;
     },
   };
 }
@@ -385,12 +404,11 @@ const loaders: {
 } = {
   events: async () => eventsPageHtml(eventsFeedLines(), { paused: eventsPaused }),
   status: async () => {
-    const [health, notifications] = await Promise.all([client.getHealth(), client.notifications()]);
+    const [health, me] = await Promise.all([client.getHealth(), client.getMe().catch(() => null)]);
     return statusDashboardHtml({
       health,
-      notifications:
-        (notifications as { rules?: Array<{ id: string; chat_jid?: string; pattern?: string }> })
-          .rules ?? [],
+      me: me as { name: string | null; pn: string | null } | null,
+      notifications: [],
       events: [],
     });
   },
@@ -398,6 +416,7 @@ const loaders: {
     const payload = (await client.contacts(contactsQuery)) as {
       contacts?: Array<{ jid: string; name: string | null }>;
     };
+    await loadIdentity();
     return contactsPageHtml(payload.contacts ?? [], contactsQuery);
   },
   profile: async () => {
@@ -451,6 +470,7 @@ const loaders: {
       showArchived: chatsShowArchived,
       query: chatSearchQuery,
       syncing: gate.syncing,
+      filter: chatsFilter,
     });
   },
   chat: async (params) => {
@@ -476,8 +496,11 @@ const loaders: {
     });
   },
   unread: async () => {
-    const payload = (await client.getUnread()) as { unread: Parameters<typeof unreadHtml>[0] };
-    return unreadHtml(payload.unread);
+    const [payload] = await Promise.all([client.getUnread(), loadIdentity()]);
+    return unreadHtml(
+      (payload as { unread: Parameters<typeof unreadHtml>[0] }).unread,
+      resolveName,
+    );
   },
   settings: async () => {
     const emptyConfig: {
@@ -525,8 +548,21 @@ const loaders: {
     const chatRows = (chatsPayload.chats ?? [])
       .filter((c) => typeof c.jid === "string" && !c.jid.endsWith("@lid"))
       .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
-    return subscriptionsPageHtml(rows, chatRows);
+    const [notifications] = await Promise.all([
+      client.notifications().catch(() => ({ rules: [] })),
+      loadIdentity(),
+    ]);
+    return subscriptionsPageHtml(rows, chatRows, {
+      rules:
+        (
+          notifications as {
+            rules?: Array<{ id: string; chat_jid?: string | null; pattern?: string | null }>;
+          }
+        ).rules ?? [],
+      resolveName,
+    });
   },
+  connect: async () => agentConnectHtml(),
   health: async () =>
     statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
@@ -611,6 +647,7 @@ function showBridgeDownBanner(bridgeUrl: string): void {
   if (document.getElementById("bridge-down") === null) {
     document.body.insertAdjacentHTML("afterbegin", bridgeDownBanner(bridgeUrl));
   }
+  startBridgeDownPoll();
 }
 
 function bindSendBox(): void {
@@ -709,7 +746,11 @@ function bindGroupsControls(): void {
   document.querySelectorAll("[data-leave-jid]").forEach((button) => {
     button.addEventListener("click", async () => {
       const jid = (button as HTMLElement).dataset.leaveJid ?? "";
-      if (window.confirm(`leave group ${jid}?`)) {
+      const groupName =
+        (button as HTMLElement).dataset.groupName ??
+        (button.closest("[data-group-jid]") as HTMLElement | null)?.dataset.groupJid ??
+        jid;
+      if (window.confirm(`Leave “${groupName}”? You'll stop getting its messages.`)) {
         await client.groupLeave(jid).catch(() => undefined);
         await renderCurrent();
       }
@@ -863,6 +904,16 @@ function bindStatusControls(): void {
 }
 
 function bindChatsControls(): void {
+  document.querySelectorAll<HTMLButtonElement>(".chat-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const value = tab.dataset.chatFilter as typeof chatsFilter;
+      if (value === "archived") {
+        chatsShowArchived = true;
+      }
+      chatsFilter = value;
+      void renderCurrent();
+    });
+  });
   document.getElementById("chat-search")?.addEventListener("submit", (event) => {
     event.preventDefault();
     chatSearchQuery = (document.querySelector("#chat-search input[name=query]") as HTMLInputElement)
@@ -1047,6 +1098,11 @@ function bindPairingFlow(): void {
     pairingView = { ...pairingView, error: null, code: null };
     await rerenderPairing();
   });
+  document.getElementById("unlink-device")?.addEventListener("click", () => {
+    if (window.confirm("Unlink this computer? You will need to scan the QR again.")) {
+      void client.logout().then(() => renderCurrent());
+    }
+  });
   document.getElementById("pairing-retry")?.addEventListener("click", () => {
     pairingView = { ...pairingView, error: null, code: null };
     void rerenderPairing();
@@ -1176,6 +1232,42 @@ function bindSettingsForm(): void {
   });
 }
 
+document.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement;
+  if (target.closest(".banner-retry")) {
+    void renderCurrent();
+    return;
+  }
+  const copyButton = target.closest<HTMLButtonElement>(".copy-hook, .copy-cmd");
+  if (copyButton !== null) {
+    const original = copyButton.textContent ?? "Copy";
+    copyButton.textContent = "Copied ✓";
+    window.setTimeout(() => {
+      copyButton.textContent = original;
+    }, 2_000);
+  }
+});
+let bridgeDownPoll: ReturnType<typeof setInterval> | null = null;
+function startBridgeDownPoll(): void {
+  if (bridgeDownPoll !== null) {
+    return;
+  }
+  bridgeDownPoll = setInterval(() => {
+    void client
+      .getHealth()
+      .then(() => {
+        if (bridgeDownPoll !== null) {
+          clearInterval(bridgeDownPoll);
+          bridgeDownPoll = null;
+        }
+        bridgeDown = false;
+        document.getElementById("bridge-down")?.remove();
+        void renderCurrent();
+      })
+      .catch(() => undefined);
+  }, 2_000);
+}
+
 window.addEventListener("hashchange", () => {
   if (location.hash !== "#/status" && location.hash !== "#/health") {
     stopStatusLive();
@@ -1272,6 +1364,16 @@ function bindSubscriptionsControls(): void {
       include_media: data.get("include_media") === "on",
     });
     await renderCurrent();
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-rule]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteRule;
+      if (id === undefined) {
+        return;
+      }
+      await client.deleteNotification(id).catch(() => undefined);
+      await renderCurrent();
+    });
   });
   for (const button of document.querySelectorAll<HTMLButtonElement>(".delete-subscription")) {
     button.addEventListener("click", async () => {

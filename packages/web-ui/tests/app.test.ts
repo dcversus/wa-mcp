@@ -5,6 +5,7 @@ interface RecordedDom {
   hash: string;
   navHtml: string | null;
   appHtml: string | null;
+  title: string | null;
   hashChanges: number;
 }
 
@@ -13,6 +14,7 @@ function fakeDom(initialHash: string): RecordedDom & { io: { dom: AppDom } } {
     hash: initialHash,
     navHtml: null,
     appHtml: null,
+    title: null as string | null,
     hashChanges: 0,
   };
   const dom: AppDom = {
@@ -26,6 +28,9 @@ function fakeDom(initialHash: string): RecordedDom & { io: { dom: AppDom } } {
     },
     setApp: (html: string) => {
       state.appHtml = html;
+    },
+    setTitle: (title: string) => {
+      state.title = title;
     },
   };
   return Object.assign(state, { io: { dom } });
@@ -94,22 +99,32 @@ test("no token + #/chats renders the chats page via the ephemeral UI token (T54 
 });
 
 test("nav is populated on every render", async () => {
-  const state = fakeDom("#/health");
+  const state = fakeDom("#/status");
   await renderFrame({
     dom: state.io.dom,
     settings: WITH_TOKEN,
-    loaders: { health: async () => "<dl>ok</dl>" },
+    loaders: { status: async () => "<dl>ok</dl>" },
   });
   expect(state.navHtml).toContain("#/chats");
   expect(state.navHtml).toContain("#/settings");
 });
 
-test("with a token, route loaders render into the app", async () => {
+test("#/health redirects to #/status (P2 IA fold)", async () => {
   const state = fakeDom("#/health");
   await renderFrame({
     dom: state.io.dom,
     settings: WITH_TOKEN,
-    loaders: { health: async () => "<dl>health ok</dl>" },
+    loaders: {},
+  });
+  expect(state.hash).toBe("#/status");
+});
+
+test("with a token, route loaders render into the app", async () => {
+  const state = fakeDom("#/status");
+  await renderFrame({
+    dom: state.io.dom,
+    settings: WITH_TOKEN,
+    loaders: { status: async () => "<dl>health ok</dl>" },
   });
   expect(state.appHtml).toContain("health ok");
 });

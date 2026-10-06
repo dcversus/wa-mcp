@@ -16,6 +16,10 @@
   --ok: #12b76a;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   --radius: 8px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 16px;
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -174,6 +178,20 @@ section,
   color: var(--danger);
 }
 
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--surface);
+}
+
+button.danger:hover {
+  background: var(--danger-soft);
+}
+
+button.primary {
+  height: 36px;
+}
+
 .ok {
   color: var(--ok);
 }
@@ -194,9 +212,9 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 button {
@@ -215,7 +233,6 @@ button:hover {
 }
 
 button.primary,
-#send-box button,
 .send-box button {
   background: var(--accent);
   border-color: var(--accent);
@@ -223,7 +240,6 @@ button.primary,
 }
 
 button.primary:hover,
-#send-box button:hover,
 .send-box button:hover {
   background: var(--accent-hover);
 }
@@ -760,10 +776,51 @@ h3 {
   margin: var(--s2) 0;
 }
 
-.section-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin: 0 0 var(--s3);
+}
+
+.chat-tabs {
+  display: flex;
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+}
+
+.chat-tab {
+  height: 28px;
+  padding: 0 var(--s2);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+}
+
+.chat-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--s3);
+  margin: 0 0 var(--s3);
+}
+
+.skeleton {
   color: var(--text-dim);
-  margin: var(--s4) 0 var(--s2);
+  padding: var(--s4);
+}
+
+nav[aria-label="Main"] a[aria-current="page"] {
+  font-weight: 600;
 }
