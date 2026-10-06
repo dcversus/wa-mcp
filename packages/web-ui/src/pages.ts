@@ -162,10 +162,14 @@ export function chatListHtml(
       archived?: boolean;
     }
   >,
-  opts: { showArchived?: boolean; query?: string } = {},
+  opts: { showArchived?: boolean; query?: string; syncing?: boolean } = {},
 ): string {
   if (chats.length === 0) {
-    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${emptyState("No chats yet — they appear after your first message")}</section>`;
+    const note =
+      opts.syncing === true
+        ? `<div class="spinner"></div><p>Syncing your chats from your phone… keep WhatsApp open on your phone</p>`
+        : emptyState("No chats yet — they appear after your first message");
+    return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label>${note}</section>`;
   }
   const items = chats
     .map((chat) => {
@@ -177,7 +181,7 @@ export function chatListHtml(
         : "";
       const archivedTag = chat.archived ? ' data-archived="1"' : "";
       const name = chat.name ?? chat.jid;
-      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</li>`;
+      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><a href="#/chat/${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name">${escapeHtml(name)}</span>${time}</span><span class="chat-preview">${escapeHtml(preview)}</span></span>${badge}</a></li>`;
     })
     .join("");
   return `<section id="chats-page"><form id="chat-search"><input name="query" placeholder="search messages" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> show archived</label><ul class="chat-list${opts.showArchived ? "" : " hide-archived"}">${items}</ul></section>`;
@@ -285,7 +289,7 @@ export function unreadHtml(entries: Array<UnreadEntryView>): string {
   const items = entries
     .map(
       (entry) =>
-        `<li><span>${entry.chatJid}</span><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark read</button></li>`,
+        `<li><a href="#/chat/${escapeHtml(entry.chatJid)}">${escapeHtml(entry.chatJid)}</a><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark read</button></li>`,
     )
     .join("");
   return `<ul class="unread-list">${items}</ul><button id="mark-all-read">mark all read</button>`;
@@ -482,6 +486,25 @@ export interface SubscriptionRow {
   inboxPath: string;
 }
 
+export const AGENT_TARGETS = [
+  "claude-code",
+  "claude-desktop",
+  "cursor",
+  "codex",
+  "grok",
+  "pi",
+  "hermes",
+  "antigravity",
+] as const;
+
+export function agentConnectHtml(): string {
+  const rows = AGENT_TARGETS.map(
+    (target) =>
+      `<li class="agent-target"><code>wa-mcp install --target ${target}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --target ${target}" type="button">copy</button></li>`,
+  ).join("");
+  return `<section id="agent-connect" class="pane"><h3>Connect your agent</h3><p class="hint">run one command so your AI agent can use WhatsApp:</p><ul class="agent-targets">${rows}</ul></section>`;
+}
+
 export function hookSnippet(inboxPath: string): string {
   return `wa-mcp inbox drain --inbox ${inboxPath}`;
 }
@@ -546,5 +569,5 @@ ${picker}
 <button type="submit" id="create-subscription">subscribe</button>
 </form>
 </details>
-<ul id="subscription-list">${rows}</ul></section>`;
+<ul id="subscription-list">${rows}</ul>${agentConnectHtml()}</section>`;
 }

@@ -42,3 +42,15 @@ export function resolveRoute<R extends string>(
   }
   return null;
 }
+
+export type RouteKind = "chats-list" | "chat-view" | "other";
+
+export function routeKind(hash: string): RouteKind {
+  if (hash === "#/chats") {
+    return "chats-list";
+  }
+  if (hash.startsWith("#/chat/")) {
+    return "chat-view";
+  }
+  return "other";
+}

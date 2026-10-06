@@ -96,7 +96,7 @@ export interface DrainResult {
 export function drainInbox(inboxPath: string, statePath: string): DrainResult {
   const cursor = existsSync(statePath) ? Number(readFileSync(statePath, "utf8")) : 0;
   if (!existsSync(inboxPath)) {
-    return { exit: 0, summary: "inbox: no file" };
+    return { exit: 1, summary: `no such inbox: ${inboxPath}` };
   }
   const size = statSync(inboxPath).size;
   let start = cursor;

@@ -51,6 +51,11 @@ test("POST /api/subscriptions creates with inbox path; GET lists; DELETE removes
     expect(createdBody.inboxPath).toMatch(/subs\/[a-z0-9-]+\/inbox\.jsonl$/);
     expect(existsSync(createdBody.inboxPath)).toBe(true);
     const listed = await fetch(url(bridge, "/api/subscriptions"), { headers: auth("t107-token") });
+    const listedEarly = (await listed.clone().json()) as {
+      subscriptions: Array<{ id: string; inboxPath?: string }>;
+    };
+    expect(typeof listedEarly.subscriptions[0]?.inboxPath).toBe("string");
+    expect(existsSync(listedEarly.subscriptions[0]?.inboxPath ?? "")).toBe(true);
     expect(listed.status).toBe(200);
     const listedBody = (await listed.json()) as { subscriptions: unknown[] };
     expect(listedBody.subscriptions).toHaveLength(1);

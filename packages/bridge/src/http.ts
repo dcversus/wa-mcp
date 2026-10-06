@@ -3487,7 +3487,15 @@ export async function createHttpServer(
             });
             return;
           }
-          sendJson(res, 200, { subscriptions: listSubscriptions(opts.store) });
+          sendJson(res, 200, {
+            subscriptions: listSubscriptions(opts.store).map((sub) => ({
+              ...sub,
+              inboxPath: join(
+                subscriptionDir(opts.subscriptionsDir as string, sub.id),
+                "inbox.jsonl",
+              ),
+            })),
+          });
           return;
         }
         if (path === "/api/subscriptions" && req.method === "POST") {

@@ -136,6 +136,13 @@ export async function followLog(
   }
 }
 
+export function startReport(pid: number, port: string, logPath: string): string[] {
+  return [
+    `bridge started (pid ${pid}); logs: ${logPath}`,
+    `Web UI: http://127.0.0.1:${port} — open it to link WhatsApp`,
+  ];
+}
+
 export function uninstallRegistrations(
   home: string,
   targets: ReadonlyArray<Platform>,

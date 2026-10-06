@@ -179,6 +179,35 @@ export const PRIVACY_READ_TO_WRITE: Record<string, string> = {
   messages: "messages",
 };
 
+export interface LinkGateInput {
+  loggedIn: boolean;
+  contactsWarm: boolean;
+  chatCount: number;
+  hash: string;
+}
+
+export interface LinkGateDecision {
+  renderPairing: boolean;
+  banner: boolean;
+  syncing: boolean;
+}
+
+export function firstRunGate(input: LinkGateInput): LinkGateDecision {
+  if (!input.loggedIn) {
+    const renderPairing = input.hash === "" || input.hash === "#/" || input.hash === "#/chats";
+    return {
+      renderPairing,
+      banner: !renderPairing && input.hash !== "#/pairing",
+      syncing: false,
+    };
+  }
+  return {
+    renderPairing: false,
+    banner: false,
+    syncing: input.chatCount === 0 && !input.contactsWarm,
+  };
+}
+
 export interface PickerToggle {
   checked: boolean;
   includeMedia: boolean;

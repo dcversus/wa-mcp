@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
-import { installService, isPortBusy, uninstallService } from "./service.ts";
+import { installService, isPortBusy, uninstallService, startReport } from "./service.ts";
 import {
   buildUpdateReport,
   followLog,
@@ -372,7 +372,9 @@ export async function main(argv: string[]): Promise<void> {
       port: flags.port ?? "8080",
       logPath,
     });
-    console.log(`bridge started (pid ${started.pid}); logs: ${logPath}`);
+    for (const line of startReport(started.pid ?? 0, flags.port ?? "8080", logPath)) {
+      console.log(line);
+    }
     return;
   }
   if (command === "stop") {

@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape.ts";
+import { agentConnectHtml } from "./pages.ts";
 
 export type PairingPane = "methods" | "blocked" | "connecting" | "paired" | "error";
 
@@ -27,6 +28,25 @@ export interface PairingView {
   code?: string | null;
   me?: string | null;
   error?: string | null;
+  intro?: string | null;
+}
+
+export interface LinkedAccount {
+  name: string | null;
+  pn: string | null;
+}
+
+export function pairedIdentityText(me: LinkedAccount | null): string | null {
+  if (me === null) {
+    return null;
+  }
+  if (me.name !== null && me.pn !== null) {
+    return `${me.name} (+${me.pn})`;
+  }
+  if (me.name !== null) {
+    return me.name;
+  }
+  return me.pn !== null ? `+${me.pn}` : null;
 }
 
 /** Pane precedence: a completed pairing wins, then an explicit engine error,
@@ -73,12 +93,16 @@ export function qrCountdownPct(expiresInMs: number, nowMs: number, totalMs: numb
 const METHOD_HINT = "WhatsApp → Settings → Linked devices → Link a device";
 
 export function pairingHtml(view: PairingView): string {
-  const head = `<h2>Pairing</h2><p class="hint">${METHOD_HINT}</p>`;
+  const intro =
+    typeof view.intro === "string" && view.intro.length > 0
+      ? `<p class="hint">${escapeHtml(view.intro)}</p>`
+      : "";
+  const head = `<h2>Pairing</h2>${intro}<p class="hint">${METHOD_HINT}</p>`;
   if (view.pane === "paired") {
-    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">paired as <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/chats">Chats</a></p></section>`;
+    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">paired as <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/chats">Chats</a></p>${agentConnectHtml()}</section>`;
   }
   if (view.pane === "error") {
-    return `<section id="pairing" class="pane pane-error">${head}<p class="danger">pairing error: ${escapeHtml(view.error ?? "unknown error")}</p><p><a href="#/pairing">try again</a></p></section>`;
+    return `<section id="pairing" class="pane pane-error">${head}<p class="danger">pairing error: ${escapeHtml(view.error ?? "unknown error")}</p><button id="pairing-retry" type="button">try again</button></section>`;
   }
   if (view.pane === "blocked") {
     const attempts = view.health.pairingAttempts ?? { used: 0, limit: 0 };
@@ -101,7 +125,7 @@ export function pairingHtml(view: PairingView): string {
   const codeForm =
     code.length > 0
       ? ""
-      : `<form id="phone-form"><label>your phone number (with country code, digits only)<input id="phone-input" name="phone" inputmode="numeric" autocomplete="tel" placeholder="358497773518" /></label><button type="submit">get pairing code</button></form>`;
+      : `<form id="phone-form"><label>your phone number (with country code, digits only)<input id="phone-input" name="phone" inputmode="numeric" autocomplete="tel" placeholder="e.g. 447700900123" /></label><button type="submit">get pairing code</button></form>`;
   const codeBox = `<div id="pairing-code-display" class="code-display">${code.length > 0 ? escapeHtml(code) : "····-····"}</div>${code.length > 0 ? `<ol class="code-steps"><li>open WhatsApp on your phone</li><li>Settings → Linked devices → <strong>Link with phone number instead</strong></li><li>enter the code above</li></ol>` : ""}${codeForm}`;
   return `<section id="pairing" class="pane pane-methods">${head}
 <div class="pairing-grid">

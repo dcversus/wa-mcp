@@ -93,6 +93,12 @@ test("inbox drain exits 2 with summary, advances cursor; second run exits 0", ()
   }
 });
 
+test("T148 F5 — draining a missing inbox exits non-zero with the path", () => {
+  const result = drainInbox("/nonexistent/inbox.jsonl", "/nonexistent/cursor");
+  expect(result.exit).not.toBe(0);
+  expect(result.summary).toBe("no such inbox: /nonexistent/inbox.jsonl");
+});
+
 test("drain after rotation (file size < cursor) resets and reports new lines", () => {
   const dir = mkdtempSync(join(tmpdir(), "t113-"));
   try {

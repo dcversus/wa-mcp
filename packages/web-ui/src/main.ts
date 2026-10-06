@@ -22,6 +22,7 @@ import {
   subscriptionsPageHtml,
 } from "./pages.ts";
 import {
+  pairedIdentityText,
   pairingHtml,
   pairingPossible,
   pairingState,
@@ -31,6 +32,8 @@ import {
 } from "./pages-pairing.ts";
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
 import { escapeHtml } from "./escape.ts";
+import { routeKind } from "./router.ts";
+import { createPairingPoller, type PairingPoller } from "./pairing-poll.ts";
 import {
   effectiveToken,
   loadPairingToken,
@@ -40,6 +43,7 @@ import {
   type WebSettings,
   applyExchangeFailure,
   pickerToggleAction,
+  firstRunGate,
   shouldClearStaleToken,
   shouldExchange,
   buildPrivacyPatch,
@@ -53,8 +57,10 @@ let client: ApiClient = createClient();
 
 // ---- live pairing state (T51-A): poll /health + /api/qr while on #/pairing
 const QR_TTL_MS = 20_000;
+const PAIRING_INTRO =
+  "Link WhatsApp to your AI agent — pair once, then your agent can read and send.";
 let qrSeenAt = 0;
-let pairingPoll: ReturnType<typeof setInterval> | null = null;
+let pairingPoller: PairingPoller | null = null;
 let pairingView: PairingView = {
   pane: "connecting",
   health: {},
@@ -66,8 +72,10 @@ let pairingView: PairingView = {
  * route so all loaders authenticate without any user action (T54). Since
  * T73 C1 (ADR 0012) that token opens ONLY the pairing surface, so once the
  * daemon reports a paired account we exchange it once for the real token. */
+let lastKnownHealth: PairingHealth = {};
 async function syncPairingToken(): Promise<void> {
   const health = (await healthWithRetry(client, { attempts: 5, delayMs: 1200 })) as PairingHealth;
+  lastKnownHealth = health;
   adoptPairingToken(health);
   await exchangeAccountToken(health.loggedIn === true);
 }
@@ -188,6 +196,13 @@ async function refreshPairing(): Promise<void> {
     pane: pairingState(health, qr, pairingView.code, pairingView.error),
     countdownPct: qrCountdownPct(qrSeenAt + QR_TTL_MS, Date.now(), QR_TTL_MS),
   };
+  if (pairingView.pane === "paired" && pairingView.me == null) {
+    const me = (await client.getMe().catch(() => null)) as {
+      name: string | null;
+      pn: string | null;
+    } | null;
+    pairingView = { ...pairingView, me: pairedIdentityText(me) };
+  }
 }
 
 function currentPairingView(): PairingView {
@@ -334,6 +349,21 @@ async function renderCurrent(): Promise<void> {
     client = createClient();
     await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
     bindRoute();
+    const banner = firstRunGate({
+      loggedIn: lastKnownHealth.loggedIn === true,
+      contactsWarm: (lastKnownHealth as { contactsWarm?: unknown }).contactsWarm !== false,
+      chatCount: 0,
+      hash: location.hash,
+    });
+    document.getElementById("link-banner")?.remove();
+    if (banner.banner) {
+      document
+        .getElementById("app")
+        ?.insertAdjacentHTML(
+          "afterbegin",
+          `<div id="link-banner" class="link-banner">WhatsApp not linked — <a href="#/pairing">Link now</a></div>`,
+        );
+    }
     if (bridgeDown) {
       const health = await client.getHealth().catch(() => null);
       if (health !== null) {
@@ -395,12 +425,35 @@ const loaders: {
   // group subject/description edit + participants view are bound in
   // bindGroupsControls via /api/group/info + /api/group/meta
   chats: async () => {
+    const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+    const contactsWarm = (health as { contactsWarm?: unknown }).contactsWarm !== false;
+    if (
+      firstRunGate({
+        loggedIn: health.loggedIn === true,
+        contactsWarm,
+        chatCount: 0,
+        hash: "#/chats",
+      }).renderPairing
+    ) {
+      await refreshPairing();
+      return pairingHtml({
+        ...pairingView,
+        intro: PAIRING_INTRO,
+      });
+    }
     const payload = (await client.getChats()) as {
       chats: Parameters<typeof chatListHtml>[0];
     };
+    const gate = firstRunGate({
+      loggedIn: health.loggedIn === true,
+      contactsWarm,
+      chatCount: payload.chats.length,
+      hash: "#/chats",
+    });
     return chatListHtml(payload.chats, {
       showArchived: chatsShowArchived,
       query: chatSearchQuery,
+      syncing: gate.syncing,
     });
   },
   chat: async (params) => {
@@ -459,11 +512,15 @@ const loaders: {
         allChats: boolean;
         kinds: string[];
         includeMedia: boolean;
+        inboxPath?: string;
       }>;
     };
     const rows = (payload.subscriptions ?? []).map((sub) => ({
       ...sub,
-      inboxPath: `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
+      inboxPath:
+        typeof sub.inboxPath === "string" && sub.inboxPath.length > 0
+          ? sub.inboxPath
+          : `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
     }));
     const chatsPayload = (await client.getChats().catch(() => ({ chats: [] }))) as {
       chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
@@ -489,30 +546,24 @@ for (const route of Object.keys(loaders) as Array<keyof typeof loaders>) {
 
 function bindRoute(): void {
   const hash = location.hash;
-  if (hash.startsWith("#/chat")) {
-    bindSendBox();
-    return;
-  }
-  if (hash === "#/chats") {
-    bindChatClicks();
-    return;
-  }
-  if (hash === "#/unread") {
-    bindMarkRead();
-    bindMarkAllRead();
-    return;
-  }
-  if (hash === "#/chats") {
-    bindChatsControls();
-    return;
-  }
-  if (hash.startsWith("#/chat")) {
+  const kind = routeKind(hash);
+  if (kind === "chat-view") {
     bindSendBox();
     bindChatExtras();
     const scroller = document.querySelector("#app .messages");
     if (scroller !== null) {
       scroller.scrollTop = scroller.scrollHeight;
     }
+    return;
+  }
+  if (kind === "chats-list") {
+    bindChatClicks();
+    bindChatsControls();
+    return;
+  }
+  if (hash === "#/unread") {
+    bindMarkRead();
+    bindMarkAllRead();
     return;
   }
   if (hash === "#/contacts") {
@@ -968,19 +1019,69 @@ function bindPairingFlow(): void {
     pairingView = { ...pairingView, error: null, code: null };
     await rerenderPairing();
   });
+  document.getElementById("pairing-retry")?.addEventListener("click", () => {
+    pairingView = { ...pairingView, error: null, code: null };
+    void rerenderPairing();
+  });
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".copy-cmd")) {
+    button.addEventListener("click", () => {
+      const cmd = button.dataset.copyCmd ?? "";
+      void navigator.clipboard?.writeText(cmd).catch(() => undefined);
+    });
+  }
   document.querySelector("#pairing .copy-btn")?.addEventListener("click", (event) => {
     const url = (event.currentTarget as HTMLElement).dataset.copyUrl ?? "";
     void navigator.clipboard?.writeText(url).catch(() => undefined);
   });
-  pairingPoll = setInterval(() => {
-    void (async () => {
-      await refreshPairing();
-      if (location.hash === "#/pairing") {
-        await rerenderPairing();
-      }
-    })();
-  }, 3_000);
+  if (pairingPoller === null) {
+    pairingPoller = createPairingPoller(
+      {
+        fetchHealth: async () => {
+          await refreshPairing();
+          return pairingView;
+        },
+        derive: (view) => {
+          const pairing = view as PairingViewLike;
+          return {
+            pane: pairing.pane,
+            qr: pairing.qr.qr,
+            code: pairing.code ?? null,
+            error: pairing.error ?? null,
+            me: pairing.me ?? null,
+            attempts: pairing.health.pairingAttempts?.used ?? null,
+          };
+        },
+        render: (_view, rewrite) => {
+          if (!rewrite || location.hash !== "#/pairing") {
+            return;
+          }
+          const app = document.getElementById("app");
+          if (app !== null) {
+            app.innerHTML = pairingHtml(pairingView);
+            bindPairingFlow();
+          }
+        },
+        focused: () => {
+          const active = document.activeElement;
+          return (
+            active instanceof HTMLElement && active.closest("#phone-form, #link-input") !== null
+          );
+        },
+      },
+      3_000,
+    );
+    pairingPoller.start();
+  }
 }
+
+type PairingViewLike = {
+  pane: string;
+  qr: { qr: string | null };
+  code?: string | null;
+  error?: string | null;
+  me?: string | null;
+  health: { pairingAttempts?: { used: number } };
+};
 
 async function rerenderPairing(): Promise<void> {
   await refreshPairing();
@@ -1044,9 +1145,9 @@ window.addEventListener("hashchange", () => {
   if (location.hash !== "#/events") {
     stopEventsLive();
   }
-  if (pairingPoll !== null && location.hash !== "#/pairing") {
-    clearInterval(pairingPoll);
-    pairingPoll = null;
+  if (pairingPoller !== null && location.hash !== "#/pairing") {
+    pairingPoller.stop();
+    pairingPoller = null;
     qrSeenAt = 0;
   }
   void renderCurrent();
