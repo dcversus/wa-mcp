@@ -29,5 +29,30 @@ eyes. Fix executor: zai (TDD, verified by orchestrator).
 - D2: #3 agent-inbox wizard, #7 automations page, #8 group admin wiring, #9 rule create-form, #10 search/new-chat/media-send, #12-#16 IA restructure
 - D3: #11 copy feedback, #12 button-per-message, #14 contrast tokens, #15 labels/headings, #16 mobile layout, #17-#23 + full copy-rewrite table
 
-## Round 2 (after fixes)
+## Wave 3 — security (DONE, live-verified)
+- S1: uiBootstrapToken OFF /health → HttpOnly SameSite=Strict cookie on GET / (ADR 0012 addendum), bearer compat kept
+- S2: Host guard on /health + static, runs before rate limits
+- S3: no tokens painted; settings token = password type
+- S4: frame-ancestors none, Referrer-Policy, media nosniff/sandbox/disposition
+- S5: limiter anon-keying + TTL eviction
+- S6: media relative names, events cap 500
+- 1124/1124, e2e green with cookie auth
+
+## Wave 4 — product polish (DONE, live-verified)
+- P1 displayName + formatPhone everywhere; JIDs behind details
+- P2 IA: Messages/People/Agent/Me/System; #/connect; unread+health+events → redirects; Unlink
+- P3 human status card; diagnostics collapsed; token keys filtered
+- P4 60-row copy rewrite
+- P5 consistency + a11y (focus rings, aria, h1, title, tokens, primary/danger)
+- P6 skeleton paint, retry banners, bridge-down auto-recovery
+- 1155/1155, e2e green, CDP-verified (nav, redirects, status card, names, local times)
+
+## Remaining for Round 2 entry
+- D2 #3 agent-inbox wizard (pick chats → install command → send test event → delivery readout)
+- D2 #7 automations page (autoreply/scheduled/rules read+delete)
+- D2 #10 chat-core parity (message search, new chat, media send, chat header)
+- D2 #8 group admin wiring; D1 #15 QR countdown; D1 #20 favicon
+- Deferred security: ?token= tickets (D4#4), sessionStorage (D4#11), bind warning (D4#14)
+
+## Round 2 (after the above)
 Re-audit each dimension with fresh eyes; two clean passes = dimension closed.
