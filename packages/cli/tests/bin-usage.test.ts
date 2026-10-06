@@ -13,6 +13,8 @@ test("usage string lists the pair subcommand", async () => {
     expect(usage).toContain("logs");
     expect(usage).toContain("uninstall");
     expect(usage).toContain("update");
+    expect(usage).toContain("inbox");
+    expect(usage).toContain("subscribe");
   } finally {
     logSpy.mockRestore();
   }

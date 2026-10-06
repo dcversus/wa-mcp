@@ -108,15 +108,26 @@ writes both shapes.
 
 ## Pi
 
-`~/.pi/mcp/wa-mcp.json` — the single-server file is the spec itself:
+`~/.pi/agent/mcp.json` — pi reads the shared `mcpServers` wrapper file the
+agent extension loads:
 
 ```json
 {
-  "command": "node",
-  "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"],
-  "env": { "WA_TOKEN": "<token>" }
+  "mcpServers": {
+    "wa-mcp": {
+      "command": "node",
+      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"],
+      "env": { "WA_TOKEN": "<token>" },
+      "transport": "stdio"
+    }
+  }
 }
 ```
 
-Troubleshooting: this file IS the server entry (no wrapper container) —
-`wa-mcp install --target pi` overwrites it in full.
+`wa-mcp install --target pi` MERGES into the wrapper (other servers are
+preserved) and deletes the legacy `~/.pi/mcp/wa-mcp.json` single-server file
+if an older install left one. `wa-mcp uninstall --target pi` removes only the
+`wa-mcp` key.
+
+Troubleshooting: pi (pi-mcp-extension) never reads `~/.pi/mcp/` — if the
+connection fails, confirm the entry landed in `~/.pi/agent/mcp.json`.

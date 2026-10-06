@@ -547,3 +547,8 @@ Scope: git diff 1df0a40..HEAD (3 commits, 15 files, +1075/−406). Zero as-any/c
 - Subscriptions E2E: subscribe_events (Test group) → id e5997895bec4 + inbox path; send_message probe → inbox.jsonl line {ts, kind, chat, from, text, media} within 3s; `inbox drain --inbox <path>` → "1 new" + exit 0 — PASS
 - Uninstall E2E: pi/hermes/claude-code removed cleanly (keys gone, data dir kept) — PASS; reinstall restored all — PASS
 - BUGS FOUND: (1) pi writer wrong path+shape [~/.pi/mcp/wa-mcp.json vs ~/.pi/agent/mcp.json mcpServers wrapper]; (2) UI hook snippet `inbox drain --sub <id>` ≠ CLI `--inbox <path>`; (3) multi-target install applies only last --target; (4) usage string omits inbox+hook subcommands. Fixes queued: .agent/prompts/INSTALL-E2E-FIXES.md
+
+### Installer-fix verification (2026-10-06, orchestrator)
+- zai round verified: suite 1046/1046 (119 files), vp check 0 — CONFIRMED first-hand
+- pi fix live: uninstall → install → writes ~/.pi/agent/mcp.json with correct shape ({transport: stdio, command, args, env}), legacy ~/.pi/mcp/wa-mcp.json removed as migration — CONFIRMED
+- NOTE: pi-mcp-extension 1.5.1 currently does not surface tools in `pi -p` sessions (loads no MCP servers; even a deliberately broken eager server produces no error). Config file is correct; the extension loading itself regressed on the pi side (worked 2026-10-05 22:20, stopped after — no wa-mcp change involved). Follow-up: retest `pi -p` after pi/extension update; claude-code + hermes E2E remain green.

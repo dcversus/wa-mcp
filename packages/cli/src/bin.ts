@@ -44,7 +44,7 @@ const BRIDGE_WEB = join(packageDir("@wa-mcp/bridge"), "dist", "web");
 const SKILLS_SOURCE = join(packageDir("@wa-mcp/cli"), "skills", "wa-mcp");
 
 export async function main(argv: string[]): Promise<void> {
-  const { command, flags, positionals } = parseArgs(argv);
+  const { command, flags, lists, positionals } = parseArgs(argv);
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
@@ -178,7 +178,9 @@ export async function main(argv: string[]): Promise<void> {
       args: [MCP_BIN, "--bridge-url", bridgeUrl, "--token", token],
       env: { WA_TOKEN: token },
     };
-    const targets = (flags.target !== undefined ? [flags.target] : [...PLATFORMS]) as Array<string>;
+    const targets = (
+      lists.target !== undefined && lists.target.length > 0 ? lists.target : [...PLATFORMS]
+    ) as Array<string>;
     let failures = 0;
     for (const target of targets) {
       if (!PLATFORMS.includes(target as never)) {
@@ -415,7 +417,9 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   if (command === "uninstall") {
-    const targets = (flags.target !== undefined ? [flags.target] : [...PLATFORMS]) as Array<string>;
+    const targets = (
+      lists.target !== undefined && lists.target.length > 0 ? lists.target : [...PLATFORMS]
+    ) as Array<string>;
     const removed = uninstallRegistrations(
       home,
       targets.filter((target): target is (typeof PLATFORMS)[number] =>
@@ -453,7 +457,7 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|uninstall|update|skills> [--service [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
 }
 

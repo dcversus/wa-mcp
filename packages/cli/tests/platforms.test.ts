@@ -26,7 +26,7 @@ test("paths resolve under the provided home", () => {
   );
   expect(resolveConfigPath("cursor", HOME)).toBe(join(HOME, ".cursor", "mcp.json"));
   expect(resolveConfigPath("codex", HOME)).toBe(join(HOME, ".codex", "config.toml"));
-  expect(resolveConfigPath("pi", HOME)).toBe(join(HOME, ".pi", "mcp", "wa-mcp.json"));
+  expect(resolveConfigPath("pi", HOME)).toBe(join(HOME, ".pi", "agent", "mcp.json"));
   expect(resolveConfigPath("hermes", HOME)).toBe(join(HOME, ".hermes", "config.yaml"));
   expect(resolveConfigPath("grok", HOME)).toBe(join(HOME, ".grok", "mcp.json"));
   expect(resolveConfigPath("antigravity", HOME)).toBe(

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { PLATFORMS, resolveConfigPath, type Platform } from "./platforms.ts";
 export type { Platform };
@@ -115,13 +115,6 @@ function writeHermes(path: string, spec: ServerSpec): WriteResult {
   return { platform: "hermes", path, verified };
 }
 
-function writeSingleServerJson(path: string, spec: ServerSpec): WriteResult {
-  ensureParent(path);
-  writeFileSync(path, `${JSON.stringify(spec, null, 2)}\n`, { mode: 0o600 });
-  const parsed = JSON.parse(readFileSync(path, "utf8")) as { command?: string };
-  return { platform: "pi", path, verified: parsed.command === spec.command };
-}
-
 export function writeServerEntry(platform: Platform, options: WriteOptions): WriteResult {
   const path = resolveConfigPath(platform, options.home);
   const spec = options.spec;
@@ -143,8 +136,11 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
         }),
         platform,
       };
-    case "pi":
-      return writeSingleServerJson(path, spec);
+    case "pi": {
+      const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, { transport: "stdio" });
+      rmSync(join(options.home, ".pi", "mcp", "wa-mcp.json"), { force: true });
+      return { ...result, platform };
+    }
     case "codex":
       return writeCodex(path, spec);
     case "hermes":

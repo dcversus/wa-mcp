@@ -17,12 +17,14 @@ test("page renders inbox path per subscription row", () => {
   expect(html).toContain("120363428874442773@g.us");
 });
 
-test("hook snippet contains 'wa-mcp inbox drain --sub <id>' and is HTML-escaped in the page", () => {
-  expect(hookSnippet("abc123")).toBe("wa-mcp inbox drain --sub abc123");
+test("hook snippet contains 'wa-mcp inbox drain --inbox <path>' and is HTML-escaped in the page", () => {
+  expect(hookSnippet("/home/u/.wa-mcp/subs/abc123/inbox.jsonl")).toBe(
+    "wa-mcp inbox drain --inbox /home/u/.wa-mcp/subs/abc123/inbox.jsonl",
+  );
   const evil: SubscriptionRow = { ...row, id: `x"><script>alert(1)</script>` };
   const html = subscriptionsPageHtml([evil]);
   expect(html).not.toContain("<script>alert(1)</script>");
-  expect(html).toContain("wa-mcp inbox drain --sub ");
+  expect(html).toContain("wa-mcp inbox drain --inbox ");
   expect(html).toContain("&lt;script&gt;");
 });
 

@@ -317,8 +317,11 @@ function removeServerEntry(platform: Platform, home: string): boolean {
     return false;
   }
   if (platform === "pi") {
-    rmSync(path, { force: true });
-    return true;
+    const legacy = join(home, ".pi", "mcp", "wa-mcp.json");
+    const hadLegacy = existsSync(legacy);
+    const removedMain = removeJsonKeyEntry(path);
+    rmSync(legacy, { force: true });
+    return removedMain || hadLegacy;
   }
   const text = readFileSync(path, "utf8");
   let updated: string;
@@ -342,32 +345,46 @@ function removeServerEntry(platform: Platform, home: string): boolean {
     }
     updated = out.join("\n").replace(/\n{3,}/g, "\n\n");
   } else {
-    try {
-      const parsed: unknown = JSON.parse(text);
-      if (parsed === null || typeof parsed !== "object") {
-        return false;
-      }
-      const record = parsed as Record<string, unknown>;
-      for (const key of Object.keys(record)) {
-        const container = record[key];
-        if (
-          container !== null &&
-          typeof container === "object" &&
-          "wa-mcp" in (container as Record<string, unknown>)
-        ) {
-          delete (container as Record<string, unknown>)["wa-mcp"];
-        }
-      }
-      updated = `${JSON.stringify(record, null, 2)}\n`;
-    } catch {
+    if (!removeJsonKeyEntry(path)) {
       return false;
     }
+    return true;
   }
   if (updated === text) {
     return false;
   }
   writeFileSync(path, updated, { mode: 0o600 });
-  return !readFileSync(path, "utf8").includes("wa-mcp");
+  return true;
+}
+
+function removeJsonKeyEntry(path: string): boolean {
+  const text = readFileSync(path, "utf8");
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed === null || typeof parsed !== "object") {
+      return false;
+    }
+    const record = parsed as Record<string, unknown>;
+    let touched = false;
+    for (const key of Object.keys(record)) {
+      const container = record[key];
+      if (
+        container !== null &&
+        typeof container === "object" &&
+        "wa-mcp" in (container as Record<string, unknown>)
+      ) {
+        delete (container as Record<string, unknown>)["wa-mcp"];
+        touched = true;
+      }
+    }
+    if (!touched) {
+      return false;
+    }
+    writeFileSync(path, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function joinPath(parent: string, entry: string): string {

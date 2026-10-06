@@ -24,7 +24,7 @@ export function resolveConfigPath(platform: Platform, home: string): string {
     case "codex":
       return join(home, ".codex", "config.toml");
     case "pi":
-      return join(home, ".pi", "mcp", "wa-mcp.json");
+      return join(home, ".pi", "agent", "mcp.json");
     case "hermes":
       return join(home, ".hermes", "config.yaml");
     case "grok":

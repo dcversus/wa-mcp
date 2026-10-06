@@ -482,8 +482,8 @@ export interface SubscriptionRow {
   inboxPath: string;
 }
 
-export function hookSnippet(subId: string): string {
-  return `wa-mcp inbox drain --sub ${subId}`;
+export function hookSnippet(inboxPath: string): string {
+  return `wa-mcp inbox drain --inbox ${inboxPath}`;
 }
 
 export interface ChatPick {
@@ -498,7 +498,7 @@ export function subscriptionsPageHtml(subs: SubscriptionRow[], chats: ChatPick[]
       (sub) => `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
 <div><code>${escapeHtml(sub.id)}</code> — ${escapeHtml(sub.allChats ? "all chats" : (sub.chatJid ?? "?"))}${sub.includeMedia ? " · media" : ""} · ${escapeHtml(sub.kinds.join(","))}</div>
 <div class="inbox-path"><code>${escapeHtml(sub.inboxPath)}</code></div>
-<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.id))}</code> <button class="copy-hook" type="button">copy</button></div>
+<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.inboxPath))}</code> <button class="copy-hook" type="button">copy</button></div>
 <button class="delete-subscription" type="button" data-sub-id="${escapeHtml(sub.id)}">remove</button>
 </li>`,
     )
