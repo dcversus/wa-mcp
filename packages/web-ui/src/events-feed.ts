@@ -49,6 +49,7 @@ export interface StatusStreamOptions {
   token: string;
   EventSourceImpl?: typeof EventSource;
   onLine(line: FeedLine): void;
+  onRaw?(raw: { type?: unknown; payload?: unknown }): void;
 }
 
 export interface StatusStream {
@@ -62,7 +63,9 @@ export function openStatusStream(options: StatusStreamOptions): StatusStream {
   const source = new Impl(`${options.url}/events?token=${encodeURIComponent(options.token)}`);
   source.onmessage = (event: MessageEvent<string>) => {
     try {
-      options.onLine(eventLine(JSON.parse(event.data) as { type?: unknown; payload?: unknown }));
+      const raw = JSON.parse(event.data) as { type?: unknown; payload?: unknown };
+      options.onLine(eventLine(raw));
+      options.onRaw?.(raw);
     } catch {
       // malformed frame — drop it, keep the stream alive
     }

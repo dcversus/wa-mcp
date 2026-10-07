@@ -26,6 +26,7 @@ export interface ApiClient {
   pairingCode(phone: string): Promise<{ code?: string; error?: { code: string; message: string } }>;
   resumePairing(): Promise<{ resumed: boolean }>;
   search(query: string, limit?: number): Promise<unknown>;
+  searchLogs(query: string): Promise<{ messages?: unknown[] }>;
   contacts(query?: string): Promise<unknown>;
   setAlias(chatJid: string, alias: string): Promise<unknown>;
   groupParticipants(groupJid: string): Promise<unknown>;
@@ -207,6 +208,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       }
       return jsonCall(`/api/search?${params.toString()}`);
     },
+    searchLogs: (query) => jsonCall(`/api/search?${query}`),
     contacts: (query) => {
       const params = new URLSearchParams();
       if (query !== undefined) {

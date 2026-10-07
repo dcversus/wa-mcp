@@ -21,6 +21,7 @@ export function emptyState(text: string): string {
 
 const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "chats", label: "Chats", href: "#/chats" },
+  { id: "logs", label: "Logs", href: "#/logs" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "connect", label: "Connect agent", href: "#/connect" },
   { id: "subscriptions", label: "Agent alerts", href: "#/subscriptions" },
@@ -34,6 +35,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
 export const NAV_TITLES: Record<string, string> = {
   chats: "Chats",
   chat: "Chat",
+  logs: "Logs",
   contacts: "Contacts",
   connect: "Connect agent",
   subscriptions: "Agent alerts",
@@ -46,7 +48,7 @@ export const NAV_TITLES: Record<string, string> = {
 
 export function navHtml(active: string, version = "0.9.0"): string {
   const groups: Array<{ label: string; keys: string[] }> = [
-    { label: "Messages", keys: ["chats"] },
+    { label: "Messages", keys: ["chats", "logs"] },
     { label: "People", keys: ["contacts"] },
     { label: "Agent", keys: ["connect", "subscriptions", "automations"] },
     { label: "Me", keys: ["profile"] },
@@ -607,22 +609,6 @@ export function groupMetaFormHtml(groupJid: string, subject: string, description
 
 export function notFoundHtml(route: string): string {
   return `<section id="not-found" class="pane"><h2>Page not found</h2><p>The route <code>${escapeHtml(route)}</code> does not exist.</p><p><a href="#/chats">Go to chats</a></p></section>`;
-}
-
-export interface FeedEntry {
-  at: number;
-  type: string;
-  detail?: string;
-}
-
-export function eventsPageHtml(events: Array<FeedEntry>, opts: { paused?: boolean } = {}): string {
-  const items = events
-    .map(
-      (event) =>
-        `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
-    )
-    .join("");
-  return `<section id="events-page"><div class="events-header"><h1>Events</h1><button id="events-pause">${opts.paused === true ? "resume" : "pause"}</button><button id="events-clear">clear</button></div><ul id="events-feed">${items.length > 0 ? items : `<li>${emptyState("No recent activity")}</li>`}</ul></section>`;
 }
 
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */

@@ -73,6 +73,19 @@ wa-mcp logs             # last 50 lines
 wa-mcp logs --follow    # follow (polls every 500ms)
 ```
 
+### Message log
+
+Any message-log flag (or the `messages` positional) switches `wa-mcp logs` from the daemon log to the WhatsApp message log — the same data as the web UI **Logs** page (`#/logs`), served by `GET /api/search`. <!-- src: packages/cli/src/logs.ts -->
+
+```sh
+wa-mcp logs messages                                   # newest messages, both directions
+wa-mcp logs --chat Family --direction in --limit 20    # chat by name or jid
+wa-mcp logs --person 358401112222@s.whatsapp.net --from 2026-10-01 --to 2026-10-07
+wa-mcp logs --q invoice --follow                       # live tail (polls every 2s)
+```
+
+`/api/search` filters: `q` (optional — omit it to list everything), `chat_jid`, `from_jid`, `direction` (`in`|`out`), `since` / `until` (ISO date or epoch milliseconds, inclusive), `limit`, `offset`. Pass `--daemon` to force the daemon log.
+
 pino levels: 30 = info, 40 = warn, 50 = error.
 
 ```sh

@@ -2,7 +2,6 @@ import { expect, test } from "vite-plus/test";
 import {
   chatListHtml,
   contactsPageHtml,
-  eventsPageHtml,
   groupsPageHtml,
   messageListHtml,
   profilePageHtml,
@@ -97,9 +96,4 @@ test("T167 P4 — subscriptions copy is agent language", () => {
   expect(html).toContain("Stop watching");
   expect(html).toContain("Include photos, voice notes and files");
   expect(html).toContain("Your agent watches 0 of 1 chats");
-});
-
-test("T167 P4 — events page empty state", () => {
-  const html = eventsPageHtml([], {});
-  expect(html).toContain("No recent activity");
 });

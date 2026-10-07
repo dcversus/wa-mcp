@@ -7,7 +7,6 @@ import {
   chatErrorHtml,
   chatListHtml,
   contextViewHtml,
-  eventsPageHtml,
   groupMetaFormHtml,
   groupParticipantsHtml,
   profilePageHtml,
@@ -36,7 +35,18 @@ import {
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
 import { escapeHtml } from "./escape.ts";
 import { routeKind } from "./router.ts";
-import { formatWhen } from "./pages.ts";
+import {
+  EMPTY_LOG_FILTER,
+  LOGS_PAGE_SIZE,
+  logRowHtml,
+  logsPageHtml,
+  logsQuery,
+  matchesLogFilter,
+  rowsFromUpsert,
+  type LogFilter,
+  type LogRow,
+  type LogsPageInput,
+} from "./logs.ts";
 import { createPairingPoller, type PairingPoller } from "./pairing-poll.ts";
 import {
   effectiveToken,
@@ -222,41 +232,69 @@ function currentPairingView(): PairingView {
   return pairingView;
 }
 
-// ---- live events feed (T52 module) — bounded, pausable
-let eventsPaused = false;
-let eventsLines: import("./events-feed.ts").FeedLine[] = [];
-let eventsStream: { close(): void } | null = null;
+// ---- logs page (R2-1): server-side filtered pages + SSE live tail
+let logsFilter: LogFilter = { ...EMPTY_LOG_FILTER };
+let logsPage = 0;
+let logsLive = false;
+let logsStream: { close(): void } | null = null;
+let logsChats: Array<{ jid: string; name: string | null }> = [];
 
-function eventsFeedLines(): FeedLine[] {
-  return eventsLines;
-}
-
-function startEventsLive(): void {
-  if (eventsStream === null && typeof EventSource === "function") {
-    statusFeed = appendEvent(statusFeed, { at: Date.now(), type: "events", detail: "stream open" });
-    eventsStream = openStatusStream({
-      url: settings.bridgeUrl,
-      token: effectiveToken(settings, pairingToken),
-      onLine: (line) => {
-        if (eventsPaused) return;
-        eventsLines = appendEvent(eventsLines, line, 500);
-        const list = document.querySelector("#events-feed");
-        if (list !== null) {
-          list.innerHTML = eventsLines
-            .map(
-              (l) =>
-                `<li><time>${escapeHtml(formatWhen(l.at))}</time> <strong>${escapeHtml(l.type)}</strong></li>`,
-            )
-            .join("");
-        }
-      },
-    });
+function logsRenderInput(rows: LogRow[], hasMore: boolean): LogsPageInput {
+  const people = new Map<string, string | null>();
+  for (const [jid, name] of Object.entries(identityContacts)) {
+    if (name !== null && name.length > 0) {
+      people.set(jid, name);
+    }
   }
+  for (const row of rows) {
+    if (row.senderJid !== null && !people.has(row.senderJid)) {
+      people.set(row.senderJid, row.senderName);
+    }
+  }
+  if (logsFilter.person.length > 0 && !people.has(logsFilter.person)) {
+    people.set(logsFilter.person, null);
+  }
+  return {
+    rows,
+    filter: logsFilter,
+    page: logsPage,
+    hasMore,
+    live: logsLive,
+    chats: logsChats,
+    people: [...people.entries()].map(([jid, name]) => ({ jid, name })),
+    resolveName,
+  };
 }
 
-function stopEventsLive(): void {
-  eventsStream?.close();
-  eventsStream = null;
+function startLogsLive(): void {
+  if (logsStream !== null || typeof EventSource !== "function") {
+    return;
+  }
+  logsStream = openStatusStream({
+    url: settings.bridgeUrl,
+    token: effectiveToken(settings, pairingToken),
+    onLine: () => undefined,
+    onRaw: (raw) => {
+      const tbody = document.getElementById("logs-rows");
+      if (tbody === null || logsPage !== 0) {
+        return;
+      }
+      const input = logsRenderInput([], false);
+      for (const row of rowsFromUpsert(raw)) {
+        if (
+          matchesLogFilter(row, logsFilter) &&
+          tbody.querySelector(`[data-log-id="${CSS.escape(row.id)}"]`) === null
+        ) {
+          tbody.insertAdjacentHTML("afterbegin", logRowHtml(row, input));
+        }
+      }
+    },
+  });
+}
+
+function stopLogsLive(): void {
+  logsStream?.close();
+  logsStream = null;
 }
 
 // ---- live status feed (T52): bounded SSE feed + 5s health poll
@@ -403,7 +441,20 @@ async function renderCurrent(): Promise<void> {
 const loaders: {
   [R in Route]: (params: Record<string, string>) => Promise<string>;
 } = {
-  events: async () => eventsPageHtml(eventsFeedLines(), { paused: eventsPaused }),
+  logs: async () => {
+    const [payload, chatsPayload] = await Promise.all([
+      client.searchLogs(logsQuery(logsFilter, logsPage, LOGS_PAGE_SIZE)),
+      client.getChats().catch(() => ({ chats: [] })) as Promise<{
+        chats?: Array<{ jid: string; name: string | null }>;
+      }>,
+      loadIdentity().catch(() => undefined),
+    ]);
+    logsChats = chatsPayload.chats ?? [];
+    const rows = (payload.messages ?? []) as LogRow[];
+    return logsPageHtml(
+      logsRenderInput(rows.slice(0, LOGS_PAGE_SIZE), rows.length > LOGS_PAGE_SIZE),
+    );
+  },
   status: async () => {
     const [health, me] = await Promise.all([client.getHealth(), client.getMe().catch(() => null)]);
     return statusDashboardHtml({
@@ -665,9 +716,11 @@ function bindRoute(): void {
     startStatusLive();
     return;
   }
-  if (hash === "#/events") {
-    bindEventsControls();
-    startEventsLive();
+  if (hash === "#/logs") {
+    bindLogsControls();
+    if (logsLive) {
+      startLogsLive();
+    }
     return;
   }
   if (hash === "#/pairing") {
@@ -926,15 +979,47 @@ function showProfileError(err: unknown): void {
   }
 }
 
-function bindEventsControls(): void {
-  document.getElementById("events-pause")?.addEventListener("click", (event) => {
-    eventsPaused = !eventsPaused;
-    (event.currentTarget as HTMLButtonElement).textContent = eventsPaused ? "resume" : "pause";
+function bindLogsControls(): void {
+  const form = document.getElementById("logs-filter") as HTMLFormElement | null;
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const field = (name: string): string => {
+      const value = data.get(name);
+      return typeof value === "string" ? value : "";
+    };
+    const direction = field("direction");
+    logsFilter = {
+      chat: field("chat"),
+      person: field("person"),
+      direction: direction === "in" || direction === "out" ? direction : "",
+      since: field("since"),
+      until: field("until"),
+      q: field("q"),
+    };
+    logsPage = 0;
+    void renderCurrent();
   });
-  document.getElementById("events-clear")?.addEventListener("click", () => {
-    eventsLines = [];
-    const list = document.querySelector("#events-feed");
-    if (list !== null) list.innerHTML = "";
+  document.getElementById("logs-reset")?.addEventListener("click", () => {
+    logsFilter = { ...EMPTY_LOG_FILTER };
+    logsPage = 0;
+    void renderCurrent();
+  });
+  document.getElementById("logs-prev")?.addEventListener("click", () => {
+    logsPage = Math.max(0, logsPage - 1);
+    void renderCurrent();
+  });
+  document.getElementById("logs-next")?.addEventListener("click", () => {
+    logsPage += 1;
+    void renderCurrent();
+  });
+  document.getElementById("logs-live")?.addEventListener("change", (event) => {
+    logsLive = (event.target as HTMLInputElement).checked;
+    if (logsLive) {
+      startLogsLive();
+    } else {
+      stopLogsLive();
+    }
   });
 }
 
@@ -1393,8 +1478,8 @@ window.addEventListener("hashchange", () => {
   if (location.hash !== "#/status" && location.hash !== "#/health") {
     stopStatusLive();
   }
-  if (location.hash !== "#/events") {
-    stopEventsLive();
+  if (location.hash !== "#/logs") {
+    stopLogsLive();
   }
   if (pairingPoller !== null && location.hash !== "#/pairing") {
     pairingPoller.stop();

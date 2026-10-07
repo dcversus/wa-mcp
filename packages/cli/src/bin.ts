@@ -17,6 +17,7 @@ import {
 } from "./service.ts";
 import { runDoctor } from "./doctor.ts";
 import { drainInbox, runSubscribe, runUnsubscribe } from "./subscribe.ts";
+import { isMessageLogsInvocation, runLogs } from "./logs.ts";
 import {
   claudeSettingsPath,
   codexHooksPath,
@@ -413,6 +414,38 @@ export async function main(argv: string[]): Promise<void> {
     }
     return;
   }
+  if (command === "logs" && isMessageLogsInvocation(flags, positionals)) {
+    const token = flags.token ?? readToken(dataDir) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    const exit = await runLogs(
+      {
+        fetchFn: fetch,
+        print: console.log,
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+        keepFollowing: () => true,
+      },
+      {
+        baseUrl: bridgeUrl,
+        token,
+        chat: flags.chat,
+        person: flags.person,
+        from: flags.from,
+        to: flags.to,
+        direction: flags.direction as "in" | "out" | undefined,
+        q: flags.q,
+        limit: flags.limit !== undefined ? Number(flags.limit) : undefined,
+        follow: flags.follow !== undefined,
+      },
+    );
+    if (exit !== 0) {
+      process.exitCode = exit;
+    }
+    return;
+  }
   if (command === "logs") {
     const logPath = join(dataDir, "bridge.log");
     if (!existsSync(logPath)) {
@@ -472,6 +505,9 @@ export async function main(argv: string[]): Promise<void> {
   }
   console.log(
     `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+  );
+  console.log(
+    `  logs [messages] [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log; bare \`logs\` (or --daemon) tails the daemon log`,
   );
 }
 

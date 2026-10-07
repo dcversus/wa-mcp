@@ -32,7 +32,7 @@ export type Route =
   | "profile"
   | "settings"
   | "health"
-  | "events"
+  | "logs"
   | "subscriptions"
   | "connect"
   | "automations"
@@ -48,7 +48,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "profile", pattern: "profile" },
   { route: "settings", pattern: "settings" },
   { route: "health", pattern: "health" },
-  { route: "events", pattern: "events" },
+  { route: "logs", pattern: "logs" },
   { route: "subscriptions", pattern: "subscriptions" },
   { route: "connect", pattern: "connect" },
   { route: "automations", pattern: "automations" },
@@ -58,7 +58,6 @@ export const ROUTES: Array<RoutePattern<Route>> = [
 const REDIRECTS: Partial<Record<Route, string>> = {
   unread: "#/chats",
   health: "#/status",
-  events: "#/status",
 };
 
 export type RouteLoaders = Partial<

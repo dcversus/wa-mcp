@@ -21,8 +21,8 @@ test("T165 P2 — #/unread redirects to the chats filter", async () => {
   expect(calls.some((call) => call.hash === "#/chats")).toBe(true);
 });
 
-test("T165 P2 — #/health and #/events redirect to #/status", async () => {
-  for (const hash of ["#/health", "#/events"]) {
+test("T165 P2 — #/health redirects to #/status", async () => {
+  for (const hash of ["#/health"]) {
     const { dom, calls } = fakeDom(hash);
     await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
     expect(

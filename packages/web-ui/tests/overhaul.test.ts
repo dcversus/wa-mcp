@@ -2,7 +2,6 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   chatListHtml,
   contactsPageHtml,
-  eventsPageHtml,
   groupsPageHtml,
   initials,
   notFoundHtml,
@@ -54,15 +53,6 @@ describe("T67 empty states + 404", () => {
     expect(html).toContain("No groups yet");
     const withGroups = groupsPageHtml([{ jid: "1@g.us", name: "G", unreadCount: 0 }]);
     expect(withGroups).toContain('data-group-jid="1@g.us"');
-  });
-
-  test("events page renders a live feed skeleton with pause + clear", () => {
-    const html = eventsPageHtml([{ at: 1, type: "connection.update", detail: "connected" }]);
-    expect(html).toContain('id="events-page"');
-    expect(html).toContain('id="events-feed"');
-    expect(html).toContain('id="events-pause"');
-    expect(html).toContain('id="events-clear"');
-    expect(html).toContain("connected");
   });
 
   test("404 is friendly with a link home", () => {

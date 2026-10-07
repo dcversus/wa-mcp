@@ -25,7 +25,14 @@ import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { upsertGroupParticipants } from "./store/groups.ts";
-import { isValidRecipientJid, isJid } from "@wa-mcp/shared";
+import { isValidRecipientJid, isJid, validateSubscriptionConfigInput } from "@wa-mcp/shared";
+import {
+  createSubscriptionConfig,
+  deleteSubscriptionConfig,
+  getSubscriptionConfig,
+  listSubscriptionConfigs,
+  updateSubscriptionConfig,
+} from "./store/subscription-configs.ts";
 import {
   getUnreadCounts,
   markMessagesRead,
@@ -492,7 +499,7 @@ function dateParam(params: URLSearchParams, name: string): ParamResult<Date> {
   if (raw === null) {
     return { ok: true, value: undefined };
   }
-  const parsed = new Date(raw);
+  const parsed = /^\d+$/.test(raw) ? new Date(Number(raw)) : new Date(raw);
   return Number.isNaN(parsed.getTime()) ? { ok: false } : { ok: true, value: parsed };
 }
 
@@ -825,26 +832,125 @@ export async function createHttpServer(
       return;
     }
     if (route === "/api/search") {
-      const query = params.get("q");
-      if (query === null || query.length === 0) {
-        validationError(res, "q is required");
-        return;
-      }
       const limit = intParam(params, "limit");
       const offset = intParam(params, "offset");
       if (!limit.ok || !offset.ok) {
         validationError(res, "limit and offset must be numbers");
         return;
       }
+      const direction = params.get("direction");
+      if (direction !== null && direction !== "in" && direction !== "out") {
+        validationError(res, "direction must be in or out");
+        return;
+      }
+      const since = dateParam(params, "since");
+      const until = dateParam(params, "until");
+      if (!since.ok || !until.ok) {
+        validationError(res, "since and until must be ISO dates or epoch milliseconds");
+        return;
+      }
       sendJson(res, 200, {
-        messages: searchMessages(store, query, {
+        messages: searchMessages(store, params.get("q") ?? "", {
           chatJid: params.get("chat_jid") ?? undefined,
+          direction: direction ?? undefined,
+          fromJid: params.get("from_jid") ?? undefined,
+          since: since.value,
+          until: until.value,
           limit: limit.value,
           offset: offset.value,
         }),
       });
       return;
     }
+  };
+
+  const serveSubs2 = (
+    method: string,
+    id: string | undefined,
+    body: Buffer,
+    res: ServerResponse,
+  ): void => {
+    const store = opts.store;
+    if (store === undefined) {
+      sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+      return;
+    }
+    const notFound = (): void => {
+      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown subscription" } });
+    };
+    const parseBody = (): { ok: true; value: unknown } | { ok: false } => {
+      try {
+        return { ok: true, value: JSON.parse(body.toString("utf8")) as unknown };
+      } catch {
+        validationError(res, "body must be valid JSON");
+        return { ok: false };
+      }
+    };
+    if (id === undefined && method === "GET") {
+      sendJson(res, 200, { subscriptions: listSubscriptionConfigs(store) });
+      return;
+    }
+    if (id === undefined && method === "POST") {
+      const parsed = parseBody();
+      if (!parsed.ok) {
+        return;
+      }
+      const checked = validateSubscriptionConfigInput(parsed.value);
+      if (!checked.ok) {
+        validationError(res, checked.message);
+        return;
+      }
+      sendJson(res, 201, createSubscriptionConfig(store, checked.value));
+      return;
+    }
+    if (id === undefined) {
+      sendJson(res, 405, { error: { code: "METHOD_NOT_ALLOWED", message: "use GET or POST" } });
+      return;
+    }
+    const existing = getSubscriptionConfig(store, id);
+    if (existing === null) {
+      notFound();
+      return;
+    }
+    if (method === "GET") {
+      sendJson(res, 200, existing);
+      return;
+    }
+    if (method === "DELETE") {
+      deleteSubscriptionConfig(store, id);
+      sendJson(res, 200, { ok: true, removed: id });
+      return;
+    }
+    if (method === "PATCH") {
+      const parsed = parseBody();
+      if (!parsed.ok) {
+        return;
+      }
+      if (parsed.value === null || typeof parsed.value !== "object") {
+        validationError(res, "body must be a JSON object");
+        return;
+      }
+      const { id: _id, created: _created, ...current } = existing;
+      const {
+        id: _ignoredId,
+        created: _ignoredCreated,
+        ...patch
+      } = parsed.value as Record<string, unknown>;
+      const merged: Record<string, unknown> = { ...current, ...patch };
+      if (merged.prompt === null) {
+        delete merged.prompt;
+      }
+      const checked = validateSubscriptionConfigInput(merged);
+      if (!checked.ok) {
+        validationError(res, checked.message);
+        return;
+      }
+      sendJson(res, 200, updateSubscriptionConfig(store, id, checked.value));
+      return;
+    }
+    sendJson(res, 405, {
+      error: { code: "METHOD_NOT_ALLOWED", message: "use GET, PATCH or DELETE" },
+    });
   };
 
   const serveSend = async (
@@ -3827,6 +3933,11 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        const subs2Match = path.match(/^\/api\/subs2(?:\/([A-Za-z0-9_-]+))?$/);
+        if (subs2Match !== null) {
+          serveSubs2(req.method ?? "GET", subs2Match[1], body, res);
           return;
         }
         if (path === "/api/autoreply" && req.method === "GET") {

@@ -462,17 +462,65 @@ function sanitizeFtsQuery(query: string): string | null {
   return cleaned.length > 0 ? cleaned.join(" ") : null;
 }
 
-export function searchMessages(
-  store: Store,
-  query: string,
-  opts: Pagination & { chatJid?: string } = {},
-): MessageRow[] {
-  const { limit, offset } = clamp(opts.limit, opts.offset);
-  const chatParams: Array<string> = [];
-  let chatClause = "";
+export interface SearchFilter extends Pagination {
+  chatJid?: string;
+  direction?: "in" | "out";
+  fromJid?: string;
+  since?: Date;
+  until?: Date;
+}
+
+interface SqlFragment {
+  sql: string;
+  params: Array<string | number>;
+}
+
+function searchFilterClauses(opts: SearchFilter): SqlFragment {
+  const clauses: string[] = [];
+  const params: Array<string | number> = [];
   if (opts.chatJid !== undefined) {
-    chatClause = " AND m.chat_jid = ?";
-    chatParams.push(opts.chatJid);
+    clauses.push("m.chat_jid = ?");
+    params.push(opts.chatJid);
+  }
+  if (opts.direction !== undefined) {
+    clauses.push("m.is_from_me = ?");
+    params.push(opts.direction === "out" ? 1 : 0);
+  }
+  if (opts.fromJid !== undefined) {
+    clauses.push("m.sender_jid = ?");
+    params.push(opts.fromJid);
+  }
+  if (opts.since !== undefined) {
+    clauses.push("m.timestamp >= ?");
+    params.push(opts.since.toISOString());
+  }
+  if (opts.until !== undefined) {
+    clauses.push("m.timestamp <= ?");
+    params.push(opts.until.toISOString());
+  }
+  return { sql: clauses.map((clause) => ` AND ${clause}`).join(""), params };
+}
+
+function hydrate(store: Store, rows: RawRow[]): MessageRow[] {
+  const messages = rows.map(rowToMessage);
+  attachReactions(store, messages);
+  attachForwarded(messages);
+  attachPolls(store, messages);
+  attachTranscripts(store, messages);
+  return messages;
+}
+
+export function searchMessages(store: Store, query: string, opts: SearchFilter = {}): MessageRow[] {
+  const { limit, offset } = clamp(opts.limit, opts.offset);
+  const filter = searchFilterClauses(opts);
+  if (query.trim().length === 0) {
+    const rows = store.db
+      .prepare(
+        `SELECT m.* FROM messages m WHERE 1 = 1${filter.sql}
+         ORDER BY m.timestamp DESC, m.rowid DESC LIMIT ? OFFSET ?`,
+      )
+      .all(...filter.params, limit, offset) as RawRow[];
+    return hydrate(store, rows);
   }
   const sanitized = sanitizeFtsQuery(query);
   if (sanitized !== null) {
@@ -480,60 +528,32 @@ export function searchMessages(
       const rows = store.db
         .prepare(
           `SELECT m.* FROM messages m JOIN messages_fts f ON m.chat_jid = f.chat_jid AND m.id = f.message_id
-           WHERE messages_fts MATCH ?${chatClause}
+           WHERE messages_fts MATCH ?${filter.sql}
            ORDER BY m.timestamp DESC, m.rowid DESC LIMIT ? OFFSET ?`,
         )
-        .all(sanitized, ...chatParams, limit, offset) as RawRow[];
-      const messages = rows.map(rowToMessage);
-      attachReactions(store, messages);
-      attachForwarded(messages);
-      attachPolls(store, messages);
-      attachTranscripts(store, messages);
-      return messages;
+        .all(sanitized, ...filter.params, limit, offset) as RawRow[];
+      return hydrate(store, rows);
     } catch {
-      return likeFallback(store, query, opts, limit, offset);
+      return likeFallback(store, query, filter, limit, offset);
     }
   }
-  return likeFallback(store, query, opts, limit, offset);
+  return likeFallback(store, query, filter, limit, offset);
 }
 
 function likeFallback(
   store: Store,
   query: string,
-  opts: { chatJid?: string },
+  filter: SqlFragment,
   limit: number,
   offset: number,
 ): MessageRow[] {
-  const pattern = `%${likeEscape(query.trim())}%`;
-  if (pattern === "%%") {
-    return [];
-  }
-  if (opts.chatJid !== undefined) {
-    const rows = store.db
-      .prepare(
-        `SELECT * FROM messages WHERE content LIKE ? ESCAPE '\\' AND chat_jid = ?
-         ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?`,
-      )
-      .all(pattern, opts.chatJid, limit, offset) as RawRow[];
-    const messages = rows.map(rowToMessage);
-    attachReactions(store, messages);
-    attachForwarded(messages);
-    attachPolls(store, messages);
-    attachTranscripts(store, messages);
-    return messages;
-  }
   const rows = store.db
     .prepare(
-      `SELECT * FROM messages WHERE content LIKE ? ESCAPE '\\'
-       ORDER BY timestamp DESC, rowid DESC LIMIT ? OFFSET ?`,
+      `SELECT m.* FROM messages m WHERE m.content LIKE ? ESCAPE '\\'${filter.sql}
+       ORDER BY m.timestamp DESC, m.rowid DESC LIMIT ? OFFSET ?`,
     )
-    .all(pattern, limit, offset) as RawRow[];
-  const messages = rows.map(rowToMessage);
-  attachReactions(store, messages);
-  attachForwarded(messages);
-  attachPolls(store, messages);
-  attachTranscripts(store, messages);
-  return messages;
+    .all(`%${likeEscape(query.trim())}%`, ...filter.params, limit, offset) as RawRow[];
+  return hydrate(store, rows);
 }
 
 export function fetchMessageFromStore(

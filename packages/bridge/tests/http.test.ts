@@ -631,7 +631,7 @@ test("GET /api/context returns the adjacent window including the target", async 
   expect(noParamBody.error.code).toBe("VALIDATION_ERROR");
 });
 
-test("GET /api/search returns matches and requires a query", async () => {
+test("GET /api/search returns matches; no query lists everything", async () => {
   const bridge = await bootWithStore((store) => {
     seedRow(store, "S1", GROUP_A, 1000, "pizza night");
     seedRow(store, "S2", GROUP_B, 2000, "burger time");
@@ -649,9 +649,9 @@ test("GET /api/search returns matches and requires a query", async () => {
   const scopedBody = (await scoped.json()) as { messages: Array<{ id: string }> };
   expect(scopedBody.messages.map((message) => message.id)).toEqual(["S2"]);
   const missing = await fetch(url(bridge, "/api/search"), { headers: authHeader });
-  expect(missing.status).toBe(400);
-  const missingBody = (await missing.json()) as { error: { code: string } };
-  expect(missingBody.error.code).toBe("VALIDATION_ERROR");
+  expect(missing.status).toBe(200);
+  const missingBody = (await missing.json()) as { messages: Array<{ id: string }> };
+  expect(missingBody.messages.map((message) => message.id)).toEqual(["S2", "S1"]);
 });
 
 test("POST /api/send dispatches, persists and returns the message id", async () => {

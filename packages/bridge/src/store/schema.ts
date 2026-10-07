@@ -316,6 +316,19 @@ CREATE TABLE IF NOT EXISTS transcripts (
 ALTER TABLE transcripts ADD COLUMN write_seq INTEGER NOT NULL DEFAULT 0;
 `;
 
+const MIGRATION_V22 = `
+CREATE TABLE IF NOT EXISTS subscription_configs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  chats TEXT NOT NULL DEFAULT '[]',
+  filter TEXT NOT NULL DEFAULT '{}',
+  prompt TEXT,
+  delivery TEXT NOT NULL DEFAULT '{"mode":"inbox"}',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created TEXT NOT NULL
+);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -338,6 +351,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 19, sql: MIGRATION_V19 },
   { version: 20, sql: MIGRATION_V20 },
   { version: 21, sql: MIGRATION_V21 },
+  { version: 22, sql: MIGRATION_V22 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that
