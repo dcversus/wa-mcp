@@ -21,6 +21,7 @@ import {
   guardLoader,
   subscriptionsPageHtml,
   agentConnectHtml,
+  automationsPageHtml,
   replyPreviewHtml,
 } from "./pages.ts";
 import {
@@ -563,6 +564,46 @@ const loaders: {
     });
   },
   connect: async () => agentConnectHtml(),
+  automations: async () => {
+    const [autoreplies, scheduled, sendRules, notifications, chatsPayload] = await Promise.all([
+      client.listAutoreplies().catch(() => ({ autoreplies: [] })),
+      client.listScheduled().catch(() => ({ scheduled: [] })),
+      client.listSendRules().catch(() => ({ rules: [] })),
+      client.notifications().catch(() => ({ rules: [] })),
+      client.getChats().catch(() => ({ chats: [] })) as Promise<{
+        chats?: Array<{ jid: string; name: string | null }>;
+      }>,
+    ]);
+    await loadIdentity();
+    return automationsPageHtml({
+      autoreplies:
+        (autoreplies as { autoreplies?: Parameters<typeof automationsPageHtml>[0]["autoreplies"] })
+          .autoreplies ?? [],
+      scheduled:
+        (scheduled as { scheduled?: Parameters<typeof automationsPageHtml>[0]["scheduled"] })
+          .scheduled ?? [],
+      sendRules:
+        (sendRules as { rules?: Parameters<typeof automationsPageHtml>[0]["sendRules"] }).rules ??
+        [],
+      rules:
+        (
+          notifications as {
+            rules?: Array<{
+              id: string;
+              chat_jid?: string | null;
+              title?: string | null;
+              body?: string | null;
+              pattern?: string | null;
+            }>;
+          }
+        ).rules ?? [],
+      resolveName,
+      chatOptions: (chatsPayload.chats ?? []).map((chat) => ({
+        jid: chat.jid,
+        name: chat.name,
+      })),
+    });
+  },
   health: async () =>
     statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
@@ -605,6 +646,10 @@ function bindRoute(): void {
   }
   if (hash === "#/subscriptions") {
     bindSubscriptionsControls();
+    return;
+  }
+  if (hash === "#/automations") {
+    bindAutomationsControls();
     return;
   }
   if (hash === "#/groups") {
@@ -1205,6 +1250,82 @@ function bindTranscriptionForm(): void {
           hint.textContent = `save failed: ${err instanceof Error ? err.message : String(err)}`;
         }
       });
+  });
+}
+
+function bindAutomationsControls(): void {
+  const confirmDelete = "Remove this automation?";
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-autoreply]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteAutoreply;
+      if (id === undefined || !window.confirm(confirmDelete)) {
+        return;
+      }
+      await client.deleteAutoreply(Number(id)).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-toggle-autoreply]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.toggleAutoreply;
+      const enabled = button.dataset.enabled === "true";
+      if (id === undefined) {
+        return;
+      }
+      await client.toggleAutoreply(Number(id), enabled).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-scheduled]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteScheduled;
+      if (id === undefined || !window.confirm("Cancel this scheduled message?")) {
+        return;
+      }
+      await client.deleteScheduled(Number(id)).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-sendrule]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteSendrule;
+      if (id === undefined || !window.confirm(confirmDelete)) {
+        return;
+      }
+      await client.deleteSendRule(Number(id)).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-rule]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.deleteRule;
+      if (id === undefined || !window.confirm("Delete this notification rule?")) {
+        return;
+      }
+      await client.deleteNotification(id).catch(() => undefined);
+      await renderCurrent();
+    });
+  });
+  const form = document.getElementById("rule-create") as HTMLFormElement | null;
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const chatJid = data.get("chat_jid");
+    const title = data.get("title");
+    const body = data.get("body");
+    const deliver = data.getAll("deliver").filter((v): v is string => typeof v === "string");
+    if (typeof chatJid !== "string" || chatJid.length === 0) {
+      return;
+    }
+    await client
+      .createNotificationRule({
+        chat_jid: chatJid,
+        title: typeof title === "string" ? title : undefined,
+        body: typeof body === "string" ? body : undefined,
+        deliver,
+      })
+      .catch(() => undefined);
+    await renderCurrent();
   });
 }
 

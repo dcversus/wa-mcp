@@ -7,6 +7,7 @@ import {
   settingsHtml,
   statusDashboardHtml,
   agentConnectHtml,
+  automationsPageHtml,
   NAV_TITLES,
 } from "./pages.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
@@ -34,6 +35,7 @@ export type Route =
   | "events"
   | "subscriptions"
   | "connect"
+  | "automations"
   | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
@@ -49,6 +51,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "events", pattern: "events" },
   { route: "subscriptions", pattern: "subscriptions" },
   { route: "connect", pattern: "connect" },
+  { route: "automations", pattern: "automations" },
   { route: "pairing", pattern: "pairing" },
 ];
 
@@ -86,6 +89,14 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   dom.setTitle(`${NAV_TITLES[match.route] ?? "wa-mcp"} · wa-mcp`);
   if (match.route === "connect") {
     dom.setApp(agentConnectHtml());
+    return;
+  }
+  if (match.route === "automations") {
+    const automationsLoader: (params: Record<string, string>) => Promise<string> =
+      loaders.automations ??
+      (async () =>
+        automationsPageHtml({ autoreplies: [], scheduled: [], sendRules: [], rules: [] }));
+    dom.setApp(await automationsLoader({}));
     return;
   }
   if (match.route === "settings") {

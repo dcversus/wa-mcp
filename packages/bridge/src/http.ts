@@ -19,6 +19,7 @@ import {
 } from "./store/send-rules.ts";
 import { deleteTemplate, listTemplates, upsertTemplate } from "./store/templates.ts";
 import { cancelScheduled, listScheduled, scheduleMessage } from "./store/scheduled.ts";
+import { listAutoreplyRules, removeAutoreplyRule, toggleAutoreplyRule } from "./store/autoreply.ts";
 
 import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
@@ -3826,6 +3827,67 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        if (path === "/api/autoreply" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          sendJson(res, 200, {
+            autoreplies: listAutoreplyRules(opts.store).map((rule) => ({
+              id: rule.id,
+              match: rule.match,
+              reply: rule.reply,
+              enabled: rule.enabled === 1,
+              createdAt: rule.createdAt ?? null,
+            })),
+          });
+          return;
+        }
+        const autoreplyToggle = path.match(/^\/api\/autoreply\/(\d+)\/toggle$/);
+        if (autoreplyToggle !== null && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          void (async () => {
+            try {
+              const parsed: unknown = JSON.parse(body.toString("utf8"));
+              const input = parsed as { enabled?: unknown };
+              if (typeof input.enabled !== "boolean") {
+                validationError(res, "enabled must be a boolean");
+                return;
+              }
+              toggleAutoreplyRule(opts.store as Store, Number(autoreplyToggle[1]), input.enabled);
+              sendJson(res, 200, { ok: true, enabled: input.enabled });
+            } catch {
+              validationError(res, "body must be valid JSON");
+            }
+          })();
+          return;
+        }
+        const autoreplyDelete = path.match(/^\/api\/autoreply\/(\d+)$/);
+        if (autoreplyDelete !== null && req.method === "DELETE") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const before = listAutoreplyRules(opts.store).some(
+            (rule) => rule.id === Number(autoreplyDelete[1]),
+          );
+          if (!before) {
+            sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown autoreply rule" } });
+            return;
+          }
+          removeAutoreplyRule(opts.store as Store, Number(autoreplyDelete[1]));
+          sendJson(res, 200, { ok: true, removed: Number(autoreplyDelete[1]) });
           return;
         }
         if (path === "/api/send-rules" && req.method === "GET") {

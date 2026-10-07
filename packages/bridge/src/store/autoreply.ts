@@ -5,6 +5,7 @@ export interface AutoreplyRule {
   match: string;
   reply: string;
   enabled: number;
+  createdAt?: string;
 }
 
 export function addAutoreplyRule(store: Store, rule: { match: string; reply: string }): number {
@@ -16,7 +17,7 @@ export function addAutoreplyRule(store: Store, rule: { match: string; reply: str
 
 export function listAutoreplyRules(store: Store): AutoreplyRule[] {
   return store.db
-    .prepare("SELECT id, match, reply, enabled FROM autoreply_rules ORDER BY id")
+    .prepare("SELECT id, match, reply, enabled, created_at FROM autoreply_rules ORDER BY id")
     .all() as unknown as AutoreplyRule[];
 }
 
