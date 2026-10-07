@@ -38,3 +38,18 @@ manageble via cli, contacts should be avaiable via cli; should be 100% parity
 between web ui and cli; all should be well tested and dodocumented, use
 cantropic claude for refactoring, clear all the rest and unusable /
 unreachable code
+
+---
+
+## Owner clarification (2026-10-07, verbatim — canon)
+
+> how did whatsApp have no API if in web version of whatsapp i am able to
+> work with my contacts and see all of them? something is wrong here. API
+> exists and it should work as expected
+
+Resolution: owner is RIGHT. Companion-device protocol (which WhatsApp Web
+and our Baileys bridge both speak) exposes addOrEditContact/removeContact
+via app-state sync actions; contacts.upsert returns
+{id, name, username, lid, phoneNumber}. Verified in fork source
+(Socket/chats.js addOrEditContact; sync-action-utils.js processContactAction).
+Contacts page = TRUE parity with WhatsApp Web, no local-only hacks.
