@@ -28,21 +28,21 @@ function ours(settings: HooksSettings): string[] {
 test("T155 W3 — two subscriptions wire two hook entries", () => {
   let settings = mergeHooks({}, renderClaudeHooks("sub-a", A));
   settings = mergeHooks(settings, renderClaudeHooks("sub-b", B));
-  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(2);
-  expect(ours(settings).filter((cmd) => cmd.includes("sub-b"))).toHaveLength(2);
+  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(1);
+  expect(ours(settings).filter((cmd) => cmd.includes("sub-b"))).toHaveLength(1);
 });
 
 test("T155 W3 — installing the same subscription twice stays idempotent", () => {
   let settings = mergeHooks({}, renderClaudeHooks("sub-a", A));
   settings = mergeHooks(settings, renderClaudeHooks("sub-a", A));
-  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(2);
+  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(1);
 });
 
 test("T155 W3 — removing one sub keeps the other wired", () => {
   let settings = mergeHooks({}, renderClaudeHooks("sub-a", A));
   settings = mergeHooks(settings, renderClaudeHooks("sub-b", B));
   const cleaned = removeHooks(settings, B);
-  expect(ours(cleaned).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(2);
+  expect(ours(cleaned).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(1);
   expect(ours(cleaned).filter((cmd) => cmd.includes("sub-b"))).toHaveLength(0);
 });
 
@@ -62,5 +62,5 @@ test("T155 W3 — foreign hooks survive wa-mcp installs", () => {
   };
   const settings = mergeHooks(existing, renderClaudeHooks("sub-a", A));
   expect(settings.hooks?.FileChanged?.some((entry) => entry.matcher === "src/**")).toBe(true);
-  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(2);
+  expect(ours(settings).filter((cmd) => cmd.includes("sub-a"))).toHaveLength(1);
 });

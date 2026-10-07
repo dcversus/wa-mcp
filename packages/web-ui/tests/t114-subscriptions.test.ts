@@ -24,7 +24,8 @@ test("hook snippet contains 'wa-mcp inbox drain --inbox <path>' and is HTML-esca
   const evil: SubscriptionRow = { ...row, id: `x"><script>alert(1)</script>` };
   const html = subscriptionsPageHtml([evil]);
   expect(html).not.toContain("<script>alert(1)</script>");
-  expect(html).toContain("wa-mcp inbox drain --inbox ");
+  expect(html).toContain("tail -F ");
+  expect(html).toContain("wa-mcp install --hooks claude --sub x&quot;");
   expect(html).toContain("&lt;script&gt;");
 });
 

@@ -21,11 +21,6 @@ export function renderClaudeHooks(subId: string, inboxPath: string): Record<stri
     FileChanged: [
       {
         matcher: inboxPath,
-        hooks: [{ type: "command", command: drainCommand }],
-      },
-    ],
-    asyncRewake: [
-      {
         hooks: [{ type: "command", command: drainCommand, async: true }],
       },
     ],

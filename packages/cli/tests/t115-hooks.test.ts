@@ -52,14 +52,16 @@ test("install twice is idempotent (exactly one wa-mcp entry per event)", () => {
     installHooksFile(path, ours);
     installHooksFile(path, ours);
     const parsed = JSON.parse(readFileSync(path, "utf8")) as {
-      hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      hooks: Record<string, Array<{ hooks: Array<{ command: string; async?: boolean }> }>>;
     };
     const fileChanged = parsed.hooks.FileChanged ?? [];
     const oursCount = fileChanged.filter((e) =>
       e.hooks.some((h) => h.command.includes(HOOK_MARKER)),
     ).length;
     expect(oursCount).toBe(1);
-    const rewake = parsed.hooks.asyncRewake ?? [];
+    const rewake = (parsed.hooks.FileChanged ?? []).flatMap((entry) =>
+      entry.hooks.filter((hook) => hook.async === true),
+    );
     expect(rewake).toHaveLength(1);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -96,11 +98,6 @@ test("--remove deletes only wa-mcp entries and empty arrays we created; user ent
           hooks: [{ type: "command", command: `wa-mcp inbox drain --inbox ${INBOX}` }],
         },
       ],
-      asyncRewake: [
-        {
-          hooks: [{ type: "command", command: `wa-mcp inbox drain --inbox ${INBOX}`, async: true }],
-        },
-      ],
     },
   };
   const result = removeHooks(existing);
@@ -110,14 +107,13 @@ test("--remove deletes only wa-mcp entries and empty arrays we created; user ent
   expect(result.hooks?.asyncRewake).toBeUndefined();
 });
 
-test("claude render: FileChanged matcher = inbox path; asyncRewake relies on exit 2", () => {
+test("claude render: FileChanged matcher = inbox path; async rewake is a hook option", () => {
   const rendered = renderClaudeHooks("abc123", INBOX);
   const fc = rendered.FileChanged?.[0];
   expect(fc?.matcher).toBe(INBOX);
   expect(fc?.hooks[0]?.command).toContain("wa-mcp inbox drain");
-  const rewake = rendered.asyncRewake?.[0];
-  expect(rewake?.hooks[0]?.async).toBe(true);
-  expect(rewake?.hooks[0]?.command).toContain("wa-mcp inbox drain");
+  expect(fc?.hooks[0]?.async).toBe(true);
+  expect(rendered.asyncRewake).toBeUndefined();
 });
 
 test("codex render + merge guarantees on hooks.json path", () => {

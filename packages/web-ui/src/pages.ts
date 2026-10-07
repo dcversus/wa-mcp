@@ -736,7 +736,14 @@ export function subscriptionsPageHtml(
         : (opts.resolveName?.(sub.chatJid ?? "") ?? sub.chatJid ?? "?");
       return `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
 <div><strong>${escapeHtml(who)}</strong> — new messages${sub.includeMedia ? " · with photos & files" : ""} <details><summary>details</summary><code>${escapeHtml(sub.id)}</code> · <code>${escapeHtml(sub.inboxPath)}</code></details></div>
-<div class="hook-snippet"><code>${escapeHtml(hookSnippet(sub.inboxPath))}</code> <button class="copy-hook" type="button">Copy</button></div>
+<div class="wire">
+<span class="wire-hint">Events are appended to this file; your agent reads them and can reply via MCP tools:</span>
+<code>wa-mcp install --hooks claude --sub ${escapeHtml(sub.id)}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --hooks claude --sub ${escapeHtml(sub.id)}" type="button">Copy</button>
+<code>wa-mcp install --hooks codex --sub ${escapeHtml(sub.id)}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --hooks codex --sub ${escapeHtml(sub.id)}" type="button">Copy</button>
+<code>tail -F ${escapeHtml(sub.inboxPath)}</code> <button class="copy-cmd" data-copy-cmd="tail -F ${escapeHtml(sub.inboxPath)}" type="button">Copy</button>
+<button class="test-event" data-test-sub="${escapeHtml(sub.id)}" type="button">Send test event</button>
+<span class="test-status" data-test-status="${escapeHtml(sub.id)}" aria-live="polite"></span>
+</div>
 <button class="delete-subscription danger" type="button" data-sub-id="${escapeHtml(sub.id)}">Stop watching</button>
 </li>`;
     })
@@ -771,7 +778,7 @@ export function subscriptionsPageHtml(
             const subIdsAttr =
               subIds.length > 0 ? ` data-sub-ids="${escapeHtml(subIds.join(","))}"` : "";
             return `<li class="sub-chat-row" data-chat-jid="${escapeHtml(chat.jid)}"${subIdsAttr}>
-<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${checked ? " checked" : ""}${disabled ? " disabled" : ""} /> <span class="avatar">${escapeHtml(initials(chat.name ?? chat.jid))}</span> <span class="chat-name">${escapeHtml(chat.name ?? chat.jid)}</span> <code class="inbox-path">${escapeHtml(chat.jid)}</code></label>
+<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${checked ? " checked" : ""}${disabled ? " disabled" : ""} /> <span class="avatar">${escapeHtml(initials(chat.name ?? chat.jid))}</span> <span class="chat-name" dir="auto">${escapeHtml(chat.name ?? chat.jid)}</span>${chat.unreadCount > 0 ? ` <span class="unread-badge">${chat.unreadCount}</span>` : ""}</label>
 </li>`;
           })
           .join("")}</ul>`

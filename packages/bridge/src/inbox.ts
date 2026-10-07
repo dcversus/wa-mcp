@@ -10,7 +10,7 @@ export interface InboxEvent {
   media: boolean;
   id?: string;
   chatName?: string | null;
-  senderName?: string | null;
+  fromName?: string | null;
   fromMe?: boolean;
 }
 

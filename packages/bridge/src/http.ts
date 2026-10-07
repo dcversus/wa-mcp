@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { BaileysEventMap, AnyMessageContent, proto, WAMessage } from "baileys";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join, resolve, sep } from "node:path";
@@ -518,6 +519,16 @@ export async function createHttpServer(
     EXCHANGE_RATE.capacity,
     EXCHANGE_RATE.refillPerMinute,
   );
+  const testEventLimiters = new Map<string, ReturnType<typeof createRateLimiter>>();
+  const testLimiterFor = (id: string) => {
+    const existing = testEventLimiters.get(id);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const limiter = createRateLimiter(1, 6);
+    testEventLimiters.set(id, limiter);
+    return limiter;
+  };
   const subscriptions = (() => {
     if (opts.subscriptionsDir === undefined || opts.store === undefined) {
       return null;
@@ -592,7 +603,7 @@ export async function createHttpServer(
                 .prepare("SELECT name, pushname FROM contacts WHERE jid = ?")
                 .get(fromJid) as { name: string | null; pushname: string | null } | undefined)
             : undefined;
-        const senderName =
+        const fromName =
           (typeof event.payload.pushName === "string" && event.payload.pushName.length > 0
             ? event.payload.pushName
             : null) ??
@@ -636,7 +647,7 @@ export async function createHttpServer(
               media,
               id: typeof upsert.key.id === "string" ? upsert.key.id : undefined,
               chatName: chatName?.name ?? null,
-              senderName,
+              fromName,
               fromMe: false,
             });
           }
@@ -3706,6 +3717,77 @@ export async function createHttpServer(
               subscriptionDir(opts.subscriptionsDir as string, sub.id),
               "inbox.jsonl",
             ),
+          });
+          return;
+        }
+        const subTest = path.match(/^\/api\/subscriptions\/([a-z0-9-]+)\/test$/);
+        if (subTest !== null && req.method === "POST") {
+          if (opts.store === undefined || subscriptions === null) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
+            });
+            return;
+          }
+          const subId = subTest[1] as string;
+          const target = listSubscriptions(opts.store as Store).find((sub) => sub.id === subId);
+          if (target === undefined) {
+            sendJson(res, 404, {
+              error: { code: "NOT_FOUND", message: "unknown subscription" },
+            });
+            return;
+          }
+          const gate = testLimiterFor(subId).hit(ip, now());
+          if (!gate.ok) {
+            sendJson(
+              res,
+              429,
+              {
+                error: { code: "RATE_LIMITED", message: "one test event per 10s per subscription" },
+              },
+              { "retry-after": String(gate.retryAfterSeconds) },
+            );
+            return;
+          }
+          const subscriptionsApi = subscriptions as unknown as {
+            writer: (id: string) => {
+              append(event: {
+                ts: string;
+                kind: string;
+                chat: string;
+                from: string;
+                text: string;
+                media: boolean;
+              }): void;
+              dropped(): number;
+            };
+          };
+          const inboxWriter = subscriptionsApi.writer(subId);
+          inboxWriter.append({
+            ts: new Date().toISOString(),
+            kind: "test",
+            chat: target.chatJid ?? "",
+            from: "wa-mcp",
+            text: "test event — if you can read this, the wiring works",
+            media: false,
+          });
+          const inboxFilePath = join(
+            subscriptionDir(opts.subscriptionsDir as string, subId),
+            "inbox.jsonl",
+          );
+          let totalLines = 0;
+          try {
+            totalLines = readFileSync(inboxFilePath, "utf8")
+              .split("\n")
+              .filter((line) => line.length > 0).length;
+          } catch {
+            totalLines = 0;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            appended: true,
+            inboxPath: inboxFilePath,
+            totalLines,
+            dropped: inboxWriter.dropped(),
           });
           return;
         }

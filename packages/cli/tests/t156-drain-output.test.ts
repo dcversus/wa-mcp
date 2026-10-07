@@ -23,8 +23,8 @@ test("T156 W5 — exit 2 carries one stderr line per event with id and names", (
     const state = join(dir, "cursor");
     writeFileSync(
       inbox,
-      eventLine({ id: "M1", chatName: "Test group", senderName: "Dana" }) +
-        eventLine({ id: "M2", chatName: "Test group", senderName: "Lena", text: "second" }),
+      eventLine({ id: "M1", chatName: "Test group", fromName: "Dana" }) +
+        eventLine({ id: "M2", chatName: "Test group", fromName: "Lena", text: "second" }),
     );
     const result = drainInbox(inbox, state);
     expect(result.exit).toBe(2);
@@ -34,7 +34,7 @@ test("T156 W5 — exit 2 carries one stderr line per event with id and names", (
     expect(result.lines?.[0]).toContain("Dana");
     expect(result.lines?.[0]).toContain("M1");
     expect(result.lines?.[1]).toContain("M2");
-    expect(result.hint).toContain("list_messages");
+    expect(result.hint).toBe("use list_messages chat_jid=120363428874442773@g.us to read more");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

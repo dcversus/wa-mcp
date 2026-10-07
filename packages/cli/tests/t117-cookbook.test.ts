@@ -52,11 +52,12 @@ test("hook shapes in the doc match renderClaudeHooks/renderCodexHooks output", (
   const inbox = "/home/u/.wa-mcp/subs/abc/inbox.jsonl";
   const claude = renderClaudeHooks("abc", inbox);
   expect(claude.FileChanged?.[0]?.matcher).toBe(inbox);
-  expect(claude.asyncRewake?.[0]?.hooks[0]?.async).toBe(true);
+  expect(claude.FileChanged?.[0]?.hooks[0]?.async).toBe(true);
+  expect(claude.asyncRewake).toBeUndefined();
   const codex = renderCodexHooks("abc", inbox);
   expect(codex.FileChanged?.[0]?.matcher).toBe(inbox);
   expect(doc).toContain("FileChanged");
-  expect(doc).toContain("asyncRewake");
+  expect(doc).toContain("async");
   expect(doc).toContain("wa-mcp inbox drain");
   expect(doc).toContain("exit `2`");
 });

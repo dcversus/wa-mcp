@@ -34,6 +34,13 @@ export interface ApiClient {
   groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
   groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
+  testSubscription(id: string): Promise<{
+    ok: boolean;
+    appended: boolean;
+    inboxPath: string;
+    totalLines: number;
+    dropped: number;
+  }>;
   logout(): Promise<unknown>;
   listSubscriptions(): Promise<{ subscriptions: unknown[] }>;
   getConfig(): Promise<{
@@ -202,6 +209,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
+    testSubscription: (id) =>
+      jsonCall(`/api/subscriptions/${encodeURIComponent(id)}/test`, { method: "POST" }),
     logout: () => jsonCall("/api/logout", { method: "POST" }),
     listSubscriptions: () => jsonCall("/api/subscriptions"),
     getConfig: () => jsonCall("/api/config"),

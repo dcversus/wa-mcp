@@ -331,12 +331,12 @@ test("T154 W2 — the inbox line carries id, names and fromMe", async () => {
     const line = JSON.parse(lines[0] as string) as {
       id?: string;
       chatName?: string | null;
-      senderName?: string | null;
+      fromName?: string | null;
       fromMe?: boolean;
     };
     expect(line.id).toBe("3EBENRICH");
     expect(line.chatName).toBe("Test group");
-    expect(line.senderName).toBe("Dana P");
+    expect(line.fromName).toBe("Dana P");
     expect(line.fromMe).toBe(false);
     await bridge.close();
     store.close();

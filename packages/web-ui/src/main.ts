@@ -546,7 +546,7 @@ const loaders: {
       chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
     };
     const chatRows = (chatsPayload.chats ?? [])
-      .filter((c) => typeof c.jid === "string" && !c.jid.endsWith("@lid"))
+      .filter((c) => typeof c.jid === "string")
       .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
     const [notifications] = await Promise.all([
       client.notifications().catch(() => ({ rules: [] })),
@@ -1364,6 +1364,31 @@ function bindSubscriptionsControls(): void {
       include_media: data.get("include_media") === "on",
     });
     await renderCurrent();
+  });
+  document.querySelectorAll<HTMLButtonElement>(".test-event").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.testSub;
+      if (id === undefined) {
+        return;
+      }
+      const status = document.querySelector(`[data-test-status="${id}"]`) as HTMLElement | null;
+      if (status !== null) {
+        status.textContent = "sending…";
+      }
+      try {
+        const result = await client.testSubscription(id);
+        if (status !== null) {
+          status.textContent = `test delivered ✓ · ${result.totalLines} events · ${result.dropped} dropped`;
+        }
+      } catch (err) {
+        if (status !== null) {
+          status.textContent =
+            err instanceof Error && err.message.includes("429")
+              ? "one test per 10s — try again in a moment"
+              : `couldn't send: ${err instanceof Error ? err.message : "unknown error"}`;
+        }
+      }
+    });
   });
   document.querySelectorAll<HTMLButtonElement>("[data-delete-rule]").forEach((button) => {
     button.addEventListener("click", async () => {

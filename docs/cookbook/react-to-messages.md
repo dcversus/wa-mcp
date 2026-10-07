@@ -17,7 +17,7 @@ wa-mcp install --hooks claude --sub <subscription-id>
 is written first):
 
 - a `FileChanged` watch on the subscription's inbox file
-- an `asyncRewake` command hook that runs `wa-mcp inbox drain` in the
+- the same `FileChanged` hook runs `wa-mcp inbox drain` with `async: true` in the
   background; when new events arrive the drain exits `2`, which wakes Claude
   with the new-event summary as a system reminder — Claude then REACTS.
 

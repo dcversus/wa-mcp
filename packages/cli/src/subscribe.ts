@@ -121,7 +121,7 @@ export function drainInbox(inboxPath: string, statePath: string): DrainResult {
     text: string;
     id?: string;
     chatName?: string | null;
-    senderName?: string | null;
+    fromName?: string | null;
   }> = [];
   for (const line of lines) {
     const lineStart = byteOffset;
@@ -135,7 +135,7 @@ export function drainInbox(inboxPath: string, statePath: string): DrainResult {
         text: string;
         id?: string;
         chatName?: string | null;
-        senderName?: string | null;
+        fromName?: string | null;
       };
       newLines.push(parsed);
     } catch {
@@ -158,11 +158,11 @@ export function drainInbox(inboxPath: string, statePath: string): DrainResult {
     summary: `${newLines.length} new: ${first.chat}: ${snippet}`,
     lines: newLines.slice(0, DRAIN_LINE_CAP).map((event) => {
       const who = event.chatName ?? event.chat;
-      const sender = event.senderName ?? "";
+      const sender = event.fromName ?? "";
       const id = event.id ?? "";
       return `${who}${sender.length > 0 ? ` — ${sender}` : ""}${id.length > 0 ? ` · ${id}` : ""}: ${event.text.slice(0, 60)}`;
     }),
     stream: "stderr",
-    hint: `more: list_messages chat_jid="${last.chat}"`,
+    hint: `use list_messages chat_jid=${last.chat} to read more`,
   };
 }
