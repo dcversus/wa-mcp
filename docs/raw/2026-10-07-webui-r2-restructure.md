@@ -127,3 +127,13 @@ bridge port — signals "WhatsApp bridge" to tooling, unassigned by
 IANA, free locally, and replacement-positioning: WPPConnect users
 get a drop-in URL). 8080 remains supported via --port/PORT for
 existing installs; migration note in docs.
+
+## Port decision update (2026-10-08, owner)
+
+Owner picked 27777 after 424242 (invalid — TCP max 65535) and 21465.
+Verified: valid port, IANA-unassigned (27505-27781 block unassigned),
+free on this machine. Known user: PowerJob worker (Java scheduler,
+mostly China-deployed, rare on macOS dev machines). Adjacent to
+claude-mem's 37777 but distinct. ACCEPTED as the new default:
+DEFAULT PORT = 27777 (was 8080). 8080 remains supported via
+--port/PORT for compatibility; migration note in docs.
