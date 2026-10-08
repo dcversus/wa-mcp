@@ -21,7 +21,7 @@ test("the desktop path never requires a terminal to pair", () => {
 });
 
 test("the UI pages the doc names all exist", () => {
-  for (const name of ["chats", "subscriptions", "settings", "pairing"]) {
+  for (const name of ["contacts", "subscriptions", "settings", "pairing"]) {
     const present =
       pages.includes(`id: "${name}"`) ||
       pages.includes(`id="${name}"`) ||

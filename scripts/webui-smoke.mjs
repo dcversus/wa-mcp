@@ -215,39 +215,41 @@ if (!settingsApp.includes('id="bridge-url"') || !settingsApp.includes('id="token
 console.log(`#/settings form rendered: ok`);
 
 const nav = await evaluate(`document.getElementById("nav")?.innerHTML ?? ""`);
-if (!nav.includes("#/chats")) fail("nav is empty");
+if (!nav.includes("#/contacts")) fail("nav is empty");
 console.log(`nav rendered: ok (${nav.length} chars)`);
 
-// ---- T54: tokenless #/chats renders the inline token form on the SAME
-// route (no redirect); with a stored token the chats page renders.
-await goto(`${bridgeUrl}/#/chats`);
+// ---- T54: tokenless #/contacts renders on the SAME route (no redirect,
+// no token wall); with a stored token the contacts page renders too.
+const isContactsOrPairing = (html) =>
+  html.includes("contacts-page") || html.includes('id="pairing"');
+await goto(`${bridgeUrl}/#/contacts`);
 const inlineForm = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 const inlineHash = await evaluate(`location.hash`);
 if (inlineForm.includes('id="settings-form"') || inlineForm.includes('id="token"'))
-  fail("#/chats still shows a token form (T54 revised: the ephemeral UI token authenticates)");
-if (!inlineForm.includes("chat-list") && !inlineForm.includes("chats-page"))
-  fail(`#/chats did not render the chats page tokenless: ${inlineForm.slice(0, 120)}`);
-if (!String(inlineHash).startsWith("#/chats"))
-  fail(`#/chats redirected away to ${inlineHash} (T54 no-redirect contract)`);
-console.log(`#/chats tokenless → chats page via UI token, hash stays: ok (hash=${inlineHash})`);
+  fail("#/contacts still shows a token form (T54 revised: the ephemeral UI token authenticates)");
+if (!isContactsOrPairing(inlineForm))
+  fail(`#/contacts did not render tokenless: ${inlineForm.slice(0, 120)}`);
+if (!String(inlineHash).startsWith("#/contacts"))
+  fail(`#/contacts redirected away to ${inlineHash} (T54 no-redirect contract)`);
+console.log(`#/contacts tokenless → page via UI token, hash stays: ok (hash=${inlineHash})`);
+await goto(`${bridgeUrl}/#/chats`);
+const redirected = await evaluate(`location.hash`);
+if (redirected !== "#/contacts") fail(`#/chats should redirect to #/contacts, got ${redirected}`);
+console.log(`#/chats redirects to #/contacts: ok`);
 await evaluate(
   `localStorage.setItem("wa-mcp-settings", JSON.stringify({ bridgeUrl: "${bridgeUrl}", token: "${sessionToken}" }))`,
 );
-await goto(`${bridgeUrl}/#/chats`);
-let chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+await goto(`${bridgeUrl}/#/contacts`);
+let contactsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 for (let attempt = 0; attempt < 10; attempt += 1) {
-  if (chatsPage.includes("chat-list") || chatsPage.includes("chats-page")) break;
+  if (isContactsOrPairing(contactsPage)) break;
   await new Promise((resolve) => setTimeout(resolve, 500));
-  chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
+  contactsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 }
-console.log(`stored settings: ${await evaluate(`localStorage.getItem("wa-mcp-settings")`)}`);
-console.log(`#/chats app html (pre-reload): ${chatsPage.slice(0, 120)}`);
-await goto(`${bridgeUrl}/#/chats`);
-chatsPage = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
-console.log(`#/chats app html (post-reload): ${chatsPage.slice(0, 120)}`);
-if (!chatsPage.includes("chat-list") && !chatsPage.includes("chats-page"))
-  fail(`#/chats with a stored token did not render the chats page: ${chatsPage.slice(0, 120)}`);
-console.log(`#/chats with stored token renders the page: ok`);
+console.log(`#/contacts app html: ${contactsPage.slice(0, 120)}`);
+if (!isContactsOrPairing(contactsPage))
+  fail(`#/contacts with a stored token did not render: ${contactsPage.slice(0, 120)}`);
+console.log(`#/contacts with stored token renders the page: ok`);
 for (const line of pageDiagnostics.slice(-12)) {
   console.log(`diag: ${line}`);
 }

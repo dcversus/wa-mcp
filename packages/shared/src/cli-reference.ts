@@ -23,15 +23,15 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     name: "chats",
     group: "whatsapp",
     usage: "chats [--q <text>] [--limit <n>]",
-    summary: "your chats with unread counts (the web UI's Chats page)",
-    web: "#/chats",
+    summary: "your chats with unread counts — find a chat id for send, messages or subs",
+    web: "#/subscriptions",
   },
   {
     name: "send",
     group: "whatsapp",
     usage: "send --chat <jid|phone> --text <text> [--reply-to <message-id>]",
     summary: "send a message — humanisation and send limits apply",
-    web: "#/chats",
+    web: "#/contacts",
   },
   {
     name: "messages",
@@ -47,7 +47,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     usage: "media download <message-id> | media transcribe <message-id>",
     summary: "save a message's photo, video, voice note or document; transcribe a voice note",
     actions: ["download", "transcribe"],
-    web: "#/chats",
+    web: "#/contacts",
   },
   {
     name: "contacts",

@@ -222,7 +222,7 @@ export interface LinkGateDecision {
 
 export function firstRunGate(input: LinkGateInput): LinkGateDecision {
   if (!input.loggedIn) {
-    const renderPairing = input.hash === "" || input.hash === "#/" || input.hash === "#/chats";
+    const renderPairing = input.hash === "" || input.hash === "#/" || input.hash === "#/contacts";
     return {
       renderPairing,
       banner: !renderPairing && input.hash !== "#/pairing",

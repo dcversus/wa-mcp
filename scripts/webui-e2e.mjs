@@ -1,12 +1,14 @@
 /** T67 E2E use-case gate: headless Chrome over CDP against a LIVE daemon.
- * Happy path: chats render → open chat → type + click send → sent bubble
- * appears → composer clears. Zero console errors required.
- * Usage: node scripts/webui-e2e.mjs [bridgeUrl] [chromePath]
- * ('vp run webui-e2e' wraps it; the daemon must be up and paired, and the
- * target chat must exist in the store.) */
+ * Happy path: Contacts renders → search the target → open its chat from the
+ * contact row → type + click send → sent bubble appears → composer clears.
+ * Zero console errors required.
+ * Usage: node scripts/webui-e2e.mjs [bridgeUrl] [chromePath] [contact search]
+ * ('vp run webui-e2e' wraps it; the daemon must be up and paired.) The
+ * target defaults to the linked account's own number — the probe lands in
+ * "Message yourself", never in someone else's chat. */
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 
@@ -121,8 +123,8 @@ async function evalInPage(expression) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// T93-C3: mirrors web-ui/src/preflight.ts retryUntil — poll instead of a
-// fixed sleep so a slow first render / daemon blip doesn't fail the run
+// T93-C3: poll instead of a fixed sleep so a slow first render / daemon
+// blip doesn't fail the run
 const retryUntil = async (check, { attempts, delayMs }) => {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     if (await check()) {
@@ -146,21 +148,28 @@ const sessionId = attach.result.sessionId;
 await cdp("Runtime.enable");
 await cdp("Page.enable");
 await cdp("Network.enable");
-await cdp("Page.navigate", { url: `${bridgeUrl}/#/chats` });
+const tokenPath = join(process.env.WA_MCP_HOME ?? join(homedir(), ".wa-mcp"), "token");
+const apiToken = existsSync(tokenPath) ? readFileSync(tokenPath, "utf8").trim() : "";
+const me = await fetch(`${bridgeUrl}/api/me`, { headers: { authorization: `Bearer ${apiToken}` } })
+  .then((res) => (res.ok ? res.json() : null))
+  .catch(() => null);
+const contactQuery = process.argv[4] ?? me?.pn ?? null;
+
+await cdp("Page.navigate", { url: `${bridgeUrl}/#/contacts` });
 
 const failures = [];
 
-// 1. chats page renders with the expected structure (retried — C3)
+// 1. contacts page renders with the expected structure (retried — C3)
 const rendered = await retryUntil(
   async () => {
     const html = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
-    return typeof html === "string" && html.includes("chats-page");
+    return typeof html === "string" && html.includes("contacts-page");
   },
   { attempts: 12, delayMs: 500 },
 );
 if (!rendered) {
-  const chatsHtml = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
-  failures.push(`#/chats did not render: ${String(chatsHtml).slice(0, 120)}`);
+  const contactsHtml = await evalInPage(`document.getElementById("app")?.innerHTML ?? ""`);
+  failures.push(`#/contacts did not render: ${String(contactsHtml).slice(0, 120)}`);
 }
 
 // send leg only proves something on a CONNECTED daemon (health retried — C3)
@@ -172,15 +181,52 @@ if (!connected) {
   console.log("send leg skipped: daemon not connected (pair first) — structural checks only");
 }
 
-// 2. open the first chat with rows, else synthesize via the first li
-const chatLink = await evalInPage(
-  `document.querySelector("#chats-page .chat-list li[data-jid]:not([data-archived])")?.getAttribute("data-jid") ?? null`,
-);
-if (chatLink === null) {
-  failures.push("no open chat row found in the list — cannot drive the chat use case");
+// 2. search the contact list, then open the chat from the contact row
+let chatLink = null;
+if (contactQuery === null) {
+  failures.push("no contact to search: pass one as the 3rd argument or link WhatsApp first");
 } else {
-  await evalInPage(`location.hash = "#/chat/${encodeURIComponent(chatLink)}"`);
-  await sleep(1500);
+  const unchecked = await evalInPage(
+    `(() => { const saved = document.querySelector("#contact-search input[name=saved]"); if (saved === null || !saved.checked) return false; saved.click(); return true; })()`,
+  );
+  if (unchecked === true) {
+    await retryUntil(
+      async () =>
+        (await evalInPage(
+          `document.querySelector("#contact-search input[name=saved]")?.checked === false`,
+        )) === true,
+      { attempts: 12, delayMs: 300 },
+    );
+  }
+  await evalInPage(
+    `const box = document.querySelector("#contact-search input[name=q]");
+     box.value = ${JSON.stringify(contactQuery)};
+     box.dispatchEvent(new Event("input"));`,
+  );
+  await retryUntil(
+    async () =>
+      (await evalInPage(
+        `document.querySelector("#contacts-list .contact-open") !== null && document.querySelector("#contact-search input[name=q]")?.value === ${JSON.stringify(contactQuery)}`,
+      )) === true,
+    { attempts: 12, delayMs: 500 },
+  );
+  chatLink = await evalInPage(
+    `(() => { const link = document.querySelector("#contacts-list .contact-open"); if (link === null) return null; const href = link.getAttribute("href"); link.click(); return href; })()`,
+  );
+}
+if (chatLink === null) {
+  failures.push(`no contact row matched '${contactQuery}' — cannot drive the chat use case`);
+} else {
+  const opened = await retryUntil(
+    async () =>
+      (await evalInPage(
+        `location.hash === ${JSON.stringify(chatLink)} && document.querySelector("#app .send-box") !== null`,
+      )) === true,
+    { attempts: 12, delayMs: 500 },
+  );
+  if (!opened) {
+    failures.push(`contact row did not open the chat view (${chatLink})`);
+  }
 
   // 3. type into the composer and click send
   const typed = `e2e probe ${Date.now()}`;
@@ -238,6 +284,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(
-  "webui-e2e PASS: chats → open chat → send → bubble visible → composer cleared, zero console errors",
+  "webui-e2e PASS: contacts → search → open chat from the row → send → bubble visible → composer cleared, zero console errors",
 );
 process.exit(0);

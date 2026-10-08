@@ -28,7 +28,6 @@ export interface ApiClient {
   addContact(input: { name: string; phone: string; username?: string }): Promise<unknown>;
   renameContact(jid: string, name: string): Promise<unknown>;
   removeContact(jid: string): Promise<unknown>;
-  syncContacts(): Promise<unknown>;
   connections(): Promise<unknown>;
   disconnectConnection(kind: string, agent: string, sub?: string): Promise<unknown>;
   testSubscription(id: string): Promise<{
@@ -210,7 +209,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     updateSubscription: (id, patch) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
     sessions: () => jsonCall("/api/sessions"),
-    syncContacts: () => jsonCall("/api/contacts/sync", { method: "POST" }),
     connectionSettings: () => jsonCall("/api/connection-settings"),
     saveConnectionSettings: (body) =>
       jsonCall("/api/connection-settings", { method: "PUT", json: body }),

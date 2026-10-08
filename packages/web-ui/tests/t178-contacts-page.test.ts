@@ -95,14 +95,13 @@ test("T178 B3 row — every interpolated value is escaped", () => {
   expect(html).not.toContain("<b>");
 });
 
-test("T178 B3 page — search (q), count, saved toggle, honest sync copy, new-contact form", () => {
+test("T178 B3 page — search (q), count, saved toggle, new-contact form", () => {
   const html = contactsPageHtml({ contacts: [DANA, ERIK], total: 2, query: "", saved: false });
   expect(html).toContain('id="contact-search"');
   expect(html).toContain('name="q"');
   expect(html).toContain('type="search"');
   expect(html).toContain('<span id="contacts-count">2 contacts</span>');
   expect(html).toContain('name="saved"');
-  expect(html).toContain("Changes sync to your WhatsApp account, like WhatsApp Web.");
   expect(html).toContain('id="contact-new"');
   expect(html).toContain('name="name"');
   expect(html).toContain('name="phone"');
@@ -122,12 +121,12 @@ test("T178 B3 page — count reflects totals beyond the page and the singular", 
   );
 });
 
-test("T178 B3 page — empty states: no match offers clear; empty roster explains the sync", () => {
+test("T178 B3 page — empty states: no match offers clear; empty roster fills automatically", () => {
   const miss = contactsPageHtml({ contacts: [], total: 0, query: "zz<", saved: false });
   expect(miss).toContain("No contacts match “zz&lt;”");
   expect(miss).toContain('id="clear-contacts-search"');
   const empty = contactsPageHtml({ contacts: [], total: 0, query: "", saved: false });
-  expect(empty).toContain("No contacts yet. They appear once your phone syncs.");
+  expect(empty).toContain("No contacts yet. Contacts appear automatically as you chat.");
 });
 
 test("T178 B3 page — a write error renders as an alert banner", () => {

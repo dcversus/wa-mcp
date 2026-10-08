@@ -1,34 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
-import { chatListHtml, initials, notFoundHtml, profilePageHtml } from "../src/pages.ts";
+import { initials, notFoundHtml, profilePageHtml } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
 
 describe("T67 layout pass", () => {
-  test("chat rows render avatar initials + name + time + preview + badge", () => {
-    const html = chatListHtml([
-      {
-        jid: "120363428874442773@g.us",
-        name: "Test group",
-        unreadCount: 2,
-        lastMessage: { text: "hello", timestamp: "2026-10-03T09:31:00.000Z" },
-      },
-    ]);
-    expect(html).toContain('class="avatar"');
-    expect(html).toContain(">TG<");
-    expect(html).toContain('class="chat-main"');
-    expect(html).toContain('class="unread-badge"');
-    expect(html).toMatch(/<time class="chat-time">[^<]+<\/time>/);
-    expect(html).toContain("hello");
-  });
-
   test("initials derives up-to-two leading characters", () => {
     expect(initials("Test group")).toBe("TG");
     expect(initials("vasilisa")).toBe("V");
     expect(initials("")).toBe("?");
-  });
-
-  test("empty chat list renders a human empty state", () => {
-    const html = chatListHtml([], {});
-    expect(html).toContain("No chats yet");
   });
 });
 
@@ -54,13 +32,13 @@ describe("T67 empty states + 404", () => {
     expect(populated).toContain('id="contacts-list"');
     expect(populated).toContain('data-rename-contact="1@s.whatsapp.net"');
     const empty = contactsPageHtml({ contacts: [], total: 0, query: "", saved: true });
-    expect(empty).toContain("No contacts yet. They appear once your phone syncs.");
+    expect(empty).toContain("No contacts yet. Contacts appear automatically as you chat.");
   });
 
   test("404 is friendly with a link home", () => {
     const html = notFoundHtml("#/nope");
     expect(html).toContain("#/nope");
-    expect(html).toContain('href="#/chats"');
+    expect(html).toContain('href="#/contacts"');
   });
 });
 

@@ -45,6 +45,11 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "help", pattern: "help" },
 ];
 
+const REDIRECTS: Partial<Record<Route, string>> = {
+  status: "#/connection",
+  chats: "#/contacts",
+};
+
 export type RouteLoaders = Partial<
   Record<Route, (params: Record<string, string>) => Promise<string>>
 >;
@@ -60,8 +65,9 @@ export interface RenderFrameIo {
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const { dom, settings, loaders } = io;
   const match = resolveRoute(dom.getHash(), ROUTES);
-  if (match?.route === "status") {
-    dom.setHash("#/connection");
+  const redirect = match === null ? undefined : REDIRECTS[match.route];
+  if (redirect !== undefined) {
+    dom.setHash(redirect);
     return;
   }
   dom.setNav(navHtml(match?.route ?? ""));

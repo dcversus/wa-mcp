@@ -52,7 +52,7 @@ test("no token + #/pairing renders the pairing FLOW — never a token wall (T53)
     settings: NO_TOKEN,
     loaders: {
       pairing: async () => '<section id="pairing" class="pane pane-methods">QR</section>',
-      chats: boom("chats"),
+      contacts: boom("contacts"),
     },
     pairingView: () => ({
       pane: "methods",
@@ -66,7 +66,7 @@ test("no token + #/pairing renders the pairing FLOW — never a token wall (T53)
   expect(state.appHtml).toContain("pane-methods");
   expect(state.appHtml).not.toContain('id="settings-form"');
   expect(state.appHtml).not.toContain('id="token"');
-  expect(state.navHtml).toContain("#/chats");
+  expect(state.navHtml).toContain("#/contacts");
 });
 
 test("no token + #/settings renders the form without touching the hash", async () => {
@@ -74,24 +74,24 @@ test("no token + #/settings renders the form without touching the hash", async (
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
-    loaders: { chats: boom("chats") },
+    loaders: { contacts: boom("contacts") },
   });
   expect(state.appHtml).toContain('id="settings-form"');
   expect(state.hashChanges).toBe(0);
 });
 
-test("no token + #/chats renders the chats page via the ephemeral UI token (T54 revised)", async () => {
-  const state = fakeDom("#/chats");
+test("no token + #/contacts renders the contacts page via the ephemeral UI token (T54 revised)", async () => {
+  const state = fakeDom("#/contacts");
   await renderFrame({
     dom: state.io.dom,
     settings: NO_TOKEN,
     loaders: {
-      chats: async () => '<section id="chats-page"><ul class="chat-list"></ul></section>',
+      contacts: async () => '<section id="contacts-page"><ul id="contacts-list"></ul></section>',
     },
   });
   expect(state.hashChanges).toBe(0);
-  expect(state.hash).toBe("#/chats");
-  expect(state.appHtml).toContain("chat-list");
+  expect(state.hash).toBe("#/contacts");
+  expect(state.appHtml).toContain("contacts-list");
   expect(state.appHtml).not.toContain('id="settings-form"');
   expect(state.appHtml).not.toContain("cat ~");
 });
@@ -103,7 +103,7 @@ test("nav is populated on every render", async () => {
     settings: WITH_TOKEN,
     loaders: { connection: async () => "<dl>ok</dl>" },
   });
-  expect(state.navHtml).toContain("#/chats");
+  expect(state.navHtml).toContain("#/contacts");
   expect(state.navHtml).toContain("#/settings");
 });
 

@@ -73,13 +73,13 @@ curl -X POST -H "Authorization: Bearer $(cat ~/.wa-mcp/token)" \
 
 ## Web UI
 
-| Symptom                                        | Cause                                                                                | Fix                                                                   |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Stale chats or messages                        | The SSE stream dropped and the page is holding old state                             | Hard reload (Cmd+Shift+R). EventSource reconnects by itself.          |
-| Media bubbles render broken                    | The daemon restarted, so the UI token in `?token=` is stale                          | Reload; the UI fetches a new token.                                   |
-| `missing or invalid bearer token` on `#/chats` | `WA_UI_BOOTSTRAP=0` is set and the browser has no stored token                       | Paste the account token into UI settings, or unset `WA_UI_BOOTSTRAP`. |
-| 403 `FORBIDDEN_HOST`                           | The UI was opened through a non-loopback hostname (port-forward, LAN IP, custom DNS) | Open `http://127.0.0.1:8080/`. Remote access isn't supported.         |
-| The old UI bundle shows after a build          | Browser cache                                                                        | Hard reload; the bridge replaces bundles whose hash changed.          |
+| Symptom                                           | Cause                                                                                | Fix                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Stale chats or messages                           | The SSE stream dropped and the page is holding old state                             | Hard reload (Cmd+Shift+R). EventSource reconnects by itself.          |
+| Media bubbles render broken                       | The daemon restarted, so the UI token in `?token=` is stale                          | Reload; the UI fetches a new token.                                   |
+| `missing or invalid bearer token` on `#/contacts` | `WA_UI_BOOTSTRAP=0` is set and the browser has no stored token                       | Paste the account token into UI settings, or unset `WA_UI_BOOTSTRAP`. |
+| 403 `FORBIDDEN_HOST`                              | The UI was opened through a non-loopback hostname (port-forward, LAN IP, custom DNS) | Open `http://127.0.0.1:8080/`. Remote access isn't supported.         |
+| The old UI bundle shows after a build             | Browser cache                                                                        | Hard reload; the bridge replaces bundles whose hash changed.          |
 
 ## CLI and daemon
 

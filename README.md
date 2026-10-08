@@ -2,7 +2,7 @@
 
 WhatsApp as a local MCP server: a **single-user daemon** (Baileys session,
 Node ≥22.5, zero runtime deps in the core) exposing **74 MCP tools** over
-stdio and HTTP, with a built-in web UI — chats, logs, contacts, agent
+stdio and HTTP, with a built-in web UI — logs, contacts, agent
 connections, subscriptions, profile, connection settings and help — and a
 `wa-mcp` CLI with the same capabilities.
 
@@ -35,11 +35,12 @@ Requires Node ≥22.5 (`node:sqlite`). Full per-platform setup:
   contacts + aliases + labels, profile/privacy/blocklist, newsletters,
   autoreply, notification rules, subscriptions with agent inbox files,
   media understanding (transcribe/TTS, document reading), export.
-- **Web UI** — pairing (QR + phone code + copy link), chats with media
-  bubbles and day separators, unread inbox, contacts/aliases, groups,
-  native-style profile page (your name/phone/about, editable, privacy
-  controls), subscriptions manager with per-chat toggles + filter, live
-  events feed, status dashboard. Served by the bridge at
+- **Web UI** — Logs (every message in and out, filters, live tail; a chat
+  name opens the conversation), Contacts (your WhatsApp contacts, edited
+  exactly like WhatsApp Web; a contact opens the conversation, with media
+  bubbles and replies), Connections, Subscriptions, Profile (name, about,
+  privacy, blocked), Connection (link by QR or phone code, today's stats,
+  humanisation and send limits) and Help. Served by the bridge at
   `http://127.0.0.1:8080/`.
 - **Safety floor** — loopback bind, bearer auth (401 matrix), 1 MB body
   cap, rate limits, daily send cap + `WA_SENDS_DISABLED` kill switch,

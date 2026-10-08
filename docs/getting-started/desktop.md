@@ -26,9 +26,10 @@ polls and flips to the connected state by itself.
 
 ## 4. Use it
 
-- `#/chats` — browse history, send messages
-- `#/logs` — every message in and out, with filters and live tail
-- `#/contacts` — your WhatsApp contacts; add, rename, remove, sync
+- `#/logs` — every message in and out, with filters and live tail; click a
+  chat name to open the conversation
+- `#/contacts` — your WhatsApp contacts; add, rename, remove (exactly like
+  WhatsApp Web); click a contact to read and send in `#/chat/<jid>`
 - `#/connections` — the agents wired to this WhatsApp, with disconnect
 - `#/subscriptions` — choose which messages reach your agent and how
   (inbox file, agent session or a new agent each time)

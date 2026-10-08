@@ -144,12 +144,14 @@ const inspectExpr = `JSON.stringify({
 const routes = [
   ["#/ (root)", "location.hash = '#/'; location.reload()"],
   ["#/pairing", "location.hash = '#/pairing'"],
-  ["#/chats", "location.hash = '#/chats'"],
   ["#/chat/<jid>", "location.hash = '#/chat/' + encodeURIComponent('351930017568@s.whatsapp.net')"],
   ["#/contacts", "location.hash = '#/contacts'"],
   ["#/profile", "location.hash = '#/profile'"],
-  ["#/groups", "location.hash = '#/groups'"],
-  ["#/events", "location.hash = '#/events'"],
+  ["#/logs", "location.hash = '#/logs'"],
+  ["#/subscriptions", "location.hash = '#/subscriptions'"],
+  ["#/connections", "location.hash = '#/connections'"],
+  ["#/connection", "location.hash = '#/connection'"],
+  ["#/help", "location.hash = '#/help'"],
   ["#/settings", "location.hash = '#/settings'"],
   ["#/nonexistent", "location.hash = '#/definitely-not-a-route'"],
 ];

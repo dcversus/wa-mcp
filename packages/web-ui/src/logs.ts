@@ -172,7 +172,7 @@ export function logRowHtml(row: LogRow, input: LogsPageInput): string {
     ? '<span class="dir-badge dir-out">⬆ out</span>'
     : '<span class="dir-badge dir-in">⬇ in</span>';
   const absolute = new Date(row.timestamp).toLocaleString();
-  return `<tr data-log-id="${escapeHtml(row.id)}"><td><time datetime="${escapeHtml(row.timestamp)}" title="${escapeHtml(absolute)}">${escapeHtml(formatRelative(row.timestamp, input.now))}</time></td><td>${badge}</td><td>${escapeHtml(chatLabel(row.chatJid, input))}</td><td>${escapeHtml(senderLabel(row, input))}</td><td class="snippet">${escapeHtml(snippet.slice(0, 200))}</td></tr>`;
+  return `<tr data-log-id="${escapeHtml(row.id)}"><td><time datetime="${escapeHtml(row.timestamp)}" title="${escapeHtml(absolute)}">${escapeHtml(formatRelative(row.timestamp, input.now))}</time></td><td>${badge}</td><td><a href="#/chat/${encodeURIComponent(row.chatJid)}">${escapeHtml(chatLabel(row.chatJid, input))}</a></td><td>${escapeHtml(senderLabel(row, input))}</td><td class="snippet">${escapeHtml(snippet.slice(0, 200))}</td></tr>`;
 }
 
 function pickerHtml(

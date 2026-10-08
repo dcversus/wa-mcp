@@ -19,8 +19,8 @@ interface Capability {
 
 const MATRIX: Capability[] = [
   {
-    capability: "list chats",
-    web: { route: "#/chats", api: ["getChats"] },
+    capability: "list chats (subscription chat picker, log chat filter)",
+    web: { route: "#/subscriptions", api: ["getChats"] },
     cli: { command: "chats" },
   },
   {
@@ -85,7 +85,7 @@ const MATRIX: Capability[] = [
   },
   {
     capability: "sync contacts from chats",
-    web: { route: "#/contacts", api: ["syncContacts"] },
+    web: { uiOnly: "automatic in the background — no button" },
     cli: { command: "contacts", action: "sync" },
   },
   {

@@ -29,7 +29,7 @@ test("T178 C — deleted routes render the not-found page with the way home, no 
     ).toBe(false);
     const app = calls.find((call) => call.app !== undefined)?.app ?? "";
     expect(app, hash).toContain("Page not found");
-    expect(app, hash).toContain('href="#/chats"');
+    expect(app, hash).toContain('href="#/contacts"');
   }
 });
 

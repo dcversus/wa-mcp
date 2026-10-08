@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { chatListHtml, messageListHtml, navHtml, profilePageHtml } from "../src/pages.ts";
+import { messageListHtml, navHtml, profilePageHtml } from "../src/pages.ts";
 import { contactsPageHtml, type ContactView } from "../src/contacts.ts";
 
 const ONE_CONTACT: ContactView = {
@@ -17,7 +17,6 @@ const contactsPage = (): string =>
 
 test("T168 P5 — every page has exactly one h1", () => {
   for (const [name, html] of [
-    ["chats", chatListHtml([{ jid: "a@g.us", name: "A", unreadCount: 0 }], {})],
     ["contacts", contactsPage()],
     ["profile", profilePageHtml({ blocklist: [], privacy: {} })],
   ] as Array<[string, string]>) {
@@ -27,8 +26,6 @@ test("T168 P5 — every page has exactly one h1", () => {
 });
 
 test("T168 P5 — inputs carry aria-labels", () => {
-  const chats = chatListHtml([], {});
-  expect(chats).toContain('aria-label="Search chats"');
   const contacts = contactsPage();
   expect(contacts).toContain('aria-label="Search contacts"');
   const chat = messageListHtml("c", [
@@ -61,7 +58,7 @@ test("T168 P5 — message text is direction-aware", () => {
 });
 
 test("T168 P5 — the nav highlights the active page with aria-current", () => {
-  const html = navHtml("chats");
+  const html = navHtml("contacts");
   expect(html).toContain('aria-current="page"');
   expect(html.match(/aria-current="page"/g)).toHaveLength(1);
 });

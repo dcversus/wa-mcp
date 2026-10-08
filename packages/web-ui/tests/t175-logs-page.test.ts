@@ -162,7 +162,7 @@ test("T175 A2 — table renders time (relative + absolute title), direction badg
   );
   expect(html).toContain('<span class="dir-badge dir-in">⬇ in</span>');
   expect(html).toContain('<span class="dir-badge dir-out">⬆ out</span>');
-  expect(html).toContain("<td>Family</td>");
+  expect(html).toContain(`<td><a href="#/chat/${encodeURIComponent(GROUP)}">Family</a></td>`);
   expect(html).toContain("<td>Alice</td>");
   expect(html).toContain("<td>You</td>");
   expect(html).toContain("&lt;b&gt;where&lt;/b&gt; are you?");

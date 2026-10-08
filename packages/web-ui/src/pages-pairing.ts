@@ -98,7 +98,7 @@ export function pairingHtml(view: PairingView): string {
       : "";
   const head = `<h2>Pairing</h2>${intro}<p class="hint">${METHOD_HINT}</p>`;
   if (view.pane === "paired") {
-    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">Linked to <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/chats">Chats</a></p><p><button id="unlink-device" class="danger" type="button">Unlink this computer</button></p><p class="hint">unpairing signs this computer out of WhatsApp — you will need to scan the QR again</p><p class="hint">Next: choose which messages reach your agent in <a href="#/subscriptions">Subscriptions</a> — <a href="#/help">Help</a> walks through connecting an agent.</p></section>`;
+    return `<section id="pairing" class="pane pane-paired">${head}<p class="ok">Linked to <strong>${escapeHtml(view.me ?? "this device")}</strong> — head to <a href="#/contacts">Contacts</a></p><p><button id="unlink-device" class="danger" type="button">Unlink this computer</button></p><p class="hint">unpairing signs this computer out of WhatsApp — you will need to scan the QR again</p><p class="hint">Next: choose which messages reach your agent in <a href="#/subscriptions">Subscriptions</a> — <a href="#/help">Help</a> walks through connecting an agent.</p></section>`;
   }
   if (view.pane === "error") {
     return `<section id="pairing" class="pane pane-error">${head}<p class="danger">Couldn't link your phone: ${escapeHtml(view.error ?? "unknown error")}</p><button id="pairing-retry" type="button">try again</button></section>`;

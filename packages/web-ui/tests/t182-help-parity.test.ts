@@ -1,8 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { CLI_COMMANDS, CLI_GROUP_LABELS } from "../../shared/src/cli-reference.ts";
 import { renderFrame, ROUTES, type AppDom } from "../src/app.ts";
-import { createApiClient } from "../src/api.ts";
-import { contactsPageHtml, contactsSyncSummary } from "../src/contacts.ts";
 import { escapeHtml } from "../src/escape.ts";
 import { helpPageHtml } from "../src/help.ts";
 import { navHtml } from "../src/pages.ts";
@@ -155,46 +153,6 @@ test("T182 C router — the route table after the R2 cleanup", () => {
   for (const gone of ["#/groups", "#/connect", "#/unread", "#/events", "#/automations"]) {
     expect(resolveRoute(gone, ROUTES), gone).toBeNull();
   }
-});
-
-test("T182 B contacts — Sync button and the sync summary notice", () => {
-  const html = contactsPageHtml({
-    contacts: [],
-    total: 0,
-    query: "",
-    saved: true,
-    notice: "Synced <3>",
-  });
-  expect(html).toContain('<button id="contacts-sync" type="button">Sync from chats</button>');
-  expect(html).toContain('<p class="save-flash ok" role="status">Synced &lt;3&gt;</p>');
-  expect(
-    contactsSyncSummary({
-      fromChats: 4,
-      fromSenders: 2,
-      mergedLids: 1,
-      removedNonPersons: 0,
-      removedEmpty: 3,
-      unresolvedLids: 0,
-      total: 120,
-    }),
-  ).toBe(
-    "Synced: 4 from chats, 2 from message senders, 1 duplicate merged, 3 empty rows removed — 120 contacts",
-  );
-});
-
-test("T182 B contacts — the client posts to /api/contacts/sync", async () => {
-  const calls: Array<{ path: string; method: string }> = [];
-  const client = createApiClient({
-    baseUrl: "http://h",
-    token: "t",
-    onUnauthorized: () => {},
-    fetchFn: (async (input: string, init?: RequestInit) => {
-      calls.push({ path: String(input).replace("http://h", ""), method: init?.method ?? "GET" });
-      return Response.json({ total: 1 });
-    }) as unknown as typeof fetch,
-  });
-  await client.syncContacts();
-  expect(calls).toEqual([{ path: "/api/contacts/sync", method: "POST" }]);
 });
 
 test("T182 B profile — Block a number accepts a phone number and turns it into a WhatsApp id", () => {

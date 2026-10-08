@@ -20,7 +20,6 @@ export function emptyState(text: string): string {
 }
 
 const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
-  { id: "chats", label: "Chats", href: "#/chats" },
   { id: "logs", label: "Logs", href: "#/logs" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "connections", label: "Connections", href: "#/connections" },
@@ -32,7 +31,6 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
 ];
 
 export const NAV_TITLES: Record<string, string> = {
-  chats: "Chats",
   chat: "Chat",
   logs: "Logs",
   contacts: "Contacts",
@@ -47,7 +45,7 @@ export const NAV_TITLES: Record<string, string> = {
 
 export function navHtml(active: string, version = "0.9.0"): string {
   const groups: Array<{ label: string; keys: string[] }> = [
-    { label: "Messages", keys: ["chats", "logs"] },
+    { label: "Messages", keys: ["logs"] },
     { label: "People", keys: ["contacts"] },
     { label: "Agent", keys: ["connections", "subscriptions"] },
     { label: "Me", keys: ["profile"] },
@@ -257,73 +255,6 @@ export function statusCardHtml(
     : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
 }
 
-export interface ChatSummaryView {
-  jid: string;
-  name: string | null;
-  unreadCount: number;
-}
-
-export function chatListHtml(
-  chats: Array<
-    ChatSummaryView & {
-      lastMessage?: { text: string | null; timestamp?: string | null } | null;
-      archived?: boolean;
-    }
-  >,
-  opts: {
-    showArchived?: boolean;
-    query?: string;
-    syncing?: boolean;
-    filter?: "all" | "unread" | "groups" | "archived";
-  } = {},
-): string {
-  const filter = opts.filter ?? "all";
-  const tabs = (["all", "unread", "groups", "archived"] as const)
-    .map(
-      (tab) =>
-        `<button class="chat-tab${filter === tab ? " active" : ""}" data-chat-filter="${tab}" type="button">${tab === "all" ? "All" : tab === "unread" ? "Unread" : tab === "groups" ? "Groups" : "Archived"}</button>`,
-    )
-    .join("");
-  if (chats.length === 0) {
-    const note =
-      opts.syncing === true
-        ? `<div class="spinner"></div><p>Syncing your chats from your phone… keep WhatsApp open on your phone</p>`
-        : emptyState("No chats yet. They appear here once your phone finishes syncing.");
-    return `<section id="chats-page"><h1>Chats</h1><nav class="chat-tabs" aria-label="Chat filters">${tabs}</nav><form id="chat-search"><input name="query" placeholder="Search chats" aria-label="Search chats" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> Show archived chats</label>${note}</section>`;
-  }
-  const visible = chats.filter((chat) => {
-    if (filter === "unread") {
-      return chat.unreadCount > 0;
-    }
-    if (filter === "groups") {
-      return chat.jid.endsWith("@g.us");
-    }
-    if (filter === "archived") {
-      return chat.archived === true;
-    }
-    return true;
-  });
-  const shown = visible
-    .map((chat) => {
-      const badge =
-        chat.unreadCount > 0 ? `<span class="unread-badge">${chat.unreadCount}</span>` : "";
-      const preview = chat.lastMessage?.text ?? "";
-      const time =
-        chat.lastMessage?.timestamp !== undefined && chat.lastMessage.timestamp !== null
-          ? `<time class="chat-time">${escapeHtml(formatWhen(chat.lastMessage.timestamp))}</time>`
-          : "";
-      const archivedTag = chat.archived ? ' data-archived="1"' : "";
-      const name = chat.name ?? chat.jid;
-      return `<li${archivedTag} data-jid="${escapeHtml(chat.jid)}"><a href="#/chat/${escapeHtml(chat.jid)}"><span class="avatar">${escapeHtml(initials(name))}</span><span class="chat-main"><span class="chat-top"><span class="chat-name" dir="auto">${escapeHtml(name)}</span>${time}</span><span class="chat-preview" dir="auto">${escapeHtml(preview)}</span></span>${badge}</a></li>`;
-    })
-    .join("");
-  const emptyNote =
-    shown.length === 0
-      ? emptyState(filter === "unread" ? "Nothing unread" : "No chats match this filter")
-      : "";
-  return `<section id="chats-page"><h1>Chats</h1><nav class="chat-tabs" aria-label="Chat filters">${tabs}</nav><form id="chat-search"><input name="query" placeholder="Search chats" aria-label="Search chats" value="${escapeHtml(opts.query ?? "")}" /></form><label class="archived-toggle check-row"><input type="checkbox" id="archived-toggle"${opts.showArchived ? " checked" : ""} /> Show archived chats</label><ul class="chat-list${opts.showArchived || filter === "archived" ? "" : " hide-archived"}">${shown}</ul>${emptyNote}</section>`;
-}
-
 export interface MessageView {
   id: string;
   chatJid: string;
@@ -503,7 +434,7 @@ ${all
  * same route (no redirect loop) with the exact recovery hint. */
 
 export function notFoundHtml(route: string): string {
-  return `<section id="not-found" class="pane"><h2>Page not found</h2><p>The route <code>${escapeHtml(route)}</code> does not exist.</p><p><a href="#/chats">Go to chats</a></p></section>`;
+  return `<section id="not-found" class="pane"><h2>Page not found</h2><p>The route <code>${escapeHtml(route)}</code> does not exist.</p><p><a href="#/contacts">Go to contacts</a></p></section>`;
 }
 
 /** Inline send-failure banner (T67): escaped engine message + dismiss. */

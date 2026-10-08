@@ -5,7 +5,6 @@ import { healthWithRetry } from "./preflight.ts";
 import {
   bridgeDownBanner,
   chatErrorHtml,
-  chatListHtml,
   contextViewHtml,
   profilePageHtml,
   messageListHtml,
@@ -18,8 +17,6 @@ import {
   CONTACTS_PAGE_SIZE,
   contactsPageHtml,
   contactRenameFormHtml,
-  contactsSyncSummary,
-  type ContactsSyncResult,
   validateNewContact,
   type ContactView,
 } from "./contacts.ts";
@@ -352,8 +349,6 @@ function stopStatusLive(): void {
 }
 
 // ---- chat experience state (T51-B)
-let chatsShowArchived = false;
-let chatsFilter: "all" | "unread" | "groups" | "archived" = "all";
 let identityContacts: Record<string, string | null> = {};
 const resolveName = (jid: string): string | null => {
   const viaIdentity = displayName(jid, identityContacts);
@@ -365,7 +360,6 @@ async function loadIdentity(): Promise<void> {
     (payload.contacts ?? []).map((contact) => [contact.jid, contact.displayName]),
   );
 }
-let chatSearchQuery = "";
 let contactsQuery = "";
 let contactsSavedOnly = true;
 let contactsError: string | undefined;
@@ -461,7 +455,9 @@ async function renderCurrent(): Promise<void> {
 }
 
 const loaders: {
-  [R in Exclude<Route, "status" | "help">]: (params: Record<string, string>) => Promise<string>;
+  [R in Exclude<Route, "status" | "chats" | "help">]: (
+    params: Record<string, string>,
+  ) => Promise<string>;
 } = {
   logs: async () => {
     const [payload, chatsPayload] = await Promise.all([
@@ -496,6 +492,18 @@ const loaders: {
     });
   },
   contacts: async () => {
+    const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
+    const contactsWarm = (health as { contactsWarm?: unknown }).contactsWarm !== false;
+    const gate = firstRunGate({
+      loggedIn: health.loggedIn === true,
+      contactsWarm,
+      chatCount: 0,
+      hash: "#/contacts",
+    });
+    if (gate.renderPairing) {
+      await refreshPairing();
+      return pairingHtml({ ...pairingView, intro: PAIRING_INTRO });
+    }
     const payload = (await client.contacts({
       q: contactsQuery,
       saved: contactsSavedOnly,
@@ -510,6 +518,7 @@ const loaders: {
       total: payload.total ?? payload.contacts?.length ?? 0,
       query: contactsQuery,
       saved: contactsSavedOnly,
+      syncing: gate.syncing,
       ...(error !== undefined ? { error } : {}),
       ...(notice !== undefined ? { notice } : {}),
     });
@@ -526,39 +535,6 @@ const loaders: {
       privacy: (privacy as { privacy?: Record<string, string> }).privacy ?? {},
     });
     return page;
-  },
-  chats: async () => {
-    const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
-    const contactsWarm = (health as { contactsWarm?: unknown }).contactsWarm !== false;
-    if (
-      firstRunGate({
-        loggedIn: health.loggedIn === true,
-        contactsWarm,
-        chatCount: 0,
-        hash: "#/chats",
-      }).renderPairing
-    ) {
-      await refreshPairing();
-      return pairingHtml({
-        ...pairingView,
-        intro: PAIRING_INTRO,
-      });
-    }
-    const payload = (await client.getChats()) as {
-      chats: Parameters<typeof chatListHtml>[0];
-    };
-    const gate = firstRunGate({
-      loggedIn: health.loggedIn === true,
-      contactsWarm,
-      chatCount: payload.chats.length,
-      hash: "#/chats",
-    });
-    return chatListHtml(payload.chats, {
-      showArchived: chatsShowArchived,
-      query: chatSearchQuery,
-      syncing: gate.syncing,
-      filter: chatsFilter,
-    });
   },
   chat: async (params) => {
     const payload = (await client.getMessages(params.jid ?? "", 50)) as {
@@ -665,11 +641,6 @@ function bindRoute(): void {
     }
     return;
   }
-  if (kind === "chats-list") {
-    bindChatClicks();
-    bindChatsControls();
-    return;
-  }
   if (hash === "#/contacts") {
     bindContactsControls();
     return;
@@ -706,14 +677,6 @@ function bindRoute(): void {
     bindSettingsForm();
     bindTranscriptionForm();
   }
-}
-
-function bindChatClicks(): void {
-  document.querySelectorAll("#app li[data-jid]").forEach((item) => {
-    item.addEventListener("click", () => {
-      location.hash = `#/chat/${encodeURIComponent((item as HTMLElement).dataset.jid ?? "")}`;
-    });
-  });
 }
 
 function showBridgeDownBanner(bridgeUrl: string): void {
@@ -784,6 +747,7 @@ function bindSendBox(): void {
 async function contactWrite(action: () => Promise<unknown>): Promise<void> {
   try {
     await action();
+    contactsNotice = "Saved";
     await loadIdentity().catch(() => undefined);
   } catch (err) {
     contactsError = err instanceof Error ? err.message : "could not update the contact";
@@ -792,14 +756,6 @@ async function contactWrite(action: () => Promise<unknown>): Promise<void> {
 }
 
 function bindContactsControls(): void {
-  document.getElementById("contacts-sync")?.addEventListener("click", async () => {
-    try {
-      contactsNotice = contactsSyncSummary((await client.syncContacts()) as ContactsSyncResult);
-    } catch (err) {
-      contactsError = err instanceof Error ? err.message : "contacts sync failed";
-    }
-    await renderCurrent();
-  });
   const search = document.querySelector<HTMLInputElement>("#contact-search input[name=q]");
   const rerenderKeepingFocus = async (): Promise<void> => {
     await renderCurrent();
@@ -1072,29 +1028,6 @@ function bindConnectionControls(): void {
     } catch (err) {
       showConnectionStatus(err instanceof Error ? err.message : "save failed", false);
     }
-  });
-}
-
-function bindChatsControls(): void {
-  document.querySelectorAll<HTMLButtonElement>(".chat-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const value = tab.dataset.chatFilter as typeof chatsFilter;
-      if (value === "archived") {
-        chatsShowArchived = true;
-      }
-      chatsFilter = value;
-      void renderCurrent();
-    });
-  });
-  document.getElementById("chat-search")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    chatSearchQuery = (document.querySelector("#chat-search input[name=query]") as HTMLInputElement)
-      .value;
-    void renderCurrent();
-  });
-  document.getElementById("archived-toggle")?.addEventListener("change", (event) => {
-    chatsShowArchived = (event.currentTarget as HTMLInputElement).checked;
-    void renderCurrent();
   });
 }
 

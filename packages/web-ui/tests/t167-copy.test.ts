@@ -1,18 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { subscriptionsPageHtml } from "../src/subscriptions.ts";
-import { chatListHtml, messageListHtml, profilePageHtml, settingsHtml } from "../src/pages.ts";
+import { messageListHtml, profilePageHtml, settingsHtml } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
-
-test("T167 P4 — chats page copy", () => {
-  const empty = chatListHtml([], {});
-  expect(empty).toContain("Search chats");
-  expect(empty).toContain("Show archived chats");
-  const list = chatListHtml([{ jid: "a@g.us", name: "A", unreadCount: 0 }], { filter: "all" });
-  expect(list).toContain("All");
-  expect(list).toContain("Unread");
-  expect(list).toContain("Groups");
-  expect(list).toContain("Archived");
-});
 
 test("T167 P4 — contacts copy: Rename, human search", () => {
   const html = contactsPageHtml({

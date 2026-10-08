@@ -16,7 +16,7 @@ export function resolveRoute<R extends string>(
 ): RouteMatch<R> | null {
   const clean = hash.replace(LEADING_HASH, "");
   if (clean.length === 0) {
-    return resolveRoute("#/chats", routes);
+    return resolveRoute("#/contacts", routes);
   }
   for (const route of routes) {
     const patternParts = route.pattern.split("/").filter((part) => part.length > 0);
@@ -43,12 +43,9 @@ export function resolveRoute<R extends string>(
   return null;
 }
 
-export type RouteKind = "chats-list" | "chat-view" | "other";
+export type RouteKind = "chat-view" | "other";
 
 export function routeKind(hash: string): RouteKind {
-  if (hash === "#/chats") {
-    return "chats-list";
-  }
   if (hash.startsWith("#/chat/")) {
     return "chat-view";
   }

@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { firstRunGate } from "../src/state.ts";
-import { chatListHtml } from "../src/pages.ts";
+import { contactsPageHtml } from "../src/contacts.ts";
 import { pairingHtml } from "../src/pages-pairing.ts";
 
 test("T150 F3 — an unpaired user on #/ gets the pairing pane", () => {
@@ -11,9 +11,9 @@ test("T150 F3 — an unpaired user on #/ gets the pairing pane", () => {
   });
 });
 
-test("T150 F3 — an unpaired user on #/chats gets the pairing pane", () => {
+test("T150 F3 — an unpaired user on #/contacts gets the pairing pane", () => {
   expect(
-    firstRunGate({ loggedIn: false, contactsWarm: true, chatCount: 5, hash: "#/chats" }),
+    firstRunGate({ loggedIn: false, contactsWarm: true, chatCount: 5, hash: "#/contacts" }),
   ).toEqual({ renderPairing: true, banner: false, syncing: false });
 });
 
@@ -26,21 +26,21 @@ test("T150 F3 — unpaired on any other route: page renders with a link banner",
   ).toEqual({ renderPairing: false, banner: false, syncing: false });
 });
 
-test("T150 F3 — paired but store cold: chats show a syncing state, not a dead end", () => {
+test("T150 F3 — paired but store cold: contacts show a loading state, not a dead end", () => {
   expect(
-    firstRunGate({ loggedIn: true, contactsWarm: false, chatCount: 0, hash: "#/chats" }),
+    firstRunGate({ loggedIn: true, contactsWarm: false, chatCount: 0, hash: "#/contacts" }),
   ).toEqual({ renderPairing: false, banner: false, syncing: true });
 });
 
 test("T150 F3 — paired and warm: no gate anywhere", () => {
   expect(
-    firstRunGate({ loggedIn: true, contactsWarm: true, chatCount: 3, hash: "#/chats" }),
+    firstRunGate({ loggedIn: true, contactsWarm: true, chatCount: 3, hash: "#/contacts" }),
   ).toEqual({ renderPairing: false, banner: false, syncing: false });
 });
 
-test("T150 F3 — the syncing empty state tells the user history is coming", () => {
-  const html = chatListHtml([], { syncing: true });
-  expect(html).toContain("Syncing your chats from your phone");
+test("T150 F3 — the loading empty state tells the user contacts are coming", () => {
+  const html = contactsPageHtml({ contacts: [], total: 0, query: "", saved: true, syncing: true });
+  expect(html).toContain("Loading your contacts from your phone");
   expect(html).not.toContain("they appear after your first message");
 });
 

@@ -19,6 +19,7 @@ export interface ContactsPageView {
   saved: boolean;
   error?: string;
   notice?: string;
+  syncing?: boolean;
 }
 
 export interface NewContactInput {
@@ -70,7 +71,9 @@ export function contactsPageHtml(view: ContactsPageView): string {
       ? ""
       : view.query.length > 0
         ? `<p class="empty">No contacts match “${escapeHtml(view.query)}” — <button id="clear-contacts-search" type="button">Clear search</button></p>`
-        : emptyState("No contacts yet. They appear once your phone syncs.");
+        : view.syncing === true
+          ? `<div class="spinner"></div><p>Loading your contacts from your phone… keep WhatsApp open on your phone</p>`
+          : emptyState("No contacts yet. Contacts appear automatically as you chat.");
   const notice =
     view.notice === undefined
       ? ""
@@ -81,35 +84,7 @@ export function contactsPageHtml(view: ContactsPageView): string {
       : `<div class="error-banner" role="alert">⚠ ${escapeHtml(view.error)}</div>`;
   const search = `<form id="contact-search" role="search"><input type="search" name="q" placeholder="Search name, username or number" aria-label="Search contacts" autocomplete="off" value="${escapeHtml(view.query)}" /><label class="check-row"><input type="checkbox" name="saved" value="true"${view.saved ? " checked" : ""} /> only saved contacts</label>${count}</form>`;
   const form = `<details class="contact-new"><summary>New contact</summary><form id="contact-new"><label>Name<input name="name" required autocomplete="off" /></label><label>Phone<input name="phone" type="tel" required placeholder="+358 40 123 4567" pattern="\\+[0-9 ()-]{8,20}" /></label><label>Username (optional)<input name="username" autocomplete="off" /></label><button class="primary" type="submit">Save contact</button></form></details>`;
-  return `<section id="contacts-page"><h1>Contacts</h1><p class="hint">Changes sync to your WhatsApp account, like WhatsApp Web. <button id="contacts-sync" type="button">Sync from chats</button></p>${notice}${error}${search}${form}<ul id="contacts-list">${view.contacts.map(contactRowHtml).join("")}</ul>${capped}${empty}</section>`;
-}
-
-export interface ContactsSyncResult {
-  fromChats?: number;
-  fromSenders?: number;
-  mergedLids?: number;
-  removedNonPersons?: number;
-  removedEmpty?: number;
-  unresolvedLids?: number;
-  total?: number;
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
-export function contactsSyncSummary(sync: ContactsSyncResult): string {
-  const parts = [
-    `${sync.fromChats ?? 0} from chats`,
-    `${sync.fromSenders ?? 0} from message senders`,
-  ];
-  if ((sync.mergedLids ?? 0) > 0) {
-    parts.push(plural(sync.mergedLids ?? 0, "duplicate merged", "duplicates merged"));
-  }
-  if ((sync.removedEmpty ?? 0) > 0) {
-    parts.push(plural(sync.removedEmpty ?? 0, "empty row removed", "empty rows removed"));
-  }
-  return `Synced: ${parts.join(", ")} — ${plural(sync.total ?? 0, "contact", "contacts")}`;
+  return `<section id="contacts-page"><h1>Contacts</h1>${notice}${error}${search}${form}<ul id="contacts-list">${view.contacts.map(contactRowHtml).join("")}</ul>${capped}${empty}</section>`;
 }
 
 export function validateNewContact(raw: {

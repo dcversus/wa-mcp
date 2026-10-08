@@ -23,7 +23,7 @@ test("T165 P2 — unknown routes highlight nothing in the nav", async () => {
 });
 
 test("T165 P2 — the nav is Messages / People / Agent / Me / System", () => {
-  const html = navHtml("chats");
+  const html = navHtml("logs");
   expect(html).toContain("Messages");
   expect(html).toContain("People");
   expect(html).toContain("Agent");

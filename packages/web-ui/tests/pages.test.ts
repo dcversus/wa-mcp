@@ -2,7 +2,6 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   bridgeDownBanner,
   chatErrorHtml,
-  chatListHtml,
   contextViewHtml,
   messageListHtml,
   navHtml,
@@ -10,18 +9,6 @@ import {
   settingsHtml,
 } from "../src/pages.ts";
 import { connectionPageHtml } from "../src/connection.ts";
-
-test("chatListHtml renders chats with unread badges", () => {
-  const html = chatListHtml([
-    { jid: "a@g.us", name: "Alpha", unreadCount: 3, lastMessage: null },
-    { jid: "b@g.us", name: "Beta", unreadCount: 0, lastMessage: null },
-  ]);
-  expect(html).toContain("Alpha");
-  expect(html).toContain('data-jid="a@g.us"');
-  expect(html).toContain('<span class="unread-badge">3</span>');
-  expect(html).not.toContain('<span class="unread-badge">0</span>');
-  expect(html).toContain("Beta");
-});
 
 test("messageListHtml renders messages with sender and text", () => {
   const html = messageListHtml("g@g.us", [
@@ -58,9 +45,9 @@ test("settingsHtml renders inputs for bridge url and token", () => {
 });
 
 test("sidebar nav lists the full section set with active state (T51)", () => {
-  const html = navHtml("chats");
+  const html = navHtml("contacts");
   for (const section of [
-    "Chats",
+    "Logs",
     "Contacts",
     "Connections",
     "Subscriptions",
@@ -70,7 +57,8 @@ test("sidebar nav lists the full section set with active state (T51)", () => {
   ]) {
     expect(html).toContain(section);
   }
-  expect(html).toContain('class="active" aria-current="page" data-nav="chats"');
+  expect(html).toContain('class="active" aria-current="page" data-nav="contacts"');
+  expect(html).not.toContain(">Chats<");
 });
 
 test("connection page renders health fields with escaping (T51)", () => {
@@ -95,27 +83,6 @@ test("connection page renders health fields with escaping (T51)", () => {
 });
 
 describe("T51-B chats", () => {
-  test("chatListHtml shows preview, timestamp, archived toggle and search; escapes names", () => {
-    const html = chatListHtml(
-      [
-        {
-          jid: "1@s.whatsapp.net",
-          name: "<script>x</script>",
-          unreadCount: 2,
-          lastMessage: { text: "yo", timestamp: "2026-10-02T10:00:00Z" },
-        },
-        { jid: "2@g.us", name: "Arch", unreadCount: 0, archived: true },
-      ],
-      { showArchived: false },
-    );
-    expect(html).toContain('id="chat-search"');
-    expect(html).toContain('id="archived-toggle"');
-    expect(html).toContain("&lt;script&gt;");
-    expect(html).not.toContain("<script>x</script>");
-    expect(html).toContain("yo");
-    expect(html).toContain('data-archived="1"');
-  });
-
   test("messageListHtml renders media labels, polls, quotes, reactions; escapes text", () => {
     const html = messageListHtml("1@s.whatsapp.net", [
       {
