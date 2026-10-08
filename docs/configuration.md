@@ -33,6 +33,39 @@ BYOK config file `~/.wa-mcp/config.json` (see cookbook → media understanding).
 | `WA_DAILY_CAP`      | `200`   | daily send cap (persistent, UTC-keyed) |
 | `WA_SENDS_DISABLED` | unset   | `1` = kill switch, all sends 403       |
 
+### Connection settings (humanisation and send limits)
+
+Stored in the daemon's store and changed at runtime from the web UI
+**Connection** page (`#/connection`), `wa-mcp settings set`, or
+`PUT /api/connection-settings`. Both features are **off by default**; while
+off, sends behave exactly as without them. <!-- src: packages/shared/src/connection-settings.ts; packages/bridge/src/send/humanize.ts; packages/bridge/src/send/safety.ts -->
+
+| setting                       | default | meaning                                                                                                   |
+| ----------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `humanisation.enabled`        | `false` | wait before each message as if typing it                                                                  |
+| `humanisation.minDelayMs`     | `1500`  | base delay (0–120000)                                                                                     |
+| `humanisation.delayPerCharMs` | `60`    | added per character of text or caption (0–1000)                                                           |
+| `humanisation.maxDelayMs`     | `8000`  | cap on the delay (0–120000, ≥ min); the result then gets ±20% random jitter                               |
+| `humanisation.typingStatus`   | `true`  | show "typing…" ("recording…" for voice notes) while waiting, refreshed every 10 s, stopped before sending |
+| `sendLimits.enabled`          | `false` | enforce the limits below (anti-ban)                                                                       |
+| `sendLimits.perMinute`        | `30`    | sends in any rolling minute (1–1000)                                                                      |
+| `sendLimits.perHour`          | `120`   | sends in any rolling hour (1–20000)                                                                       |
+| `sendLimits.perDay`           | `500`   | sends in any rolling 24 h (1–100000)                                                                      |
+| `sendLimits.perChatPerDay`    | `null`  | sends to one chat in any rolling 24 h; `null` = no per-chat cap                                           |
+
+Humanisation applies to `/api/send` (and so to every MCP send tool), autoreplies and
+scheduled messages; reactions, edits, deletes and status posts go out at once.
+Limits apply to every send that draws from the daily budget. Over a limit the
+send is refused with `429 SEND_LIMIT_REACHED`, a `Retry-After` header and a
+message such as `daily send limit reached (500)`. Shutting the daemon down
+cancels a send still waiting out its delay (`503 SHUTTING_DOWN`).
+
+```bash
+wa-mcp settings
+wa-mcp settings set --humanise on --min-delay 1000 --max-delay 6000 --typing on
+wa-mcp settings set --limits on --per-minute 20 --per-day 300 --per-chat-day 40
+```
+
 ## Media auto-download
 
 | variable                       | default                   | meaning                                                    |

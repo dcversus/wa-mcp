@@ -25,6 +25,8 @@ import type { AnyMessageContent, WASocket } from "baileys";
 import { installShutdownHooks } from "./shutdown.ts";
 import { resolveChannel } from "./channels/cloud/config.ts";
 import { SendGuard } from "./send/safety.ts";
+import { createHumanizer, type Humanizer } from "./send/humanize.ts";
+import { getConnectionSettings } from "./store/connection-settings.ts";
 import { openStore } from "./store/schema.ts";
 import { backfillContacts, lidResolver } from "./store/contact-backfill.ts";
 
@@ -97,8 +99,9 @@ export function createScheduledSender(deps: {
   sendGuard: SendGuard;
   socket: WASocket;
   mediaDir: string;
+  humanizer?: Humanizer;
 }): (chatJid: string, payload: string | Record<string, unknown>) => Promise<string> {
-  const { store, sendGuard, socket, mediaDir } = deps;
+  const { store, sendGuard, socket, mediaDir, humanizer } = deps;
   return async (chatJid, payload) => {
     if (socket === undefined || socket === null) {
       throw new Error("bridge not connected");
@@ -114,17 +117,21 @@ export function createScheduledSender(deps: {
         `SEND_BLOCKED: sending to ${target} is blocked by rule #${rules.rule?.id} (${rules.rule?.target})`,
       );
     }
-    const budget = sendGuard.check(Date.now());
+    const budget = sendGuard.check(Date.now(), target);
     if (!budget.ok) {
       throw new Error(
         budget.code === "RATE_LIMITED"
           ? `RATE_LIMITED: sending too fast`
-          : `DAILY_CAP_EXCEEDED: daily send cap of ${budget.cap} reached`,
+          : budget.code === "DAILY_CAP_EXCEEDED"
+            ? `DAILY_CAP_EXCEEDED: daily send cap of ${budget.cap} reached`
+            : `${budget.code}: ${budget.message}`,
       );
     }
     let result: { messageId: string };
     if (typeof payload === "string") {
-      result = await sendViaSocket(socket, target, { text: payload } as AnyMessageContent);
+      result = await sendViaSocket(socket, target, { text: payload } as AnyMessageContent, {
+        humanizer,
+      });
     } else {
       // T84-B line98: media payloads route through resolveMedia like /api/send
       const kind = typeof payload.kind === "string" ? payload.kind : "image";
@@ -134,10 +141,15 @@ export function createScheduledSender(deps: {
           : { base64: typeof payload.base64 === "string" ? payload.base64 : "" },
         { mediaDir, fetchFn: undefined },
       );
-      result = await sendViaSocket(socket, target, {
-        [kind]: resolved.buffer,
-        mimetype: resolved.mimeType,
-      } as unknown as AnyMessageContent);
+      result = await sendViaSocket(
+        socket,
+        target,
+        {
+          [kind]: resolved.buffer,
+          mimetype: resolved.mimeType,
+        } as unknown as AnyMessageContent,
+        { humanizer },
+      );
     }
     return result.messageId;
   };
@@ -232,6 +244,10 @@ export async function main(
     store,
     config.dailyCap === null ? {} : { dailyCap: config.dailyCap },
   );
+  const humanizer = createHumanizer({
+    settings: () => getConnectionSettings(store).humanisation,
+    logger,
+  });
   const handle = await startBridge(authDir, {
     syncFullHistory: config.syncFullHistory,
     deviceName: config.deviceName,
@@ -242,6 +258,7 @@ export async function main(
     // no-ops without it (lifecycle early-returns on mediaDir === undefined)
     mediaDir: config.mediaDir,
     sendGuard,
+    humanizer,
   });
   // T82 line88: daemon scheduler — every 30s, due scheduled texts are sent
   // through the live socket and marked sent/failed.
@@ -259,6 +276,7 @@ export async function main(
         sendGuard,
         socket: handle.socket,
         mediaDir: config.mediaDir,
+        humanizer,
       }),
     )
       .catch((err: unknown) => {
@@ -307,6 +325,7 @@ export async function main(
     store,
     version: "0.9.0",
     sendGuard,
+    humanizer,
     uiBootstrapToken,
     uiDir: config.uiDir ?? fileURLToPath(new URL("./web", import.meta.url)),
     mediaDir: config.mediaDir,

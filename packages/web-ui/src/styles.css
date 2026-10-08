@@ -1163,3 +1163,157 @@ nav[aria-label="Main"] a[aria-current="page"] {
 .delivery-help {
   margin-top: var(--s4);
 }
+
+#profile-page,
+#connection-page {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--s4);
+  margin-bottom: var(--s4);
+}
+
+.panel h2,
+.panel h3 {
+  font-size: 14px;
+  margin: 0 0 var(--s2);
+}
+
+.profile-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0 var(--s4);
+}
+
+.avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.me-title {
+  font-size: var(--fs-lg);
+}
+
+.me-phone {
+  margin: 0 0 var(--s2);
+  color: var(--text-dim);
+}
+
+.field-row {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.field-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.blocklist li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+}
+
+.blocked-who {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.blocked-who code {
+  color: var(--text-dim);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
+#block-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: var(--s2) 0;
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--s3);
+  border-radius: var(--radius);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+a.button:hover {
+  background: var(--accent-hover);
+}
+
+a.button.secondary {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+a.button.secondary:hover {
+  background: var(--accent-soft);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s2) var(--s3);
+}
+
+.field-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+#connection-settings-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0 0 var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+#connection-settings-form legend {
+  padding: 0 var(--s1);
+  font-weight: 600;
+}
+
+#connection-settings-form .hint {
+  margin: 0;
+}

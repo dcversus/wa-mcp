@@ -87,7 +87,6 @@ test("sidebar nav lists the full section set with active state (T51)", () => {
     "Profile",
     "Connection",
     "Settings",
-    "Link phone",
   ]) {
     expect(html).toContain(section);
   }

@@ -26,11 +26,18 @@ import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { upsertGroupParticipants } from "./store/groups.ts";
 import {
+  DEFAULT_CONNECTION_SETTINGS,
   isValidRecipientJid,
   isJid,
+  validateConnectionSettings,
   validateSubscriptionConfigInput,
   type SubscriptionConfig,
 } from "@wa-mcp/shared";
+import {
+  countMessagesSince,
+  getConnectionSettingsRecord,
+  saveConnectionSettings,
+} from "./store/connection-settings.ts";
 import {
   createSubscriptionConfig,
   deleteSubscriptionConfig,
@@ -134,7 +141,8 @@ import {
   sendProtoViaSocket,
   sendViaSocket,
 } from "./send/send.ts";
-import type { SendGuard } from "./send/safety.ts";
+import type { GuardVerdict, SendGuard } from "./send/safety.ts";
+import type { Humanizer } from "./send/humanize.ts";
 
 export interface HttpServerOptions {
   token: string;
@@ -147,6 +155,7 @@ export interface HttpServerOptions {
   qrDir?: string;
   store?: Store;
   sendGuard?: SendGuard;
+  humanizer?: Humanizer;
   mediaDir?: string;
   fetchFn?: typeof fetch;
   /** T73 H3: DNS resolver for the media-url SSRF guard (tests inject a stub) */
@@ -441,6 +450,52 @@ function mediaChatMismatch(rowChatJid: string | null | undefined, claimed: unkno
   return rowChatJid !== claimed;
 }
 
+interface GuardRefusal {
+  status: number;
+  payload: Record<string, unknown>;
+  headers?: Record<string, string>;
+}
+
+function guardRefusal(verdict: Exclude<GuardVerdict, { ok: true }>): GuardRefusal {
+  if (verdict.code === "RATE_LIMITED") {
+    return {
+      status: 429,
+      payload: {
+        error: {
+          code: "RATE_LIMITED",
+          message: "sending too fast",
+          retryAfterMs: verdict.retryAfterMs,
+        },
+      },
+    };
+  }
+  if (verdict.code === "DAILY_CAP_EXCEEDED") {
+    return {
+      status: 429,
+      payload: {
+        error: {
+          code: "DAILY_CAP_EXCEEDED",
+          message: `daily send cap of ${verdict.cap} reached`,
+        },
+      },
+    };
+  }
+  const retryAfterSeconds = Math.ceil(verdict.retryAfterMs / 1000);
+  return {
+    status: 429,
+    payload: {
+      error: {
+        code: verdict.code,
+        message: verdict.message,
+        window: verdict.window,
+        limit: verdict.limit,
+        retryAfterSeconds,
+      },
+    },
+    headers: { "retry-after": String(retryAfterSeconds) },
+  };
+}
+
 /** T94-C2: the ONE send-policy gate — restrict rules + send budget — shared
  * by every secondary send path (tts, voice, newsletter, batch forward).
  * Returns the refusal to send, or null when the send may proceed. */
@@ -449,7 +504,7 @@ function sendPolicyRefusal(
   guard: SendGuard | undefined,
   target: string,
   now: number,
-): { status: number; payload: Record<string, unknown> } | null {
+): GuardRefusal | null {
   if (store !== undefined) {
     const verdict = evaluateSendRules(store, target);
     if (!verdict.allowed) {
@@ -465,28 +520,9 @@ function sendPolicyRefusal(
     }
   }
   if (guard !== undefined) {
-    const check = guard.check(now);
+    const check = guard.check(now, target);
     if (!check.ok) {
-      return check.code === "RATE_LIMITED"
-        ? {
-            status: 429,
-            payload: {
-              error: {
-                code: "RATE_LIMITED",
-                message: "sending too fast",
-                retryAfterMs: check.retryAfterMs,
-              },
-            },
-          }
-        : {
-            status: 429,
-            payload: {
-              error: {
-                code: "DAILY_CAP_EXCEEDED",
-                message: `daily send cap of ${check.cap} reached`,
-              },
-            },
-          };
+      return guardRefusal(check);
     }
   }
   return null;
@@ -1075,6 +1111,61 @@ export async function createHttpServer(
     });
   };
 
+  const serveConnectionSettings = (method: string, body: Buffer, res: ServerResponse): void => {
+    const store = opts.store;
+    if (store === undefined) {
+      sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+      return;
+    }
+    if (method === "GET") {
+      sendJson(res, 200, {
+        ...getConnectionSettingsRecord(store),
+        defaults: DEFAULT_CONNECTION_SETTINGS,
+      });
+      return;
+    }
+    if (method !== "PUT") {
+      sendJson(res, 405, { error: { code: "METHOD_NOT_ALLOWED", message: "use GET or PUT" } });
+      return;
+    }
+    let input: unknown;
+    try {
+      input = JSON.parse(body.toString("utf8")) as unknown;
+    } catch {
+      validationError(res, "body must be valid JSON");
+      return;
+    }
+    const checked = validateConnectionSettings(input, getConnectionSettingsRecord(store).settings);
+    if (!checked.ok) {
+      validationError(res, checked.message);
+      return;
+    }
+    sendJson(res, 200, {
+      ...saveConnectionSettings(store, checked.value),
+      defaults: DEFAULT_CONNECTION_SETTINGS,
+    });
+  };
+
+  const serveConnectionStats = (res: ServerResponse): void => {
+    if (opts.store === undefined) {
+      sendJson(res, 501, { error: { code: "NOT_IMPLEMENTED", message: "store not attached" } });
+      return;
+    }
+    const since = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`;
+    const counts = countMessagesSince(opts.store, since);
+    const quality = handle.connectionQuality();
+    sendJson(res, 200, {
+      connection: "default",
+      status: handle.status,
+      uptime: Math.floor((Date.now() - startedAt) / 1000),
+      reconnects: quality.reconnects,
+      lastDisconnectAt: quality.lastDisconnectAt,
+      since,
+      sentToday: counts.sent,
+      receivedToday: counts.received,
+    });
+  };
+
   const serveSend = async (
     req: IncomingMessage,
     res: ServerResponse,
@@ -1384,7 +1475,7 @@ export async function createHttpServer(
             }
             const refusal = sendPolicyRefusal(opts.store, opts.sendGuard, batchTarget, Date.now());
             if (refusal !== null) {
-              sendJson(res, refusal.status, refusal.payload);
+              sendJson(res, refusal.status, refusal.payload, refusal.headers);
               return;
             }
             // T94-E H2: a batch of N draws N from the budget BEFORE sending;
@@ -1392,7 +1483,7 @@ export async function createHttpServer(
             let reserved = 1;
             let budgetRefused = false;
             for (let index = 1; index < ids.length; index += 1) {
-              const verdict = opts.sendGuard?.check(Date.now());
+              const verdict = opts.sendGuard?.check(Date.now(), batchTarget);
               if (verdict === undefined || verdict.ok) {
                 reserved += 1;
               } else {
@@ -1634,7 +1725,7 @@ export async function createHttpServer(
         for (const candidate of checks) {
           const refusal = sendPolicyRefusal(opts.store, undefined, candidate, Date.now());
           if (refusal !== null) {
-            sendJson(res, refusal.status, refusal.payload);
+            sendJson(res, refusal.status, refusal.payload, refusal.headers);
             return true;
           }
         }
@@ -1670,24 +1761,13 @@ export async function createHttpServer(
       });
       return;
     }
-    const verdict = opts.sendGuard.check(Date.now());
+    const verdict = opts.sendGuard.check(
+      Date.now(),
+      broadcastStatus ? "status@broadcast" : chatJid,
+    );
     if (!verdict.ok) {
-      if (verdict.code === "RATE_LIMITED") {
-        sendJson(res, 429, {
-          error: {
-            code: "RATE_LIMITED",
-            message: "sending too fast",
-            retryAfterMs: verdict.retryAfterMs,
-          },
-        });
-      } else {
-        sendJson(res, 429, {
-          error: {
-            code: "DAILY_CAP_EXCEEDED",
-            message: `daily send cap of ${verdict.cap} reached`,
-          },
-        });
-      }
+      const refusal = guardRefusal(verdict);
+      sendJson(res, refusal.status, refusal.payload, refusal.headers);
       return;
     }
     if (protoBuilder !== null) {
@@ -1696,13 +1776,20 @@ export async function createHttpServer(
         const result = await sendProtoViaSocket(socket, chatJid, buildProto(), {
           store: opts.store,
           quoted: quotedForWire,
+          humanizer: opts.humanizer,
         });
         sendJson(res, 200, { message_id: result.messageId });
       })().catch((err: unknown) => {
         if (err instanceof SendError) {
           opts.logger?.error({ code: err.code, message: err.message }, "send failed");
           const status =
-            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
+            err.code === "SENDS_DISABLED"
+              ? 403
+              : err.code === "SEND_FAILED"
+                ? 500
+                : err.code === "SHUTTING_DOWN"
+                  ? 503
+                  : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
@@ -1753,7 +1840,13 @@ export async function createHttpServer(
             "send failed",
           );
           const status =
-            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
+            err.code === "SENDS_DISABLED"
+              ? 403
+              : err.code === "SEND_FAILED"
+                ? 500
+                : err.code === "SHUTTING_DOWN"
+                  ? 503
+                  : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
@@ -2561,7 +2654,7 @@ export async function createHttpServer(
             Date.now(),
           );
           if (ttsRefusal !== null) {
-            sendJson(res, ttsRefusal.status, ttsRefusal.payload);
+            sendJson(res, ttsRefusal.status, ttsRefusal.payload, ttsRefusal.headers);
             return;
           }
           const result = await sendViaSocket(
@@ -2630,7 +2723,7 @@ export async function createHttpServer(
         // T94-C2(d): the voice-file send leg rides the same gate
         const voiceRefusal = sendPolicyRefusal(opts.store, opts.sendGuard, chatJid, Date.now());
         if (voiceRefusal !== null) {
-          sendJson(res, voiceRefusal.status, voiceRefusal.payload);
+          sendJson(res, voiceRefusal.status, voiceRefusal.payload, voiceRefusal.headers);
           return;
         }
         const result = await sendViaSocket(socket, chatJid, {
@@ -2643,7 +2736,13 @@ export async function createHttpServer(
       .catch((err: unknown) => {
         if (err instanceof SendError) {
           const status =
-            err.code === "SENDS_DISABLED" ? 403 : err.code === "SEND_FAILED" ? 500 : 400;
+            err.code === "SENDS_DISABLED"
+              ? 403
+              : err.code === "SEND_FAILED"
+                ? 500
+                : err.code === "SHUTTING_DOWN"
+                  ? 503
+                  : 400;
           sendJson(res, status, { error: { code: err.code, message: err.message } });
           return;
         }
@@ -3645,7 +3744,7 @@ export async function createHttpServer(
           // T94-C2(e): newsletter broadcasts burn the same budget
           const nlRefusal = sendPolicyRefusal(opts.store, opts.sendGuard, input.jid, Date.now());
           if (nlRefusal !== null) {
-            sendJson(res, nlRefusal.status, nlRefusal.payload);
+            sendJson(res, nlRefusal.status, nlRefusal.payload, nlRefusal.headers);
             return;
           }
           const result = await sendViaSocket(socket, input.jid, {
@@ -3986,6 +4085,14 @@ export async function createHttpServer(
           sendJson(res, 405, {
             error: { code: "METHOD_NOT_ALLOWED", message: "use GET or DELETE" },
           });
+          return;
+        }
+        if (path === "/api/connection-settings") {
+          serveConnectionSettings(req.method ?? "GET", body, res);
+          return;
+        }
+        if (path === "/api/connection-stats" && req.method === "GET") {
+          serveConnectionStats(res);
           return;
         }
         const subs2Match = path.match(/^\/api\/subs2(?:\/([A-Za-z0-9_-]+))?$/);
@@ -4770,6 +4877,7 @@ export async function createHttpServer(
     port,
     close: () =>
       new Promise<void>((resolve) => {
+        opts.humanizer?.close();
         server.close(() => resolve());
       }),
     limiterSizes: () => ({

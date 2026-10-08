@@ -46,6 +46,7 @@ export interface StartBridgeOptions {
   mediaDir?: string;
   /** T94-C2(f): the daemon-wide send budget — autoreply consumes it too */
   sendGuard?: import("./send/safety.ts").SendGuard;
+  humanizer?: import("./send/humanize.ts").Humanizer;
   /** consecutive registrations without a completed pairing before the daemon
    * stops minting new ones (WhatsApp anti-abuse: every attempt resets the
    * server-side cooldown, so endless retries deepen the lockout). */
@@ -666,14 +667,17 @@ export async function startBridge(
                       const verdict = evaluateSendRules(opts.store, remoteJid as string);
                       // T94-C2(f): the reply burns the same budget as manual
                       // sends — an inbound loop cannot exceed the daily cap
-                      const budget = opts.sendGuard?.check(Date.now());
+                      const budget = opts.sendGuard?.check(Date.now(), remoteJid as string);
                       const budgetOk = budget === undefined || budget.ok;
                       if (verdict.allowed && budgetOk) {
-                        void sendViaSocket(socket, remoteJid as string, { text: reply }).catch(
-                          (err: unknown) => {
-                            opts.logger?.warn({ err }, "autoreply send failed");
-                          },
-                        );
+                        void sendViaSocket(
+                          socket,
+                          remoteJid as string,
+                          { text: reply },
+                          { humanizer: opts.humanizer },
+                        ).catch((err: unknown) => {
+                          opts.logger?.warn({ err }, "autoreply send failed");
+                        });
                       }
                     }
                   }

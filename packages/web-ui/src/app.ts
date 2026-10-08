@@ -1,11 +1,5 @@
-import {
-  groupsPageHtml,
-  navHtml,
-  notFoundHtml,
-  settingsHtml,
-  statusDashboardHtml,
-  NAV_TITLES,
-} from "./pages.ts";
+import { groupsPageHtml, navHtml, notFoundHtml, settingsHtml, NAV_TITLES } from "./pages.ts";
+import { connectionPageHtml } from "./connection.ts";
 import { contactsPageHtml } from "./contacts.ts";
 import { connectionsPageHtml } from "./connections.ts";
 import { subscriptionsPageHtml } from "./subscriptions.ts";
@@ -23,6 +17,7 @@ export interface AppDom {
 
 export type Route =
   | "status"
+  | "connection"
   | "chats"
   | "chat"
   | "contacts"
@@ -36,6 +31,7 @@ export type Route =
 
 export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "status", pattern: "status" },
+  { route: "connection", pattern: "connection" },
   { route: "chats", pattern: "chats" },
   { route: "chat", pattern: "chat/:jid" },
   { route: "contacts", pattern: "contacts" },
@@ -63,6 +59,10 @@ export interface RenderFrameIo {
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const { dom, settings, loaders } = io;
   const match = resolveRoute(dom.getHash(), ROUTES);
+  if (match?.route === "status") {
+    dom.setHash("#/connection");
+    return;
+  }
   dom.setNav(navHtml(match?.route ?? ""));
   if (match === null) {
     dom.setTitle("Not found · wa-mcp");
@@ -81,8 +81,9 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   }
   const loader =
     loaders[match.route] ??
-    (match.route === "status"
-      ? async () => statusDashboardHtml({ health: {}, notifications: [], events: [] })
+    (match.route === "connection"
+      ? async () =>
+          connectionPageHtml({ health: {}, me: null, stats: null, settings: null, events: [] })
       : match.route === "contacts"
         ? async () => contactsPageHtml({ contacts: [], total: 0, query: "", saved: true })
         : match.route === "groups"

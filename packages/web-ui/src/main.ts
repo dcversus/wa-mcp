@@ -14,7 +14,6 @@ import {
   messageListHtml,
   settingsHtml,
   transcriptionSettingsHtml,
-  statusDashboardHtml,
   guardLoader,
   replyPreviewHtml,
 } from "./pages.ts";
@@ -43,6 +42,12 @@ import {
   type PairingView,
 } from "./pages-pairing.ts";
 import { appendEvent, feedHtml, openStatusStream, type FeedLine } from "./events-feed.ts";
+import {
+  connectionPageHtml,
+  readConnectionSettingsForm,
+  type ConnectionSettingsView,
+  type ConnectionStatsView,
+} from "./connection.ts";
 import { escapeHtml } from "./escape.ts";
 import { routeKind } from "./router.ts";
 import {
@@ -308,6 +313,8 @@ function stopLogsLive(): void {
 
 // ---- live status feed (T52): bounded SSE feed + 5s health poll
 let statusFeed: FeedLine[] = [];
+let connectionFormDirty = false;
+let connectionSaved: string | undefined;
 let statusStream: { close(): void } | null = null;
 let statusPoll: ReturnType<typeof setInterval> | null = null;
 
@@ -327,7 +334,7 @@ function startStatusLive(): void {
   }
   if (statusPoll === null) {
     statusPoll = setInterval(() => {
-      if (location.hash !== "#/status") {
+      if (location.hash !== "#/connection" || connectionFormDirty) {
         return;
       }
       void renderCurrent();
@@ -453,7 +460,7 @@ async function renderCurrent(): Promise<void> {
 }
 
 const loaders: {
-  [R in Route]: (params: Record<string, string>) => Promise<string>;
+  [R in Exclude<Route, "status">]: (params: Record<string, string>) => Promise<string>;
 } = {
   logs: async () => {
     const [payload, chatsPayload] = await Promise.all([
@@ -469,13 +476,22 @@ const loaders: {
       logsRenderInput(rows.slice(0, LOGS_PAGE_SIZE), rows.length > LOGS_PAGE_SIZE),
     );
   },
-  status: async () => {
-    const [health, me] = await Promise.all([client.getHealth(), client.getMe().catch(() => null)]);
-    return statusDashboardHtml({
+  connection: async () => {
+    const [health, me, stats, record] = await Promise.all([
+      client.getHealth(),
+      client.getMe().catch(() => null),
+      client.connectionStats().catch(() => null),
+      client.connectionSettings().catch(() => null),
+    ]);
+    const saved = connectionSaved;
+    connectionSaved = undefined;
+    return connectionPageHtml({
       health,
       me: me as { name: string | null; pn: string | null } | null,
-      notifications: [],
+      stats: stats as ConnectionStatsView | null,
+      settings: (record as { settings?: ConnectionSettingsView } | null)?.settings ?? null,
       events: [],
+      ...(saved !== undefined ? { saved } : {}),
     });
   },
   contacts: async () => {
@@ -678,8 +694,8 @@ function bindRoute(): void {
     bindProfileControls();
     return;
   }
-  if (hash === "#/status") {
-    bindStatusControls();
+  if (hash === "#/connection") {
+    bindConnectionControls();
     startStatusLive();
     return;
   }
@@ -1095,13 +1111,39 @@ function bindLogsControls(): void {
   });
 }
 
-function bindStatusControls(): void {
-  document.querySelectorAll("[data-delete-rule]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = (button as HTMLElement).dataset.deleteRule ?? "";
-      await client.deleteNotification(id).catch(() => undefined);
-      await renderCurrent();
+function showConnectionStatus(message: string, ok: boolean): void {
+  const slot = document.getElementById("connection-settings-status");
+  if (slot !== null) {
+    slot.textContent = message;
+    slot.className = `save-flash ${ok ? "ok" : "danger"}`;
+  }
+}
+
+function bindConnectionControls(): void {
+  connectionFormDirty = false;
+  const form = document.getElementById("connection-settings-form") as HTMLFormElement | null;
+  form?.addEventListener("input", () => {
+    connectionFormDirty = true;
+  });
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const read = readConnectionSettingsForm((name) => {
+      const value = data.get(name);
+      return typeof value === "string" ? value : null;
     });
+    if (!read.ok) {
+      showConnectionStatus(read.message, false);
+      return;
+    }
+    try {
+      await client.saveConnectionSettings(read.value);
+      connectionFormDirty = false;
+      connectionSaved = "Settings saved";
+      await renderCurrent();
+    } catch (err) {
+      showConnectionStatus(err instanceof Error ? err.message : "save failed", false);
+    }
   });
 }
 
@@ -1435,7 +1477,7 @@ function startBridgeDownPoll(): void {
 }
 
 window.addEventListener("hashchange", () => {
-  if (location.hash !== "#/status") {
+  if (location.hash !== "#/connection") {
     stopStatusLive();
   }
   if (location.hash !== "#/logs") {

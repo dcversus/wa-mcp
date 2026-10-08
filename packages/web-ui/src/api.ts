@@ -51,6 +51,9 @@ export interface ApiClient {
   subscriptions(): Promise<{ subscriptions?: unknown[] }>;
   updateSubscription(id: string, patch: Record<string, unknown>): Promise<unknown>;
   sessions(): Promise<{ sessions?: unknown[] }>;
+  connectionSettings(): Promise<unknown>;
+  saveConnectionSettings(body: unknown): Promise<unknown>;
+  connectionStats(): Promise<unknown>;
   logout(): Promise<unknown>;
   getConfig(): Promise<{
     transcription?: {
@@ -237,6 +240,10 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     updateSubscription: (id, patch) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
     sessions: () => jsonCall("/api/sessions"),
+    connectionSettings: () => jsonCall("/api/connection-settings"),
+    saveConnectionSettings: (body) =>
+      jsonCall("/api/connection-settings", { method: "PUT", json: body }),
+    connectionStats: () => jsonCall("/api/connection-stats"),
     logout: () => jsonCall("/api/logout", { method: "POST" }),
     getConfig: () => jsonCall("/api/config"),
     saveConfig: (body) => jsonCall("/api/config", { method: "PUT", json: body }),

@@ -341,6 +341,21 @@ CREATE TABLE IF NOT EXISTS contacts (
 ALTER TABLE contacts ADD COLUMN lid TEXT;
 `;
 
+const MIGRATION_V24 = `
+CREATE TABLE IF NOT EXISTS connection_settings (
+  id TEXT PRIMARY KEY,
+  settings TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS send_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,
+  chat_jid TEXT
+);
+CREATE INDEX IF NOT EXISTS send_log_ts ON send_log (ts);
+CREATE INDEX IF NOT EXISTS send_log_chat_ts ON send_log (chat_jid, ts);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -365,6 +380,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 21, sql: MIGRATION_V21 },
   { version: 22, sql: MIGRATION_V22 },
   { version: 23, sql: MIGRATION_V23 },
+  { version: 24, sql: MIGRATION_V24 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

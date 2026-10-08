@@ -21,6 +21,7 @@ import { runMessages } from "./messages.ts";
 import { runContacts } from "./contacts.ts";
 import { runConnections } from "./connections.ts";
 import { runSubs } from "./subs.ts";
+import { runSettings } from "./settings.ts";
 import {
   claudeSettingsPath,
   codexHooksPath,
@@ -467,6 +468,22 @@ export async function main(argv: string[]): Promise<void> {
     }
     return;
   }
+  if (command === "settings") {
+    const token = flags.token ?? readToken(dataDir) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    const exit = await runSettings(
+      { fetchFn: fetch, print: console.log },
+      { baseUrl: bridgeUrl, token, action: positionals[0] ?? "get", flags },
+    );
+    if (exit !== 0) {
+      process.exitCode = exit;
+    }
+    return;
+  }
   if (command === "connections") {
     const token = flags.token ?? readToken(dataDir) ?? "";
     if (token.length === 0) {
@@ -580,7 +597,7 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|messages|contacts|connections|subs|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|messages|contacts|connections|subs|settings|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
   console.log(
     `  messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log (the web UI's Logs page)`,
@@ -593,6 +610,7 @@ export async function main(argv: string[]): Promise<void> {
     `  subs [list] | subs create --name <n> (--chat <jid>… | --all-chats) [--like %text%] [--mention-only] [--prompt <text>] [--delivery inbox|session|spawn] [--session <id>] [--command <path> --arg <a>… --env K=V…] [--disable] | subs edit <id> [same flags, --enable] | subs delete <id> | subs test <id> | subs sessions — subscriptions (the web UI's Subscriptions page)`,
   );
   console.log(
+    `  settings [get] | settings set [--humanise on|off] [--min-delay <ms>] [--max-delay <ms>] [--per-char <ms>] [--typing on|off] [--limits on|off] [--per-minute <n>] [--per-hour <n>] [--per-day <n>] [--per-chat-day <n|off>] — connection settings: human-like reply delay + typing status, send limits (anti-ban; both off by default)`,
     `  connections | connections disconnect <hooks|mcp> <agent> [--sub <id>] — connected agents (hooks + MCP registrations); disconnect removes only wa-mcp entries`,
   );
 }

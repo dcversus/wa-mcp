@@ -97,32 +97,32 @@ test("no token + #/chats renders the chats page via the ephemeral UI token (T54 
 });
 
 test("nav is populated on every render", async () => {
-  const state = fakeDom("#/status");
+  const state = fakeDom("#/connection");
   await renderFrame({
     dom: state.io.dom,
     settings: WITH_TOKEN,
-    loaders: { status: async () => "<dl>ok</dl>" },
+    loaders: { connection: async () => "<dl>ok</dl>" },
   });
   expect(state.navHtml).toContain("#/chats");
   expect(state.navHtml).toContain("#/settings");
 });
 
 test("with a token, route loaders render into the app", async () => {
-  const state = fakeDom("#/status");
+  const state = fakeDom("#/connection");
   await renderFrame({
     dom: state.io.dom,
     settings: WITH_TOKEN,
-    loaders: { status: async () => "<dl>health ok</dl>" },
+    loaders: { connection: async () => "<dl>health ok</dl>" },
   });
   expect(state.appHtml).toContain("health ok");
 });
 
-test("unknown channel + status route renders the status dashboard (T51)", async () => {
-  const state = fakeDom("#/status");
+test("unknown channel + connection route renders the status dashboard (T51)", async () => {
+  const state = fakeDom("#/connection");
   await renderFrame({
     dom: state.io.dom,
     settings: WITH_TOKEN,
-    loaders: { status: async () => '<section id="status-dashboard">ok</section>' },
+    loaders: { connection: async () => '<section id="status-dashboard">ok</section>' },
   });
   expect(state.appHtml).toContain("status-dashboard");
 });

@@ -26,9 +26,8 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "connections", label: "Connections", href: "#/connections" },
   { id: "subscriptions", label: "Subscriptions", href: "#/subscriptions" },
   { id: "profile", label: "Profile", href: "#/profile" },
-  { id: "status", label: "Connection", href: "#/status" },
+  { id: "connection", label: "Connection", href: "#/connection" },
   { id: "settings", label: "Settings", href: "#/settings" },
-  { id: "pairing", label: "Link phone", href: "#/pairing" },
 ];
 
 export const NAV_TITLES: Record<string, string> = {
@@ -39,7 +38,7 @@ export const NAV_TITLES: Record<string, string> = {
   connections: "Connections",
   subscriptions: "Subscriptions",
   profile: "Profile",
-  status: "Connection",
+  connection: "Connection",
   settings: "Settings",
   pairing: "Link phone",
 };
@@ -50,7 +49,7 @@ export function navHtml(active: string, version = "0.9.0"): string {
     { label: "People", keys: ["contacts"] },
     { label: "Agent", keys: ["connections", "subscriptions"] },
     { label: "Me", keys: ["profile"] },
-    { label: "System", keys: ["status", "settings", "pairing"] },
+    { label: "System", keys: ["connection", "settings"] },
   ];
   const brand = `<div class="brand"><strong>wa-mcp</strong><span class="version">v${version}</span></div>`;
   const links = groups
@@ -213,40 +212,54 @@ export function formatStatValue(key: string, value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function statusDashboardHtml(
-  input: StatusDashboardInput & {
-    me?: { name: string | null; pn: string | null } | null;
-  },
-): string {
-  const fields = Object.entries(input.health)
+export function diagnosticsHtml(health: Record<string, unknown>): string {
+  const fields = Object.entries(health)
     .filter(([key]) => !/token/i.test(key))
-    .filter(([key]) => key !== "channel" || input.health.channel !== undefined)
+    .filter(([key]) => key !== "channel" || health.channel !== undefined)
     .map(
       ([key, value]) =>
         `<div class="stat"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(formatStatValue(key, value))}</dd></div>`,
     )
     .join("");
-  const feed = input.events
+  return `<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details>`;
+}
+
+export function activityFeedHtml(events: StatusDashboardInput["events"]): string {
+  const feed = events
     .map(
       (event) =>
         `<li><time>${escapeHtml(formatWhen(event.at))}</time> <strong>${escapeHtml(event.type)}</strong> <span>${escapeHtml(event.detail ?? "")}</span></li>`,
     )
     .join("");
-  const linked = input.health.loggedIn === true;
-  const who = input.me ?? null;
+  return `<ul class="events">${feed.length > 0 ? feed : `<li>${emptyState("No recent activity")}</li>`}</ul>`;
+}
+
+export function statusCardHtml(
+  health: Record<string, unknown>,
+  me: { name: string | null; pn: string | null } | null | undefined,
+): string {
+  const linked = health.loggedIn === true;
+  const who = me ?? null;
   const identity =
     who !== null && who.name !== null && who.pn !== null
       ? `${who.name} (${formatPhone(who.pn)})`
       : (who?.name ?? (who?.pn != null ? formatPhone(who.pn) : "this account"));
-  const subs = input.health.subscriptions;
+  const subs = health.subscriptions;
   const subCount =
     typeof subs === "object" && subs !== null
       ? Number((subs as { count?: unknown }).count ?? 0)
       : 0;
-  const card = linked
-    ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${input.health.connected === true ? " · online" : " · reconnecting"}${typeof input.health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(input.health.lastDisconnectAt))}` : ""}${typeof input.health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(input.health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
+  return linked
+    ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${health.connected === true ? " · online" : " · reconnecting"}${typeof health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(health.lastDisconnectAt))}` : ""}${typeof health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
     : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
-  return `<section id="status-dashboard"><h1>Connection</h1>${card}<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details><h3>Recent activity</h3><ul class="events">${feed.length > 0 ? feed : `<li>${emptyState("No recent activity")}</li>`}</ul></section>`;
+}
+
+export function statusDashboardHtml(
+  input: StatusDashboardInput & {
+    me?: { name: string | null; pn: string | null } | null;
+  },
+): string {
+  return `<section id="status-dashboard"><h1>Connection</h1>${statusCardHtml(input.health, input.me)}${diagnosticsHtml(input.health)}<h3>Recent activity</h3>${activityFeedHtml(input.events)}</section>`;
 }
 
 export function groupsPageHtml(
@@ -495,13 +508,18 @@ export function profilePageHtml(input: {
   privacy?: Record<string, string>;
 }): string {
   const entries = input.blocklist
-    .map(
-      (jid) =>
-        `<li data-blocked-jid="${escapeHtml(jid)}"><code>${escapeHtml(jid)}</code> <button data-unblock-jid="${escapeHtml(jid)}">unblock</button></li>`,
-    )
+    .map((jid) => {
+      const label = escapeHtml(formatPhone(jid));
+      const safe = escapeHtml(jid);
+      return `<li data-blocked-jid="${safe}"><span class="blocked-who"><strong>${label}</strong><code>${safe}</code></span><button type="button" data-unblock-jid="${safe}" aria-label="Unblock ${label}">Unblock</button></li>`;
+    })
     .join("");
   const me = input.me ?? { pn: null, name: null, status: null };
-  const initial = (me.name ?? "?").charAt(0).toUpperCase();
+  const title = me.name !== null && me.name.length > 0 ? me.name : "Your profile";
+  const phone =
+    me.pn === null
+      ? '<code id="me-phone">—</code>'
+      : `${escapeHtml(formatPhone(me.pn))} · <code id="me-phone">${escapeHtml(me.pn)}</code>`;
   const privacyRows = PRIVACY_ROWS.map((row) => {
     const options = privacyOptionsFor(row.key);
     const live = (input.privacy ?? {})[row.key];
@@ -517,21 +535,20 @@ ${all
   .join("")}
 </select></label></div>`;
   }).join("");
-  return `<section id="profile-page"><h1>Profile</h1>
-<div class="me-card"><span class="avatar">${escapeHtml(initial)}</span>
-<div class="me-fields">
-<label>display name<input id="me-name" value="${escapeHtml(me.name ?? "")}" /></label>
-<label>phone<code id="me-phone">${escapeHtml(me.pn ?? "—")}</code></label>
-<label>about / status<input id="me-status" value="${escapeHtml(me.status ?? "")}" placeholder="—" /></label>
-<button id="save-name" type="button">save name</button>
-<button id="save-status" type="button">save status</button>
-<span id="profile-save-status" class="save-flash" aria-live="polite"></span>
+  const blocked =
+    entries.length > 0
+      ? `<ul class="blocklist">${entries}</ul>`
+      : emptyState("No blocked contacts");
+  return `<section id="profile-page"><h1>Profile</h1><div class="profile-grid">
+<div class="panel me-card"><span class="avatar avatar-lg" aria-hidden="true">${escapeHtml(initials(title))}</span>
+<div class="me-fields"><h3 class="me-title">${escapeHtml(title)}</h3><p class="me-phone">${phone}</p>
+<label>Display name<span class="field-row"><input id="me-name" value="${escapeHtml(me.name ?? "")}" aria-label="Display name" /><button id="save-name" type="button">Save name</button></span></label>
+<label>About<span class="field-row"><input id="me-status" value="${escapeHtml(me.status ?? "")}" placeholder="Hey there! I am using WhatsApp." aria-label="About" /><button id="save-status" type="button">Save about</button></span></label>
+<span id="profile-save-status" class="save-flash" role="status" aria-live="polite"></span>
 </div></div>
-<h3>privacy</h3>
-<div class="privacy-settings">${privacyRows}</div>
-<h3>blocked contacts</h3>
-<form id="block-form"><label>Block a number<input name="chat_jid" placeholder="+44 7700 900123" aria-label="Block a number" /></label><button class="danger" type="submit">Block</button></form>
-<ul class="blocklist">${entries}</ul></section>`;
+<div class="panel"><h3>Privacy</h3><p class="hint">Who can see your details on WhatsApp. Changes save as soon as you pick an option.</p><div class="privacy-settings">${privacyRows}</div></div>
+<div class="panel"><h3>Blocked contacts</h3><p class="hint">Blocked numbers can't call you or send you messages.</p><form id="block-form"><label>Block a number<input name="chat_jid" placeholder="+44 7700 900123" aria-label="Block a number" /></label><button class="danger" type="submit">Block</button></form>${blocked}</div>
+</div></section>`;
 }
 
 export function groupParticipantsHtml(

@@ -162,6 +162,40 @@ describe("T94-D-H3 — the scheduler send gate (CODEX H3)", () => {
     store.close();
   });
 
+  test("T181 B — a send-limit refusal names the window; the humanizer runs before the wire", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-schedgate-")));
+    const order: string[] = [];
+    const sendMessage = vi.fn(async () => {
+      order.push("send");
+      return { key: { id: "SCHED2", fromMe: true } };
+    });
+    const socket = { sendMessage } as unknown as WASocket;
+    const sendGuard = new SendGuard(store, { minIntervalMs: 0, dailyCap: 100 });
+    const humanizer = {
+      active: () => true,
+      beforeSend: async (_socket: unknown, jid: string) => {
+        order.push(`human:${jid}`);
+      },
+      close: () => {},
+    };
+    const sender = createScheduledSender({
+      store,
+      sendGuard,
+      socket,
+      mediaDir: tmpdir(),
+      humanizer,
+    });
+    store.db
+      .prepare("INSERT INTO connection_settings (id, settings, updated_at) VALUES (?, ?, ?)")
+      .run("default", JSON.stringify({ sendLimits: { enabled: true, perChatPerDay: 1 } }), "now");
+    expect(await sender(TARGET, "one")).toBe("SCHED2");
+    expect(order).toEqual([`human:${TARGET}`, "send"]);
+    await expect(sender(TARGET, "two")).rejects.toThrow(
+      "SEND_LIMIT_REACHED: daily send limit for this chat reached (1)",
+    );
+    store.close();
+  });
+
   test("happy path sends to the canonical jid", async () => {
     const { store, sendMessage, sender } = senderFixture();
     const id = await sender("+358 497 773 518", "hello");

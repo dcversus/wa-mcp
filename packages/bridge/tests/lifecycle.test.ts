@@ -1555,6 +1555,47 @@ test("T94-C2f — the autoreply send rides the send budget", async () => {
   store.close();
 });
 
+test("T181 B — the autoreply passes the chat to the guard and rides the humanizer", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-autoreply-human-")));
+  addAutoreplyRule(store, { match: "hello", reply: "hi from the daemon" });
+  const sock = fakeSocket();
+  (sock as { sendMessage?: unknown }).sendMessage = vi.fn(async () => ({
+    key: { id: "AUTO3", fromMe: true },
+  }));
+  mockMakeWASocket.mockReset();
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const checks: Array<[number, string | undefined]> = [];
+  const guard = {
+    check: (now: number, chat?: string) => {
+      checks.push([now, chat]);
+      return { ok: true as const };
+    },
+  };
+  const beforeSend = vi.fn(async () => {});
+  const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+    store,
+    sendGuard: guard as unknown as import("../src/send/safety.ts").SendGuard,
+    humanizer: { active: () => true, beforeSend, close: () => {} },
+  });
+  sock.emit("messages.upsert", {
+    type: "notify",
+    messages: [
+      {
+        key: { remoteJid: "358497773518@s.whatsapp.net", fromMe: false, id: "IN9" },
+        message: { conversation: "hello" },
+        messageTimestamp: Math.floor(Date.now() / 1000),
+      },
+    ],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(checks.map((entry) => entry[1])).toEqual(["358497773518@s.whatsapp.net"]);
+  expect(beforeSend).toHaveBeenCalledWith(sock, "358497773518@s.whatsapp.net", {
+    text: "hi from the daemon",
+  });
+  await handle.close();
+  store.close();
+});
+
 test("T94-C-H1 — an inbound pollUpdateMessage decrypts and lands in poll_votes", async () => {
   const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-pollvote-")));
   const CHAT = "120363428874442773@g.us";

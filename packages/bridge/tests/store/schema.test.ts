@@ -10,6 +10,7 @@ const POSIX_PERMS = process.platform !== "win32";
 const EXPECTED_TABLES = [
   "aliases",
   "autoreply_rules",
+  "connection_settings",
   "chats",
   "contacts",
   "events",
@@ -28,6 +29,7 @@ const EXPECTED_TABLES = [
   "scheduled",
   "scheduled_messages",
   "send_rules",
+  "send_log",
   "labels",
   "chat_labels",
   "subscriptions",
@@ -142,7 +144,7 @@ test("migrations records schema versions 1 through 3", () => {
       .prepare("SELECT version, applied_at FROM migrations ORDER BY version")
       .all();
     expect(rows.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
     ]);
     expect(typeof (rows[0] as { applied_at: string }).applied_at).toBe("string");
   } finally {
@@ -157,7 +159,7 @@ test("reopening the store is idempotent", () => {
   const second = openStore(dir);
   try {
     const versions = second.db.prepare("SELECT version FROM migrations").all();
-    expect(versions).toHaveLength(23);
+    expect(versions).toHaveLength(24);
   } finally {
     second.close();
   }

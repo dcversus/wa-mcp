@@ -4,6 +4,7 @@ import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { getAlias } from "../store/contacts.ts";
 import { storeMessage } from "../store/messages.ts";
 import type { Store } from "../store/schema.ts";
+import { HumanizeAborted, type Humanizer } from "./humanize.ts";
 
 export class SendError extends Error {
   readonly code: string;
@@ -23,6 +24,7 @@ export interface SendOptions {
   store?: Store;
   /** quoted message for replies — passed to the engine's quoted contextInfo */
   quoted?: WAMessage;
+  humanizer?: Humanizer;
 }
 
 export interface SendResult {
@@ -161,6 +163,22 @@ export function mapWaError(err: unknown): {
   return { code: "SEND_FAILED", message };
 }
 
+async function humanise(
+  humanizer: Humanizer,
+  socket: WASocket,
+  jid: string,
+  content: AnyMessageContent | proto.IMessage,
+): Promise<void> {
+  try {
+    await humanizer.beforeSend(socket, jid, content);
+  } catch (err: unknown) {
+    if (err instanceof HumanizeAborted) {
+      throw new SendError("SHUTTING_DOWN", err.message);
+    }
+    throw err;
+  }
+}
+
 export async function sendViaSocket(
   socket: WASocket,
   chatJid: string,
@@ -178,6 +196,9 @@ export async function sendViaSocket(
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
   }
   const wireJid = await resolveLidJid(socket, jid);
+  if (opts.humanizer?.active() === true) {
+    await humanise(opts.humanizer, socket, wireJid, content);
+  }
   let sent: proto.IWebMessageInfo | undefined;
   try {
     sent = await socket.sendMessage(
@@ -236,6 +257,9 @@ export async function sendProtoViaSocket(
     throw new SendError("INVALID_JID", `cannot resolve recipient: ${chatJid}`);
   }
   const wireJid = await resolveLidJid(socket, jid);
+  if (opts.humanizer?.active() === true) {
+    await humanise(opts.humanizer, socket, wireJid, message);
+  }
   try {
     const full = generateWAMessageFromContent(wireJid, proto.Message.fromObject(message), {
       userJid: socket.user?.id ?? "",

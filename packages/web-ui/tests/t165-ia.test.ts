@@ -31,7 +31,7 @@ test("T165 P2 — the nav is Messages / People / Agent / Me / System", () => {
   expect(html).toContain("System");
   expect(html).toContain("Connections");
   expect(html).toContain("Subscriptions");
-  expect(html).toContain("Link phone");
+  expect(html).not.toContain("Link phone");
   expect(html).toContain("Connection");
   expect(html).toContain('aria-label="Main"');
   expect(html).toContain('aria-current="page"');
