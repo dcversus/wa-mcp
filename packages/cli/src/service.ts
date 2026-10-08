@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { resolveConfigPath, type Platform } from "./platforms.ts";
+import { removeTomlTable, removeYamlServer } from "./writers.ts";
 
 export type SpawnFn = (
   command: string,
@@ -333,24 +334,9 @@ function removeServerEntry(platform: Platform, home: string): boolean {
   const text = readFileSync(path, "utf8");
   let updated: string;
   if (platform === "codex") {
-    updated = text.replace(/\[mcp_servers\.wa-mcp\]\n(?:[^[]*\n)*/g, "");
+    updated = removeTomlTable(text, "mcp_servers.wa-mcp");
   } else if (platform === "hermes") {
-    const out: string[] = [];
-    let skipping = false;
-    for (const line of text.split("\n")) {
-      if (line.trim() === "wa-mcp:") {
-        skipping = true;
-        continue;
-      }
-      if (skipping) {
-        if (line.startsWith("  ") || line.length === 0) {
-          continue;
-        }
-        skipping = false;
-      }
-      out.push(line);
-    }
-    updated = out.join("\n").replace(/\n{3,}/g, "\n\n");
+    updated = removeYamlServer(text, "wa-mcp");
   } else {
     if (!removeJsonKeyEntry(path)) {
       return false;

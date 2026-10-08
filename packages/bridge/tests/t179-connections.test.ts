@@ -85,10 +85,10 @@ function seedHome(): { home: string; claudeInbox: string; codexInbox: string } {
       {
         numStartups: 7,
         mcpServers: {
-          "wa-mcp": {
+          "whatsapp (wa-mcp)": {
             type: "stdio",
             command: "/usr/local/bin/wa-mcp-server",
-            args: ["--bridge", "http://127.0.0.1:8080", "--token", "SECRET-ARG"],
+            args: ["--bridge-url", "http://127.0.0.1:27777", "--token", "SECRET-ARG"],
             env: { WA_TOKEN: "SECRET-ENV" },
           },
           other: { command: "other-server", args: [] },
