@@ -66,5 +66,5 @@ export function connectionsPageHtml(view: ConnectionsPageView): string {
     view.connections.length === 0
       ? '<div class="empty-state">No agents connected yet — set one up in <a href="#/subscriptions">Subscriptions</a></div>'
       : `<ul id="connections-list" aria-label="Connected agents">${view.connections.map(connectionCardHtml).join("")}</ul>`;
-  return `<section id="connections-page"><h1>Connections</h1><p class="hint">AI agents wired to this WhatsApp — through hooks that deliver subscription events, or an MCP server registration.</p>${error}<h2>Connected agents</h2>${body}</section>`;
+  return `<section id="connections-page"><h1>Agents</h1><p class="hint">AI agents wired to this WhatsApp — through hooks that deliver subscription events, or an MCP server registration.</p>${error}<h2>Connected agents</h2>${body}</section>`;
 }

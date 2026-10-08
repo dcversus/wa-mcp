@@ -8,8 +8,6 @@ import {
   contextViewHtml,
   profilePageHtml,
   messageListHtml,
-  settingsHtml,
-  transcriptionSettingsHtml,
   guardLoader,
   replyPreviewHtml,
 } from "./pages.ts";
@@ -381,9 +379,7 @@ function createClient(): ApiClient {
       bridgeDown = true;
       showBridgeDownBanner(settings.bridgeUrl);
     },
-    // T54: never yank the owner to settings — the inline token form renders
-    // on the current route instead (needsToken path in renderFrame). A stored
-    // but INVALID token must not loop: debounce re-renders per 401 burst.
+    // a stored but INVALID token must not loop: debounce re-renders per 401 burst
     onUnauthorized: () => {
       clearStaleTokenOnce();
       const now = Date.now();
@@ -421,7 +417,7 @@ async function renderCurrent(): Promise<void> {
     // every route needs the fresh ephemeral token before its loaders run
     await syncPairingToken();
     client = createClient();
-    await renderFrame({ dom: dom(), settings, loaders, pairingView: currentPairingView });
+    await renderFrame({ dom: dom(), loaders, pairingView: currentPairingView });
     bindRoute();
     const banner = firstRunGate({
       loggedIn: lastKnownHealth.loggedIn === true,
@@ -455,7 +451,7 @@ async function renderCurrent(): Promise<void> {
 }
 
 const loaders: {
-  [R in Exclude<Route, "status" | "chats" | "help">]: (
+  [R in Exclude<Route, "status" | "chats" | "settings" | "connections" | "help">]: (
     params: Record<string, string>,
   ) => Promise<string>;
 } = {
@@ -558,28 +554,6 @@ const loaders: {
       mediaToken: effectiveToken(settings, pairingToken),
     });
   },
-  settings: async () => {
-    const emptyConfig: {
-      transcription?: {
-        engine?: string;
-        base_url?: string;
-        model?: string;
-        api_key?: string;
-        api_key_set?: boolean;
-      };
-    } = { transcription: {} };
-    const config = await client.getConfig().catch(() => emptyConfig);
-    const section = config.transcription ?? {};
-    return (
-      settingsHtml(settings) +
-      transcriptionSettingsHtml({
-        engine: section.engine,
-        baseUrl: section.base_url,
-        model: section.model,
-        apiKeyMasked: section.api_key_set === true ? section.api_key : undefined,
-      })
-    );
-  },
   subscriptions: async () => {
     const [payload, chatsPayload, sessionsPayload] = await Promise.all([
       client.subscriptions() as Promise<{ subscriptions?: SubscriptionView[] }>,
@@ -608,7 +582,7 @@ const loaders: {
     });
   },
 
-  connections: async () => {
+  agents: async () => {
     const payload = (await client.connections()) as { connections?: ConnectionView[] };
     const error = connectionsError;
     connectionsError = undefined;
@@ -649,7 +623,7 @@ function bindRoute(): void {
     bindSubscriptionsControls();
     return;
   }
-  if (hash === "#/connections") {
+  if (hash === "#/agents") {
     bindConnectionsControls();
     return;
   }
@@ -672,10 +646,6 @@ function bindRoute(): void {
   if (hash === "#/pairing") {
     bindPairingFlow();
     return;
-  }
-  if (hash === "#/settings") {
-    bindSettingsForm();
-    bindTranscriptionForm();
   }
 }
 
@@ -1122,8 +1092,6 @@ function bindChatExtras(): void {
 }
 
 function bindPairingFlow(): void {
-  bindSettingsForm();
-  bindTranscriptionForm();
   const phoneForm = document.getElementById("phone-form") as HTMLFormElement | null;
   phoneForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1232,62 +1200,6 @@ async function rerenderPairing(): Promise<void> {
     app.innerHTML = pairingHtml(pairingView);
     bindPairingFlow();
   }
-}
-
-function bindTranscriptionForm(): void {
-  const form = document.getElementById("transcription-form") as HTMLFormElement | null;
-  if (form === null) {
-    return;
-  }
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const engine = (document.getElementById("transcription-engine") as HTMLInputElement).value;
-    const baseUrl = (document.getElementById("transcription-base-url") as HTMLInputElement).value;
-    const model = (document.getElementById("transcription-model") as HTMLInputElement).value;
-    const apiKey = (document.getElementById("transcription-api-key") as HTMLInputElement).value;
-    void client
-      .saveConfig({
-        transcription: {
-          engine,
-          base_url: baseUrl,
-          model,
-          api_key: apiKey,
-        },
-      })
-      .then(() => {
-        location.reload();
-      })
-      .catch((err: unknown) => {
-        const hint = document.querySelector("#transcription-form .hint");
-        if (hint !== null) {
-          hint.textContent = `save failed: ${err instanceof Error ? err.message : String(err)}`;
-        }
-      });
-  });
-}
-
-function bindSettingsForm(): void {
-  const form = document.getElementById("settings-form") as HTMLFormElement | null;
-  if (form === null) {
-    return;
-  }
-  document.getElementById("reveal-token")?.addEventListener("click", () => {
-    const input = document.getElementById("token") as HTMLInputElement | null;
-    const reveal = document.getElementById("reveal-token") as HTMLButtonElement | null;
-    if (input === null || reveal === null) {
-      return;
-    }
-    const hidden = input.type === "password";
-    input.type = hidden ? "text" : "password";
-    reveal.textContent = hidden ? "hide" : "show";
-  });
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const bridgeUrl = (document.getElementById("bridge-url") as HTMLInputElement).value;
-    const token = (document.getElementById("token") as HTMLInputElement).value;
-    saveSettings(localStorage, { bridgeUrl, token });
-    location.reload();
-  });
 }
 
 document.addEventListener("click", (event) => {

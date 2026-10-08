@@ -309,7 +309,7 @@ test("T180 C nav + fallback — the nav says Subscriptions (no more Agent alerts
     setApp: (html) => calls.push({ app: html }),
     setTitle: (title) => calls.push({ title }),
   };
-  await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
+  await renderFrame({ dom, loaders: {} });
   expect(calls.some((call) => call.title === "Subscriptions · wa-mcp")).toBe(true);
   expect(calls.at(-1)?.app).toContain("No subscriptions yet");
 });

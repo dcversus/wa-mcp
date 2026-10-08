@@ -90,12 +90,12 @@ const MATRIX: Capability[] = [
   },
   {
     capability: "list connected agents",
-    web: { route: "#/connections", api: ["connections"] },
+    web: { route: "#/agents", api: ["connections"] },
     cli: { command: "connections", action: "list" },
   },
   {
     capability: "disconnect an agent",
-    web: { route: "#/connections", api: ["disconnectConnection"] },
+    web: { route: "#/agents", api: ["disconnectConnection"] },
     cli: { command: "connections", action: "disconnect" },
   },
   {
@@ -195,12 +195,12 @@ const MATRIX: Capability[] = [
   },
   {
     capability: "transcription engine settings",
-    web: { route: "#/settings", api: ["getConfig", "saveConfig"] },
+    web: { uiOnly: "daemon config — the web panel was never rendered and is removed" },
     cli: { command: "config" },
   },
   {
     capability: "bridge address + access key",
-    web: { uiOnly: "stored in the browser" },
+    web: { uiOnly: "automatic — the bridge hands the web UI its key" },
     cli: { command: "status", flag: "--bridge-url" },
   },
   {

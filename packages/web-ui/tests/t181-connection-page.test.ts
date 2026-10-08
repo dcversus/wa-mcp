@@ -229,20 +229,18 @@ test("T181 D — #/status redirects to #/connection; the connection route render
   const old = fakeDom("#/status");
   await renderFrame({
     dom: old.dom,
-    settings: { bridgeUrl: "", token: "t" },
     loaders: { connection: async () => "<p>loaded</p>" },
   });
   expect(old.state.hash).toBe("#/connection");
   const loaded = fakeDom("#/connection");
   await renderFrame({
     dom: loaded.dom,
-    settings: { bridgeUrl: "", token: "t" },
     loaders: { connection: async () => "<p>loaded</p>" },
   });
   expect(loaded.state.app).toBe("<p>loaded</p>");
   expect(loaded.state.title).toBe("Connection · wa-mcp");
   const fallback = fakeDom("#/connection");
-  await renderFrame({ dom: fallback.dom, settings: { bridgeUrl: "", token: "t" }, loaders: {} });
+  await renderFrame({ dom: fallback.dom, loaders: {} });
   expect(fallback.state.app).toContain('<section id="connection-page">');
 });
 

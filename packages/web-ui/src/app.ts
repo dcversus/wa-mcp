@@ -1,11 +1,10 @@
-import { navHtml, notFoundHtml, settingsHtml, NAV_TITLES } from "./pages.ts";
+import { navHtml, notFoundHtml, NAV_TITLES } from "./pages.ts";
 import { helpPageHtml } from "./help.ts";
 import { connectionPageHtml } from "./connection.ts";
 import { contactsPageHtml } from "./contacts.ts";
 import { connectionsPageHtml } from "./connections.ts";
 import { subscriptionsPageHtml } from "./subscriptions.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
-import { type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
 
 export interface AppDom {
@@ -27,6 +26,7 @@ export type Route =
   | "logs"
   | "subscriptions"
   | "connections"
+  | "agents"
   | "pairing"
   | "help";
 
@@ -41,6 +41,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "logs", pattern: "logs" },
   { route: "subscriptions", pattern: "subscriptions" },
   { route: "connections", pattern: "connections" },
+  { route: "agents", pattern: "agents" },
   { route: "pairing", pattern: "pairing" },
   { route: "help", pattern: "help" },
 ];
@@ -48,6 +49,8 @@ export const ROUTES: Array<RoutePattern<Route>> = [
 const REDIRECTS: Partial<Record<Route, string>> = {
   status: "#/connection",
   chats: "#/contacts",
+  settings: "#/connection",
+  connections: "#/agents",
 };
 
 export type RouteLoaders = Partial<
@@ -56,14 +59,13 @@ export type RouteLoaders = Partial<
 
 export interface RenderFrameIo {
   dom: AppDom;
-  settings: WebSettings;
   loaders: RouteLoaders;
   /** live pairing view (poll-updated in main.ts); absent in pure tests */
   pairingView?: () => PairingView;
 }
 
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
-  const { dom, settings, loaders } = io;
+  const { dom, loaders } = io;
   const match = resolveRoute(dom.getHash(), ROUTES);
   const redirect = match === null ? undefined : REDIRECTS[match.route];
   if (redirect !== undefined) {
@@ -77,10 +79,6 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     return;
   }
   dom.setTitle(`${NAV_TITLES[match.route] ?? "wa-mcp"} · wa-mcp`);
-  if (match.route === "settings") {
-    dom.setApp(settingsHtml(settings));
-    return;
-  }
   if (match.route === "help") {
     dom.setApp(helpPageHtml());
     return;
@@ -100,7 +98,7 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
         : match.route === "subscriptions"
           ? async () =>
               subscriptionsPageHtml({ subscriptions: [], chats: [], sessions: [], editing: null })
-          : match.route === "connections"
+          : match.route === "agents"
             ? async () => connectionsPageHtml({ connections: [] })
             : undefined);
   if (loader === undefined) {

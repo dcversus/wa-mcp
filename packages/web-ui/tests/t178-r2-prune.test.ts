@@ -22,7 +22,7 @@ function fakeDom(hash: string) {
 test("T178 C — deleted routes render the not-found page with the way home, no redirect", async () => {
   for (const hash of ["#/automations", "#/unread", "#/health", "#/events"]) {
     const { dom, calls } = fakeDom(hash);
-    await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
+    await renderFrame({ dom, loaders: {} });
     expect(
       calls.some((call) => call.hash !== undefined),
       hash,

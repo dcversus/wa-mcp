@@ -12,13 +12,13 @@ const WHAT = `<div class="panel" id="help-what"><h2>What is this?</h2><p>wa-mcp 
 const START = `<div class="panel" id="help-start"><h2>Getting started</h2><ol class="help-steps">
 <li><strong>Link your phone.</strong> Open <a href="#/connection">Connection</a> and choose a QR code or a phone-number code, then on your phone go to Settings → Linked devices → Link a device. From a terminal: <code>wa-mcp pair</code>.</li>
 <li><strong>Create your first subscription.</strong> In <a href="#/subscriptions">Subscriptions</a>, pick the chats to watch, optionally a text filter or mention-only, write the prompt your agent should get, and choose how events are delivered. From a terminal: <code>wa-mcp subs create --name Team --chat &lt;jid&gt; --prompt "…"</code>.</li>
-<li><strong>Connect an agent.</strong> <code>wa-mcp install</code> registers the WhatsApp tools with your AI agents; <code>wa-mcp install --hooks claude --sub &lt;subscription-id&gt;</code> wakes Claude Code whenever the subscription delivers an event. Check what is connected in <a href="#/connections">Connections</a>.</li>
+<li><strong>Connect an agent.</strong> <code>wa-mcp install</code> registers the WhatsApp tools with your AI agents; <code>wa-mcp install --hooks claude --sub &lt;subscription-id&gt;</code> wakes Claude Code whenever the subscription delivers an event. Check what is connected in <a href="#/agents">Agents</a>.</li>
 </ol></div>`;
 
 const CONCEPTS = `<div class="panel" id="help-concepts"><h2>Concepts</h2>
 <h3><a href="#/logs">Logs</a></h3><p>Every message in and out, newest first. Filter by chat, person, direction, date range or text; turn on live tail to watch new messages arrive. Click a chat name to open that conversation. CLI: <code>wa-mcp messages</code>.</p>
 <h3><a href="#/contacts">Contacts</a></h3><p>Your real WhatsApp contacts. Adding, renaming and removing contacts works exactly like WhatsApp Web — the change is on your phone too. Search by name, username or number, and click a contact to open your conversation with them. CLI: <code>wa-mcp contacts</code>.</p>
-<h3><a href="#/connections">Connections</a></h3><p>The AI agents wired to this WhatsApp: hooks that deliver subscription events, and MCP server registrations that give an agent the WhatsApp tools. Disconnect removes only wa-mcp's own entries from the agent's config (a backup is written first). CLI: <code>wa-mcp connections</code>.</p>
+<h3><a href="#/agents">Agents</a></h3><p>The AI agents wired to this WhatsApp: hooks that deliver subscription events, and MCP server registrations that give an agent the WhatsApp tools. Disconnect removes only wa-mcp's own entries from the agent's config (a backup is written first). CLI: <code>wa-mcp connections</code>.</p>
 <h3><a href="#/subscriptions">Subscriptions</a></h3><p>A subscription decides which incoming messages reach an agent, and how.</p>
 <dl class="help-terms">
 <dt>Chats</dt><dd>One or more chats, or all chats.</dd>
@@ -38,7 +38,7 @@ const CONCEPTS = `<div class="panel" id="help-concepts"><h2>Concepts</h2>
 
 const TROUBLE = `<div class="panel" id="help-troubleshooting"><h2>Troubleshooting</h2><dl class="help-terms">
 <dt>WhatsApp is not linked</dt><dd>Open <a href="#/connection">Connection</a> and link with a QR code or a phone-number code (<code>wa-mcp pair</code>). If linking was blocked after several attempts, wait before retrying — every attempt restarts WhatsApp's cooldown — then use <code>wa-mcp pair --resume</code>.</dd>
-<dt>401 — the access key was rejected</dt><dd>The key saved in <a href="#/settings">Settings</a> no longer matches the bridge. Paste the current one from <code>~/.wa-mcp/token</code>, or reopen the web UI from the link the bridge prints at start.</dd>
+<dt>401 — the access key was rejected</dt><dd>The web UI signs in by itself with a key the bridge hands it, and drops a stale key on its own. Reload the page; if the bridge was restarted, reopen the web UI from the link the bridge prints at start. The CLI reads <code>~/.wa-mcp/token</code>.</dd>
 <dt>429 — SEND_LIMIT_REACHED or RATE_LIMITED</dt><dd>A send limit was reached; the error says which one and when to retry. Raise or switch off the limits in <a href="#/connection">Connection</a> (<code>wa-mcp settings set --per-day &lt;n&gt;</code>), or wait. <code>RATE_LIMITED</code> means requests came too fast — space them out.</dd>
 <dt>A subscription never fires</dt><dd>Check it is switched on and watches the right chat in <a href="#/subscriptions">Subscriptions</a>. A text filter must match the message, and mention-only needs an @mention of you. Use <em>Send test event</em> (<code>wa-mcp subs test &lt;id&gt;</code>) to check delivery, and <a href="#/logs">Logs</a> to confirm the message arrived. Your own messages and old history are never delivered.</dd>
 </dl></div>`;

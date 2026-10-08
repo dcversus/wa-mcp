@@ -22,11 +22,10 @@ export function emptyState(text: string): string {
 const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "logs", label: "Logs", href: "#/logs" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
-  { id: "connections", label: "Connections", href: "#/connections" },
+  { id: "agents", label: "Agents", href: "#/agents" },
   { id: "subscriptions", label: "Subscriptions", href: "#/subscriptions" },
   { id: "profile", label: "Profile", href: "#/profile" },
   { id: "connection", label: "Connection", href: "#/connection" },
-  { id: "settings", label: "Settings", href: "#/settings" },
   { id: "help", label: "Help", href: "#/help" },
 ];
 
@@ -34,29 +33,23 @@ export const NAV_TITLES: Record<string, string> = {
   chat: "Chat",
   logs: "Logs",
   contacts: "Contacts",
-  connections: "Connections",
+  agents: "Agents",
   subscriptions: "Subscriptions",
   profile: "Profile",
   connection: "Connection",
-  settings: "Settings",
   pairing: "Link phone",
   help: "Help",
 };
 
 export function navHtml(active: string, version = "0.9.0"): string {
-  const groups: Array<{ label: string; keys: string[] }> = [
-    { label: "Messages", keys: ["logs"] },
-    { label: "People", keys: ["contacts"] },
-    { label: "Agent", keys: ["connections", "subscriptions"] },
-    { label: "Me", keys: ["profile"] },
-    { label: "System", keys: ["connection", "settings"] },
-    { label: "", keys: ["help"] },
+  const groups: string[][] = [
+    ["logs", "subscriptions", "agents"],
+    ["profile", "contacts", "connection", "help"],
   ];
   const brand = `<div class="brand"><strong>wa-mcp</strong><span class="version">v${version}</span></div>`;
   const links = groups
-    .map((group) => {
-      const label = group.label.length > 0 ? `<div class="nav-group">${group.label}</div>` : "";
-      const links = group.keys
+    .map((keys) =>
+      keys
         .map((key) => {
           const section = NAV_SECTIONS.find((candidate) => candidate.id === key);
           if (section === undefined) {
@@ -65,10 +58,9 @@ export function navHtml(active: string, version = "0.9.0"): string {
           const isActive = section.id === active;
           return `<a href="${section.href}"${isActive ? ' class="active" aria-current="page"' : ""} data-nav="${section.id}">${section.label}</a>`;
         })
-        .join("");
-      return label + links;
-    })
-    .join("");
+        .join(""),
+    )
+    .join('<span class="nav-separator" aria-hidden="true"></span>');
   return `<nav aria-label="Main">${brand}${links}</nav>`;
 }
 
@@ -348,35 +340,6 @@ export function contextViewHtml(
     )
     .join("");
   return `<div id="context-view"><h3>Around this message</h3><ul>${items}</ul></div>`;
-}
-
-export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<section id="settings-page"><h1>Settings</h1><form id="settings-form"><label>Server address<input id="bridge-url" aria-label="Server address" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Access key — filled in automatically; only change this if support asks you to<input id="token" type="password" aria-label="Access key" value="${escapeHtml(settings.token)}" autocomplete="off" /></label><button id="reveal-token" type="button">show</button><button class="primary" type="submit">Save</button></form></section>`;
-}
-
-export interface TranscriptionSettingsView {
-  engine?: string;
-  baseUrl?: string;
-  model?: string;
-  apiKeyMasked?: string;
-}
-
-export function transcriptionSettingsHtml(view: TranscriptionSettingsView): string {
-  const engine = view.engine ?? "";
-  const engines = ["mock", "openai", "mlx", "whisper-local"];
-  const options = engines
-    .map(
-      (name) =>
-        `<option value="${escapeHtml(name)}"${name === engine ? " selected" : ""}>${escapeHtml(name)}</option>`,
-    )
-    .join("");
-  return `<form id="transcription-form"><h3>Transcription</h3>
-<label>Engine<select id="transcription-engine">${options}</select></label>
-<label>Base URL<input id="transcription-base-url" value="${escapeHtml(view.baseUrl ?? "")}" placeholder="https://api.openai.com/v1" /></label>
-<label>Model<input id="transcription-model" value="${escapeHtml(view.model ?? "")}" placeholder="whisper-1" /></label>
-<label>API key<input id="transcription-api-key" type="password" placeholder="${escapeHtml(view.apiKeyMasked ?? "not set")}" /></label>
-<p class="hint">leave the key field empty to keep the saved key; engines and keys are stored in the bridge config file</p>
-</form>`;
 }
 
 export function profilePageHtml(input: {

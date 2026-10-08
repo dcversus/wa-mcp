@@ -90,7 +90,7 @@ test("T179 C page — h1, Connected agents list, error banner", () => {
     error: "could not disconnect <x>",
   });
   expect(html.match(/<h1>/g)).toHaveLength(1);
-  expect(html).toContain("<h1>Connections</h1>");
+  expect(html).toContain("<h1>Agents</h1>");
   expect(html).toContain("<h2>Connected agents</h2>");
   expect(html).toContain('<ul id="connections-list" aria-label="Connected agents">');
   expect(html.match(/class="connection-card"/g)).toHaveLength(2);
@@ -105,25 +105,24 @@ test("T179 C page — empty state points to Subscriptions", () => {
   expect(html).not.toContain("connection-card");
 });
 
-test("T179 C router — #/connections replaces the Connect agent stub in the Agent nav", async () => {
+test("T179 C router — the agents page (renamed from Connections in R2-9) replaces the Connect agent stub", async () => {
   const routes = ROUTES.map((entry) => entry.route as string);
-  expect(routes).toContain("connections");
+  expect(routes).toContain("agents");
   expect(routes).not.toContain("connect");
-  const nav = navHtml("connections");
+  const nav = navHtml("agents");
   expect(nav).toContain(
-    '<a href="#/connections" class="active" aria-current="page" data-nav="connections">Connections</a>',
+    '<a href="#/agents" class="active" aria-current="page" data-nav="agents">Agents</a>',
   );
   expect(nav).not.toContain("Connect agent");
-  const { dom, calls } = fakeDom("#/connections");
+  const { dom, calls } = fakeDom("#/agents");
   await renderFrame({
     dom,
-    settings: { bridgeUrl: "", token: "" },
-    loaders: { connections: async () => connectionsPageHtml({ connections: [CURSOR_MCP] }) },
+    loaders: { agents: async () => connectionsPageHtml({ connections: [CURSOR_MCP] }) },
   });
-  expect(calls.some((call) => call.title === "Connections · wa-mcp")).toBe(true);
+  expect(calls.some((call) => call.title === "Agents · wa-mcp")).toBe(true);
   expect(calls.at(-1)?.app).toContain("Cursor");
-  const fallback = fakeDom("#/connections");
-  await renderFrame({ dom: fallback.dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
+  const fallback = fakeDom("#/agents");
+  await renderFrame({ dom: fallback.dom, loaders: {} });
   expect(fallback.calls.at(-1)?.app).toContain("No agents connected yet");
 });
 

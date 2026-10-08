@@ -40,7 +40,7 @@ test("T182 A help — getting started walks link phone → first subscription �
   expect(steps[0]).toContain("wa-mcp pair");
   expect(steps[1]).toContain('href="#/subscriptions"');
   expect(steps[1]).toContain("wa-mcp subs create");
-  expect(steps[2]).toContain('href="#/connections"');
+  expect(steps[2]).toContain('href="#/agents"');
   expect(steps[2]).toContain("wa-mcp install --hooks claude --sub");
 });
 
@@ -50,7 +50,7 @@ test("T182 A help — concepts cover every page and the subscription + connectio
   for (const [title, href] of [
     ["Logs", "#/logs"],
     ["Contacts", "#/contacts"],
-    ["Connections", "#/connections"],
+    ["Agents", "#/agents"],
     ["Subscriptions", "#/subscriptions"],
     ["Profile", "#/profile"],
     ["Connection settings", "#/connection"],
@@ -128,7 +128,7 @@ function fakeDom(hash: string): { dom: AppDom; state: { app: string; nav: string
 
 test("T182 A help — #/help renders without a loader; Help is a top-level nav link", async () => {
   const frame = fakeDom("#/help");
-  await renderFrame({ dom: frame.dom, settings: { bridgeUrl: "", token: "t" }, loaders: {} });
+  await renderFrame({ dom: frame.dom, loaders: {} });
   expect(frame.state.app).toBe(helpPageHtml());
   expect(navHtml("help")).toContain(
     '<a href="#/help" class="active" aria-current="page" data-nav="help">Help</a>',
@@ -147,6 +147,7 @@ test("T182 C router — the route table after the R2 cleanup", () => {
     "logs",
     "subscriptions",
     "connections",
+    "agents",
     "pairing",
     "help",
   ]);

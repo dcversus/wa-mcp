@@ -26,16 +26,18 @@ polls and flips to the connected state by itself.
 
 ## 4. Use it
 
+The left menu has two groups.
+
 - `#/logs` — every message in and out, with filters and live tail; click a
   chat name to open the conversation
-- `#/contacts` — your WhatsApp contacts; add, rename, remove (exactly like
-  WhatsApp Web); click a contact to read and send in `#/chat/<jid>`
-- `#/connections` — the agents wired to this WhatsApp, with disconnect
 - `#/subscriptions` — choose which messages reach your agent and how
   (inbox file, agent session or a new agent each time)
+- `#/agents` — the agents wired to this WhatsApp, with disconnect
+
 - `#/profile` — name, about, privacy and blocked contacts
+- `#/contacts` — your WhatsApp contacts; add, rename, remove (exactly like
+  WhatsApp Web); click a contact to read and send in `#/chat/<jid>`
 - `#/connection` — link status, today's stats, humanisation and send limits
-- `#/settings` — bridge URL, transcription engine, BYOK keys (masked)
 - `#/help` — how everything fits together, plus the full `wa-mcp` command
   reference
 
@@ -45,7 +47,9 @@ Every page has a `wa-mcp` command with the same capability — see `#/help`.
 
 - no CLI command to pair (both QR and code are in the UI)
 - no token pasting (bootstrap is automatic)
-- no config file editing (Settings covers engine + keys)
+- no config file editing for everyday use; voice-note transcription is
+  optional and its engine and key live in the daemon config
+  (`wa-mcp config set transcription.engine openai`)
 
 The terminal path exists for headless machines — see
 [Headless CLI](./index.md) — but it is never required on a desktop.

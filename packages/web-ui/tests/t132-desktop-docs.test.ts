@@ -21,7 +21,7 @@ test("the desktop path never requires a terminal to pair", () => {
 });
 
 test("the UI pages the doc names all exist", () => {
-  for (const name of ["contacts", "subscriptions", "settings", "pairing"]) {
+  for (const name of ["contacts", "subscriptions", "agents", "pairing"]) {
     const present =
       pages.includes(`id: "${name}"`) ||
       pages.includes(`id="${name}"`) ||
@@ -31,9 +31,10 @@ test("the UI pages the doc names all exist", () => {
   }
 });
 
-test("settings covers transcription as the doc claims", () => {
-  expect(pages).toContain("transcriptionSettingsHtml");
-  expect(desktop).toContain("transcription engine");
+test("transcription is daemon config, as the doc says — no web settings page", () => {
+  expect(pages).not.toContain("transcriptionSettingsHtml");
+  expect(desktop).toContain("wa-mcp config set transcription.engine");
+  expect(desktop).not.toContain("#/settings");
 });
 
 test("bootstrap-with-zero-action claim matches the code comment", () => {

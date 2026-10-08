@@ -282,7 +282,6 @@ test("T175 A2 — #/logs is a routed page with a nav entry and title", async () 
   const { dom, calls } = fakeDom("#/logs");
   await renderFrame({
     dom,
-    settings: { bridgeUrl: "", token: "" },
     loaders: { logs: async () => '<section id="logs-page"></section>' },
   });
   expect(calls.some((call) => call.title === "Logs · wa-mcp")).toBe(true);
@@ -292,7 +291,7 @@ test("T175 A2 — #/logs is a routed page with a nav entry and title", async () 
 test("T175 A4 — #/events is gone: no route, no redirect, renders not-found", async () => {
   expect(ROUTES.some((route) => route.pattern === "events")).toBe(false);
   const { dom, calls } = fakeDom("#/events");
-  await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
+  await renderFrame({ dom, loaders: {} });
   expect(calls.some((call) => call.hash !== undefined)).toBe(false);
   expect(calls.some((call) => call.app?.includes('id="not-found"'))).toBe(true);
 });

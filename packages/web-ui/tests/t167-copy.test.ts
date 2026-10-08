@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { subscriptionsPageHtml } from "../src/subscriptions.ts";
-import { messageListHtml, profilePageHtml, settingsHtml } from "../src/pages.ts";
+import { messageListHtml, profilePageHtml } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
 
 test("T167 P4 — contacts copy: Rename, human search", () => {
@@ -54,12 +54,6 @@ test("T167 P4 — profile copy: privacy labels and block-a-number", () => {
   expect(html).toContain("My contacts");
   expect(html).toContain("Block a number");
   expect(html).not.toContain("block a JID");
-});
-
-test("T167 P4 — settings copy is human", () => {
-  const html = settingsHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
-  expect(html).toContain("Server address");
-  expect(html).toContain("Access key");
 });
 
 test("T167 P4 — subscriptions copy is agent language", () => {

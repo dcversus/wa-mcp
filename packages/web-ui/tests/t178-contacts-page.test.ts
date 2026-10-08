@@ -163,12 +163,6 @@ test("T178 B3 form validation — name required, +country-code phone, optional u
   });
 });
 
-test("T178 api — an explicit method wins over the json-implies-POST default (PUT /api/config)", async () => {
-  const { client, calls } = recordingClient();
-  await client.saveConfig({ transcription: { engine: "none" } });
-  expect(calls[0]?.init?.method).toBe("PUT");
-});
-
 test("T178 B3 api — contacts(q, saved, limit) + add/rename/remove hit the contact endpoints", async () => {
   const { client, calls } = recordingClient();
   await client.contacts({ q: "dana", saved: true, limit: 500 });

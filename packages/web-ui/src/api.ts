@@ -45,18 +45,6 @@ export interface ApiClient {
   saveConnectionSettings(body: unknown): Promise<unknown>;
   connectionStats(): Promise<unknown>;
   logout(): Promise<unknown>;
-  getConfig(): Promise<{
-    transcription?: {
-      engine?: string;
-      base_url?: string;
-      model?: string;
-      api_key?: string;
-      api_key_set?: boolean;
-    };
-  }>;
-  saveConfig(body: {
-    transcription: { engine?: string; base_url?: string; model?: string; api_key?: string };
-  }): Promise<{ saved: boolean }>;
   createSubscription(body: Record<string, unknown>): Promise<unknown>;
   deleteSubscription(id: string): Promise<unknown>;
   privacy(): Promise<unknown>;
@@ -214,8 +202,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       jsonCall("/api/connection-settings", { method: "PUT", json: body }),
     connectionStats: () => jsonCall("/api/connection-stats"),
     logout: () => jsonCall("/api/logout", { method: "POST" }),
-    getConfig: () => jsonCall("/api/config"),
-    saveConfig: (body) => jsonCall("/api/config", { method: "PUT", json: body }),
     createSubscription: (body) => post("/api/subs2", body),
     deleteSubscription: (id) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "DELETE" }),

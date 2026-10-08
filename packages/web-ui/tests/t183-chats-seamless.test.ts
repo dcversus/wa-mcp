@@ -40,7 +40,7 @@ const DANA: ContactView = {
 
 test("T183 A router — #/chats redirects to #/contacts without rendering a page", async () => {
   const { dom, calls } = fakeDom("#/chats");
-  await renderFrame({ dom, settings: { bridgeUrl: "", token: "t" }, loaders: {} });
+  await renderFrame({ dom, loaders: {} });
   expect(calls).toEqual([{ hash: "#/contacts" }]);
 });
 
@@ -54,12 +54,10 @@ test("T183 A router — the bare hash lands on Contacts; chat detail still resol
   expect(routeKind("#/chats")).toBe("other");
 });
 
-test("T183 A nav — no Chats entry; the Messages group holds Logs only", () => {
+test("T183 A nav — no Chats entry", () => {
   const nav = navHtml("logs");
   expect(nav).not.toContain("#/chats");
   expect(nav).not.toContain(">Chats<");
-  const messages = nav.slice(nav.indexOf("Messages"), nav.indexOf("People"));
-  expect([...messages.matchAll(/href="([^"]+)"/g)].map((match) => match[1])).toEqual(["#/logs"]);
 });
 
 test("T183 A first run — unlinked on the landing page (Contacts) gets the pairing pane", () => {
@@ -215,7 +213,7 @@ test("T183 B help — Contacts reads like WhatsApp Web, with no sync paragraph",
   const concepts = html.slice(html.indexOf('id="help-concepts"'), html.indexOf('id="help-cli"'));
   const contacts = concepts.slice(
     concepts.indexOf('href="#/contacts"'),
-    concepts.indexOf('href="#/connections"'),
+    concepts.indexOf('href="#/agents"'),
   );
   expect(contacts).toContain("exactly like WhatsApp Web");
   expect(contacts).not.toMatch(/sync/i);

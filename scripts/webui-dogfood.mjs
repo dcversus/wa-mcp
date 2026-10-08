@@ -149,10 +149,9 @@ const routes = [
   ["#/profile", "location.hash = '#/profile'"],
   ["#/logs", "location.hash = '#/logs'"],
   ["#/subscriptions", "location.hash = '#/subscriptions'"],
-  ["#/connections", "location.hash = '#/connections'"],
+  ["#/agents", "location.hash = '#/agents'"],
   ["#/connection", "location.hash = '#/connection'"],
   ["#/help", "location.hash = '#/help'"],
-  ["#/settings", "location.hash = '#/settings'"],
   ["#/nonexistent", "location.hash = '#/definitely-not-a-route'"],
 ];
 

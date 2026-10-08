@@ -199,7 +199,7 @@ time,
   display: flex;
   align-items: baseline;
   gap: var(--s2);
-  padding: 0 var(--s2) var(--s4);
+  padding: 0 var(--s2) var(--s5);
 }
 
 .brand strong {
@@ -216,13 +216,10 @@ time,
   color: var(--text-dim);
 }
 
-.nav-group {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-  padding: var(--s4) var(--s2) var(--s1);
+.nav-separator {
+  display: block;
+  flex: none;
+  height: var(--s5);
 }
 
 #nav a {
@@ -297,6 +294,11 @@ section {
     gap: 2px;
   }
 
+  .nav-separator {
+    width: var(--s3);
+    height: auto;
+  }
+
   .brand {
     flex: none;
     white-space: nowrap;
@@ -305,10 +307,6 @@ section {
 
   .logs-table .snippet {
     min-width: 240px;
-  }
-
-  .nav-group {
-    display: none;
   }
 
   #nav a {
@@ -1874,23 +1872,6 @@ p.save-flash {
 .send-box input {
   flex: 1;
   width: auto;
-}
-
-#settings-form,
-#transcription-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--s3);
-  max-width: 560px;
-}
-
-#settings-form label,
-#transcription-form label {
-  flex: 1 1 100%;
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  color: var(--text-dim);
 }
 
 #help-page {

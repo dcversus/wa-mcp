@@ -4,7 +4,6 @@ import {
   effectiveToken,
   loadPairingToken,
   loadSettings,
-  needsToken,
   savePairingToken,
   saveSettings,
   type SettingsStorage,
@@ -35,11 +34,6 @@ test("corrupt stored settings fall back to defaults", () => {
   const storage = memoryStorage();
   storage.setItem("wa-mcp-settings", "{oops");
   expect(loadSettings(storage)).toEqual({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
-});
-
-test("needsToken is true only without a token", () => {
-  expect(needsToken({ bridgeUrl: "x", token: "" })).toBe(true);
-  expect(needsToken({ bridgeUrl: "x", token: "t" })).toBe(false);
 });
 
 describe("T54 token resolution", () => {

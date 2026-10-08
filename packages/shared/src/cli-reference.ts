@@ -114,7 +114,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     usage: "connections | connections disconnect <hooks|mcp> <agent> [--sub <id>]",
     summary: "connected agents (hooks + MCP registrations); disconnect removes only wa-mcp entries",
     actions: ["list", "disconnect"],
-    web: "#/connections",
+    web: "#/agents",
   },
   {
     name: "install",
@@ -190,8 +190,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     name: "config",
     group: "daemon",
     usage: "config [list] | config get <key> | config set <key> <value> | config unset <key>",
-    summary: "transcription engine settings (the web UI's Settings page)",
-    web: "#/settings",
+    summary: "daemon config file: transcription engine, base URL, model and key",
   },
   {
     name: "import",

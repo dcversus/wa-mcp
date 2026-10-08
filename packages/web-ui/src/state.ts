@@ -54,10 +54,6 @@ export function saveSettings(storage: SettingsStorage, settings: WebSettings): v
   storage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-export function needsToken(settings: WebSettings): boolean {
-  return settings.token.length === 0;
-}
-
 const PAIRING_TOKEN_KEY = "wa-mcp-pairing-token";
 
 /** Ephemeral pairing token (from the public /health), persisted separately

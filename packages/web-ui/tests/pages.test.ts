@@ -6,7 +6,6 @@ import {
   messageListHtml,
   navHtml,
   profilePageHtml,
-  settingsHtml,
 } from "../src/pages.ts";
 import { connectionPageHtml } from "../src/connection.ts";
 
@@ -37,27 +36,21 @@ test("messageListHtml renders messages with sender and text", () => {
   expect(html).toContain('data-chat-jid="g@g.us"');
 });
 
-test("settingsHtml renders inputs for bridge url and token", () => {
-  const html = settingsHtml({ bridgeUrl: "http://b", token: "t" });
-  expect(html).toContain('id="bridge-url"');
-  expect(html).toContain('id="token"');
-  expect(html).toContain('value="http://b"');
-});
-
 test("sidebar nav lists the full section set with active state (T51)", () => {
   const html = navHtml("contacts");
   for (const section of [
     "Logs",
-    "Contacts",
-    "Connections",
     "Subscriptions",
+    "Agents",
     "Profile",
+    "Contacts",
     "Connection",
-    "Settings",
+    "Help",
   ]) {
     expect(html).toContain(section);
   }
   expect(html).toContain('class="active" aria-current="page" data-nav="contacts"');
+  expect(html).not.toContain("Settings");
   expect(html).not.toContain(">Chats<");
 });
 
@@ -173,12 +166,6 @@ describe("T51-C/D profile + groups participants", () => {
     const html = profilePageHtml({ blocklist: ['"><script>x</script>'] });
     expect(html).not.toContain("<script>x</script>");
   });
-});
-
-test("settingsHtml marks the token field optional (T54 revised)", () => {
-  const html = settingsHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
-  expect(html).toContain("Access key");
-  expect(html).not.toContain("cat ~");
 });
 
 describe("T67 send-outcome UX", () => {

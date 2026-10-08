@@ -1,7 +1,7 @@
 // CDP-based web UI smoke: loads the served bundle in headless Chrome and
 // asserts the SPA actually renders. Usage:
 //   node scripts/webui-smoke.mjs [bridgeUrl] [chromePath]
-// Exits 0 when #/pairing and #/settings render non-empty content with
+// Exits 0 when #/pairing renders and the retired pages redirect, with
 // no token set; non-zero with a diagnostic otherwise.
 
 import { spawn } from "node:child_process";
@@ -168,7 +168,7 @@ if (pairingApp.length === 0) {
     const before = document.getElementById("app")?.innerHTML.length ?? -1;
     let hashChanges = 0;
     window.addEventListener("hashchange", () => { hashChanges += 1; });
-    location.hash = "#/settings";
+    location.hash = "#/help";
     await new Promise((resolve) => setTimeout(resolve, 800));
     return {
       before,
@@ -186,7 +186,7 @@ console.log(`#/pairing app content: ${pairingApp.slice(0, 200)}`);
 for (const line of pageDiagnostics.slice(-8)) {
   console.log(`diag(pairing): ${line}`);
 }
-if (pairingApp.includes('id="settings-form"') || pairingApp.includes('id="token"'))
+if (pairingApp.includes('id="token"'))
   fail("#/pairing still shows a token wall (T53: pairing must be tokenless)");
 if (!pairingApp.includes('id="pairing"')) fail("#/pairing is missing the pairing/qr container");
 if (
@@ -206,13 +206,14 @@ console.log(
 );
 
 await goto(`${bridgeUrl}/#/settings`);
-const settingsApp = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
-if (!settingsApp.includes('id="settings-form"'))
-  fail("#/settings did not render the settings form");
-if (!settingsApp.includes('id="bridge-url"') || !settingsApp.includes('id="token"')) {
-  fail("#/settings is missing the bridge-url/token inputs");
-}
-console.log(`#/settings form rendered: ok`);
+const settingsHash = await evaluate(`location.hash`);
+if (settingsHash !== "#/connection")
+  fail(`#/settings should redirect to #/connection, got ${settingsHash}`);
+console.log(`#/settings redirects to #/connection: ok`);
+await goto(`${bridgeUrl}/#/connections`);
+const agentsHash = await evaluate(`location.hash`);
+if (agentsHash !== "#/agents") fail(`#/connections should redirect to #/agents, got ${agentsHash}`);
+console.log(`#/connections redirects to #/agents: ok`);
 
 const nav = await evaluate(`document.getElementById("nav")?.innerHTML ?? ""`);
 if (!nav.includes("#/contacts")) fail("nav is empty");
@@ -225,7 +226,7 @@ const isContactsOrPairing = (html) =>
 await goto(`${bridgeUrl}/#/contacts`);
 const inlineForm = await evaluate(`document.getElementById("app")?.innerHTML ?? ""`);
 const inlineHash = await evaluate(`location.hash`);
-if (inlineForm.includes('id="settings-form"') || inlineForm.includes('id="token"'))
+if (inlineForm.includes('id="token"'))
   fail("#/contacts still shows a token form (T54 revised: the ephemeral UI token authenticates)");
 if (!isContactsOrPairing(inlineForm))
   fail(`#/contacts did not render tokenless: ${inlineForm.slice(0, 120)}`);
