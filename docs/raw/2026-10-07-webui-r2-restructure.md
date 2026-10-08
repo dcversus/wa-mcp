@@ -87,3 +87,18 @@ followed (both exist in ~/.claude/skills, also mirrored in
 the minimalist-ui protocol (clean editorial, warm monochrome,
 typographic contrast) is the primary guide; high-end-visual-design
 informs motion/typography quality.
+
+---
+
+## Owner directive (2026-10-08 evening, verbatim — canon)
+
+> we dont need a http://127.0.0.1:8080/#/settings page; at left menu
+> regroup everything into two categories: logs, Subscriptions, Agents
+> (prev renamed Connections) AND profile, Contacts, Connection, Help.
+> no need group header, just more space between groups;
+
+Resolution: (1) #/settings page DELETED — whatever it holds (token
+display etc.) moves to Connection page or dies. (2) Nav regrouped into
+exactly two visual groups, NO group headers, larger gap between
+groups: [Logs, Subscriptions, Agents] + [Profile, Contacts,
+Connection, Help]. (3) "Connections" page renamed "Agents".
