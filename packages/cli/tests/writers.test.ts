@@ -102,7 +102,11 @@ test("pi merges into agent/mcp.json with an mcpServers wrapper and migrates the 
     mcpServers: Record<string, { command?: string; transport?: string }>;
   };
   expect(parsed.mcpServers.other).toBeDefined();
-  expect(parsed.mcpServers["wa-mcp"]).toMatchObject({ command: "node", transport: "stdio" });
+  expect(parsed.mcpServers["wa-mcp"]).toMatchObject({
+    command: "node",
+    transport: "stdio",
+    lifecycle: "eager",
+  });
   expect(existsSync(join(home, ".pi", "mcp", "wa-mcp.json"))).toBe(false);
 });
 

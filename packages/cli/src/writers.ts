@@ -273,7 +273,10 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
         platform,
       };
     case "pi": {
-      const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, { transport: "stdio" });
+      const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, {
+        transport: "stdio",
+        lifecycle: "eager",
+      });
       rmSync(join(options.home, ".pi", "mcp", "wa-mcp.json"), { force: true });
       return { ...result, platform };
     }
