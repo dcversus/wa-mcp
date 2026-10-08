@@ -124,7 +124,7 @@ describe("T51-B chats", () => {
       },
     ]);
     expect(html).toContain('src="/api/media/m1"'); // T68: real thumbnail
-    expect(html).toContain("📊 Lunch?");
+    expect(html).toContain('<span class="media-kind">Poll</span> Lunch?');
     expect(html).toContain("A · 3 votes");
     expect(html).toContain("original");
     expect(html).toContain("👍");

@@ -61,7 +61,7 @@ export function connectionsPageHtml(view: ConnectionsPageView): string {
   const error =
     view.error === undefined
       ? ""
-      : `<div class="error-banner" role="alert">⚠ ${escapeHtml(view.error)}</div>`;
+      : `<div class="error-banner" role="alert">${escapeHtml(view.error)}</div>`;
   const body =
     view.connections.length === 0
       ? '<div class="empty-state">No agents connected yet — set one up in <a href="#/subscriptions">Subscriptions</a></div>'

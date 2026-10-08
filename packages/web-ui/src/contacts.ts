@@ -81,7 +81,7 @@ export function contactsPageHtml(view: ContactsPageView): string {
   const error =
     view.error === undefined
       ? ""
-      : `<div class="error-banner" role="alert">⚠ ${escapeHtml(view.error)}</div>`;
+      : `<div class="error-banner" role="alert">${escapeHtml(view.error)}</div>`;
   const search = `<form id="contact-search" role="search"><input type="search" name="q" placeholder="Search name, username or number" aria-label="Search contacts" autocomplete="off" value="${escapeHtml(view.query)}" /><label class="check-row"><input type="checkbox" name="saved" value="true"${view.saved ? " checked" : ""} /> only saved contacts</label>${count}</form>`;
   const form = `<details class="contact-new"><summary>New contact</summary><form id="contact-new"><label>Name<input name="name" required autocomplete="off" /></label><label>Phone<input name="phone" type="tel" required placeholder="+358 40 123 4567" pattern="\\+[0-9 ()-]{8,20}" /></label><label>Username (optional)<input name="username" autocomplete="off" /></label><button class="primary" type="submit">Save contact</button></form></details>`;
   return `<section id="contacts-page"><h1>Contacts</h1>${notice}${error}${search}${form}<ul id="contacts-list">${view.contacts.map(contactRowHtml).join("")}</ul>${capped}${empty}</section>`;

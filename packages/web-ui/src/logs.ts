@@ -166,11 +166,15 @@ function senderLabel(row: LogRow, input: LogsPageInput): string {
   return input.resolveName(row.senderJid) ?? row.senderName ?? formatPhone(row.senderJid);
 }
 
+function arrowIcon(path: string): string {
+  return `<svg class="icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
+}
+
 export function logRowHtml(row: LogRow, input: LogsPageInput): string {
   const snippet = row.content ?? (row.mediaType !== null ? `[${row.mediaType}]` : "");
   const badge = row.isFromMe
-    ? '<span class="dir-badge dir-out">⬆ out</span>'
-    : '<span class="dir-badge dir-in">⬇ in</span>';
+    ? `<span class="dir-badge dir-out">${arrowIcon("M8 13V3M3.5 7.5 8 3l4.5 4.5")}out</span>`
+    : `<span class="dir-badge dir-in">${arrowIcon("M8 3v10M3.5 8.5 8 13l4.5-4.5")}in</span>`;
   const absolute = new Date(row.timestamp).toLocaleString();
   return `<tr data-log-id="${escapeHtml(row.id)}"><td><time datetime="${escapeHtml(row.timestamp)}" title="${escapeHtml(absolute)}">${escapeHtml(formatRelative(row.timestamp, input.now))}</time></td><td>${badge}</td><td><a href="#/chat/${encodeURIComponent(row.chatJid)}">${escapeHtml(chatLabel(row.chatJid, input))}</a></td><td>${escapeHtml(senderLabel(row, input))}</td><td class="snippet">${escapeHtml(snippet.slice(0, 200))}</td></tr>`;
 }
@@ -206,8 +210,8 @@ export function logsPageHtml(input: LogsPageInput): string {
   ];
   const directionOptions = [
     { value: "", label: "Both directions" },
-    { value: "in", label: "⬇ Incoming" },
-    { value: "out", label: "⬆ Outgoing" },
+    { value: "in", label: "Incoming" },
+    { value: "out", label: "Outgoing" },
   ];
   const form =
     `<form id="logs-filter" class="logs-filter">` +

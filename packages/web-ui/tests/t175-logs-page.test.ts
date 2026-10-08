@@ -160,8 +160,12 @@ test("T175 A2 — table renders time (relative + absolute title), direction badg
   expect(html).toContain(
     `<time datetime="2026-10-07T10:00:00.000Z" title="${new Date("2026-10-07T10:00:00.000Z").toLocaleString()}">2 h 0 m ago</time>`,
   );
-  expect(html).toContain('<span class="dir-badge dir-in">⬇ in</span>');
-  expect(html).toContain('<span class="dir-badge dir-out">⬆ out</span>');
+  expect(html).toMatch(
+    /<span class="dir-badge dir-in"><svg class="icon"[^>]*>.*?<\/svg>in<\/span>/,
+  );
+  expect(html).toMatch(
+    /<span class="dir-badge dir-out"><svg class="icon"[^>]*>.*?<\/svg>out<\/span>/,
+  );
   expect(html).toContain(`<td><a href="#/chat/${encodeURIComponent(GROUP)}">Family</a></td>`);
   expect(html).toContain("<td>Alice</td>");
   expect(html).toContain("<td>You</td>");
@@ -191,7 +195,7 @@ test("T175 A2 — filter bar: chat + person pickers, direction select, datetime 
   expect(html).toContain('<form id="logs-filter"');
   expect(html).toContain(`<option value="${GROUP}" selected>Family</option>`);
   expect(html).toContain(`<option value="${ALICE}" selected>Alice</option>`);
-  expect(html).toContain('<option value="out" selected>⬆ Outgoing</option>');
+  expect(html).toContain('<option value="out" selected>Outgoing</option>');
   expect(html).toContain(
     '<input type="datetime-local" id="logs-since" name="since" value="2026-10-01T09:00"',
   );

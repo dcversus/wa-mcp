@@ -92,7 +92,9 @@ test("T181 C — profile: privacy panel with WhatsApp labels; blocklist rows sho
 test("T181 D — connection page: status card, stats, connect-new links, settings form bound to the model", () => {
   const html = connectionPageHtml(view());
   expect(html).toContain('<section id="connection-page"><h1>Connection</h1>');
-  expect(html).toContain("✅ Linked as <strong>Vasilisa (+358 49 777 3518)</strong>");
+  expect(html).toContain(
+    '<span class="status-dot ok" aria-hidden="true"></span>Linked as <strong>Vasilisa (+358 49 777 3518)</strong>',
+  );
   expect(html).toContain('<div class="panel" id="connection-stats"><h2>Today</h2>');
   for (const [label, value] of [
     ["Messages sent", "12"],
@@ -146,7 +148,9 @@ test("T181 D — connection page: enabled settings render checked; save feedback
   const unlinked = connectionPageHtml(
     view({ health: { loggedIn: false }, me: null, stats: null, settings: null }),
   );
-  expect(unlinked).toContain('⚠ WhatsApp not linked — <a href="#/pairing">Link now</a>');
+  expect(unlinked).toContain(
+    '<span class="status-dot warn" aria-hidden="true"></span>WhatsApp not linked — <a href="#/pairing">Link now</a>',
+  );
   expect(unlinked).toContain(
     '<div class="empty-state">Stats appear once the bridge is running with a store</div>',
   );

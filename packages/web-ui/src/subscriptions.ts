@@ -224,7 +224,7 @@ export function subscriptionsPageHtml(view: SubscriptionsPageView): string {
   const error =
     view.error === undefined
       ? ""
-      : `<div class="error-banner" role="alert">⚠ ${escapeHtml(view.error)}</div>`;
+      : `<div class="error-banner" role="alert">${escapeHtml(view.error)}</div>`;
   const form =
     view.editing === null
       ? ""

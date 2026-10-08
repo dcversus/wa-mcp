@@ -13,22 +13,25 @@ test("main.ts imports the stylesheet so vite bundles it", () => {
   expect(main).toContain('import "./styles.css"');
 });
 
-test("T101-redesign — light theme tokens are the defaults", () => {
+test("T184 — light theme tokens are the defaults; dark is a media override", () => {
   const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
-  expect(css).toContain("--bg: #f7f8fa");
-  expect(css).toContain("--surface: #ffffff");
-  expect(css).toContain("--border: #e4e7ec");
-  expect(css).toContain("--text: #1a1d23");
-  expect(css).toContain("--accent:");
-  expect(css).not.toContain("--bg: #0f1420");
+  const root = css.slice(0, css.indexOf("}"));
+  expect(root).toContain("--bg: #f7f6f3");
+  expect(root).toContain("--surface: #ffffff");
+  expect(root).toContain("--border: #eaeaea");
+  expect(root).toContain("--text: #2f3437");
+  expect(root).toContain("--accent:");
+  expect(css.indexOf("--bg: #191918")).toBeGreaterThan(
+    css.indexOf("@media (prefers-color-scheme: dark)"),
+  );
 });
 
-test("T101-redesign — modern compact base: Inter stack, 13px, soft shadow, 8px radius", () => {
+test("T184 — compact editorial base: native sans stack, 13.5px body, hairline shadow, crisp radii", () => {
   const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
-  expect(css).toContain("Inter");
-  expect(css).toContain("font-size: 13px");
-  expect(css).toContain("0 1px 2px rgba(16, 24, 40, 0.06)");
-  expect(css).toContain("--radius: 8px");
+  expect(css).toContain("font-family: var(--font-sans)");
+  expect(css).toContain("--fs-md: 13.5px");
+  expect(css).toContain("--shadow-1: 0 1px 2px rgba(0, 0, 0, 0.03)");
+  expect(css).toContain("--r-lg: 10px");
 });
 
 test("T101-redesign — checkboxes are styled check rows, not floating inputs", () => {

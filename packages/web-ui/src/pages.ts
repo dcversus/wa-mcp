@@ -251,8 +251,8 @@ export function statusCardHtml(
       ? Number((subs as { count?: unknown }).count ?? 0)
       : 0;
   return linked
-    ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${health.connected === true ? " · online" : " · reconnecting"}${typeof health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(health.lastDisconnectAt))}` : ""}${typeof health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
-    : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
+    ? `<p class="status-card"><span class="status-dot ok" aria-hidden="true"></span>Linked as <strong>${escapeHtml(identity)}</strong>${health.connected === true ? " · online" : " · reconnecting"}${typeof health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(health.lastDisconnectAt))}` : ""}${typeof health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
+    : `<p class="status-card"><span class="status-dot warn" aria-hidden="true"></span>WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
 }
 
 export interface MessageView {
@@ -298,7 +298,7 @@ export function messageListHtml(
     }
     let body: string;
     if (message.poll) {
-      body = `📊 ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
+      body = `<span class="media-kind">Poll</span> ${escapeHtml(message.poll.question)}<span class="poll-options">${message.poll.options
         .map((option) => `${escapeHtml(option.label)} · ${option.votes} votes`)
         .join(" — ")}</span>`;
     } else if (message.mediaType !== undefined && message.mediaType !== null) {
@@ -308,11 +308,11 @@ export function messageListHtml(
       } else if (message.mediaType === "video") {
         body = `<video class="media-thumb" src="${mediaSrc}" controls preload="metadata"></video>${message.content ? `<span class="media-caption">${escapeHtml(message.content)}</span>` : ""}`;
       } else if (message.mediaType === "audio") {
-        body = `🎵 voice note <audio controls src="${mediaSrc}"></audio><span class="transcript" data-transcript-for="${escapeHtml(message.id)}"></span>`;
+        body = `<span class="media-kind">Voice note</span> <audio controls src="${mediaSrc}"></audio><span class="transcript" data-transcript-for="${escapeHtml(message.id)}"></span>`;
       } else if (message.mediaType === "sticker") {
-        body = `🌟 sticker <img class="media-thumb small" src="${mediaSrc}" alt="sticker" loading="lazy" />`;
+        body = `<span class="media-kind">Sticker</span> <img class="media-thumb small" src="${mediaSrc}" alt="sticker" loading="lazy" />`;
       } else {
-        body = `📄 document <a class="media-link" href="${mediaSrc}" download>${escapeHtml(message.content ?? "download")}</a>`;
+        body = `<span class="media-kind">Document</span> <a class="media-link" href="${mediaSrc}" download>${escapeHtml(message.content ?? "download")}</a>`;
       }
       body += ` <button class="media-btn" data-download-id="${escapeHtml(message.id)}">download</button>`;
     } else {
@@ -451,7 +451,7 @@ export function bridgeDownBanner(bridgeUrl: string): string {
 /** T93-C1: a visible, escaped failure surface — a failed page load shows a
  * banner instead of crashing the render pipeline or rendering a blank page. */
 export function errorBannerHtml(message: string): string {
-  return `<div class="error-banner" role="alert">⚠ ${escapeHtml(message)} <button class="banner-retry" type="button">Retry</button></div>`;
+  return `<div class="error-banner" role="alert">${escapeHtml(message)} <button class="banner-retry" type="button">Retry</button></div>`;
 }
 
 /** T93-C1: wrap any page loader so an ApiError (or any throw) renders the
