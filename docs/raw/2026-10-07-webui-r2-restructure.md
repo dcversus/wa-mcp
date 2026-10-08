@@ -137,3 +137,18 @@ mostly China-deployed, rare on macOS dev machines). Adjacent to
 claude-mem's 37777 but distinct. ACCEPTED as the new default:
 DEFAULT PORT = 27777 (was 8080). 8080 remains supported via
 --port/PORT for compatibility; migration note in docs.
+
+---
+
+## Owner complaints (2026-10-08, verbatim — canon)
+
+> http://localhost:27777/#/agents HOW ALL of agents registered, but i
+> am not have codex or cursor installed? AND View logs should navigate
+> me to page with agent filter to see EXACTLY logs related to this
+> agent
+
+Facts verified: codex CLI IS installed (/opt/homebrew/bin/codex);
+cursor/grok/antigravity have ONLY config stubs written by our
+8-platform installer E2E — zero apps in /Applications. Resolution:
+R2-12 — installed-detection + 'App not installed' badge + installed-
+first sort; agent-dimension logs filter + View-logs → #/logs?agent=.
