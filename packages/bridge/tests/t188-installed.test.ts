@@ -67,6 +67,7 @@ test("T188 P1 — macOS: an app bundle or an executable CLI on the search path m
   app(join(root, "home", "Applications"), "Cursor.app");
   bin(join(root, "bin"), "claude");
   bin(join(root, "home", ".local", "bin"), "hermes");
+  bin(join(root, "home", ".local", "bin"), "agy");
   bin(join(root, "bin"), "codex", false);
   expect(detectInstalled("claude-desktop", env)).toBe(true);
   expect(detectInstalled("cursor", env)).toBe(true);
@@ -74,7 +75,7 @@ test("T188 P1 — macOS: an app bundle or an executable CLI on the search path m
   expect(detectInstalled("hermes", env)).toBe(true);
   expect(detectInstalled("codex", env)).toBe(false);
   expect(detectInstalled("grok", env)).toBe(false);
-  expect(detectInstalled("antigravity", env)).toBe(false);
+  expect(detectInstalled("antigravity", env)).toBe(true);
   expect(detectInstalled("pi", env)).toBe(false);
 });
 

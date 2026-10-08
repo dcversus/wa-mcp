@@ -21,7 +21,7 @@ export const INSTALL_PROBES: Record<Platform, InstallProbe> = {
   pi: { apps: [], bins: ["pi"] },
   hermes: { apps: [], bins: ["hermes"] },
   grok: { apps: ["Grok.app"], bins: ["grok"] },
-  antigravity: { apps: ["Antigravity.app"], bins: ["antigravity"] },
+  antigravity: { apps: ["Antigravity.app"], bins: ["antigravity", "agy"] },
 };
 
 const HOOK_HOSTS: Record<string, Platform> = { claude: "claude-code" };
