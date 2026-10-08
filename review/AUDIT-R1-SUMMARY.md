@@ -56,3 +56,14 @@ eyes. Fix executor: zai (TDD, verified by orchestrator).
 
 ## Round 2 (after the above)
 Re-audit each dimension with fresh eyes; two clean passes = dimension closed.
+
+## R2 WebUI restructure (owner canon 2026-10-07) — COMPLETE
+Waves, all TDD, mechanically verified, live-probed, committed:
+- R2-1 Logs page + /api/search filters (direction/from/since/until) + wa-mcp logs CLI + SubscriptionConfig model + /api/subs2 CRUD (1219)
+- R2-2 Contacts true WhatsApp-Web parity (addOrEditContact/removeContact protocol), V23 fields, page + CLI; R2-2B backfill from chats+messages+lid_mapping (1259)
+- R2-3 Connections: /api/connections scans 8 MCP hosts + hooks, disconnect preserves foreign entries, page + CLI (1287)
+- R2-4 Subscriptions rebuild: dispatcher on subs2 (like/mentionOnly/prompt, inbox/session/spawn), /api/sessions, wizard UI with all delivery options, wa-mcp subs CLI, v1 migration + 410 (1342)
+- R2-5 Connection settings: humanisation (delay+per-char+jitter+typing, OFF default) + send limits (min/hour/day/per-chat, 429+Retry-After, send_log), #/connection page, settings CLI (1382)
+- R2-6 Help page (concepts + CLI reference + drift test), CLI parity matrix closed, 652 LOC dead code removed (1395)
+Deploy gap lesson: kickstart can race the build write — verify the daemon's bundle is fresh (404-vs-200 route check) before live-verifying.
+Open: Chats page keep/delete (owner decision); Round-2 re-audit; real-inbound dispatch check (owner sends 'live' to Test group).
