@@ -53,3 +53,20 @@ via app-state sync actions; contacts.upsert returns
 {id, name, username, lid, phoneNumber}. Verified in fork source
 (Socket/chats.js addOrEditContact; sync-action-utils.js processContactAction).
 Contacts page = TRUE parity with WhatsApp Web, no local-only hacks.
+
+---
+
+## Owner corrections (2026-10-08, verbatim — canon)
+
+> chats page have no sense, list of chats needed only for subscriptions
+
+> Changes sync to your WhatsApp account, like WhatsApp Web. -> this LOOKS
+> VERY STRANGE. can we sync in background 1:1 like whatsApp doing it? it
+> should be seamless, without separate action
+
+Resolution: (1) Chats page DELETED — a chat list exists only inside the
+subscriptions picker; chat detail stays reachable from Contacts/Logs rows.
+(2) Contacts sync is ALREADY background (contacts.upsert listener +
+addOrEditContact on write + backfill on boot) — the offending copy that
+describes sync as if it were an action gets removed; save flows show
+plain "Saved" like WhatsApp Web. No separate sync action in the UI.
