@@ -56,7 +56,7 @@ test("T188 P1 — every platform has a documented probe", () => {
   expect(INSTALL_PROBES.grok).toEqual({ apps: ["Grok.app"], bins: ["grok"] });
   expect(INSTALL_PROBES.antigravity).toEqual({
     apps: ["Antigravity.app"],
-    bins: ["antigravity"],
+    bins: ["antigravity", "agy"],
   });
 });
 
