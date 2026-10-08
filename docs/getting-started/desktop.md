@@ -10,7 +10,7 @@ the UI does not require this). The bridge generates its token automatically.
 
 ## 2. Open the web UI
 
-Visit `http://127.0.0.1:8080`. The UI bootstraps itself: it adopts the
+Visit `http://127.0.0.1:27777`. The UI bootstraps itself: it adopts the
 ephemeral pairing token from `/health` with zero user action (ADR 0012) and
 exchanges it for a stable UI token the first time it sees a paired account.
 

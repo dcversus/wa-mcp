@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DEFAULT_BRIDGE_URL } from "@wa-mcp/shared";
 import { PLATFORMS, resolveConfigPath, type Platform } from "./platforms.ts";
 export type { Platform };
 
@@ -115,6 +116,11 @@ function writeHermes(path: string, spec: ServerSpec): WriteResult {
   return { platform: "hermes", path, verified };
 }
 
+function bridgeUrlOf(spec: ServerSpec): string {
+  const index = spec.args.indexOf("--bridge-url");
+  return (index >= 0 ? spec.args[index + 1] : undefined) ?? DEFAULT_BRIDGE_URL;
+}
+
 export function writeServerEntry(platform: Platform, options: WriteOptions): WriteResult {
   const path = resolveConfigPath(platform, options.home);
   const spec = options.spec;
@@ -132,7 +138,7 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
     case "antigravity":
       return {
         ...writeJsonServer(path, "mcpServers", "wa-mcp", spec, {
-          serverUrl: "http://127.0.0.1:8080/mcp",
+          serverUrl: `${bridgeUrlOf(spec)}/mcp`,
         }),
         platform,
       };

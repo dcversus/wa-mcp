@@ -37,7 +37,7 @@ OCR (tesseract) isn't checked by `doctor --engines`.
 The only unauthenticated JSON endpoint. It uses its own per-IP rate bucket (120/min). <!-- src: packages/bridge/src/http.ts:2390-2426 -->
 
 ```sh
-curl -s http://127.0.0.1:8080/health | jq
+curl -s http://127.0.0.1:27777/health | jq
 ```
 
 | Field              | Meaning                                                                          |
@@ -61,7 +61,7 @@ curl -s http://127.0.0.1:8080/health | jq
 Quick watch:
 
 ```sh
-watch -n5 'curl -s http://127.0.0.1:8080/health | jq "{status,loggedIn,pairingBlocked,pairingAttempts,reconnects,subscriptions}"'
+watch -n5 'curl -s http://127.0.0.1:27777/health | jq "{status,loggedIn,pairingBlocked,pairingAttempts,reconnects,subscriptions}"'
 ```
 
 ## Logs
@@ -162,10 +162,10 @@ Filter pino JSON: `grep '"level":40'` warnings, `'"level":50'` errors, `grep con
 
 ```sh
 TOKEN=$(cat ~/.wa-mcp/token)
-curl -si -X POST http://127.0.0.1:8080/mcp \
+curl -si -X POST http://127.0.0.1:27777/mcp \
   -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | grep -i mcp-session-id
-curl -N http://127.0.0.1:8080/mcp \
+curl -N http://127.0.0.1:27777/mcp \
   -H "Authorization: Bearer $TOKEN" -H "Mcp-Session-Id: <id>"
 ```
 

@@ -21,12 +21,12 @@ export interface SettingsStorage {
 const SETTINGS_KEY = "wa-mcp-settings";
 
 /** When served BY the bridge (the normal case) the UI must call its own
- * origin; the 8080 default only applies to bare-node contexts (tests). */
+ * origin; the port default only applies to bare-node contexts (tests). */
 export function defaultBridgeUrl(): string {
   if (typeof location !== "undefined" && location.origin.startsWith("http")) {
     return location.origin;
   }
-  return "http://127.0.0.1:8080";
+  return "http://127.0.0.1:27777";
 }
 
 export const DEFAULT_SETTINGS: WebSettings = { bridgeUrl: defaultBridgeUrl(), token: "" };

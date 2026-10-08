@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import pino from "pino";
+import { DEFAULT_PORT } from "@wa-mcp/shared";
 import { openAuthStore } from "./auth.ts";
 import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
@@ -46,7 +47,7 @@ export interface BridgeConfig {
 export function buildConfig(env: Record<string, string | undefined>): BridgeConfig {
   const dataDir = env.WA_DATA_DIR ?? join(homedir(), ".wa-mcp");
   const rawPort = env.WA_PORT === undefined ? NaN : Number(env.WA_PORT);
-  const port = Number.isInteger(rawPort) && rawPort > 0 ? rawPort : 8080;
+  const port = Number.isInteger(rawPort) && rawPort > 0 ? rawPort : DEFAULT_PORT;
   const syncFull = env.WA_SYNC_FULL_HISTORY;
   const rawCap = env.WA_DAILY_CAP === undefined ? NaN : Number(env.WA_DAILY_CAP);
   return {

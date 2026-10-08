@@ -21,7 +21,7 @@ import { runMessages } from "./messages.ts";
 import { runContacts } from "./contacts.ts";
 import { runConnections } from "./connections.ts";
 import { runSubs } from "./subs.ts";
-import { cliUsageLines } from "@wa-mcp/shared";
+import { cliUsageLines, DEFAULT_PORT } from "@wa-mcp/shared";
 import { runSettings } from "./settings.ts";
 import {
   runChats,
@@ -62,7 +62,8 @@ export async function main(argv: string[]): Promise<void> {
   const { command, flags, lists, positionals } = parseArgs(argv);
   const home = flags.home ?? process.env.HOME ?? "";
   const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
-  const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+  const port = flags.port ?? String(DEFAULT_PORT);
+  const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${port}`;
   if (command === "config") {
     const [action, ...rest] = argv.slice(1);
     const { CONFIG_KEYS, loadConfig, maskSecret, setConfigValue, unsetConfigValue } =
@@ -169,9 +170,9 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   if (command === "install" && flags.service !== undefined) {
-    if (await isPortBusy(Number(flags.port ?? "8080"))) {
+    if (await isPortBusy(Number(port))) {
       console.error(
-        `PORT_IN_USE: something is already listening on ${flags.port ?? "8080"} - a bridge may be running; stop it with wa-mcp stop`,
+        `PORT_IN_USE: something is already listening on ${port} - a bridge may be running; stop it with wa-mcp stop`,
       );
       process.exitCode = 1;
       return;
@@ -181,7 +182,7 @@ export async function main(argv: string[]): Promise<void> {
       nodePath: process.execPath,
       bridgeBin: BRIDGE_BIN,
       dataDir,
-      port: flags.port ?? "8080",
+      port,
     });
     console.log(`wrote ${result.path}`);
     console.log(
@@ -257,7 +258,7 @@ export async function main(argv: string[]): Promise<void> {
     }
     try {
       const exit = await runPair({
-        baseUrl: flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`,
+        baseUrl: bridgeUrl,
         token,
         timeoutMs: flags.timeout !== undefined ? Number(flags.timeout) : undefined,
         codePhone: flags.code,
@@ -283,7 +284,7 @@ export async function main(argv: string[]): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const baseUrl = flags["bridge-url"] ?? `http://127.0.0.1:${flags.port ?? 8080}`;
+    const baseUrl = bridgeUrl;
     const subscribeDeps = { fetchFn: fetch, print: console.log };
     if (command === "subscribe") {
       const exit = await runSubscribe(subscribeDeps, {
@@ -391,9 +392,9 @@ export async function main(argv: string[]): Promise<void> {
     }
   }
   if (command === "start") {
-    if (await isPortBusy(Number(flags.port ?? "8080"))) {
+    if (await isPortBusy(Number(port))) {
       console.error(
-        `PORT_IN_USE: something is already listening on ${flags.port ?? "8080"} - a bridge may be running; stop it with wa-mcp stop`,
+        `PORT_IN_USE: something is already listening on ${port} - a bridge may be running; stop it with wa-mcp stop`,
       );
       process.exitCode = 1;
       return;
@@ -407,10 +408,10 @@ export async function main(argv: string[]): Promise<void> {
     const started = startDaemon({
       bridgeBin: BRIDGE_BIN,
       dataDir,
-      port: flags.port ?? "8080",
+      port,
       logPath,
     });
-    for (const line of startReport(started.pid ?? 0, flags.port ?? "8080", logPath)) {
+    for (const line of startReport(started.pid ?? 0, port, logPath)) {
       console.log(line);
     }
     return;
@@ -429,7 +430,7 @@ export async function main(argv: string[]): Promise<void> {
     const result = runRestart({
       bridgeBin: BRIDGE_BIN,
       dataDir,
-      port: flags.port ?? "8080",
+      port,
       logPath,
       envExtras: { WA_UI_DIR: BRIDGE_WEB },
     });

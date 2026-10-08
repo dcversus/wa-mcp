@@ -9,7 +9,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const bridgeUrl = process.argv[2] ?? "http://127.0.0.1:8080";
+const bridgeUrl = process.argv[2] ?? `http://127.0.0.1:${process.env.WA_PORT ?? 27777}`;
 const sessionToken = process.argv[4] ?? "smoke-token";
 const chromePath =
   process.argv[3] ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

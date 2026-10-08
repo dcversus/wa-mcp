@@ -24,7 +24,7 @@ test("handleStream writes one response line per request and consumes notificatio
 });
 
 test("parseMcpConfig prefers flags over env and applies defaults", () => {
-  expect(parseMcpConfig([], {})).toEqual({ bridgeUrl: "http://127.0.0.1:8080", token: undefined });
+  expect(parseMcpConfig([], {})).toEqual({ bridgeUrl: "http://127.0.0.1:27777", token: undefined });
   expect(parseMcpConfig([], { WA_BRIDGE_URL: "http://env:1", WA_TOKEN: "envtok" })).toEqual({
     bridgeUrl: "http://env:1",
     token: "envtok",

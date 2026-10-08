@@ -49,7 +49,7 @@ How the web UI signs in:
 
 ### DNS rebinding
 
-A rebinding page sends `Host: evil.example:8080`. Browsers set that header themselves and pages can't override it, so the Host check rejects the request before auth. This applies even to a page that has read a token from `/health`.
+A rebinding page sends `Host: evil.example:27777`. Browsers set that header themselves and pages can't override it, so the Host check rejects the request before auth. This applies even to a page that has read a token from `/health`.
 
 ## Request pipeline
 

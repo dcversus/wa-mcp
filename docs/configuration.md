@@ -9,12 +9,23 @@ BYOK config file `~/.wa-mcp/config.json` (see cookbook → media understanding).
 | ------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `WA_DATA_DIR`            | `~/.wa-mcp`                          | state root (auth/, store/, media/, subs/, token, qr.png, bridge.lock, config.json)                                    |
 | `WA_BIND_HOST`           | `127.0.0.1`                          | HTTP bind address — keep loopback unless you understand the exposure                                                  |
-| `WA_PORT`                | `8080`                               | HTTP port                                                                                                             |
+| `WA_PORT`                | `27777`                              | HTTP port (`--port <n>` on the bridge and CLI does the same)                                                          |
 | `WA_TOKEN`               | generated → `<dataDir>/token` (0600) | bearer token for every non-health endpoint                                                                            |
 | `WA_UI_DIR`              | `<bridge>/dist/web`                  | web UI static directory                                                                                               |
 | `WA_UI_BOOTSTRAP`        | unset                                | `0` restores the strict challenge flow for the web UI on paired daemons (default: zero-action bootstrap per ADR 0012) |
 | `WA_LOG_LEVEL`           | `info`                               | pino level (logs to stderr, JSON)                                                                                     |
 | `WA_CLI_NO_SERVICE_LOAD` | unset                                | `1` = CLI never auto-loads the launchd service on commands                                                            |
+
+## Upgrading: the default port
+
+Upgrading: the default port changed from 8080 to 27777 in 0.9.0. Installs that pass a port explicitly — the launchd/systemd service
+(`--port 8080`) and every MCP host entry written by `wa-mcp install`
+(`--bridge-url http://127.0.0.1:8080`) — keep working unchanged. To move to
+27777, run `wa-mcp install --service` and `wa-mcp install` again without
+`--port`; to stay on 8080, keep passing `--port 8080` (or `WA_PORT=8080`).
+
+Why 27777: it is unassigned by IANA, free of the usual dev-server ports
+(3000, 5000, 8000, 8080) and distinct from claude-mem's 37777.
 
 ## Connection & pairing
 
@@ -108,10 +119,10 @@ per-variable errors — nothing silently falls back.
 
 ## MCP server / CLI clients
 
-| variable        | default                 | meaning                                                |
-| --------------- | ----------------------- | ------------------------------------------------------ |
-| `WA_BRIDGE_URL` | `http://127.0.0.1:8080` | bridge URL for the stdio MCP server and CLI commands   |
-| `WA_TOKEN`      | token file              | bearer token for CLI/stdio clients (same file default) |
+| variable        | default                  | meaning                                                |
+| --------------- | ------------------------ | ------------------------------------------------------ |
+| `WA_BRIDGE_URL` | `http://127.0.0.1:27777` | bridge URL for the stdio MCP server and CLI commands   |
+| `WA_TOKEN`      | token file               | bearer token for CLI/stdio clients (same file default) |
 
 ## Client config targets
 

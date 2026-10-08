@@ -21,7 +21,7 @@ function memoryStorage(): SettingsStorage & { data: Map<string, string> } {
 }
 
 test("loadSettings returns defaults on empty storage", () => {
-  expect(loadSettings(memoryStorage())).toEqual({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
+  expect(loadSettings(memoryStorage())).toEqual({ bridgeUrl: "http://127.0.0.1:27777", token: "" });
 });
 
 test("saveSettings persists and loadSettings restores", () => {
@@ -33,7 +33,7 @@ test("saveSettings persists and loadSettings restores", () => {
 test("corrupt stored settings fall back to defaults", () => {
   const storage = memoryStorage();
   storage.setItem("wa-mcp-settings", "{oops");
-  expect(loadSettings(storage)).toEqual({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
+  expect(loadSettings(storage)).toEqual({ bridgeUrl: "http://127.0.0.1:27777", token: "" });
 });
 
 describe("T54 token resolution", () => {
@@ -52,5 +52,5 @@ describe("T54 token resolution", () => {
 });
 
 test("defaultBridgeUrl falls back to loopback in bare-node contexts", () => {
-  expect(defaultBridgeUrl()).toBe("http://127.0.0.1:8080");
+  expect(defaultBridgeUrl()).toBe("http://127.0.0.1:27777");
 });

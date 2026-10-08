@@ -15,7 +15,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const WS = require("../node_modules/.pnpm/node_modules/ws/index.js");
 
-const bridgeUrl = process.argv[2] ?? "http://127.0.0.1:8080";
+const bridgeUrl = process.argv[2] ?? `http://127.0.0.1:${process.env.WA_PORT ?? 27777}`;
 const chromePath =
   process.argv[3] ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 

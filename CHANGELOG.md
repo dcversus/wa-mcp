@@ -4,6 +4,12 @@
 
 Phase A–K feature set. Private repo; packed tarball, nothing published.
 
+### Default port: 8080 → 27777
+
+- The bridge, CLI, stdio MCP server and web UI now default to `127.0.0.1:27777` (single-sourced as `DEFAULT_PORT` in `@wa-mcp/shared`). 8080 stays fully supported with `--port 8080` / `WA_PORT=8080`.
+- `wa-mcp install` always writes the explicit bridge URL into MCP host configs; Antigravity's `serverUrl` now follows it instead of a hardcoded `:8080`.
+- Existing installs that pass an explicit port (service files, host configs) are unaffected; see configuration → upgrading.
+
 ### Bridge
 
 - Baileys session daemon: pairing (ASCII + PNG + web QR), persistent auth (0700/0600), exponential-backoff reconnect, single-instance lock, graceful shutdown, `WA_DEVICE_NAME`.

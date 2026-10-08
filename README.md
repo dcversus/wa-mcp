@@ -18,7 +18,7 @@ WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite store)
 ```bash
 # from the release tarball
 npm install ./wa-mcp-0.9.0.tgz
-npx wa-mcp start                      # daemon on 127.0.0.1:8080
+npx wa-mcp start                      # daemon on 127.0.0.1:27777
 npx wa-mcp install --target claude-code   # or: cursor codex grok hermes pi antigravity claude-desktop
 npx wa-mcp doctor                     # verifies token, registrations, health
 npx wa-mcp pair                       # QR in the terminal, or --code <phone>
@@ -26,6 +26,13 @@ npx wa-mcp pair                       # QR in the terminal, or --code <phone>
 
 Requires Node ≥22.5 (`node:sqlite`). Full per-platform setup:
 [docs/getting-started/platforms](docs/getting-started/platforms.md).
+
+**Upgrading:** the default port changed from 8080 to 27777 in 0.9.0. Installs that pass a port explicitly — the launchd/systemd service
+(`--port 8080`) and every MCP host entry written by `wa-mcp install`
+(`--bridge-url http://127.0.0.1:8080`) — keep working unchanged. To move to
+27777, run `wa-mcp install --service` and `wa-mcp install` again without
+`--port`; to stay on 8080, keep passing `--port 8080` (or `WA_PORT=8080`).
+See [configuration → upgrading](docs/configuration.md#upgrading-the-default-port).
 
 ## What you get
 
@@ -41,7 +48,7 @@ Requires Node ≥22.5 (`node:sqlite`). Full per-platform setup:
   bubbles and replies), Connections, Subscriptions, Profile (name, about,
   privacy, blocked), Connection (link by QR or phone code, today's stats,
   humanisation and send limits) and Help. Served by the bridge at
-  `http://127.0.0.1:8080/`.
+  `http://127.0.0.1:27777/`.
 - **Safety floor** — loopback bind, bearer auth (401 matrix), 1 MB body
   cap, rate limits, daily send cap + `WA_SENDS_DISABLED` kill switch,
   path-confined media, pairing-attempt budget (anti-abuse cooldown aware).

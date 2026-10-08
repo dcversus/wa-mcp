@@ -1,3 +1,5 @@
+import { DEFAULT_PORT } from "./defaults.ts";
+
 export type CliGroup = "whatsapp" | "agents" | "daemon";
 
 export interface CliCommand {
@@ -15,8 +17,7 @@ export const CLI_GROUP_LABELS: Record<CliGroup, string> = {
   daemon: "Daemon and setup",
 };
 
-export const CLI_GLOBAL_FLAGS =
-  "--data-dir <dir> · --bridge-url <url> · --port <n> · --token <token> · --home <dir>";
+export const CLI_GLOBAL_FLAGS = `--data-dir <dir> · --bridge-url <url> · --port <n> (default ${DEFAULT_PORT}) · --token <token> · --home <dir>`;
 
 export const CLI_COMMANDS: readonly CliCommand[] = [
   {

@@ -29,7 +29,7 @@ export function parseMcpConfig(args: string[], env: Record<string, string | unde
     }
   }
   return {
-    bridgeUrl: bridgeUrl ?? env.WA_BRIDGE_URL ?? "http://127.0.0.1:8080",
+    bridgeUrl: bridgeUrl ?? env.WA_BRIDGE_URL ?? "http://127.0.0.1:27777",
     token: token ?? env.WA_TOKEN,
   };
 }

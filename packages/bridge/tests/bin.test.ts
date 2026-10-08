@@ -21,7 +21,7 @@ test("buildConfig applies all defaults from an empty env", () => {
   const config = buildConfig({});
   expect(config.dataDir).toBe(join(homedir(), ".wa-mcp"));
   expect(config.host).toBe("127.0.0.1");
-  expect(config.port).toBe(8080);
+  expect(config.port).toBe(27777);
   expect(config.deviceName).toBeUndefined();
   expect(config.syncFullHistory).toBe(false);
   expect(config.token).toBeNull();
@@ -53,9 +53,9 @@ test("buildConfig accepts true and rejects other values for WA_SYNC_FULL_HISTORY
 });
 
 test("buildConfig falls back to the default port on a non-numeric WA_PORT", () => {
-  expect(buildConfig({ WA_PORT: "not-a-number" }).port).toBe(8080);
-  expect(buildConfig({ WA_PORT: "0" }).port).toBe(8080);
-  expect(buildConfig({ WA_PORT: "-5" }).port).toBe(8080);
+  expect(buildConfig({ WA_PORT: "not-a-number" }).port).toBe(27777);
+  expect(buildConfig({ WA_PORT: "0" }).port).toBe(27777);
+  expect(buildConfig({ WA_PORT: "-5" }).port).toBe(27777);
 });
 
 test("redactPhone keeps only the last four digits", () => {

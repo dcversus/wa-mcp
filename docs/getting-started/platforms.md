@@ -3,7 +3,7 @@
 `npx wa-mcp install [--target <platform>]` writes the registration and
 verifies it by reading the file back. All platforms get the same server
 spec: `node <abs>/packages/mcp-server/dist/bin.mjs --bridge-url
-http://127.0.0.1:8080 --token <token>` with `WA_TOKEN` in env. Snippets
+http://127.0.0.1:27777 --token <token>` with `WA_TOKEN` in env. Snippets
 below are the exact shapes the CLI writes (`packages/cli/src/writers.ts` —
 engine truth, not invention).
 
@@ -24,7 +24,7 @@ must show the registration row as `ok`.
     "wa-mcp": {
       "type": "stdio",
       "command": "node",
-      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"],
+      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"],
       "env": { "WA_TOKEN": "<token>" }
     }
   }
@@ -57,7 +57,7 @@ window after install.
 ```toml
 [mcp_servers.wa-mcp]
 command = "node"
-args = ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"]
+args = ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"]
 ```
 
 Troubleshooting: TOML tables are last-write-wins — re-run
@@ -78,7 +78,7 @@ Troubleshooting: same as Cursor — reload after install.
 mcp_servers:
   wa-mcp:
     command: node
-    args: ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"]
+    args: ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"]
     env:
       WA_TOKEN: "<token>"
 ```
@@ -94,9 +94,9 @@ stdio command AND `serverUrl`:
 {
   "mcpServers": {
     "wa-mcp": {
-      "serverUrl": "http://127.0.0.1:8080/mcp",
+      "serverUrl": "http://127.0.0.1:27777/mcp",
       "command": "node",
-      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"],
+      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"],
       "env": { "WA_TOKEN": "<token>" }
     }
   }
@@ -116,7 +116,7 @@ agent extension loads:
   "mcpServers": {
     "wa-mcp": {
       "command": "node",
-      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:8080", "--token", "<token>"],
+      "args": ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"],
       "env": { "WA_TOKEN": "<token>" },
       "transport": "stdio"
     }
