@@ -31,6 +31,8 @@ export interface ApiClient {
   addContact(input: { name: string; phone: string; username?: string }): Promise<unknown>;
   renameContact(jid: string, name: string): Promise<unknown>;
   removeContact(jid: string): Promise<unknown>;
+  connections(): Promise<unknown>;
+  disconnectConnection(kind: string, agent: string, sub?: string): Promise<unknown>;
   setAlias(chatJid: string, alias: string): Promise<unknown>;
   groupParticipants(groupJid: string): Promise<unknown>;
   groupCreate(subject: string, participants: string[]): Promise<unknown>;
@@ -218,6 +220,12 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
       jsonCall(`/api/contacts/${encodeURIComponent(jid)}`, { method: "PATCH", json: { name } }),
     removeContact: (jid) =>
       jsonCall(`/api/contacts/${encodeURIComponent(jid)}`, { method: "DELETE" }),
+    connections: () => jsonCall("/api/connections"),
+    disconnectConnection: (kind, agent, sub) =>
+      jsonCall(
+        `/api/connections/${encodeURIComponent(kind)}/${encodeURIComponent(agent)}${sub === undefined ? "" : `?sub=${encodeURIComponent(sub)}`}`,
+        { method: "DELETE" },
+      ),
     // T77: the route validates input.jid (NOT chat_jid) — drift fixed
     setAlias: (chatJid, alias) => post("/api/alias", { jid: chatJid, alias }),
     groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),

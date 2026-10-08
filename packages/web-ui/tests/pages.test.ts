@@ -82,7 +82,7 @@ test("sidebar nav lists the full section set with active state (T51)", () => {
   for (const section of [
     "Chats",
     "Contacts",
-    "Connect agent",
+    "Connections",
     "Agent alerts",
     "Profile",
     "Connection",

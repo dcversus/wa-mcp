@@ -29,7 +29,7 @@ test("T165 P2 — the nav is Messages / People / Agent / Me / System", () => {
   expect(html).toContain("Agent");
   expect(html).toContain("Me");
   expect(html).toContain("System");
-  expect(html).toContain("Connect agent");
+  expect(html).toContain("Connections");
   expect(html).toContain("Agent alerts");
   expect(html).toContain("Link phone");
   expect(html).toContain("Connection");

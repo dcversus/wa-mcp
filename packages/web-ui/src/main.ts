@@ -17,7 +17,6 @@ import {
   statusDashboardHtml,
   guardLoader,
   subscriptionsPageHtml,
-  agentConnectHtml,
   replyPreviewHtml,
 } from "./pages.ts";
 import {
@@ -27,6 +26,7 @@ import {
   validateNewContact,
   type ContactView,
 } from "./contacts.ts";
+import { connectionsPageHtml, type ConnectionView } from "./connections.ts";
 import {
   pairedIdentityText,
   pairingHtml,
@@ -357,6 +357,7 @@ let chatSearchQuery = "";
 let contactsQuery = "";
 let contactsSavedOnly = true;
 let contactsError: string | undefined;
+let connectionsError: string | undefined;
 let contactsSearchTimer: ReturnType<typeof setTimeout> | null = null;
 let replyToId: string | null = null;
 let lastUnauthorizedRender = 0;
@@ -621,7 +622,15 @@ const loaders: {
       resolveName,
     });
   },
-  connect: async () => agentConnectHtml(),
+  connections: async () => {
+    const payload = (await client.connections()) as { connections?: ConnectionView[] };
+    const error = connectionsError;
+    connectionsError = undefined;
+    return connectionsPageHtml({
+      connections: payload.connections ?? [],
+      ...(error !== undefined ? { error } : {}),
+    });
+  },
   pairing: async () => {
     await refreshPairing();
     return pairingHtml(pairingView);
@@ -657,6 +666,10 @@ function bindRoute(): void {
   }
   if (hash === "#/subscriptions") {
     bindSubscriptionsControls();
+    return;
+  }
+  if (hash === "#/connections") {
+    bindConnectionsControls();
     return;
   }
   if (hash === "#/groups") {
@@ -858,6 +871,35 @@ function bindContactsControls(): void {
         return;
       }
       void contactWrite(() => client.removeContact(jid));
+    });
+  });
+}
+
+function bindConnectionsControls(): void {
+  document.querySelectorAll<HTMLAnchorElement>("[data-logs-chat]").forEach((link) => {
+    link.addEventListener("click", () => {
+      logsFilter = { ...EMPTY_LOG_FILTER, chat: link.dataset.logsChat ?? "" };
+      logsPage = 0;
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-disconnect-kind]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const kind = button.dataset.disconnectKind ?? "";
+      const agent = button.dataset.disconnectAgent ?? "";
+      const label = button.dataset.disconnectLabel ?? agent;
+      const what = kind === "hooks" ? "hook" : "MCP registration";
+      if (
+        !window.confirm(`Disconnect ${label}? This removes the wa-mcp ${what} from its config.`)
+      ) {
+        return;
+      }
+      button.disabled = true;
+      try {
+        await client.disconnectConnection(kind, agent, button.dataset.disconnectSub);
+      } catch (err) {
+        connectionsError = `could not disconnect ${label}: ${err instanceof Error ? err.message : String(err)}`;
+      }
+      await renderCurrent();
     });
   });
 }

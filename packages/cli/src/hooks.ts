@@ -1,19 +1,21 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
+import {
+  isWaMcpHookEntry as isOurs,
+  removeHooks,
+  waMcpInboxPaths as ourInboxPaths,
+  type HookEntry,
+  type HooksSettings,
+} from "@wa-mcp/shared";
 
-export const HOOK_MARKER = "wa-mcp inbox drain";
-
-export interface HookEntry {
-  matcher?: string;
-  hooks: Array<{ type: string; command: string; async?: boolean }>;
-}
-
-export interface HooksSettings {
-  hooks?: Record<string, HookEntry[]>;
-  permissions?: unknown;
-  env?: unknown;
-  [key: string]: unknown;
-}
+export {
+  HOOK_MARKER,
+  claudeSettingsPath,
+  codexHooksPath,
+  removeHooks,
+  type HookEntry,
+  type HooksSettings,
+} from "@wa-mcp/shared";
 
 export function renderClaudeHooks(subId: string, inboxPath: string): Record<string, HookEntry[]> {
   const drainCommand = `wa-mcp inbox drain --inbox ${inboxPath}`;
@@ -39,21 +41,6 @@ export function renderCodexHooks(subId: string, inboxPath: string): Record<strin
   };
 }
 
-function isOurs(entry: HookEntry): boolean {
-  return entry.hooks.some((hook) => hook.command.includes(HOOK_MARKER));
-}
-
-function ourInboxPaths(entry: HookEntry): string[] {
-  return entry.hooks
-    .map((hook) => hook.command)
-    .filter((command) => command.includes(HOOK_MARKER))
-    .map((command) => {
-      const at = command.indexOf("--inbox ");
-      return at >= 0 ? command.slice(at + "--inbox ".length).trim() : "";
-    })
-    .filter((path) => path.length > 0);
-}
-
 export function mergeHooks(
   existing: HooksSettings,
   ours: Record<string, HookEntry[]>,
@@ -71,34 +58,6 @@ export function mergeHooks(
     ];
   }
   result.hooks = merged;
-  return result;
-}
-
-export function removeHooks(existing: HooksSettings, inboxPath?: string): HooksSettings {
-  const result: HooksSettings = { ...existing };
-  if (result.hooks === undefined) {
-    return result;
-  }
-  const cleaned: Record<string, HookEntry[]> = {};
-  for (const [event, entries] of Object.entries(result.hooks)) {
-    const kept = entries.filter((entry) => {
-      if (!isOurs(entry)) {
-        return true;
-      }
-      if (inboxPath === undefined) {
-        return false;
-      }
-      return !ourInboxPaths(entry).includes(inboxPath);
-    });
-    if (kept.length > 0) {
-      cleaned[event] = kept;
-    }
-  }
-  if (Object.keys(cleaned).length > 0) {
-    result.hooks = cleaned;
-  } else {
-    delete result.hooks;
-  }
   return result;
 }
 
@@ -136,12 +95,4 @@ export function installHooksFile(
     message: opts.remove === true ? "wa-mcp hook entries removed" : "wa-mcp hook entries installed",
     backupPath: existsSync(backupPath) ? backupPath : undefined,
   };
-}
-
-export function claudeSettingsPath(home: string): string {
-  return join(home, ".claude", "settings.json");
-}
-
-export function codexHooksPath(home: string): string {
-  return join(home, ".codex", "hooks.json");
 }

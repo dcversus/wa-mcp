@@ -956,3 +956,78 @@ nav[aria-label="Main"] a[aria-current="page"] {
 .contact-rename input {
   flex: 1;
 }
+
+#connections-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.connection-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.connection-card p {
+  margin: 0;
+}
+
+.connection-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.connection-name {
+  font-size: 14px;
+}
+
+.badge {
+  padding: 1px var(--s2);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.badge-hooks {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge-mcp {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.connection-status {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+}
+
+.connection-status.ok {
+  color: var(--ok);
+}
+
+.connection-status.off {
+  color: var(--danger);
+}
+
+.connection-path {
+  overflow-wrap: anywhere;
+}
+
+.connection-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}

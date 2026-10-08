@@ -23,7 +23,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "chats", label: "Chats", href: "#/chats" },
   { id: "logs", label: "Logs", href: "#/logs" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
-  { id: "connect", label: "Connect agent", href: "#/connect" },
+  { id: "connections", label: "Connections", href: "#/connections" },
   { id: "subscriptions", label: "Agent alerts", href: "#/subscriptions" },
   { id: "profile", label: "Profile", href: "#/profile" },
   { id: "status", label: "Connection", href: "#/status" },
@@ -36,7 +36,7 @@ export const NAV_TITLES: Record<string, string> = {
   chat: "Chat",
   logs: "Logs",
   contacts: "Contacts",
-  connect: "Connect agent",
+  connections: "Connections",
   subscriptions: "Agent alerts",
   profile: "Profile",
   status: "Connection",
@@ -48,7 +48,7 @@ export function navHtml(active: string, version = "0.9.0"): string {
   const groups: Array<{ label: string; keys: string[] }> = [
     { label: "Messages", keys: ["chats", "logs"] },
     { label: "People", keys: ["contacts"] },
-    { label: "Agent", keys: ["connect", "subscriptions"] },
+    { label: "Agent", keys: ["connections", "subscriptions"] },
     { label: "Me", keys: ["profile"] },
     { label: "System", keys: ["status", "settings", "pairing"] },
   ];

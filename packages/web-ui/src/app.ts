@@ -5,10 +5,10 @@ import {
   notFoundHtml,
   settingsHtml,
   statusDashboardHtml,
-  agentConnectHtml,
   NAV_TITLES,
 } from "./pages.ts";
 import { contactsPageHtml } from "./contacts.ts";
+import { connectionsPageHtml } from "./connections.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
 import { type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
@@ -31,7 +31,7 @@ export type Route =
   | "settings"
   | "logs"
   | "subscriptions"
-  | "connect"
+  | "connections"
   | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
@@ -44,7 +44,7 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "settings", pattern: "settings" },
   { route: "logs", pattern: "logs" },
   { route: "subscriptions", pattern: "subscriptions" },
-  { route: "connect", pattern: "connect" },
+  { route: "connections", pattern: "connections" },
   { route: "pairing", pattern: "pairing" },
 ];
 
@@ -70,10 +70,6 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     return;
   }
   dom.setTitle(`${NAV_TITLES[match.route] ?? "wa-mcp"} · wa-mcp`);
-  if (match.route === "connect") {
-    dom.setApp(agentConnectHtml());
-    return;
-  }
   if (match.route === "settings") {
     dom.setApp(settingsHtml(settings));
     return;
@@ -93,7 +89,9 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
           ? async () => groupsPageHtml([])
           : match.route === "subscriptions"
             ? async () => subscriptionsPageHtml([])
-            : undefined);
+            : match.route === "connections"
+              ? async () => connectionsPageHtml({ connections: [] })
+              : undefined);
   if (loader === undefined) {
     dom.setApp("<p>not implemented</p>");
     return;

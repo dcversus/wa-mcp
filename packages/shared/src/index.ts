@@ -1,6 +1,8 @@
 export * from "./jid.ts";
 export * from "./subscription-kinds.ts";
 export * from "./subscription-config.ts";
+export * from "./hooks.ts";
+export * from "./platforms.ts";
 export const name = "@wa-mcp/shared";
 import pkg from "../package.json" with { type: "json" };
 

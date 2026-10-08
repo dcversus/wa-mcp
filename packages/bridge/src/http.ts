@@ -33,6 +33,7 @@ import {
   listSubscriptionConfigs,
   updateSubscriptionConfig,
 } from "./store/subscription-configs.ts";
+import { disconnectAgent, listConnections, type Connection } from "./connections.ts";
 import {
   getUnreadCounts,
   markMessagesRead,
@@ -166,6 +167,7 @@ export interface HttpServerOptions {
    * store, the daemon serves /api/subscriptions and wires bus events to
    * matching inboxes. */
   subscriptionsDir?: string;
+  homeDir?: string;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -864,6 +866,40 @@ export async function createHttpServer(
       });
       return;
     }
+  };
+
+  const withSubscription = (
+    connection: Connection,
+  ): Connection & {
+    subscription: { id: string; name: string; chatJid: string | null } | null;
+  } => {
+    const id = connection.subId;
+    if (id === null || opts.store === undefined) {
+      return { ...connection, subscription: null };
+    }
+    const config = getSubscriptionConfig(opts.store, id);
+    if (config !== null) {
+      return {
+        ...connection,
+        subscription: {
+          id,
+          name: config.name,
+          chatJid: config.chats.length === 1 ? (config.chats[0] as string) : null,
+        },
+      };
+    }
+    const legacy = listSubscriptions(opts.store).find((sub) => sub.id === id);
+    if (legacy === undefined) {
+      return { ...connection, subscription: null };
+    }
+    return {
+      ...connection,
+      subscription: {
+        id,
+        name: legacy.allChats ? "All chats" : (legacy.chatJid ?? id),
+        chatJid: legacy.allChats ? null : legacy.chatJid,
+      },
+    };
   };
 
   const serveSubs2 = (
@@ -3935,6 +3971,50 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        const connectionMatch = path.match(/^\/api\/connections(?:\/([a-z]+)\/([a-z-]+))?$/);
+        if (connectionMatch !== null) {
+          if (opts.homeDir === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "home directory not configured" },
+            });
+            return;
+          }
+          if (connectionMatch[1] === undefined && req.method === "GET") {
+            sendJson(res, 200, {
+              connections: listConnections(opts.homeDir).map(withSubscription),
+              generatedAt: new Date().toISOString(),
+            });
+            return;
+          }
+          if (connectionMatch[1] !== undefined && req.method === "DELETE") {
+            const sub = new URL(req.url ?? "/", "http://localhost").searchParams.get("sub");
+            const result = disconnectAgent(
+              opts.homeDir,
+              connectionMatch[1],
+              connectionMatch[2] as string,
+              sub ?? undefined,
+            );
+            if (result.status === "removed") {
+              sendJson(res, 200, { ok: true, removed: result.removed });
+              return;
+            }
+            sendJson(res, 404, {
+              ok: false,
+              error: {
+                code: "NOT_FOUND",
+                message:
+                  result.status === "unknown"
+                    ? `unknown connection ${connectionMatch[1]}/${connectionMatch[2]}`
+                    : `${connectionMatch[2]} has no wa-mcp ${connectionMatch[1]} connection`,
+              },
+            });
+            return;
+          }
+          sendJson(res, 405, {
+            error: { code: "METHOD_NOT_ALLOWED", message: "use GET or DELETE" },
+          });
           return;
         }
         const subs2Match = path.match(/^\/api\/subs2(?:\/([A-Za-z0-9_-]+))?$/);

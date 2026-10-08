@@ -109,6 +109,26 @@ The daemon backfills contact identity at every start (and on `contacts sync` →
 
 Errors: `400 VALIDATION_ERROR`, `503 NOT_CONNECTED` (writes need a live session), `502 CONTACT_SYNC_FAILED` / `CONTACT_LOOKUP_FAILED` (the engine rejected the app-state patch or lookup), `501` when no store is attached. Removals made on another device are not detected yet — the engine's `contacts.upsert` carries no removal flag.
 
+### Connections
+
+`wa-mcp connections` lists the agents wired to this daemon — the same data as the web UI **Connections** page (`#/connections`), served by `GET /api/connections`. The daemon reads the agent configs of the user it runs as: <!-- src: packages/bridge/src/connections.ts; packages/cli/src/connections.ts -->
+
+- **Hooks** — `wa-mcp inbox drain` entries in `~/.claude/settings.json` (Claude Code) and `~/.codex/hooks.json` (Codex). Each entry is one connection; its subscription id comes from the inbox path (`…/subs/<id>/inbox.jsonl`). `disableAllHooks: true` shows it as disabled.
+- **MCP** — a `wa-mcp` server entry in `~/.claude.json`, Claude Desktop's `claude_desktop_config.json`, `~/.cursor/mcp.json`, `~/.codex/config.toml` (`[mcp_servers.wa-mcp]`), `~/.pi/agent/mcp.json`, `~/.hermes/config.yaml`, `~/.grok/mcp.json` and `~/.gemini/antigravity/mcp_config.json`. `disabled: true` / `enabled = false` shows it as disabled.
+
+```sh
+wa-mcp connections                                   # AGENT  KIND  STATUS  SUBSCRIPTION
+wa-mcp connections disconnect mcp cursor             # remove the wa-mcp server from Cursor's config
+wa-mcp connections disconnect hooks claude --sub abc # remove only subscription abc's hook
+```
+
+| Route                                       | Result                                                                                                                                                                     |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/connections`                      | `{connections: [{kind, agent, label, configPath, detail, enabled, subId, inboxPath, subscription: {id, name, chatJid} \| null}], generatedAt}`                             |
+| `DELETE /api/connections/:kind/:agent?sub=` | `200 {ok, removed}`; only wa-mcp entries are removed, everything else in the file is kept, and the previous file is saved as `<file>.bak-<time>`. `404` when not connected |
+
+`detail` never carries secrets: env values and the values of token/key/secret/password arguments are shown as `[redacted]`.
+
 pino levels: 30 = info, 40 = warn, 50 = error.
 
 ```sh

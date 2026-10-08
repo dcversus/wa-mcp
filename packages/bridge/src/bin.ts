@@ -303,6 +303,7 @@ export async function main(
     qrPngPath,
     qrDir: config.dataDir,
     subscriptionsDir: config.dataDir,
+    homeDir: process.env.HOME ?? homedir(),
     store,
     version: "0.9.0",
     sendGuard,
