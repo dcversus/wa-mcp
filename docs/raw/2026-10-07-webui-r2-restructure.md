@@ -70,3 +70,20 @@ subscriptions picker; chat detail stays reachable from Contacts/Logs rows.
 addOrEditContact on write + backfill on boot) — the offending copy that
 describes sync as if it were an action gets removed; save flows show
 plain "Saved" like WhatsApp Web. No separate sync action in the UI.
+
+---
+
+## Owner directive (2026-10-08, verbatim — canon)
+
+> web ui DESIGN looks strange, i need you to point agent use design
+> related skills to polish everything, like
+>     ✔ high-end-visual-design   user · ~90 tok
+>     ✔ minimalist-ui   user · ~50 tok
+
+Resolution: design polish wave (R2-8) executed by the agent with the
+user skills high-end-visual-design and minimalist-ui LOADED and
+followed (both exist in ~/.claude/skills, also mirrored in
+.claude-zai and .claude-shared). wa-mcp WebUI = a utility tool, so
+the minimalist-ui protocol (clean editorial, warm monochrome,
+typographic contrast) is the primary guide; high-end-visual-design
+informs motion/typography quality.
