@@ -17,9 +17,11 @@ function mkDeps(handler: (url: string, init?: RequestInit) => Response) {
   };
 }
 
-test("subscribe --chat prints id and inbox path", async () => {
-  const { deps, printed } = mkDeps((url) => {
-    if (url.endsWith("/api/subscriptions")) {
+test("subscribe --chat creates a subs2 inbox subscription and prints id and inbox path", async () => {
+  let sent: unknown;
+  const { deps, printed } = mkDeps((url, init) => {
+    if (url.endsWith("/api/subs2") && init?.method === "POST") {
+      sent = JSON.parse(init.body as string);
       return new Response(JSON.stringify({ id: "abc123", inboxPath: "/subs/abc123/inbox.jsonl" }), {
         status: 201,
         headers: { "content-type": "application/json" },
@@ -37,6 +39,12 @@ test("subscribe --chat prints id and inbox path", async () => {
   expect(exit).toBe(0);
   expect(printed.join("\n")).toContain("abc123");
   expect(printed.join("\n")).toContain("inbox.jsonl");
+  expect(sent).toEqual({
+    name: "CLI: 120363428874442773@g.us",
+    chats: ["120363428874442773@g.us"],
+    filter: {},
+    delivery: { mode: "inbox" },
+  });
 });
 
 test("--all with --chat is rejected (exit 1)", async () => {
@@ -55,8 +63,8 @@ test("--all with --chat is rejected (exit 1)", async () => {
 
 test("unsubscribe DELETEs and reports", async () => {
   const { deps, printed } = mkDeps((url, init) => {
-    if (url.endsWith("/api/subscriptions/abc123") && init?.method === "DELETE") {
-      return new Response(null, { status: 204 });
+    if (url.endsWith("/api/subs2/abc123") && init?.method === "DELETE") {
+      return Response.json({ ok: true, removed: "abc123" });
     }
     throw new Error(`unexpected ${url}`);
   });

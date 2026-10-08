@@ -25,15 +25,28 @@ import { parseWebhookEvent, verifyWebhook } from "./channels/cloud/webhooks.ts";
 import type { CloudChannelConfig } from "./channels/cloud/config.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { upsertGroupParticipants } from "./store/groups.ts";
-import { isValidRecipientJid, isJid, validateSubscriptionConfigInput } from "@wa-mcp/shared";
+import {
+  isValidRecipientJid,
+  isJid,
+  validateSubscriptionConfigInput,
+  type SubscriptionConfig,
+} from "@wa-mcp/shared";
 import {
   createSubscriptionConfig,
   deleteSubscriptionConfig,
   getSubscriptionConfig,
   listSubscriptionConfigs,
+  migrateV1Subscriptions,
   updateSubscriptionConfig,
 } from "./store/subscription-configs.ts";
+import { listAgentSessions } from "./sessions.ts";
 import { disconnectAgent, listConnections, type Connection } from "./connections.ts";
+import {
+  ACTIVE_SESSION,
+  SESSION_SPOOL,
+  createSubsDispatcher,
+  extractMentions,
+} from "./subs-dispatch.ts";
 import {
   getUnreadCounts,
   markMessagesRead,
@@ -61,16 +74,8 @@ import {
 } from "./groups.ts";
 import { GroupValidationError } from "./groups.ts";
 import { createRule, deleteRule, evaluateRules, listRules } from "./notifications.ts";
-import {
-  createSubscription,
-  deleteSubscription,
-  listSubscriptions,
-  matchSubscription,
-  DISPATCHED_SUBSCRIPTION_KINDS,
-  subscriptionDir,
-} from "./subscriptions.ts";
+import { deleteSubscription, listSubscriptions, subscriptionDir } from "./subscriptions.ts";
 import { readOwnIdentity } from "./auth.ts";
-import { openInbox } from "./inbox.ts";
 import { toMcpNotifications, createToolsChangedWatcher } from "./mcp-notify.ts";
 import { randomUUID as sessionIdGen } from "node:crypto";
 import {
@@ -545,16 +550,18 @@ export async function createHttpServer(
     if (opts.subscriptionsDir === undefined || opts.store === undefined) {
       return null;
     }
-    const inboxes = new Map<string, ReturnType<typeof openInbox>>();
-    const writer = (id: string): ReturnType<typeof openInbox> => {
-      const existing = inboxes.get(id);
-      if (existing !== undefined) {
-        return existing;
-      }
-      const fresh = openInbox(subscriptionDir(opts.subscriptionsDir as string, id));
-      inboxes.set(id, fresh);
-      return fresh;
-    };
+    const store = opts.store;
+    migrateV1Subscriptions(store);
+    const dispatcher = createSubsDispatcher({
+      store,
+      subscriptionsDir: opts.subscriptionsDir,
+      ownJids: () => {
+        const user = (handle.socket as { user?: { id?: unknown; lid?: unknown } } | null)?.user;
+        return [user?.id, user?.lid].filter((jid): jid is string => typeof jid === "string");
+      },
+      spawnFn: opts.spawnFn ?? spawn,
+      ...(opts.logger !== undefined ? { logger: opts.logger } : {}),
+    });
     const unsubscribeBus = handle.events.subscribe((event) => {
       if (event.type === "messages.upsert") {
         void dispatchUpsert(event);
@@ -564,7 +571,7 @@ export async function createHttpServer(
       type: "messages.upsert";
       payload: BaileysEventMap["messages.upsert"] & { pushName?: string | null };
     }): Promise<void> {
-      const ruleMatches = evaluateRules(opts.store as Store, event as never);
+      const ruleMatches = evaluateRules(store, event as never);
       for (const match of ruleMatches) {
         if (match.deliver.includes("ui")) {
           const frame = `data: ${JSON.stringify({ type: "wa.rule", payload: { ruleId: match.ruleId, title: match.title, body: match.body } })}\n\n`;
@@ -573,27 +580,26 @@ export async function createHttpServer(
           }
         }
         if (match.deliver.includes("file") && match.subId !== null) {
-          const target = listSubscriptions(opts.store as Store).find(
-            (sub) => sub.id === match.subId,
-          );
-          if (target !== undefined) {
-            writer(target.id).append({
+          const target = getSubscriptionConfig(store, match.subId);
+          if (target !== null) {
+            dispatcher.deliver(target, {
               ts: new Date().toISOString(),
               kind: "rule",
-              chat: target.chatJid ?? "",
+              chat: target.chats[0] ?? "",
               from: "rule",
               text: match.title,
               media: false,
+              subId: target.id,
             });
           }
         }
       }
-      const subs = listSubscriptions(opts.store as Store);
       for (const upsert of event.payload.messages ?? []) {
         if (upsert.key.fromMe === true) {
           continue;
         }
-        let chatJid = upsert.key.remoteJid ?? "";
+        const rawChatJid = upsert.key.remoteJid ?? "";
+        let chatJid = rawChatJid;
         let fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
         try {
           if (chatJid.endsWith("@lid")) {
@@ -603,15 +609,15 @@ export async function createHttpServer(
             fromJid = await canonicalChatJid(handle.socket, fromJid);
           }
         } catch {
-          chatJid = upsert.key.remoteJid ?? "";
+          chatJid = rawChatJid;
           fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
         }
-        const chatName = (opts.store as Store).db
-          .prepare("SELECT name FROM chats WHERE jid = ?")
-          .get(chatJid) as { name: string | null } | undefined;
+        const chatName = store.db.prepare("SELECT name FROM chats WHERE jid = ?").get(chatJid) as
+          | { name: string | null }
+          | undefined;
         const contactRow =
           fromJid.length > 0
-            ? ((opts.store as Store).db
+            ? (store.db
                 .prepare("SELECT name, pushname FROM contacts WHERE jid = ?")
                 .get(fromJid) as { name: string | null; pushname: string | null } | undefined)
             : undefined;
@@ -622,12 +628,23 @@ export async function createHttpServer(
           contactRow?.name ??
           contactRow?.pushname ??
           null;
-        const content = upsert.message ?? {};
+        const content = (upsert.message ?? {}) as Record<
+          string,
+          { text?: unknown; caption?: unknown } | string | undefined
+        >;
+        const textOf = (key: string, field: "text" | "caption"): string | undefined => {
+          const value = (content[key] as { text?: unknown; caption?: unknown } | undefined)?.[
+            field
+          ];
+          return typeof value === "string" ? value : undefined;
+        };
         const text =
-          (content as { conversation?: string }).conversation ??
-          (content as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ??
+          (typeof content.conversation === "string" ? content.conversation : undefined) ??
+          textOf("extendedTextMessage", "text") ??
+          textOf("imageMessage", "caption") ??
+          textOf("videoMessage", "caption") ??
+          textOf("documentMessage", "caption") ??
           "";
-        const presentKeys = Object.keys(content as Record<string, unknown>);
         const mediaKeys = [
           "imageMessage",
           "videoMessage",
@@ -635,7 +652,7 @@ export async function createHttpServer(
           "documentMessage",
           "stickerMessage",
         ];
-        const media = presentKeys.some((k) => mediaKeys.includes(k));
+        const media = Object.keys(content).some((k) => mediaKeys.includes(k));
         const rawTs = upsert.messageTimestamp;
         const tsMs =
           Number(
@@ -643,41 +660,29 @@ export async function createHttpServer(
               ? (rawTs as { toNumber(): number }).toNumber()
               : rawTs,
           ) * 1000;
-        const isBacklog = event.payload.type === "append";
-        for (const sub of subs) {
-          if (
-            matchSubscription(sub, { chatJid, fromJid, kind: "message", hasMedia: media }) &&
-            (sub.includeMedia || !media) &&
-            !(isBacklog && tsMs < Date.parse(sub.createdAt))
-          ) {
-            writer(sub.id).append({
-              ts: new Date().toISOString(),
-              kind: "message",
-              chat: chatJid,
-              from: fromJid,
-              text,
-              media,
-              id: typeof upsert.key.id === "string" ? upsert.key.id : undefined,
-              chatName: chatName?.name ?? null,
-              fromName,
-              fromMe: false,
-            });
-          }
-        }
+        dispatcher.dispatch({
+          chatJid,
+          rawChatJid,
+          fromJid,
+          chatName: chatName?.name ?? null,
+          fromName,
+          id: typeof upsert.key.id === "string" ? upsert.key.id : undefined,
+          text,
+          media,
+          mentionedJids: extractMentions(content),
+          backlogTsMs: event.payload.type === "append" ? tsMs : null,
+        });
       }
     }
     return {
       unsubscribeBus,
-      writer,
+      dispatcher,
       evict(id: string): void {
-        inboxes.delete(id);
+        dispatcher.evict(id);
+        dispatcher.invalidate();
       },
       dropped(): number {
-        let total = 0;
-        for (const inbox of inboxes.values()) {
-          total += inbox.dropped();
-        }
-        return total;
+        return dispatcher.dropped();
       },
     };
   })();
@@ -902,6 +907,78 @@ export async function createHttpServer(
     };
   };
 
+  const inboxPathFor = (id: string): string | undefined =>
+    opts.subscriptionsDir === undefined
+      ? undefined
+      : join(subscriptionDir(opts.subscriptionsDir, id), "inbox.jsonl");
+
+  const withInbox = (config: SubscriptionConfig): SubscriptionConfig & { inboxPath?: string } => {
+    const inboxPath = inboxPathFor(config.id);
+    return inboxPath === undefined ? config : { ...config, inboxPath };
+  };
+
+  const serveSubscriptionTest = (id: string, ip: string, res: ServerResponse): void => {
+    if (opts.store === undefined || subscriptions === null || opts.subscriptionsDir === undefined) {
+      sendJson(res, 501, {
+        error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
+      });
+      return;
+    }
+    const target = getSubscriptionConfig(opts.store, id);
+    if (target === null) {
+      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown subscription" } });
+      return;
+    }
+    const gate = testLimiterFor(id).hit(ip, now());
+    if (!gate.ok) {
+      sendJson(
+        res,
+        429,
+        { error: { code: "RATE_LIMITED", message: "one test event per 10s per subscription" } },
+        { "retry-after": String(gate.retryAfterSeconds) },
+      );
+      return;
+    }
+    const mode = target.delivery.mode;
+    subscriptions.dispatcher.deliver(target, {
+      ts: new Date().toISOString(),
+      kind: "test",
+      chat: target.chats[0] ?? "",
+      from: "wa-mcp",
+      text: "test event — if you can read this, the wiring works",
+      media: false,
+      subId: target.id,
+      ...(target.prompt !== undefined ? { prompt: target.prompt } : {}),
+      ...(mode === "session" ? { session: target.delivery.session ?? ACTIVE_SESSION } : {}),
+    });
+    const written =
+      mode === "spawn"
+        ? null
+        : join(
+            subscriptionDir(opts.subscriptionsDir, id),
+            mode === "session" ? `${SESSION_SPOOL}.jsonl` : "inbox.jsonl",
+          );
+    let totalLines = 0;
+    try {
+      totalLines =
+        written === null
+          ? 0
+          : readFileSync(written, "utf8")
+              .split("\n")
+              .filter((line) => line.length > 0).length;
+    } catch {
+      totalLines = 0;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      mode,
+      appended: written !== null,
+      inboxPath: written,
+      totalLines,
+      dropped: subscriptions.dropped(),
+    });
+  };
+
   const serveSubs2 = (
     method: string,
     id: string | undefined,
@@ -925,7 +1002,7 @@ export async function createHttpServer(
       }
     };
     if (id === undefined && method === "GET") {
-      sendJson(res, 200, { subscriptions: listSubscriptionConfigs(store) });
+      sendJson(res, 200, { subscriptions: listSubscriptionConfigs(store).map(withInbox) });
       return;
     }
     if (id === undefined && method === "POST") {
@@ -938,7 +1015,10 @@ export async function createHttpServer(
         validationError(res, checked.message);
         return;
       }
-      sendJson(res, 201, createSubscriptionConfig(store, checked.value));
+      const created = createSubscriptionConfig(store, checked.value);
+      subscriptions?.dispatcher.prepare(created);
+      subscriptions?.dispatcher.invalidate();
+      sendJson(res, 201, withInbox(created));
       return;
     }
     if (id === undefined) {
@@ -951,11 +1031,12 @@ export async function createHttpServer(
       return;
     }
     if (method === "GET") {
-      sendJson(res, 200, existing);
+      sendJson(res, 200, withInbox(existing));
       return;
     }
     if (method === "DELETE") {
       deleteSubscriptionConfig(store, id);
+      subscriptions?.evict(id);
       sendJson(res, 200, { ok: true, removed: id });
       return;
     }
@@ -983,7 +1064,10 @@ export async function createHttpServer(
         validationError(res, checked.message);
         return;
       }
-      sendJson(res, 200, updateSubscriptionConfig(store, id, checked.value));
+      const updated = updateSubscriptionConfig(store, id, checked.value) as SubscriptionConfig;
+      subscriptions?.dispatcher.prepare(updated);
+      subscriptions?.dispatcher.invalidate();
+      sendJson(res, 200, withInbox(updated));
       return;
     }
     sendJson(res, 405, {
@@ -2703,7 +2787,7 @@ export async function createHttpServer(
         subscriptions: {
           count:
             opts.store !== undefined && subscriptions !== null
-              ? listSubscriptions(opts.store).length
+              ? listSubscriptionConfigs(opts.store).length
               : 0,
           dropped: subscriptions?.dropped() ?? 0,
         },
@@ -3787,153 +3871,18 @@ export async function createHttpServer(
           return;
         }
         if (path === "/api/subscriptions" && req.method === "POST") {
-          if (opts.store === undefined || subscriptions === null) {
-            sendJson(res, 501, {
-              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
-            });
-            return;
-          }
-          let subInput: unknown;
-          try {
-            subInput = JSON.parse(body.toString("utf8")) as unknown;
-          } catch {
-            validationError(res, "body must be valid JSON");
-            return;
-          }
-          const input = subInput as {
-            chat_jid?: unknown;
-            from_jid?: unknown;
-            kinds?: unknown;
-            include_media?: unknown;
-            all_chats?: unknown;
-          };
-          if (input === null || typeof input !== "object") {
-            validationError(res, "chat_jid or all_chats required");
-            return;
-          }
-          if (input.chat_jid !== undefined && typeof input.chat_jid !== "string") {
-            validationError(res, "chat_jid must be a string");
-            return;
-          }
-          if (typeof input.chat_jid === "string" && !isJid(input.chat_jid)) {
-            validationError(res, "That doesn't look like a WhatsApp number or group");
-            return;
-          }
-          if (input.from_jid !== undefined && typeof input.from_jid !== "string") {
-            validationError(res, "from_jid must be a string");
-            return;
-          }
-          if (input.kinds !== undefined && !Array.isArray(input.kinds)) {
-            validationError(res, "kinds must be an array");
-            return;
-          }
-          if (input.include_media !== undefined && typeof input.include_media !== "boolean") {
-            validationError(res, "include_media must be a boolean");
-            return;
-          }
-          if (input.chat_jid === undefined && input.all_chats !== true) {
-            validationError(res, "chat_jid or all_chats required");
-            return;
-          }
-          const requestedKinds = (Array.isArray(input.kinds) ? input.kinds : []) as unknown[];
-          for (const kind of requestedKinds) {
-            if (
-              typeof kind !== "string" ||
-              !(DISPATCHED_SUBSCRIPTION_KINDS as readonly string[]).includes(kind)
-            ) {
-              const implemented = DISPATCHED_SUBSCRIPTION_KINDS.join(", ");
-              validationError(
-                res,
-                `kinds must be one of: ${implemented} (reaction dispatch is not implemented — got: ${String(kind)})`,
-              );
-              return;
-            }
-          }
-          const sub = createSubscription(opts.store as Store, opts.subscriptionsDir as string, {
-            chatJid: typeof input.chat_jid === "string" ? input.chat_jid : null,
-            fromJid: typeof input.from_jid === "string" ? input.from_jid : null,
-            kinds: Array.isArray(input.kinds) ? (input.kinds as string[]) : ["message"],
-            includeMedia: input.include_media === true,
-            allChats: input.all_chats === true,
-          });
-          sendJson(res, 201, {
-            id: sub.id,
-            inboxPath: join(
-              subscriptionDir(opts.subscriptionsDir as string, sub.id),
-              "inbox.jsonl",
-            ),
+          sendJson(res, 410, {
+            error: {
+              code: "GONE",
+              message:
+                "v1 subscriptions are read-only — create subscriptions with POST /api/subs2 {name, chats, filter, prompt, delivery}",
+            },
           });
           return;
         }
-        const subTest = path.match(/^\/api\/subscriptions\/([a-z0-9-]+)\/test$/);
+        const subTest = path.match(/^\/api\/(?:subscriptions|subs2)\/([A-Za-z0-9_-]+)\/test$/);
         if (subTest !== null && req.method === "POST") {
-          if (opts.store === undefined || subscriptions === null) {
-            sendJson(res, 501, {
-              error: { code: "NOT_IMPLEMENTED", message: "subscriptions not attached" },
-            });
-            return;
-          }
-          const subId = subTest[1] as string;
-          const target = listSubscriptions(opts.store as Store).find((sub) => sub.id === subId);
-          if (target === undefined) {
-            sendJson(res, 404, {
-              error: { code: "NOT_FOUND", message: "unknown subscription" },
-            });
-            return;
-          }
-          const gate = testLimiterFor(subId).hit(ip, now());
-          if (!gate.ok) {
-            sendJson(
-              res,
-              429,
-              {
-                error: { code: "RATE_LIMITED", message: "one test event per 10s per subscription" },
-              },
-              { "retry-after": String(gate.retryAfterSeconds) },
-            );
-            return;
-          }
-          const subscriptionsApi = subscriptions as unknown as {
-            writer: (id: string) => {
-              append(event: {
-                ts: string;
-                kind: string;
-                chat: string;
-                from: string;
-                text: string;
-                media: boolean;
-              }): void;
-              dropped(): number;
-            };
-          };
-          const inboxWriter = subscriptionsApi.writer(subId);
-          inboxWriter.append({
-            ts: new Date().toISOString(),
-            kind: "test",
-            chat: target.chatJid ?? "",
-            from: "wa-mcp",
-            text: "test event — if you can read this, the wiring works",
-            media: false,
-          });
-          const inboxFilePath = join(
-            subscriptionDir(opts.subscriptionsDir as string, subId),
-            "inbox.jsonl",
-          );
-          let totalLines = 0;
-          try {
-            totalLines = readFileSync(inboxFilePath, "utf8")
-              .split("\n")
-              .filter((line) => line.length > 0).length;
-          } catch {
-            totalLines = 0;
-          }
-          sendJson(res, 200, {
-            ok: true,
-            appended: true,
-            inboxPath: inboxFilePath,
-            totalLines,
-            dropped: inboxWriter.dropped(),
-          });
+          serveSubscriptionTest(subTest[1] as string, ip, res);
           return;
         }
         const subDelete = path.match(/^\/api\/subscriptions\/([a-z0-9-]+)$/);
@@ -3944,7 +3893,11 @@ export async function createHttpServer(
             });
             return;
           }
-          if (deleteSubscription(opts.store as Store, subDelete[1] as string)) {
+          const removedConfig = deleteSubscriptionConfig(
+            opts.store as Store,
+            subDelete[1] as string,
+          );
+          if (deleteSubscription(opts.store as Store, subDelete[1] as string) || removedConfig) {
             subscriptions?.evict(subDelete[1] as string);
             res.writeHead(204);
             res.end();
@@ -3971,6 +3924,24 @@ export async function createHttpServer(
             return;
           }
           serveReadPost("/api/notifications", req, res, body);
+          return;
+        }
+        if (path === "/api/sessions" && req.method === "GET") {
+          if (opts.homeDir === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "home directory not configured" },
+            });
+            return;
+          }
+          const limit = intParam(new URL(req.url ?? "/", "http://localhost").searchParams, "limit");
+          if (!limit.ok) {
+            validationError(res, "limit must be a number");
+            return;
+          }
+          sendJson(res, 200, {
+            sessions: listAgentSessions(opts.homeDir, limit.value ?? 30),
+            generatedAt: new Date().toISOString(),
+          });
           return;
         }
         const connectionMatch = path.match(/^\/api\/connections(?:\/([a-z]+)\/([a-z-]+))?$/);

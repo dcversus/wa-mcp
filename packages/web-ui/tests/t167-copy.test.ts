@@ -1,11 +1,11 @@
 import { expect, test } from "vite-plus/test";
+import { subscriptionsPageHtml } from "../src/subscriptions.ts";
 import {
   chatListHtml,
   groupsPageHtml,
   messageListHtml,
   profilePageHtml,
   settingsHtml,
-  subscriptionsPageHtml,
 } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
 
@@ -87,21 +87,14 @@ test("T167 P4 — settings copy is human", () => {
 });
 
 test("T167 P4 — subscriptions copy is agent language", () => {
-  const html = subscriptionsPageHtml(
-    [
-      {
-        id: "s1",
-        chatJid: "other@g.us",
-        allChats: false,
-        kinds: ["message"],
-        includeMedia: false,
-        inboxPath: "/x/inbox.jsonl",
-      },
-    ],
-    [{ jid: "a@g.us", name: "A", unreadCount: 0 }],
-  );
-  expect(html).toContain("Agent alerts");
-  expect(html).toContain("Stop watching");
-  expect(html).toContain("Include photos, voice notes and files");
-  expect(html).toContain("Your agent watches 0 of 1 chats");
+  const html = subscriptionsPageHtml({
+    subscriptions: [],
+    chats: [{ jid: "a@g.us", name: "A" }],
+    sessions: [],
+    editing: "new",
+  });
+  expect(html).toContain("Subscriptions");
+  expect(html).not.toContain("Agent alerts");
+  expect(html).toContain("System prompt your agent receives with the event");
+  expect(html).toContain("Only when my account is @mentioned");
 });

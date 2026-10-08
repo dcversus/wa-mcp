@@ -16,7 +16,6 @@ import {
   transcriptionSettingsHtml,
   statusDashboardHtml,
   guardLoader,
-  subscriptionsPageHtml,
   replyPreviewHtml,
 } from "./pages.ts";
 import {
@@ -27,6 +26,13 @@ import {
   type ContactView,
 } from "./contacts.ts";
 import { connectionsPageHtml, type ConnectionView } from "./connections.ts";
+import {
+  readSubscriptionForm,
+  likePreview,
+  subscriptionsPageHtml,
+  type SessionOption,
+  type SubscriptionView,
+} from "./subscriptions.ts";
 import {
   pairedIdentityText,
   pairingHtml,
@@ -60,7 +66,6 @@ import {
   saveSettings,
   type WebSettings,
   applyExchangeFailure,
-  pickerToggleAction,
   displayName,
   firstRunGate,
   shouldClearStaleToken,
@@ -358,6 +363,9 @@ let contactsQuery = "";
 let contactsSavedOnly = true;
 let contactsError: string | undefined;
 let connectionsError: string | undefined;
+let subsEditing: string | null = null;
+let subsError: string | undefined;
+let subsCache: SubscriptionView[] = [];
 let contactsSearchTimer: ReturnType<typeof setTimeout> | null = null;
 let replyToId: string | null = null;
 let lastUnauthorizedRender = 0;
@@ -585,43 +593,33 @@ const loaders: {
     );
   },
   subscriptions: async () => {
-    const payload = (await client.listSubscriptions()) as {
-      subscriptions?: Array<{
-        id: string;
-        chatJid: string | null;
-        allChats: boolean;
-        kinds: string[];
-        includeMedia: boolean;
-        inboxPath?: string;
-      }>;
-    };
-    const rows = (payload.subscriptions ?? []).map((sub) => ({
-      ...sub,
-      inboxPath:
-        typeof sub.inboxPath === "string" && sub.inboxPath.length > 0
-          ? sub.inboxPath
-          : `/api/subscriptions/inbox/${sub.id}/inbox.jsonl`,
-    }));
-    const chatsPayload = (await client.getChats()) as {
-      chats?: Array<{ jid: string; name: string | null; unreadCount?: number }>;
-    };
-    const chatRows = (chatsPayload.chats ?? [])
-      .filter((c) => typeof c.jid === "string")
-      .map((c) => ({ jid: c.jid, name: c.name, unreadCount: c.unreadCount ?? 0 }));
-    const [notifications] = await Promise.all([
-      client.notifications().catch(() => ({ rules: [] })),
-      loadIdentity(),
+    const [payload, chatsPayload, sessionsPayload] = await Promise.all([
+      client.subscriptions() as Promise<{ subscriptions?: SubscriptionView[] }>,
+      client.getChats().catch(() => ({ chats: [] })) as Promise<{
+        chats?: Array<{ jid: string; name: string | null }>;
+      }>,
+      client.sessions().catch(() => ({ sessions: [] })) as Promise<{ sessions?: SessionOption[] }>,
+      loadIdentity().catch(() => undefined),
     ]);
-    return subscriptionsPageHtml(rows, chatRows, {
-      rules:
-        (
-          notifications as {
-            rules?: Array<{ id: string; chat_jid?: string | null; pattern?: string | null }>;
-          }
-        ).rules ?? [],
+    subsCache = payload.subscriptions ?? [];
+    const editing =
+      subsEditing === null
+        ? null
+        : subsEditing === "new"
+          ? ("new" as const)
+          : (subsCache.find((sub) => sub.id === subsEditing) ?? null);
+    const error = subsError;
+    subsError = undefined;
+    return subscriptionsPageHtml({
+      subscriptions: subsCache,
+      chats: (chatsPayload.chats ?? []).map((chat) => ({ jid: chat.jid, name: chat.name })),
+      sessions: sessionsPayload.sessions ?? [],
+      editing,
       resolveName,
+      ...(error !== undefined ? { error } : {}),
     });
   },
+
   connections: async () => {
     const payload = (await client.connections()) as { connections?: ConnectionView[] };
     const error = connectionsError;
@@ -1452,136 +1450,146 @@ window.addEventListener("hashchange", () => {
 });
 void renderCurrent();
 
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function subsWrite(action: () => Promise<unknown>, closeForm = false): Promise<void> {
+  try {
+    await action();
+    if (closeForm) {
+      subsEditing = null;
+    }
+  } catch (err) {
+    subsError = `could not save the subscription: ${errorText(err)}`;
+  }
+  await renderCurrent();
+}
+
 function bindSubscriptionsControls(): void {
-  document.getElementById("sub-chat-filter")?.addEventListener("input", (event) => {
-    const needle = (event.target as HTMLInputElement).value.trim().toLowerCase();
-    document.querySelectorAll<HTMLElement>(".sub-chat-row").forEach((row) => {
-      const haystack = (row.textContent ?? "").toLowerCase();
-      row.style.display = haystack.includes(needle) ? "" : "none";
+  document.getElementById("new-subscription")?.addEventListener("click", () => {
+    subsEditing = "new";
+    void renderCurrent();
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-edit-sub]").forEach((button) => {
+    button.addEventListener("click", () => {
+      subsEditing = button.dataset.editSub ?? null;
+      void renderCurrent();
     });
   });
-  document.getElementById("sub-chat-picker")?.addEventListener("change", async (event) => {
-    const target = event.target as HTMLInputElement;
-    if (target.type !== "checkbox") {
-      return;
-    }
-    const chatJid = target.dataset.chatJid;
-    if (chatJid === undefined || chatJid.length === 0) {
-      return;
-    }
-    const includeMedia =
-      (document.getElementById("sub-include-media") as HTMLInputElement | null)?.checked === true;
-    target.disabled = true;
-    try {
-      const row = target.closest(".sub-chat-row");
-      const ids = (row?.getAttribute("data-sub-ids") ?? "")
-        .split(",")
-        .filter((id) => id.length > 0);
-      const action = pickerToggleAction({
-        checked: target.checked,
-        includeMedia,
-        chatJid,
-        subIds: ids,
-      });
-      if (action.kind === "create") {
-        await client.createSubscription({
-          chat_jid: action.chatJid,
-          kinds: action.kinds,
-          include_media: action.includeMedia,
-        });
-      } else if (action.kind === "delete") {
-        for (const id of action.ids) {
-          await client.deleteSubscription(id);
-        }
-      } else {
-        target.checked = false;
+  document.querySelector("[data-cancel-sub]")?.addEventListener("click", () => {
+    subsEditing = null;
+    void renderCurrent();
+  });
+  document.querySelectorAll<HTMLInputElement>("[data-toggle-sub]").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      const id = toggle.dataset.toggleSub ?? "";
+      void subsWrite(() => client.updateSubscription(id, { enabled: toggle.checked }));
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-delete-sub]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.deleteSub ?? "";
+      if (!window.confirm(`Delete the subscription “${button.dataset.subName ?? id}”?`)) {
         return;
       }
-      await renderCurrent();
-    } catch (err) {
-      target.checked = !target.checked;
-      const app = document.getElementById("app");
-      if (app !== null) {
-        const banner = document.createElement("div");
-        banner.className = "error-banner";
-        banner.textContent = `subscription failed: ${err instanceof Error ? err.message : String(err)}`;
-        app.prepend(banner);
+      if (subsEditing === id) {
+        subsEditing = null;
       }
-    } finally {
-      target.disabled = false;
-    }
-  });
-  document.getElementById("subscription-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget as HTMLFormElement;
-    const data = new FormData(form);
-    const allChats = data.get("all_chats") === "on";
-    const chatJidRaw = data.get("chat_jid");
-    const chatJid = (typeof chatJidRaw === "string" ? chatJidRaw : "").trim();
-    if (!allChats && chatJid.length === 0) {
-      return;
-    }
-    const kindsRaw = data.get("kinds");
-    const kinds = (typeof kindsRaw === "string" ? kindsRaw : "message")
-      .split(",")
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-    await client.createSubscription({
-      ...(allChats ? { all_chats: true } : { chat_jid: chatJid }),
-      kinds,
-      include_media: data.get("include_media") === "on",
+      void subsWrite(() => client.deleteSubscription(id));
     });
-    await renderCurrent();
   });
-  document.querySelectorAll<HTMLButtonElement>(".test-event").forEach((button) => {
+  document.querySelectorAll<HTMLButtonElement>("[data-test-sub]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const id = button.dataset.testSub;
-      if (id === undefined) {
-        return;
-      }
-      const status = document.querySelector(`[data-test-status="${id}"]`) as HTMLElement | null;
+      const id = button.dataset.testSub ?? "";
+      const status = document.querySelector<HTMLElement>(`[data-test-status="${CSS.escape(id)}"]`);
       if (status !== null) {
         status.textContent = "sending…";
       }
       try {
         const result = await client.testSubscription(id);
         if (status !== null) {
-          status.textContent = `test delivered ✓ · ${result.totalLines} events · ${result.dropped} dropped`;
+          status.textContent =
+            result.inboxPath === null
+              ? "test delivered ✓ · agent started"
+              : `test delivered ✓ · ${result.totalLines} events in the file`;
         }
       } catch (err) {
         if (status !== null) {
-          status.textContent =
-            err instanceof Error && err.message.includes("429")
-              ? "one test per 10s — try again in a moment"
-              : `couldn't send: ${err instanceof Error ? err.message : "unknown error"}`;
+          status.textContent = errorText(err).includes("429")
+            ? "one test per 10s — try again in a moment"
+            : `couldn't send: ${errorText(err)}`;
         }
       }
     });
   });
-  document.querySelectorAll<HTMLButtonElement>("[data-delete-rule]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.deleteRule;
-      if (id === undefined) {
-        return;
-      }
-      await client.deleteNotification(id).catch(() => undefined);
-      await renderCurrent();
+  document
+    .querySelectorAll<HTMLButtonElement>("#subscriptions-page .copy-cmd")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        void navigator.clipboard?.writeText(button.dataset.copyCmd ?? "").catch(() => undefined);
+      });
+    });
+  const form = document.getElementById("subscription-form") as HTMLFormElement | null;
+  if (form === null) {
+    return;
+  }
+  form.querySelector("#sub-chat-filter")?.addEventListener("input", (event) => {
+    const needle = (event.target as HTMLInputElement).value.trim().toLowerCase();
+    form.querySelectorAll<HTMLElement>(".sub-chat-row").forEach((row) => {
+      row.style.display = (row.textContent ?? "").toLowerCase().includes(needle) ? "" : "none";
     });
   });
-  for (const button of document.querySelectorAll<HTMLButtonElement>(".delete-subscription")) {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.subId;
-      if (id === undefined) {
-        return;
-      }
-      await client.deleteSubscription(id);
-      await renderCurrent();
+  form.querySelector<HTMLInputElement>("input[name=like]")?.addEventListener("input", (event) => {
+    const preview = document.getElementById("like-preview");
+    if (preview !== null) {
+      preview.textContent = likePreview((event.target as HTMLInputElement).value);
+    }
+  });
+  form.querySelectorAll<HTMLInputElement>("input[name=mode]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      form.querySelectorAll<HTMLElement>("[data-mode-config]").forEach((panel) => {
+        panel.hidden = panel.dataset.modeConfig !== radio.value;
+      });
     });
-  }
-  for (const button of document.querySelectorAll<HTMLButtonElement>(".copy-hook")) {
-    button.addEventListener("click", () => {
-      const snippet = button.parentElement?.querySelector("code")?.textContent ?? "";
-      void navigator.clipboard?.writeText(snippet);
-    });
-  }
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const text = (name: string): string => {
+      const value = data.get(name);
+      return typeof value === "string" ? value : "";
+    };
+    const id = form.dataset.subId ?? "";
+    const existing = subsCache.find((sub) => sub.id === id);
+    const result = readSubscriptionForm(
+      {
+        name: text("name"),
+        chats: data.getAll("chats").filter((jid): jid is string => typeof jid === "string"),
+        allChats: data.get("all_chats") === "on",
+        like: text("like"),
+        mentionOnly: data.get("mention_only") === "on",
+        prompt: text("prompt"),
+        mode: text("mode"),
+        session: text("session"),
+        command: text("command"),
+        args: text("args"),
+        env: text("env"),
+        enabled: existing?.enabled ?? true,
+      },
+      { editing: id.length > 0 },
+    );
+    if (!result.ok) {
+      subsError = result.message;
+      void renderCurrent();
+      return;
+    }
+    void subsWrite(
+      () =>
+        id.length > 0
+          ? client.updateSubscription(id, result.value)
+          : client.createSubscription(result.value),
+      true,
+    );
+  });
 }

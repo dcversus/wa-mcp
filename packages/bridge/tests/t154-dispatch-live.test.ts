@@ -42,10 +42,10 @@ function auth(token: string): Record<string, string> {
 }
 
 async function subscribe(bridge: BridgeHttp, chatJid: string): Promise<string> {
-  const created = await fetch(url(bridge, "/api/subscriptions"), {
+  const created = await fetch(url(bridge, "/api/subs2"), {
     method: "POST",
     headers: auth("t154-token"),
-    body: JSON.stringify({ chat_jid: chatJid }),
+    body: JSON.stringify({ name: "t154", chats: [chatJid], delivery: { mode: "inbox" } }),
   });
   const body = (await created.json()) as { inboxPath: string };
   return body.inboxPath;
@@ -141,7 +141,7 @@ test("T154 W1 — notification rules are evaluated for notify traffic", async ()
     });
     const inboxPath = await subscribe(bridge, "120363428874442773@g.us");
     const subs = (await (
-      await fetch(url(bridge, "/api/subscriptions"), {
+      await fetch(url(bridge, "/api/subs2"), {
         headers: auth("t154-token"),
       })
     ).json()) as { subscriptions: Array<{ id: string }> };

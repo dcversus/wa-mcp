@@ -37,20 +37,13 @@ export async function runSubscribe(deps: SubscribeDeps, args: SubscribeArgs): Pr
       }
     }
   }
-  const body: Record<string, unknown> = {};
-  if (args.chat !== undefined) {
-    body.chat_jid = args.chat;
-  }
-  if (args.all) {
-    body.all_chats = true;
-  }
-  if (args.kind !== undefined) {
-    body.kinds = args.kind
-      .split(",")
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-  }
-  const res = await deps.fetchFn(`${args.baseUrl}/api/subscriptions`, {
+  const body = {
+    name: `CLI: ${args.all ? "all chats" : args.chat}`,
+    chats: args.all ? ["*"] : [args.chat],
+    filter: {},
+    delivery: { mode: "inbox" },
+  };
+  const res = await deps.fetchFn(`${args.baseUrl}/api/subs2`, {
     method: "POST",
     headers: { authorization: `Bearer ${args.token}`, "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -69,13 +62,10 @@ export async function runUnsubscribe(
   deps: SubscribeDeps,
   args: { baseUrl: string; token: string; id: string },
 ): Promise<number> {
-  const res = await deps.fetchFn(
-    `${args.baseUrl}/api/subscriptions/${encodeURIComponent(args.id)}`,
-    {
-      method: "DELETE",
-      headers: { authorization: `Bearer ${args.token}` },
-    },
-  );
+  const res = await deps.fetchFn(`${args.baseUrl}/api/subs2/${encodeURIComponent(args.id)}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${args.token}` },
+  });
   if (res.status === 404) {
     deps.print(`unsubscribe: no subscription ${args.id}`);
     return 1;

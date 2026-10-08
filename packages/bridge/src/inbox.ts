@@ -12,6 +12,9 @@ export interface InboxEvent {
   chatName?: string | null;
   fromName?: string | null;
   fromMe?: boolean;
+  subId?: string;
+  prompt?: string;
+  session?: string;
 }
 
 export interface InboxWriter {
@@ -23,10 +26,14 @@ export interface InboxWriter {
 const TEXT_CAP = 280;
 const DEFAULT_CAP_BYTES = 2 * 1024 * 1024;
 
-export function openInbox(dir: string, capBytes: number = DEFAULT_CAP_BYTES): InboxWriter {
+export function openInbox(
+  dir: string,
+  capBytes: number = DEFAULT_CAP_BYTES,
+  name = "inbox",
+): InboxWriter {
   let dropped = 0;
-  const inboxPath = join(dir, "inbox.jsonl");
-  const rotatedPath = join(dir, "inbox.1.jsonl");
+  const inboxPath = join(dir, `${name}.jsonl`);
+  const rotatedPath = join(dir, `${name}.1.jsonl`);
   return {
     append(event) {
       const line = `${JSON.stringify({ ...event, text: event.text.slice(0, TEXT_CAP) })}\n`;

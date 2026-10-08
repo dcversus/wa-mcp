@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ALL_CHATS } from "@wa-mcp/shared";
 import type {
   SubscriptionConfig,
   SubscriptionConfigInput,
@@ -109,5 +110,30 @@ export function updateSubscriptionConfig(
 }
 
 export function deleteSubscriptionConfig(store: Store, id: string): boolean {
+  store.db.prepare("DELETE FROM subscriptions WHERE id = ?").run(id);
   return store.db.prepare("DELETE FROM subscription_configs WHERE id = ?").run(id).changes > 0;
+}
+
+export function migrateV1Subscriptions(store: Store): number {
+  const legacy = store.db
+    .prepare(
+      "SELECT s.id, s.chat_jid, s.all_chats, s.created_at FROM subscriptions s LEFT JOIN subscription_configs c ON c.id = s.id WHERE c.id IS NULL ORDER BY s.created_at",
+    )
+    .all() as Array<{ id: string; chat_jid: string | null; all_chats: number; created_at: string }>;
+  const insert = store.db.prepare(
+    "INSERT INTO subscription_configs (id, name, chats, filter, prompt, delivery, enabled, created) VALUES (?, ?, ?, '{}', NULL, ?, 1, ?)",
+  );
+  let migrated = 0;
+  for (const row of legacy) {
+    const chats = row.all_chats === 1 || row.chat_jid === null ? [ALL_CHATS] : [row.chat_jid];
+    insert.run(
+      row.id,
+      `Imported ${row.id.slice(0, 6)}`,
+      JSON.stringify(chats),
+      JSON.stringify({ mode: "inbox" }),
+      row.created_at,
+    );
+    migrated += 1;
+  }
+  return migrated;
 }

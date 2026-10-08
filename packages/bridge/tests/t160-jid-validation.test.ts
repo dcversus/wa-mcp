@@ -54,14 +54,14 @@ test("T160 W10 — a garbage chat_jid is a 400, not a stored subscription", asyn
       store,
       subscriptionsDir: join(dataDir, "subs"),
     });
-    const res = await fetch(url(bridge, "/api/subscriptions"), {
+    const res = await fetch(url(bridge, "/api/subs2"), {
       method: "POST",
       headers: auth("t160-token"),
-      body: JSON.stringify({ chat_jid: "not-a-jid" }),
+      body: JSON.stringify({ name: "x", chats: ["not-a-jid"], delivery: { mode: "inbox" } }),
     });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error?: { message?: string } };
-    expect(body.error?.message).toContain("WhatsApp number or group");
+    expect(body.error?.message).toContain("not a WhatsApp chat id");
     await bridge.close();
     store.close();
   } finally {

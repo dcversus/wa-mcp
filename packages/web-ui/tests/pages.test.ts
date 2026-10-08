@@ -83,7 +83,7 @@ test("sidebar nav lists the full section set with active state (T51)", () => {
     "Chats",
     "Contacts",
     "Connections",
-    "Agent alerts",
+    "Subscriptions",
     "Profile",
     "Connection",
     "Settings",

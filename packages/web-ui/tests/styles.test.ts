@@ -39,6 +39,7 @@ test("T101-redesign — checkboxes are styled check rows, not floating inputs", 
   const pages = [
     readFileSync(new URL("../src/pages.ts", import.meta.url), "utf8"),
     readFileSync(new URL("../src/pages-pairing.ts", import.meta.url), "utf8"),
+    readFileSync(new URL("../src/subscriptions.ts", import.meta.url), "utf8"),
   ].join("\n");
   expect(pages).toContain('class="check-row"');
 });

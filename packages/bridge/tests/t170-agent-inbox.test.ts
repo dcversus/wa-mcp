@@ -30,10 +30,14 @@ function auth(token: string): Record<string, string> {
 }
 
 async function createSub(bridge: BridgeHttp): Promise<{ id: string; inboxPath: string }> {
-  const created = await fetch(url(bridge, "/api/subscriptions"), {
+  const created = await fetch(url(bridge, "/api/subs2"), {
     method: "POST",
     headers: auth("t170-token"),
-    body: JSON.stringify({ chat_jid: "120363428874442773@g.us" }),
+    body: JSON.stringify({
+      name: "t170",
+      chats: ["120363428874442773@g.us"],
+      delivery: { mode: "inbox" },
+    }),
   });
   return (await created.json()) as { id: string; inboxPath: string };
 }

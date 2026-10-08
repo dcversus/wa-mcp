@@ -1,14 +1,74 @@
 # React to WhatsApp messages from your agent
 
-wa-mcp gives an agent three ways to notice and react to incoming WhatsApp
-messages. All three manage the same subscription registry.
+A **subscription** decides which incoming WhatsApp messages reach your agent
+and how. Each one has: <!-- src: packages/shared/src/subscription-config.ts; packages/bridge/src/subs-dispatch.ts -->
+
+- **chats** — one or more chat jids, or `*` for all chats
+- **filter** — an optional `%like%` text pattern (SQL LIKE, case-insensitive:
+  `%` is any text, `_` is one character, `\%` a literal percent; a pattern
+  without wildcards matches anywhere in the text) and a **mention-only** flag
+  (deliver only when the message @mentions this WhatsApp account)
+- **prompt** — instructions stamped into every delivered event as `prompt`
+- **delivery** — where matches go (below)
+
+Your own messages are never delivered, and history sync older than the
+subscription is skipped.
+
+```bash
+wa-mcp subs create --name Invoices --chat 120363428874442773@g.us --like %invoice% --mention-only --prompt "Triage the invoice"
+wa-mcp subs
+wa-mcp subs edit <subscription-id> --like "" --disable
+wa-mcp subs test <subscription-id>
+wa-mcp subs delete <subscription-id>
+```
+
+The web UI **Subscriptions** page (`#/subscriptions`) does the same, and the
+`subscribe_events` MCP tool creates inbox subscriptions.
+
+## Delivery modes
+
+| Mode                | Flag                                                          | What happens to each match                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inbox file          | `--delivery inbox` (default)                                  | One JSON line appended to `~/.wa-mcp/subs/<id>/inbox.jsonl` (rotated at 2 MB). Read it with `wa-mcp inbox drain`, or install a hook (below).                                                                 |
+| Agent session       | `--delivery session [--session <id>]`                         | One JSON line appended to `~/.wa-mcp/subs/<id>/session.jsonl` with `session` set to the picked session id or `active`. The spool file is the contract; the session's hook picks it up.                       |
+| New agent each time | `--delivery spawn --command <path> [--arg <a>]… [--env K=V]…` | The command starts detached with a clean context, `WAMCP_EVENT` (the event JSON), `WAMCP_SUB` (subscription id) and `WAMCP_PROMPT` in its environment. Start failures and non-zero exits go to `bridge.log`. |
+
+`wa-mcp subs sessions` lists recent Claude Code (`~/.claude/projects`) and
+Codex (`~/.codex/sessions`) sessions to pick from (`GET /api/sessions` —
+file metadata only, never content).
+
+```bash
+wa-mcp subs create --name Desk --all-chats --delivery session --session claude:b41d09a0
+wa-mcp subs create --name Bot --chat 358401112222@s.whatsapp.net --delivery spawn --command /usr/local/bin/claude --arg -p --env ANTHROPIC_MODEL=opus
+```
+
+Use `--arg=--flag` for arguments that start with `--`.
+
+Every delivered line carries these fields (pretty-printed here):
+
+```json
+{
+  "ts": "2026-10-08T10:00:00.000Z",
+  "kind": "message",
+  "chat": "120363428874442773@g.us",
+  "chatName": "Team",
+  "from": "358401112222@s.whatsapp.net",
+  "fromName": "Dana",
+  "fromMe": false,
+  "id": "3EB0…",
+  "text": "Invoice #42",
+  "media": false,
+  "subId": "abc123def456",
+  "prompt": "Triage the invoice"
+}
+```
 
 ## 1. Claude Code (hooks)
 
-Create a subscription, then install the hooks:
+Create an inbox subscription, then install the hooks:
 
 ```bash
-wa-mcp subscribe --chat 120363428874442773@g.us --kind message
+wa-mcp subs create --name Team --chat 120363428874442773@g.us
 wa-mcp install --hooks claude --sub <subscription-id>
 ```
 
@@ -79,12 +139,21 @@ wa-mcp inbox drain --inbox ~/.wa-mcp/subs/<subscription-id>/inbox.jsonl
 
 - `mcp` — the match is emitted as a `notifications/message` frame on the
   `/api/mcp-notify` stream (logger `wa-mcp.rules`)
-- `file` — the match appends a `kind: "rule"` line to the named
-  subscription's inbox (`sub_id` required)
+- `file` — the match is delivered as a `kind: "rule"` event through the named
+  subscription's delivery mode (`sub_id` required)
 - `ui` — the match is emitted as a `wa.rule` event on the web UI event
   stream
 
 ## Web UI
 
-The Subscriptions panel at `#/subscriptions` creates and removes
-subscriptions, shows each inbox path, and offers a copyable hook snippet.
+The Subscriptions page at `#/subscriptions` lists every subscription (chats,
+filter, delivery, on/off), and its form walks through name and chats, filter,
+prompt and delivery. Inbox subscriptions show the drain and hook commands with
+Copy buttons.
+
+## Older subscriptions
+
+Subscriptions created before this model are imported at daemon start with
+the same id (so installed hooks keep their inbox path), named
+`Imported <id>`, inbox delivery. `GET /api/subscriptions` still lists the old
+rows; `POST /api/subscriptions` answers `410 Gone` — use `POST /api/subs2`.

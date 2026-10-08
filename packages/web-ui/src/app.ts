@@ -1,5 +1,4 @@
 import {
-  subscriptionsPageHtml,
   groupsPageHtml,
   navHtml,
   notFoundHtml,
@@ -9,6 +8,7 @@ import {
 } from "./pages.ts";
 import { contactsPageHtml } from "./contacts.ts";
 import { connectionsPageHtml } from "./connections.ts";
+import { subscriptionsPageHtml } from "./subscriptions.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
 import { type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
@@ -88,7 +88,8 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
         : match.route === "groups"
           ? async () => groupsPageHtml([])
           : match.route === "subscriptions"
-            ? async () => subscriptionsPageHtml([])
+            ? async () =>
+                subscriptionsPageHtml({ subscriptions: [], chats: [], sessions: [], editing: null })
             : match.route === "connections"
               ? async () => connectionsPageHtml({ connections: [] })
               : undefined);

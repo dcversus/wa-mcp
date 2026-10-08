@@ -193,7 +193,7 @@ The store is SQLite at `~/.wa-mcp/store/store.db`. <!-- src: packages/bridge/src
 ```sh
 sqlite3 -readonly ~/.wa-mcp/store/store.db
 sqlite> .tables
-sqlite> SELECT id, chat_jid, from_jid, kinds, all_chats FROM subscriptions;
+sqlite> SELECT id, name, chats, filter, delivery, enabled FROM subscription_configs;
 sqlite> SELECT chat_jid, message_id, engine, kind, substr(text,1,60) FROM transcripts ORDER BY created_at DESC LIMIT 10;
 sqlite> SELECT * FROM notification_rules;
 sqlite> SELECT key, value FROM meta WHERE key LIKE 'send_count:%';   -- daily cap usage
@@ -211,7 +211,7 @@ tail -f ~/.wa-mcp/subs/<id>/inbox.jsonl | jq -c .
 
 Spread your probes out. A tight `curl` loop will hit 429 `RATE_LIMITED` (with `Retry-After`) before it shows you anything useful. <!-- src: packages/bridge/src/http.ts:2362-2380 -->
 
-- `/api/subscriptions` and the rest of the authenticated API: 60/min per token.
+- `/api/subs2` and the rest of the authenticated API: 60/min per token.
 - `/health` and the pairing routes (`/api/qr`, `/api/pairing-code`, `/api/ui-token`): 120/min per IP.
 - UI-token traffic: 240/min. `/events`: no limit.
 

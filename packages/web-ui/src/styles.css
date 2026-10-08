@@ -481,18 +481,6 @@ button.primary:hover,
   font-size: 13px;
 }
 
-.subscription-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s2);
-  border-bottom: 1px solid var(--border);
-}
-
-.subscription-row:last-child {
-  border-bottom: none;
-}
-
 .inbox-path,
 .rules code,
 .events code {
@@ -805,12 +793,6 @@ h3 {
   overflow-y: auto;
 }
 
-.picker-count {
-  color: var(--text-dim);
-  font-size: 12px;
-  margin: var(--s2) 0;
-}
-
 .list {
   list-style: none;
   margin: 0;
@@ -1030,4 +1012,154 @@ nav[aria-label="Main"] a[aria-current="page"] {
   align-items: center;
   justify-content: space-between;
   gap: var(--s2);
+}
+
+#subscription-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.sub-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.sub-card p {
+  margin: 0;
+}
+
+.sub-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.sub-name {
+  font-size: 14px;
+}
+
+.sub-toggle {
+  margin-left: auto;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  padding: 1px var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+}
+
+.badge-filter {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.badge-delivery {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sub-prompt {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+}
+
+.sub-actions,
+.form-actions,
+.sub-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.sub-actions .danger {
+  margin-left: auto;
+}
+
+.sub-toolbar {
+  margin-bottom: var(--s3);
+}
+
+#subscription-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  margin-bottom: var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+#subscription-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0;
+  padding: var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+#subscription-form legend {
+  padding: 0 var(--s1);
+  font-weight: 600;
+}
+
+#subscription-form textarea,
+#subscription-form input[name="name"],
+#subscription-form input[name="like"],
+#subscription-form input[name="command"] {
+  width: 100%;
+}
+
+.delivery-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.delivery-option .hint {
+  flex-basis: 100%;
+  margin: 0 0 0 calc(var(--s4) + var(--s2));
+}
+
+.delivery-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-left: calc(var(--s4) + var(--s2));
+  padding-left: var(--s3);
+  border-left: 2px solid var(--accent-soft);
+}
+
+.delivery-config[hidden] {
+  display: none;
+}
+
+.delivery-help {
+  margin-top: var(--s4);
 }

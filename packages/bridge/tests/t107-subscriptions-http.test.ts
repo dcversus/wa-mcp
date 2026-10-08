@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { openStore } from "../src/store/schema.ts";
+import { createSubscription } from "../src/subscriptions.ts";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp } from "../src/http.ts";
 import type { BridgeHandle } from "../src/lifecycle.ts";
@@ -31,47 +32,45 @@ function auth(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}` };
 }
 
-test("POST /api/subscriptions creates with inbox path; GET lists; DELETE removes; 401 without token", async () => {
+test("v1 GET lists legacy rows with inbox path; DELETE retires them; 401 without token", async () => {
   const dataDir = mkdtempSync(join(tmpdir(), "t107-"));
   const store = openStore(dataDir);
   try {
+    const subsDir = join(dataDir, "subs");
+    const legacy = createSubscription(store, subsDir, {
+      chatJid: "120363428874442773@g.us",
+      fromJid: null,
+      kinds: ["message"],
+      includeMedia: false,
+      allChats: false,
+    });
     const bridge = await createHttpServer(stubHandle(createEventBus()), {
       token: "t107-token",
       store,
-      subscriptionsDir: join(dataDir, "subs"),
+      subscriptionsDir: subsDir,
     });
-    const created = await fetch(url(bridge, "/api/subscriptions"), {
-      method: "POST",
-      headers: auth("t107-token"),
-      body: JSON.stringify({ chat_jid: "120363428874442773@g.us" }),
-    });
-    expect(created.status).toBe(201);
-    const createdBody = (await created.json()) as { id: string; inboxPath: string };
-    expect(createdBody.id).toBeTruthy();
-    expect(createdBody.inboxPath).toMatch(/subs\/[a-z0-9-]+\/inbox\.jsonl$/);
-    expect(existsSync(createdBody.inboxPath)).toBe(true);
     const listed = await fetch(url(bridge, "/api/subscriptions"), { headers: auth("t107-token") });
-    const listedEarly = (await listed.clone().json()) as {
+    expect(listed.status).toBe(200);
+    const listedBody = (await listed.json()) as {
       subscriptions: Array<{ id: string; inboxPath?: string }>;
     };
-    expect(typeof listedEarly.subscriptions[0]?.inboxPath).toBe("string");
-    expect(existsSync(listedEarly.subscriptions[0]?.inboxPath ?? "")).toBe(true);
-    expect(listed.status).toBe(200);
-    const listedBody = (await listed.json()) as { subscriptions: unknown[] };
     expect(listedBody.subscriptions).toHaveLength(1);
+    expect(existsSync(listedBody.subscriptions[0]?.inboxPath ?? "")).toBe(true);
     const unauth = await fetch(url(bridge, "/api/subscriptions"), { headers: auth("wrong") });
     expect(unauth.status).toBe(401);
-    const deleted = await fetch(url(bridge, `/api/subscriptions/${createdBody.id}`), {
+    const deleted = await fetch(url(bridge, `/api/subscriptions/${legacy.id}`), {
       method: "DELETE",
       headers: auth("t107-token"),
     });
     expect(deleted.status).toBe(204);
     const after = (await (
       await fetch(url(bridge, "/api/subscriptions"), { headers: auth("t107-token") })
-    ).json()) as {
-      subscriptions: unknown[];
-    };
+    ).json()) as { subscriptions: unknown[] };
     expect(after.subscriptions).toHaveLength(0);
+    const twins = (await (
+      await fetch(url(bridge, "/api/subs2"), { headers: auth("t107-token") })
+    ).json()) as { subscriptions: unknown[] };
+    expect(twins.subscriptions).toHaveLength(0);
     await bridge.close();
     store.close();
   } finally {
@@ -89,10 +88,14 @@ test("messages.upsert on the bus appends to the matching subscription inbox only
       store,
       subscriptionsDir: join(dataDir, "subs"),
     });
-    const created = await fetch(url(bridge, "/api/subscriptions"), {
+    const created = await fetch(url(bridge, "/api/subs2"), {
       method: "POST",
       headers: auth("t107-token"),
-      body: JSON.stringify({ chat_jid: "120363428874442773@g.us" }),
+      body: JSON.stringify({
+        name: "t107",
+        chats: ["120363428874442773@g.us"],
+        delivery: { mode: "inbox" },
+      }),
     });
     const { inboxPath } = (await created.json()) as { inboxPath: string };
     events.emit({
@@ -119,10 +122,14 @@ test("messages.upsert on the bus appends to the matching subscription inbox only
     expect(parsed.text).toBe("hello subscriptions");
     expect(parsed.kind).toBe("message");
     expect(parsed.media).toBe(false);
-    const other = await fetch(url(bridge, "/api/subscriptions"), {
+    const other = await fetch(url(bridge, "/api/subs2"), {
       method: "POST",
       headers: auth("t107-token"),
-      body: JSON.stringify({ chat_jid: "other@s.whatsapp.net" }),
+      body: JSON.stringify({
+        name: "t107",
+        chats: ["358400000009@s.whatsapp.net"],
+        delivery: { mode: "inbox" },
+      }),
     });
     const otherBody = (await other.json()) as { inboxPath: string };
     events.emit({
@@ -176,10 +183,14 @@ test("W1 — a fromMe append writes nothing; a live notify from the group does",
       store,
       subscriptionsDir: dataDir,
     });
-    const created = await fetch(url(bridge, "/api/subscriptions"), {
+    const created = await fetch(url(bridge, "/api/subs2"), {
       method: "POST",
       headers: auth("t107-token"),
-      body: JSON.stringify({ chat_jid: "120363428874442773@g.us" }),
+      body: JSON.stringify({
+        name: "t107",
+        chats: ["120363428874442773@g.us"],
+        delivery: { mode: "inbox" },
+      }),
     });
     const { inboxPath } = (await created.json()) as { inboxPath: string };
     events.emit({
@@ -230,61 +241,6 @@ test("W1 — a fromMe append writes nothing; a live notify from the group does",
     await bridge.close();
     store.close();
   } finally {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
-});
-
-test("POST /api/subscriptions rejects an unknown kind with 400", async () => {
-  const dataDir = mkdtempSync(join(tmpdir(), "t107-kinds-"));
-  const store = openStore(dataDir);
-  try {
-    const bridge = await createHttpServer(stubHandle(createEventBus()), {
-      token: "t107-token",
-      store,
-      subscriptionsDir: join(dataDir, "subs"),
-    });
-    const res = await fetch(url(bridge, "/api/subscriptions"), {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
-      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["bogus"] }),
-    });
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { message?: string } };
-    expect(body.error?.message).toContain("message");
-    expect(body.error?.message).toContain("reaction");
-    await bridge.close();
-  } finally {
-    store.close();
-    rmSync(dataDir, { recursive: true, force: true });
-  }
-});
-
-test("POST /api/subscriptions accepts kinds that actually dispatch (message) and rejects the rest", async () => {
-  const dataDir = mkdtempSync(join(tmpdir(), "t107-vocab-"));
-  const store = openStore(dataDir);
-  try {
-    const bridge = await createHttpServer(stubHandle(createEventBus()), {
-      token: "t107-token",
-      store,
-      subscriptionsDir: join(dataDir, "subs"),
-    });
-    const ok = await fetch(url(bridge, "/api/subscriptions"), {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
-      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["message"] }),
-    });
-    expect(ok.status).toBe(201);
-    const bad = await fetch(url(bridge, "/api/subscriptions"), {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${"t107-token"}` },
-      body: JSON.stringify({ chat_jid: "1234@s.whatsapp.net", kinds: ["reaction"] }),
-    });
-    expect(bad.status).toBe(400);
-    const body = (await bad.json()) as { error?: { message?: string } };
-    expect(body.error?.message).toContain("reaction dispatch is not implemented");
-    await bridge.close();
-  } finally {
-    store.close();
     rmSync(dataDir, { recursive: true, force: true });
   }
 });

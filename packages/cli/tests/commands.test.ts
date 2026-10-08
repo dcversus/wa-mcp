@@ -47,3 +47,10 @@ test("buildStatusSummary shapes the health payload", () => {
   expect(summary).toMatchObject({ connected: true, loggedIn: true, version: "0.9.0" });
   expect(summary.uptimeSeconds).toBe(42);
 });
+
+test("T180 D parseArgs accepts --name=value so values may start with --", () => {
+  const parsed = parseArgs(["subs", "create", "--arg=--model", "--arg=opus", "--like=%a=b%"]);
+  expect(parsed.lists.arg).toEqual(["--model", "opus"]);
+  expect(parsed.flags.like).toBe("%a=b%");
+  expect(parsed.positionals).toEqual(["create"]);
+});

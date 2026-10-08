@@ -42,13 +42,16 @@ export interface ApiClient {
   notifications(): Promise<unknown>;
   testSubscription(id: string): Promise<{
     ok: boolean;
+    mode: string;
     appended: boolean;
-    inboxPath: string;
+    inboxPath: string | null;
     totalLines: number;
     dropped: number;
   }>;
+  subscriptions(): Promise<{ subscriptions?: unknown[] }>;
+  updateSubscription(id: string, patch: Record<string, unknown>): Promise<unknown>;
+  sessions(): Promise<{ sessions?: unknown[] }>;
   logout(): Promise<unknown>;
-  listSubscriptions(): Promise<{ subscriptions: unknown[] }>;
   getConfig(): Promise<{
     transcription?: {
       engine?: string;
@@ -61,13 +64,8 @@ export interface ApiClient {
   saveConfig(body: {
     transcription: { engine?: string; base_url?: string; model?: string; api_key?: string };
   }): Promise<{ saved: boolean }>;
-  createSubscription(body: {
-    chat_jid?: string;
-    all_chats?: boolean;
-    kinds?: string[];
-    include_media?: boolean;
-  }): Promise<{ id: string; inboxPath: string }>;
-  deleteSubscription(id: string): Promise<void>;
+  createSubscription(body: Record<string, unknown>): Promise<unknown>;
+  deleteSubscription(id: string): Promise<unknown>;
   deleteNotification(id: string): Promise<unknown>;
   profile(): Promise<unknown>;
   privacy(): Promise<unknown>;
@@ -234,14 +232,17 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
     testSubscription: (id) =>
-      jsonCall(`/api/subscriptions/${encodeURIComponent(id)}/test`, { method: "POST" }),
+      jsonCall(`/api/subs2/${encodeURIComponent(id)}/test`, { method: "POST" }),
+    subscriptions: () => jsonCall("/api/subs2"),
+    updateSubscription: (id, patch) =>
+      jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
+    sessions: () => jsonCall("/api/sessions"),
     logout: () => jsonCall("/api/logout", { method: "POST" }),
-    listSubscriptions: () => jsonCall("/api/subscriptions"),
     getConfig: () => jsonCall("/api/config"),
     saveConfig: (body) => jsonCall("/api/config", { method: "PUT", json: body }),
-    createSubscription: (body) => post("/api/subscriptions", body),
+    createSubscription: (body) => post("/api/subs2", body),
     deleteSubscription: (id) =>
-      jsonCall(`/api/subscriptions/${encodeURIComponent(id)}`, { method: "DELETE" }),
+      jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "DELETE" }),
     deleteNotification: (id) =>
       jsonCall(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }),
     profile: () => jsonCall("/api/profile"),

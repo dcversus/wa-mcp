@@ -1291,7 +1291,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "subscribe_events",
     description:
-      "Subscribe to WhatsApp events for a chat (or all chats). Appends matching events as JSONL lines to a local inbox file and returns the subscription id and inbox path for the agent to watch.",
+      "Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt. Optional %like% text filter and mention-only gate. Returns the subscription with its id and inboxPath for the agent to watch. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1299,37 +1299,45 @@ export const TOOLS: ToolDef[] = [
           type: "string",
           description: "Chat or group jid; omit with all_chats for every chat",
         },
-        from_jid: { type: "string", description: "Only events from this sender jid (optional)" },
-        kind: {
-          type: "array",
-          items: { type: "string" },
-          description: "Event kinds to match (default: message)",
-        },
-        include_media: {
-          type: "boolean",
-          description: "Also deliver media-bearing messages (default false)",
-        },
         all_chats: { type: "boolean", description: "Match every chat (requires chat_jid omitted)" },
+        name: {
+          type: "string",
+          description: 'Subscription name (default: "MCP: " plus the chat id)',
+        },
+        like: {
+          type: "string",
+          description:
+            "SQL LIKE text filter, case-insensitive: % any text, _ one character; without wildcards it matches anywhere",
+        },
+        mention_only: {
+          type: "boolean",
+          description: "Only deliver messages that @mention this WhatsApp account",
+        },
+        prompt: { type: "string", description: "Instructions stamped into every delivered event" },
       },
     },
     handler: async (toolCtx, args) => {
-      const body: Record<string, unknown> = {};
-      if (typeof args.chat_jid === "string") {
-        body.chat_jid = args.chat_jid;
+      const chats = args.all_chats === true ? ["*"] : [requireString(args, "chat_jid")];
+      const filter: Record<string, unknown> = {};
+      if (typeof args.like === "string" && args.like.length > 0) {
+        filter.like = args.like;
       }
-      if (typeof args.from_jid === "string") {
-        body.from_jid = args.from_jid;
+      if (args.mention_only === true) {
+        filter.mentionOnly = true;
       }
-      if (Array.isArray(args.kind)) {
-        body.kinds = args.kind;
-      }
-      if (args.include_media === true) {
-        body.include_media = true;
-      }
-      if (args.all_chats === true) {
-        body.all_chats = true;
-      }
-      const payload = (await bridgeFetch(toolCtx, "/api/subscriptions", {
+      const body: Record<string, unknown> = {
+        name:
+          typeof args.name === "string" && args.name.trim().length > 0
+            ? args.name
+            : `MCP: ${args.all_chats === true ? "all chats" : chats[0]}`,
+        chats,
+        filter,
+        ...(typeof args.prompt === "string" && args.prompt.length > 0
+          ? { prompt: args.prompt }
+          : {}),
+        delivery: { mode: "inbox" },
+      };
+      const payload = (await bridgeFetch(toolCtx, "/api/subs2", {
         method: "POST",
         body: JSON.stringify(body),
       })) as Record<string, unknown>;
@@ -1338,7 +1346,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "unsubscribe_events",
-    description: "Remove an event subscription by id.",
+    description: "Remove a subscription by id.",
     inputSchema: {
       type: "object",
       required: ["id"],
@@ -1348,7 +1356,7 @@ export const TOOLS: ToolDef[] = [
     },
     handler: async (toolCtx, args) => {
       const id = requireString(args, "id");
-      const payload = (await bridgeFetch(toolCtx, `/api/subscriptions/${encodeURIComponent(id)}`, {
+      const payload = (await bridgeFetch(toolCtx, `/api/subs2/${encodeURIComponent(id)}`, {
         method: "DELETE",
       })) as Record<string, unknown>;
       return textResult(payload);

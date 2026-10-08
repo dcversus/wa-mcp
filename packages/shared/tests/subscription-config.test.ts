@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import {
+  ALL_CHATS,
   DELIVERY_MODES,
   validateSubscriptionConfigInput,
   type SubscriptionConfigInput,
@@ -131,4 +132,14 @@ test("T177 B1 — mode-irrelevant delivery fields are dropped", () => {
     delivery: { mode: "inbox", session: "s", agent: { command: "c" } },
   });
   expect(result.ok && result.value.delivery).toEqual({ mode: "inbox" });
+});
+
+test("T180 E — chats may be the all-chats wildcard, alone", () => {
+  const base = { name: "All", filter: {}, delivery: { mode: "inbox" } };
+  const all = validateSubscriptionConfigInput({ ...base, chats: [ALL_CHATS] });
+  expect(all).toMatchObject({ ok: true, value: { chats: ["*"] } });
+  expect(ALL_CHATS).toBe("*");
+  expect(
+    validateSubscriptionConfigInput({ ...base, chats: ["*", "120363428874442773@g.us"] }),
+  ).toEqual({ ok: false, message: "chats: * (all chats) cannot be combined with specific chats" });
 });

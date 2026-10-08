@@ -24,7 +24,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "logs", label: "Logs", href: "#/logs" },
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "connections", label: "Connections", href: "#/connections" },
-  { id: "subscriptions", label: "Agent alerts", href: "#/subscriptions" },
+  { id: "subscriptions", label: "Subscriptions", href: "#/subscriptions" },
   { id: "profile", label: "Profile", href: "#/profile" },
   { id: "status", label: "Connection", href: "#/status" },
   { id: "settings", label: "Settings", href: "#/settings" },
@@ -37,7 +37,7 @@ export const NAV_TITLES: Record<string, string> = {
   logs: "Logs",
   contacts: "Contacts",
   connections: "Connections",
-  subscriptions: "Agent alerts",
+  subscriptions: "Subscriptions",
   profile: "Profile",
   status: "Connection",
   settings: "Settings",
@@ -603,15 +603,6 @@ export function guardLoader(
   };
 }
 
-export interface SubscriptionRow {
-  id: string;
-  chatJid: string | null;
-  allChats: boolean;
-  kinds: string[];
-  includeMedia: boolean;
-  inboxPath: string;
-}
-
 export const AGENT_TARGETS = [
   "claude-code",
   "claude-desktop",
@@ -629,91 +620,4 @@ export function agentConnectHtml(): string {
       `<li class="agent-target"><code>wa-mcp install --target ${target}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --target ${target}" type="button">copy</button></li>`,
   ).join("");
   return `<section id="agent-connect" class="pane"><h3>Connect your agent</h3><p class="hint">run one command so your AI agent can use WhatsApp:</p><ul class="agent-targets">${rows}</ul></section>`;
-}
-
-export function hookSnippet(inboxPath: string): string {
-  return `wa-mcp inbox drain --inbox ${inboxPath}`;
-}
-
-export interface ChatPick {
-  jid: string;
-  name: string | null;
-  unreadCount: number;
-}
-
-export function subscriptionsPageHtml(
-  subs: SubscriptionRow[],
-  chats: ChatPick[] = [],
-  opts: {
-    rules?: Array<{ id: string; chat_jid?: string | null; pattern?: string | null }>;
-    resolveName?: (jid: string) => string | null;
-  } = {},
-): string {
-  const rows = subs
-    .map((sub) => {
-      const who = sub.allChats
-        ? "All chats"
-        : (opts.resolveName?.(sub.chatJid ?? "") ?? sub.chatJid ?? "?");
-      return `<li class="subscription-row" data-sub-id="${escapeHtml(sub.id)}">
-<div><strong>${escapeHtml(who)}</strong> — new messages${sub.includeMedia ? " · with photos & files" : ""} <details><summary>details</summary><code>${escapeHtml(sub.id)}</code> · <code>${escapeHtml(sub.inboxPath)}</code></details></div>
-<div class="wire">
-<span class="wire-hint">Events are appended to this file; your agent reads them and can reply via MCP tools:</span>
-<code>wa-mcp install --hooks claude --sub ${escapeHtml(sub.id)}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --hooks claude --sub ${escapeHtml(sub.id)}" type="button">Copy</button>
-<code>wa-mcp install --hooks codex --sub ${escapeHtml(sub.id)}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --hooks codex --sub ${escapeHtml(sub.id)}" type="button">Copy</button>
-<code>tail -F ${escapeHtml(sub.inboxPath)}</code> <button class="copy-cmd" data-copy-cmd="tail -F ${escapeHtml(sub.inboxPath)}" type="button">Copy</button>
-<button class="test-event" data-test-sub="${escapeHtml(sub.id)}" type="button">Send test event</button>
-<span class="test-status" data-test-status="${escapeHtml(sub.id)}" aria-live="polite"></span>
-</div>
-<button class="delete-subscription danger" type="button" data-sub-id="${escapeHtml(sub.id)}">Stop watching</button>
-</li>`;
-    })
-    .join("");
-  const allChatsSub = subs.find((s) => s.allChats);
-  const subscribed = new Set(subs.filter((s) => !s.allChats).map((s) => s.chatJid));
-  const sortedChats = [...chats].sort((a, b) => {
-    const aGroup = a.jid.endsWith("@g.us") ? 0 : 1;
-    const bGroup = b.jid.endsWith("@g.us") ? 0 : 1;
-    return aGroup - bGroup || (a.name ?? a.jid).localeCompare(b.name ?? b.jid);
-  });
-  const watched = sortedChats.filter(
-    (chat) => allChatsSub !== undefined || subscribed.has(chat.jid),
-  ).length;
-  const allChatsNote =
-    allChatsSub !== undefined
-      ? '<p class="hint">Your agent is watching all chats. Change this under "More options".</p>'
-      : "";
-  const globalMedia =
-    '<label class="check-row"><input type="checkbox" id="sub-include-media" /> Include photos, voice notes and files</label>';
-  const picker =
-    sortedChats.length > 0
-      ? `${allChatsNote}${globalMedia}<input id="sub-chat-filter" type="search" placeholder="filter chats…" aria-label="filter chats" autocomplete="off" />
-<div class="picker-count" data-picker-count="${sortedChats.length}">Your agent watches ${watched} of ${sortedChats.length} chats</div>
-<ul id="sub-chat-picker">${sortedChats
-          .map((chat) => {
-            const checked = allChatsSub !== undefined || subscribed.has(chat.jid);
-            const disabled = allChatsSub !== undefined;
-            const subIds = subs
-              .filter((s) => !s.allChats && s.chatJid === chat.jid)
-              .map((s) => s.id);
-            const subIdsAttr =
-              subIds.length > 0 ? ` data-sub-ids="${escapeHtml(subIds.join(","))}"` : "";
-            return `<li class="sub-chat-row" data-chat-jid="${escapeHtml(chat.jid)}"${subIdsAttr}>
-<label class="check-row"><input type="checkbox" data-chat-jid="${escapeHtml(chat.jid)}"${checked ? " checked" : ""}${disabled ? " disabled" : ""} /> <span class="avatar">${escapeHtml(initials(chat.name ?? chat.jid))}</span> <span class="chat-name" dir="auto">${escapeHtml(chat.name ?? chat.jid)}</span>${chat.unreadCount > 0 ? ` <span class="unread-badge">${chat.unreadCount}</span>` : ""}</label>
-</li>`;
-          })
-          .join("")}</ul>`
-      : emptyState("No chats yet. They appear here once your phone finishes syncing.");
-  return `<section id="subscriptions-page"><h1>Agent alerts</h1>
-<p class="hint">tick a chat and your agent gets its messages as they arrive</p>
-${picker}
-<details><summary>More options</summary>
-<form id="subscription-form">
-<label>chat jid<input name="chat_jid" placeholder="1203…@g.us" aria-label="chat jid" /></label>
-<label class="check-row"><input type="checkbox" name="all_chats" /> all chats</label>
-<label class="check-row"><input type="checkbox" name="include_media" /> include media</label>
-<label>kinds<input name="kinds" placeholder="message" /></label>
-<button class="primary" type="submit" id="create-subscription">Start watching</button>
-</form>
-</details>
-<ul id="subscription-list">${rows}</ul>${agentConnectHtml()}</section>`;
 }

@@ -672,7 +672,7 @@ Clear all messages in a chat (chat stays in the list).
 
 ### subscribe_events
 
-Subscribe to WhatsApp events for a chat (or all chats). Appends matching events as JSONL lines to a local inbox file and returns the subscription id and inbox path for the agent to watch.
+Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt. Optional %like% text filter and mention-only gate. Returns the subscription with its id and inboxPath for the agent to watch. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.
 
 ```json
 {
@@ -682,33 +682,37 @@ Subscribe to WhatsApp events for a chat (or all chats). Appends matching events 
       "type": "string",
       "description": "Chat or group jid; omit with all_chats for every chat"
     },
-    "from_jid": { "type": "string", "description": "Only events from this sender jid (optional)" },
-    "kind": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Event kinds to match (default: message)"
-    },
-    "include_media": {
-      "type": "boolean",
-      "description": "Also deliver media-bearing messages (default false)"
-    },
     "all_chats": {
       "type": "boolean",
       "description": "Match every chat (requires chat_jid omitted)"
-    }
+    },
+    "name": {
+      "type": "string",
+      "description": "Subscription name (default: \"MCP: \" plus the chat id)"
+    },
+    "like": {
+      "type": "string",
+      "description": "SQL LIKE text filter, case-insensitive: % any text, _ one character; without wildcards it matches anywhere"
+    },
+    "mention_only": {
+      "type": "boolean",
+      "description": "Only deliver messages that @mention this WhatsApp account"
+    },
+    "prompt": { "type": "string", "description": "Instructions stamped into every delivered event" }
   }
 }
 ```
 
 - `chat_jid` (string, optional) — Chat or group jid; omit with all_chats for every chat
-- `from_jid` (string, optional) — Only events from this sender jid (optional)
-- `kind` (array, optional) — Event kinds to match (default: message)
-- `include_media` (boolean, optional) — Also deliver media-bearing messages (default false)
 - `all_chats` (boolean, optional) — Match every chat (requires chat_jid omitted)
+- `name` (string, optional) — Subscription name (default: "MCP: " plus the chat id)
+- `like` (string, optional) — SQL LIKE text filter, case-insensitive: % any text, _ one character; without wildcards it matches anywhere
+- `mention_only` (boolean, optional) — Only deliver messages that @mention this WhatsApp account
+- `prompt` (string, optional) — Instructions stamped into every delivered event
 
 ### unsubscribe_events
 
-Remove an event subscription by id.
+Remove a subscription by id.
 
 ```json
 { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } }

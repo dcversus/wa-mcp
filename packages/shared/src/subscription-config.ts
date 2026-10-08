@@ -1,5 +1,7 @@
 import { isJid } from "./jid.ts";
 
+export const ALL_CHATS = "*";
+
 export const DELIVERY_MODES = ["inbox", "session", "spawn"] as const;
 
 export type DeliveryMode = (typeof DELIVERY_MODES)[number];
@@ -124,7 +126,13 @@ export function validateSubscriptionConfigInput(raw: unknown): ConfigValidation 
   if (!Array.isArray(raw.chats) || raw.chats.length === 0) {
     return fail("chats must list at least one chat");
   }
+  if (raw.chats.includes(ALL_CHATS) && raw.chats.length > 1) {
+    return fail("chats: * (all chats) cannot be combined with specific chats");
+  }
   for (const [index, chat] of raw.chats.entries()) {
+    if (chat === ALL_CHATS) {
+      continue;
+    }
     if (!isJid(chat)) {
       return fail(`chats[${index}] is not a WhatsApp chat id: ${String(chat)}`);
     }

@@ -38,6 +38,21 @@ test("every wa-mcp command in the doc matches real CLI commands", () => {
     subscribe: ["--chat", "--kind", "--all", "--token", "--bridge-url", "--port"],
     install: ["--hooks", "--sub", "--remove", "--home", "--service"],
     inbox: ["--inbox", "--state"],
+    subs: [
+      "--name",
+      "--chat",
+      "--all-chats",
+      "--like",
+      "--mention-only",
+      "--prompt",
+      "--delivery",
+      "--session",
+      "--command",
+      "--arg",
+      "--env",
+      "--disable",
+      "--enable",
+    ],
   };
   for (const entry of commands) {
     expect(Object.keys(known)).toContain(entry.cmd);
@@ -46,6 +61,18 @@ test("every wa-mcp command in the doc matches real CLI commands", () => {
     }
   }
   expect(commands.length).toBeGreaterThanOrEqual(4);
+});
+
+test("T180 the cookbook documents the subscription model and all three delivery modes", () => {
+  expect(doc).toContain("wa-mcp subs create");
+  expect(doc).toContain("%like%");
+  expect(doc).toContain("--mention-only");
+  for (const mode of ["--delivery inbox", "--delivery session", "--delivery spawn"]) {
+    expect(doc).toContain(mode);
+  }
+  expect(doc).toContain("WAMCP_EVENT");
+  expect(doc).toContain("session.jsonl");
+  expect(doc).not.toContain("--kind message");
 });
 
 test("hook shapes in the doc match renderClaudeHooks/renderCodexHooks output", () => {

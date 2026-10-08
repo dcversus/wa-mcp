@@ -11,20 +11,20 @@ const ctx: ServerContext = {
   fetchFn: (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     calls.push({ method: init?.method ?? "GET", path: url.pathname, body: init?.body });
-    if (url.pathname === "/api/subscriptions" && (init?.method ?? "GET") === "POST") {
+    if (url.pathname === "/api/subs2" && (init?.method ?? "GET") === "POST") {
       return new Response(JSON.stringify({ id: "sub123", inboxPath: "/subs/sub123/inbox.jsonl" }), {
         status: 201,
         headers: { "content-type": "application/json" },
       });
     }
-    if (url.pathname === "/api/subscriptions/sub123" && init?.method === "DELETE") {
-      return new Response(null, { status: 204 });
+    if (url.pathname === "/api/subs2/sub123" && init?.method === "DELETE") {
+      return new Response(JSON.stringify({ ok: true, removed: "sub123" }), { status: 200 });
     }
     throw new Error(`unexpected ${init?.method} ${url.pathname}`);
   }) as unknown as typeof fetch,
 };
 
-test("subscribe_events POSTs /api/subscriptions and returns id + inboxPath", async () => {
+test("subscribe_events POSTs a subs2 config and returns id + inboxPath", async () => {
   const res = await handleRpcMessage(
     {
       jsonrpc: "2.0",
@@ -32,7 +32,12 @@ test("subscribe_events POSTs /api/subscriptions and returns id + inboxPath", asy
       method: "tools/call",
       params: {
         name: "subscribe_events",
-        arguments: { chat_jid: "120363428874442773@g.us", kind: ["message"], include_media: false },
+        arguments: {
+          chat_jid: "120363428874442773@g.us",
+          like: "%invoice%",
+          mention_only: true,
+          prompt: "Triage",
+        },
       },
     },
     ctx,
@@ -42,10 +47,35 @@ test("subscribe_events POSTs /api/subscriptions and returns id + inboxPath", asy
   expect(text).toContain("sub123");
   expect(text).toContain("inbox.jsonl");
   expect(calls.at(-1)?.method).toBe("POST");
-  expect(calls.at(-1)?.path).toBe("/api/subscriptions");
+  expect(calls.at(-1)?.path).toBe("/api/subs2");
+  expect(JSON.parse(String(calls.at(-1)?.body))).toEqual({
+    name: "MCP: 120363428874442773@g.us",
+    chats: ["120363428874442773@g.us"],
+    filter: { like: "%invoice%", mentionOnly: true },
+    prompt: "Triage",
+    delivery: { mode: "inbox" },
+  });
 });
 
-test("unsubscribe_events DELETEs /api/subscriptions/<id>", async () => {
+test("subscribe_events all_chats uses the * wildcard and a custom name", async () => {
+  await handleRpcMessage(
+    {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "subscribe_events", arguments: { all_chats: true, name: "Everything" } },
+    },
+    ctx,
+  );
+  expect(JSON.parse(String(calls.at(-1)?.body))).toEqual({
+    name: "Everything",
+    chats: ["*"],
+    filter: {},
+    delivery: { mode: "inbox" },
+  });
+});
+
+test("unsubscribe_events DELETEs /api/subs2/<id>", async () => {
   const res = await handleRpcMessage(
     {
       jsonrpc: "2.0",
@@ -57,7 +87,7 @@ test("unsubscribe_events DELETEs /api/subscriptions/<id>", async () => {
   );
   expect(res).toBeTruthy();
   expect(calls.at(-1)?.method).toBe("DELETE");
-  expect(calls.at(-1)?.path).toBe("/api/subscriptions/sub123");
+  expect(calls.at(-1)?.path).toBe("/api/subs2/sub123");
 });
 
 test("tools/list contains both with annotations", async () => {

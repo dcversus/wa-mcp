@@ -239,33 +239,6 @@ export function firstRunGate(input: LinkGateInput): LinkGateDecision {
   };
 }
 
-export interface PickerToggle {
-  checked: boolean;
-  includeMedia: boolean;
-  chatJid: string;
-  subIds: string[];
-}
-
-export type PickerAction =
-  | { kind: "create"; chatJid: string; kinds: string[]; includeMedia: boolean }
-  | { kind: "delete"; ids: string[] }
-  | { kind: "none" };
-
-export function pickerToggleAction(toggle: PickerToggle): PickerAction {
-  if (toggle.checked) {
-    return {
-      kind: "create",
-      chatJid: toggle.chatJid,
-      kinds: ["message"],
-      includeMedia: toggle.includeMedia,
-    };
-  }
-  if (toggle.subIds.length === 0) {
-    return { kind: "none" };
-  }
-  return { kind: "delete", ids: toggle.subIds };
-}
-
 const PRIVACY_VALUES: Record<string, string[]> = {
   last: ["all", "contacts", "contact_blacklist", "none"],
   profile: ["all", "contacts", "contact_blacklist", "none"],
