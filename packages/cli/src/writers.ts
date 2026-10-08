@@ -245,9 +245,15 @@ function bridgeUrlOf(spec: ServerSpec): string {
   return (index >= 0 ? spec.args[index + 1] : undefined) ?? DEFAULT_BRIDGE_URL;
 }
 
+function withAgent(spec: ServerSpec, platform: Platform): ServerSpec {
+  return spec.args.includes("--agent")
+    ? spec
+    : { ...spec, args: [...spec.args, "--agent", platform] };
+}
+
 export function writeServerEntry(platform: Platform, options: WriteOptions): WriteResult {
   const path = resolveConfigPath(platform, options.home);
-  const spec = options.spec;
+  const spec = withAgent(options.spec, platform);
   switch (platform) {
     case "claude-code": {
       const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, { type: "stdio" });

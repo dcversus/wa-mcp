@@ -468,6 +468,7 @@ export interface SearchFilter extends Pagination {
   fromJid?: string;
   since?: Date;
   until?: Date;
+  agent?: { sources: string[]; subIds: string[] };
 }
 
 interface SqlFragment {
@@ -497,6 +498,18 @@ function searchFilterClauses(opts: SearchFilter): SqlFragment {
   if (opts.until !== undefined) {
     clauses.push("m.timestamp <= ?");
     params.push(opts.until.toISOString());
+  }
+  if (opts.agent !== undefined) {
+    const owners = [
+      ...opts.agent.sources.map(() => "a.source = ?"),
+      ...opts.agent.subIds.map(() => "a.sub_id = ?"),
+    ];
+    clauses.push(
+      owners.length === 0
+        ? "0"
+        : `EXISTS (SELECT 1 FROM agent_activity a WHERE a.message_id = m.id AND (${owners.join(" OR ")}))`,
+    );
+    params.push(...opts.agent.sources, ...opts.agent.subIds);
   }
   return { sql: clauses.map((clause) => ` AND ${clause}`).join(""), params };
 }

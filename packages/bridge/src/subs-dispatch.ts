@@ -4,6 +4,7 @@ import type { spawn } from "node:child_process";
 import { ALL_CHATS, type SubscriptionConfig } from "@wa-mcp/shared";
 import { openInbox, type InboxEvent, type InboxWriter } from "./inbox.ts";
 import type { Store } from "./store/schema.ts";
+import { recordAgentActivity } from "./store/agent-activity.ts";
 import { listSubscriptionConfigs } from "./store/subscription-configs.ts";
 import { subscriptionDir } from "./subscriptions.ts";
 
@@ -204,6 +205,16 @@ export function createSubsDispatcher(deps: SubsDispatcherDeps): SubsDispatcher {
         if (matchesConfig(config, message, ownJids)) {
           deliver(config, subscriptionEvent(config, message, ts));
           delivered += 1;
+          if (message.id !== undefined) {
+            recordAgentActivity(deps.store, {
+              kind: "delivery",
+              source: null,
+              subId: config.id,
+              chatJid: message.chatJid,
+              messageId: message.id,
+              ts,
+            });
+          }
         }
       }
       return delivered;

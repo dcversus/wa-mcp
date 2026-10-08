@@ -38,7 +38,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     name: "messages",
     group: "whatsapp",
     usage:
-      "messages --chat <jid|name> --around <message-id> [--limit <n>] | messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow]",
+      "messages --chat <jid|name> --around <message-id> [--limit <n>] | messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--agent <slug>] [--limit <n>] [--follow]",
     summary: "message log (the web UI's Logs page); --around shows one message in context",
     web: "#/logs",
   },

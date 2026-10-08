@@ -2,9 +2,11 @@ import { generateWAMessageFromContent, jidDecode, jidEncode, proto } from "baile
 import type { AnyMessageContent, WASocket, WAMessage } from "baileys";
 import { isValidRecipientJid, normalizeJid } from "@wa-mcp/shared";
 import { getAlias } from "../store/contacts.ts";
+import { recordAgentActivity } from "../store/agent-activity.ts";
 import { storeMessage } from "../store/messages.ts";
 import type { Store } from "../store/schema.ts";
 import { HumanizeAborted, type Humanizer } from "./humanize.ts";
+import { currentSendSource } from "./source.ts";
 
 export class SendError extends Error {
   readonly code: string;
@@ -179,6 +181,13 @@ async function humanise(
   }
 }
 
+function attribute(store: Store, chatJid: string, messageId: string): void {
+  const source = currentSendSource();
+  if (source !== undefined && messageId.length > 0) {
+    recordAgentActivity(store, { kind: "send", source, subId: null, chatJid, messageId });
+  }
+}
+
 export async function sendViaSocket(
   socket: WASocket,
   chatJid: string,
@@ -231,6 +240,7 @@ export async function sendViaSocket(
       message,
     } as WAMessage;
     storeMessage(opts.store, outbound);
+    attribute(opts.store, jid, messageId);
   }
   return { messageId, chatJid: jid };
 }
@@ -273,6 +283,7 @@ export async function sendProtoViaSocket(
         key: { ...full.key, remoteJid: jid, fromMe: true },
       } as WAMessage;
       storeMessage(opts.store, outbound);
+      attribute(opts.store, jid, messageId);
     }
     return { messageId, chatJid: jid };
   } catch (err: unknown) {

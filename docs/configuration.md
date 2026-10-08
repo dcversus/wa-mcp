@@ -119,10 +119,18 @@ per-variable errors — nothing silently falls back.
 
 ## MCP server / CLI clients
 
-| variable        | default                  | meaning                                                |
-| --------------- | ------------------------ | ------------------------------------------------------ |
-| `WA_BRIDGE_URL` | `http://127.0.0.1:27777` | bridge URL for the stdio MCP server and CLI commands   |
-| `WA_TOKEN`      | token file               | bearer token for CLI/stdio clients (same file default) |
+| variable        | default                  | meaning                                                              |
+| --------------- | ------------------------ | -------------------------------------------------------------------- |
+| `WA_BRIDGE_URL` | `http://127.0.0.1:27777` | bridge URL for the stdio MCP server and CLI commands                 |
+| `WA_TOKEN`      | token file               | bearer token for CLI/stdio clients (same file default)               |
+| `WA_AGENT`      | MCP `clientInfo` name    | agent slug the stdio MCP server stamps on its sends (`--agent` wins) |
+
+The stdio MCP server sends an `x-wa-agent` header with every bridge call so the
+Logs page can show exactly what one agent did. `wa-mcp install` writes
+`--agent <platform>` into each host entry; without it the slug comes from the
+host's MCP `initialize` handshake (`claude-code`, `claude-ai` → `claude-desktop`,
+`cursor-vscode` → `cursor`, `codex-mcp-client` → `codex`, …). Web UI and CLI sends
+are recorded as `ui`.
 
 ## Client config targets
 

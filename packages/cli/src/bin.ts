@@ -583,6 +583,7 @@ export async function main(argv: string[]): Promise<void> {
         to: flags.to,
         direction: flags.direction as "in" | "out" | undefined,
         q: flags.q,
+        agent: flags.agent,
         limit: flags.limit !== undefined ? Number(flags.limit) : undefined,
         around: flags.around,
         follow: flags.follow !== undefined,

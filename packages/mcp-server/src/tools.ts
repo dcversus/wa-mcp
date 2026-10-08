@@ -4,6 +4,7 @@ export interface ToolContext {
   bridgeUrl: string;
   token: string;
   fetchFn?: typeof fetch;
+  agent?: string;
 }
 
 export interface ToolResult {
@@ -122,6 +123,7 @@ async function bridgeFetch(
   const headers: Record<string, string> = {
     "content-type": "application/json",
     authorization: `Bearer ${toolCtx.token}`,
+    ...(toolCtx.agent === undefined ? {} : { "x-wa-agent": toolCtx.agent }),
   };
   if (init?.headers !== undefined) {
     Object.assign(headers, init.headers);

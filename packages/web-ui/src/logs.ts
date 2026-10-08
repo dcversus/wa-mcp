@@ -20,6 +20,7 @@ export interface LogFilter {
   since: string;
   until: string;
   q: string;
+  agent: string;
 }
 
 export const EMPTY_LOG_FILTER: LogFilter = {
@@ -29,7 +30,19 @@ export const EMPTY_LOG_FILTER: LogFilter = {
   since: "",
   until: "",
   q: "",
+  agent: "",
 };
+
+const AGENT_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+export function logsFilterFromHash(hash: string): LogFilter | null {
+  const query = hash.indexOf("?");
+  if (query < 0) {
+    return null;
+  }
+  const agent = new URLSearchParams(hash.slice(query + 1)).get("agent") ?? "";
+  return AGENT_SLUG.test(agent) ? { ...EMPTY_LOG_FILTER, agent } : null;
+}
 
 export const LOGS_PAGE_SIZE = 50;
 
@@ -47,6 +60,7 @@ export function logsQuery(filter: LogFilter, page: number, pageSize = LOGS_PAGE_
     ["since", filter.since.length > 0 ? localToIso(filter.since) : null],
     ["until", filter.until.length > 0 ? localToIso(filter.until) : null],
     ["q", filter.q.trim()],
+    ["agent", filter.agent],
   ];
   for (const [key, value] of entries) {
     if (value !== null && value.length > 0) {
@@ -59,6 +73,9 @@ export function logsQuery(filter: LogFilter, page: number, pageSize = LOGS_PAGE_
 }
 
 export function matchesLogFilter(row: LogRow, filter: LogFilter): boolean {
+  if (filter.agent.length > 0) {
+    return false;
+  }
   if (filter.chat.length > 0 && row.chatJid !== filter.chat) {
     return false;
   }
@@ -146,6 +163,7 @@ export interface LogsPageInput {
   live: boolean;
   chats: Array<{ jid: string; name: string | null }>;
   people: Array<{ jid: string; name: string | null }>;
+  agents?: Array<{ value: string; label: string }>;
   resolveName: (jid: string) => string | null;
   now?: number;
 }
@@ -208,6 +226,14 @@ export function logsPageHtml(input: LogsPageInput): string {
       label: input.resolveName(person.jid) ?? person.name ?? formatPhone(person.jid),
     })),
   ];
+  const agents = input.agents ?? [];
+  const agentChoices = [
+    { value: "", label: "All agents" },
+    ...agents,
+    ...(filter.agent.length > 0 && !agents.some((agent) => agent.value === filter.agent)
+      ? [{ value: filter.agent, label: filter.agent }]
+      : []),
+  ];
   const directionOptions = [
     { value: "", label: "Both directions" },
     { value: "in", label: "Incoming" },
@@ -218,6 +244,7 @@ export function logsPageHtml(input: LogsPageInput): string {
     pickerHtml("logs-chat", "chat", "Chat", filter.chat, chatOptions) +
     pickerHtml("logs-person", "person", "Person", filter.person, personOptions) +
     pickerHtml("logs-direction", "direction", "Direction", filter.direction, directionOptions) +
+    pickerHtml("logs-agent", "agent", "Agent", filter.agent, agentChoices) +
     `<label>From <input type="datetime-local" id="logs-since" name="since" value="${escapeHtml(filter.since)}" /></label>` +
     `<label>To <input type="datetime-local" id="logs-until" name="until" value="${escapeHtml(filter.until)}" /></label>` +
     `<label>Text <input type="search" id="logs-q" name="q" value="${escapeHtml(filter.q)}" placeholder="Search message text" /></label>` +

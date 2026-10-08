@@ -11,11 +11,35 @@ export interface ConnectionView {
   subId: string | null;
   inboxPath: string | null;
   subscription: { id: string; name: string; chatJid: string | null } | null;
+  installed?: boolean | null;
 }
 
 export interface ConnectionsPageView {
   connections: ConnectionView[];
   error?: string;
+}
+
+export function agentSlug(connection: Pick<ConnectionView, "kind" | "agent">): string {
+  return connection.kind === "hooks" && connection.agent === "claude"
+    ? "claude-code"
+    : connection.agent;
+}
+
+export function agentOptions(
+  connections: ConnectionView[],
+): Array<{ value: string; label: string }> {
+  const options = new Map<string, string>();
+  for (const connection of connections) {
+    const slug = agentSlug(connection);
+    if (!options.has(slug)) {
+      options.set(slug, connection.label);
+    }
+  }
+  return [...options.entries()].map(([value, label]) => ({ value, label }));
+}
+
+function installRank(connection: ConnectionView): number {
+  return connection.installed === true ? 0 : connection.installed === false ? 2 : 1;
 }
 
 function statusHtml(connection: ConnectionView): string {
@@ -47,14 +71,21 @@ export function connectionCardHtml(connection: ConnectionView): string {
     connection.kind === "hooks"
       ? '<span class="badge badge-hooks">Hooks</span>'
       : '<span class="badge badge-mcp">MCP</span>';
-  const chat = connection.subscription?.chatJid ?? null;
-  const logs = `<a href="#/logs"${chat === null ? "" : ` data-logs-chat="${escapeHtml(chat)}"`}>View logs</a>`;
+  const missing =
+    connection.installed === false
+      ? '<span class="badge badge-muted">App not installed</span>'
+      : "";
+  const logs = `<a href="#/logs?agent=${encodeURIComponent(agentSlug(connection))}">View logs</a>`;
   const sub =
     connection.kind === "hooks" && connection.subId !== null
       ? ` data-disconnect-sub="${escapeHtml(connection.subId)}"`
       : "";
   const disconnect = `<button class="danger" type="button" data-disconnect-kind="${kind}" data-disconnect-agent="${agent}"${sub} data-disconnect-label="${label}" aria-label="Disconnect ${label}">Disconnect</button>`;
-  return `<li class="connection-card" data-connection-kind="${kind}" data-connection-agent="${agent}"><div class="connection-head"><span class="avatar" aria-hidden="true">${escapeHtml(initials(connection.label))}</span><strong class="connection-name">${label}</strong>${badge}${statusHtml(connection)}</div><p class="connection-sub">${subscriptionHtml(connection)}</p><p class="hint"><code>${escapeHtml(connection.detail)}</code> · <span class="connection-path">${escapeHtml(connection.configPath)}</span></p><div class="connection-actions">${logs}${disconnect}</div></li>`;
+  const installed =
+    connection.installed === undefined || connection.installed === null
+      ? ""
+      : ` data-installed="${String(connection.installed)}"`;
+  return `<li class="connection-card" data-connection-kind="${kind}" data-connection-agent="${agent}"${installed}><div class="connection-head"><span class="avatar" aria-hidden="true">${escapeHtml(initials(connection.label))}</span><strong class="connection-name">${label}</strong>${badge}${missing}${statusHtml(connection)}</div><p class="connection-sub">${subscriptionHtml(connection)}</p><p class="hint"><code>${escapeHtml(connection.detail)}</code> · <span class="connection-path">${escapeHtml(connection.configPath)}</span></p><div class="connection-actions">${logs}${disconnect}</div></li>`;
 }
 
 export function connectionsPageHtml(view: ConnectionsPageView): string {
@@ -65,6 +96,9 @@ export function connectionsPageHtml(view: ConnectionsPageView): string {
   const body =
     view.connections.length === 0
       ? '<div class="empty-state">No agents connected yet — set one up in <a href="#/subscriptions">Subscriptions</a></div>'
-      : `<ul id="connections-list" aria-label="Connected agents">${view.connections.map(connectionCardHtml).join("")}</ul>`;
+      : `<ul id="connections-list" aria-label="Connected agents">${[...view.connections]
+          .sort((a, b) => installRank(a) - installRank(b))
+          .map(connectionCardHtml)
+          .join("")}</ul>`;
   return `<section id="connections-page"><h1>Agents</h1><p class="hint">AI agents wired to this WhatsApp — through hooks that deliver subscription events, or an MCP server registration.</p>${error}<h2>Connected agents</h2>${body}</section>`;
 }

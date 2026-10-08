@@ -32,7 +32,9 @@ The left menu has two groups.
   chat name to open the conversation
 - `#/subscriptions` — choose which messages reach your agent and how
   (inbox file, agent session or a new agent each time)
-- `#/agents` — the agents wired to this WhatsApp, with disconnect
+- `#/agents` — the agents wired to this WhatsApp, with disconnect; installed
+  agents come first, and a registration whose host app is not on this machine
+  says **App not installed**. **View logs** opens `#/logs?agent=<slug>`
 
 - `#/profile` — name, about, privacy and blocked contacts
 - `#/contacts` — your WhatsApp contacts; add, rename, remove (exactly like

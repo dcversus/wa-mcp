@@ -14,7 +14,7 @@ export function resolveRoute<R extends string>(
   hash: string,
   routes: Array<RoutePattern<R>>,
 ): RouteMatch<R> | null {
-  const clean = hash.replace(LEADING_HASH, "");
+  const clean = hash.replace(LEADING_HASH, "").replace(/\?.*$/, "");
   if (clean.length === 0) {
     return resolveRoute("#/contacts", routes);
   }

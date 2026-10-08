@@ -18,7 +18,7 @@ const START = `<div class="panel" id="help-start"><h2>Getting started</h2><ol cl
 const CONCEPTS = `<div class="panel" id="help-concepts"><h2>Concepts</h2>
 <h3><a href="#/logs">Logs</a></h3><p>Every message in and out, newest first. Filter by chat, person, direction, date range or text; turn on live tail to watch new messages arrive. Click a chat name to open that conversation. CLI: <code>wa-mcp messages</code>.</p>
 <h3><a href="#/contacts">Contacts</a></h3><p>Your real WhatsApp contacts. Adding, renaming and removing contacts works exactly like WhatsApp Web — the change is on your phone too. Search by name, username or number, and click a contact to open your conversation with them. CLI: <code>wa-mcp contacts</code>.</p>
-<h3><a href="#/agents">Agents</a></h3><p>The AI agents wired to this WhatsApp: hooks that deliver subscription events, and MCP server registrations that give an agent the WhatsApp tools. Disconnect removes only wa-mcp's own entries from the agent's config (a backup is written first). CLI: <code>wa-mcp connections</code>.</p>
+<h3><a href="#/agents">Agents</a></h3><p>The AI agents wired to this WhatsApp: hooks that deliver subscription events, and MCP server registrations that give an agent the WhatsApp tools. Agents whose app is not on this computer say <em>App not installed</em> and sort last. <em>View logs</em> opens the Logs page filtered to what that agent sent and received. Disconnect removes only wa-mcp's own entries from the agent's config (a backup is written first). CLI: <code>wa-mcp connections</code>.</p>
 <h3><a href="#/subscriptions">Subscriptions</a></h3><p>A subscription decides which incoming messages reach an agent, and how.</p>
 <dl class="help-terms">
 <dt>Chats</dt><dd>One or more chats, or all chats.</dd>

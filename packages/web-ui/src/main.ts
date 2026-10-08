@@ -18,7 +18,7 @@ import {
   validateNewContact,
   type ContactView,
 } from "./contacts.ts";
-import { connectionsPageHtml, type ConnectionView } from "./connections.ts";
+import { agentOptions, connectionsPageHtml, type ConnectionView } from "./connections.ts";
 import {
   readSubscriptionForm,
   likePreview,
@@ -48,6 +48,7 @@ import {
   EMPTY_LOG_FILTER,
   LOGS_PAGE_SIZE,
   logRowHtml,
+  logsFilterFromHash,
   logsPageHtml,
   logsQuery,
   matchesLogFilter,
@@ -247,6 +248,7 @@ let logsPage = 0;
 let logsLive = false;
 let logsStream: { close(): void } | null = null;
 let logsChats: Array<{ jid: string; name: string | null }> = [];
+let logsAgents: Array<{ value: string; label: string }> = [];
 
 function logsRenderInput(rows: LogRow[], hasMore: boolean): LogsPageInput {
   const people = new Map<string, string | null>();
@@ -270,6 +272,7 @@ function logsRenderInput(rows: LogRow[], hasMore: boolean): LogsPageInput {
     hasMore,
     live: logsLive,
     chats: logsChats,
+    agents: logsAgents,
     people: [...people.entries()].map(([jid, name]) => ({ jid, name })),
     resolveName,
   };
@@ -456,14 +459,24 @@ const loaders: {
   ) => Promise<string>;
 } = {
   logs: async () => {
-    const [payload, chatsPayload] = await Promise.all([
+    const linked = logsFilterFromHash(location.hash);
+    if (linked !== null) {
+      logsFilter = linked;
+      logsPage = 0;
+      history.replaceState(null, "", "#/logs");
+    }
+    const [payload, chatsPayload, connectionsPayload] = await Promise.all([
       client.searchLogs(logsQuery(logsFilter, logsPage, LOGS_PAGE_SIZE)),
       client.getChats().catch(() => ({ chats: [] })) as Promise<{
         chats?: Array<{ jid: string; name: string | null }>;
       }>,
+      client.connections().catch(() => ({ connections: [] })) as Promise<{
+        connections?: ConnectionView[];
+      }>,
       loadIdentity().catch(() => undefined),
     ]);
     logsChats = chatsPayload.chats ?? [];
+    logsAgents = agentOptions(connectionsPayload.connections ?? []);
     const rows = (payload.messages ?? []) as LogRow[];
     return logsPageHtml(
       logsRenderInput(rows.slice(0, LOGS_PAGE_SIZE), rows.length > LOGS_PAGE_SIZE),
@@ -816,12 +829,6 @@ function bindContactsControls(): void {
 }
 
 function bindConnectionsControls(): void {
-  document.querySelectorAll<HTMLAnchorElement>("[data-logs-chat]").forEach((link) => {
-    link.addEventListener("click", () => {
-      logsFilter = { ...EMPTY_LOG_FILTER, chat: link.dataset.logsChat ?? "" };
-      logsPage = 0;
-    });
-  });
   document.querySelectorAll<HTMLButtonElement>("[data-disconnect-kind]").forEach((button) => {
     button.addEventListener("click", async () => {
       const kind = button.dataset.disconnectKind ?? "";
@@ -938,6 +945,7 @@ function bindLogsControls(): void {
       since: field("since"),
       until: field("until"),
       q: field("q"),
+      agent: field("agent"),
     };
     logsPage = 0;
     void renderCurrent();

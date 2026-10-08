@@ -385,6 +385,22 @@ export function listConnections(home: string): Connection[] {
   ];
 }
 
+export function agentSlugOf(connection: Pick<Connection, "kind" | "agent">): string {
+  return connection.kind === "hooks" && connection.agent === "claude"
+    ? "claude-code"
+    : connection.agent;
+}
+
+export function agentLogScope(
+  home: string,
+  agent: string,
+): { sources: string[]; subIds: string[] } {
+  const subIds = listConnections(home)
+    .filter((connection) => connection.subId !== null && agentSlugOf(connection) === agent)
+    .map((connection) => connection.subId as string);
+  return { sources: [agent], subIds: [...new Set(subIds)] };
+}
+
 function disconnectHooks(home: string, agent: HookAgent, subId?: string): DisconnectResult {
   const targets = hookConnections(home, agent).filter(
     (connection) => subId === undefined || connection.subId === subId,

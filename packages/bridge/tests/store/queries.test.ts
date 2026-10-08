@@ -264,7 +264,7 @@ test("fts stays in sync through the full message lifecycle", () => {
   try {
     const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
     expect(versions.map((row) => (row as { version: number }).version)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     ]);
     storeMessage(store, message("S1", GROUP_A, 1000, "original words"));
     expect(searchMessages(store, "original", {})).toHaveLength(1);
@@ -520,7 +520,7 @@ describe("T78 M2 — reactions are an aggregated per-sender model", () => {
     try {
       const versions = store.db.prepare("SELECT version FROM migrations ORDER BY version").all();
       expect(versions.map((row) => (row as { version: number }).version)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
       ]);
     } finally {
       store.close();

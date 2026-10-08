@@ -356,6 +356,21 @@ CREATE INDEX IF NOT EXISTS send_log_ts ON send_log (ts);
 CREATE INDEX IF NOT EXISTS send_log_chat_ts ON send_log (chat_jid, ts);
 `;
 
+const MIGRATION_V25 = `
+CREATE TABLE IF NOT EXISTS agent_activity (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  source TEXT,
+  sub_id TEXT,
+  chat_jid TEXT NOT NULL,
+  message_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS agent_activity_message ON agent_activity (message_id);
+CREATE INDEX IF NOT EXISTS agent_activity_source ON agent_activity (source);
+CREATE INDEX IF NOT EXISTS agent_activity_sub ON agent_activity (sub_id);
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -381,6 +396,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 22, sql: MIGRATION_V22 },
   { version: 23, sql: MIGRATION_V23 },
   { version: 24, sql: MIGRATION_V24 },
+  { version: 25, sql: MIGRATION_V25 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

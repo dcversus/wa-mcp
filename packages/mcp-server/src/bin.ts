@@ -13,11 +13,13 @@ import { TOOLS } from "./tools.ts";
 export interface McpConfig {
   bridgeUrl: string;
   token: string | undefined;
+  agent?: string;
 }
 
 export function parseMcpConfig(args: string[], env: Record<string, string | undefined>): McpConfig {
   let bridgeUrl: string | undefined;
   let token: string | undefined;
+  let agent: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--bridge-url") {
@@ -26,11 +28,16 @@ export function parseMcpConfig(args: string[], env: Record<string, string | unde
     } else if (arg === "--token") {
       token = args[index + 1];
       index += 1;
+    } else if (arg === "--agent") {
+      agent = args[index + 1];
+      index += 1;
     }
   }
+  const named = agent ?? env.WA_AGENT;
   return {
     bridgeUrl: bridgeUrl ?? env.WA_BRIDGE_URL ?? "http://127.0.0.1:27777",
     token: token ?? env.WA_TOKEN,
+    ...(named === undefined || named.length === 0 ? {} : { agent: named }),
   };
 }
 
@@ -190,6 +197,7 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
     bridgeUrl: config.bridgeUrl,
     token: config.token,
     fetchFn: fetch,
+    ...(config.agent === undefined ? {} : { agent: config.agent }),
   };
   await handleStream(
     readCappedLines(process.stdin, JSON_RPC_LINE_CAP),

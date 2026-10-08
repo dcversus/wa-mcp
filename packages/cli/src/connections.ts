@@ -19,6 +19,11 @@ interface ConnectionRow {
   enabled: boolean;
   subId: string | null;
   subscription?: { id: string; name: string } | null;
+  installed?: boolean | null;
+}
+
+function installRank(row: ConnectionRow): number {
+  return row.installed === true ? 0 : row.installed === false ? 2 : 1;
 }
 
 const DISCONNECT_USAGE = "connections disconnect <hooks|mcp> <agent> [--sub <id>]";
@@ -71,9 +76,10 @@ async function list(deps: ConnectionsDeps, args: ConnectionsArgs): Promise<numbe
     return 0;
   }
   deps.print(`${cell("AGENT", 16)}  ${cell("KIND", 6)}  ${cell("STATUS", 9)}  SUBSCRIPTION`);
-  for (const row of rows) {
+  for (const row of [...rows].sort((a, b) => installRank(a) - installRank(b))) {
+    const missing = row.installed === false ? " · app not installed" : "";
     deps.print(
-      `${cell(row.label ?? row.agent, 16)}  ${cell(row.kind, 6)}  ${cell(row.enabled ? "enabled" : "disabled", 9)}  ${subscriptionCell(row)}`,
+      `${cell(row.label ?? row.agent, 16)}  ${cell(row.kind, 6)}  ${cell(row.enabled ? "enabled" : "disabled", 9)}  ${subscriptionCell(row)}${missing}`,
     );
   }
   deps.print(

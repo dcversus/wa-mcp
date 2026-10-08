@@ -10,6 +10,11 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 - `wa-mcp install` always writes the explicit bridge URL into MCP host configs; Antigravity's `serverUrl` now follows it instead of a hardcoded `:8080`.
 - Existing installs that pass an explicit port (service files, host configs) are unaffected; see configuration → upgrading.
 
+### Agents page truth + agent-filtered logs
+
+- `GET /api/connections` reports `installed` per agent (app bundle / CLI probe; `null` when unknowable); the Agents page sorts installed agents first and badges the rest **App not installed**. `wa-mcp connections` does the same.
+- **View logs** opens `#/logs?agent=<slug>`: the Logs page gains an **Agent** filter, `/api/search` an `agent` param and `wa-mcp messages` an `--agent` flag. An agent's log = its MCP sends (the stdio server stamps `x-wa-agent` from `--agent`/`WA_AGENT` or the MCP `clientInfo`; `wa-mcp install` now writes `--agent <platform>`) plus deliveries from its hook-linked subscriptions, recorded in the new `agent_activity` table (migration v25).
+
 ### Bridge
 
 - Baileys session daemon: pairing (ASCII + PNG + web QR), persistent auth (0700/0600), exponential-backoff reconnect, single-instance lock, graceful shutdown, `WA_DEVICE_NAME`.

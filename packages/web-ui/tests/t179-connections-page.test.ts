@@ -59,7 +59,7 @@ test("T179 C card — agent name, Hooks badge, enabled status, linked subscripti
   expect(html).toContain("Hooks enabled ✓");
   expect(html).toContain('href="#/subscriptions"');
   expect(html).toContain("Family &lt;alerts&gt;");
-  expect(html).toContain('href="#/logs" data-logs-chat="1203@g.us"');
+  expect(html).toContain('<a href="#/logs?agent=claude-code">View logs</a>');
   expect(html).toContain(
     '<button class="danger" type="button" data-disconnect-kind="hooks" data-disconnect-agent="claude" data-disconnect-sub="abc" data-disconnect-label="Claude Code" aria-label="Disconnect Claude Code">Disconnect</button>',
   );
@@ -70,7 +70,7 @@ test("T179 C card — disabled hooks and a missing subscription are called out",
   expect(html).toContain("Hooks disabled");
   expect(html).not.toContain("Hooks enabled");
   expect(html).toContain("Subscription gone no longer exists");
-  expect(html).toContain('href="#/logs"');
+  expect(html).toContain('<a href="#/logs?agent=codex">View logs</a>');
   expect(html).not.toContain("data-logs-chat");
 });
 

@@ -84,7 +84,11 @@ wa-mcp messages --person 358401112222@s.whatsapp.net --from 2026-10-01 --to 2026
 wa-mcp messages --q invoice --follow                       # live tail (polls every 2s)
 ```
 
-`/api/search` filters: `q` (optional — omit it to list everything), `chat_jid`, `from_jid`, `direction` (`in`|`out`), `since` / `until` (ISO date or epoch milliseconds, inclusive), `limit`, `offset`.
+`/api/search` filters: `q` (optional — omit it to list everything), `chat_jid`, `from_jid`, `direction` (`in`|`out`), `since` / `until` (ISO date or epoch milliseconds, inclusive), `agent`, `limit`, `offset`.
+
+`agent=<slug>` (`wa-mcp messages --agent <slug>`, the Logs page **Agent** select) keeps only what that agent did: messages it sent through its MCP server (attributed by the `x-wa-agent` header, see configuration) and messages its hook-linked subscriptions delivered to it. Attribution is recorded from this release on; older messages carry none. Web UI and CLI sends are attributed to `ui`.
+
+Agents page install detection (`installed` on `GET /api/connections`): on macOS an app bundle in `/Applications` or `~/Applications`, or the agent's CLI on the daemon's `PATH` plus `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.bun/bin`, `~/.npm-global/bin`, `~/.claude/local` and the running Node's bin directory. Probes: Claude Code `claude`; Claude Desktop `Claude.app`; Cursor `Cursor.app`/`cursor`; Codex `Codex.app`/`codex`; Pi `pi`; Hermes `hermes`; Grok `Grok.app`/`grok`; Antigravity `Antigravity.app`/`antigravity`. Off macOS app bundles are not checked, so app-only hosts report unknown (no badge).
 
 ### Contacts
 

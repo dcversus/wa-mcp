@@ -47,7 +47,9 @@ import {
   updateSubscriptionConfig,
 } from "./store/subscription-configs.ts";
 import { listAgentSessions } from "./sessions.ts";
-import { disconnectAgent, listConnections, type Connection } from "./connections.ts";
+import { agentLogScope, disconnectAgent, listConnections, type Connection } from "./connections.ts";
+import { defaultInstallEnv, detectInstalled, type InstallEnv } from "./installed.ts";
+import { AGENT_SLUG, withSendSource } from "./send/source.ts";
 import {
   ACTIVE_SESSION,
   SESSION_SPOOL,
@@ -182,6 +184,7 @@ export interface HttpServerOptions {
    * matching inboxes. */
   subscriptionsDir?: string;
   homeDir?: string;
+  installEnv?: InstallEnv;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
    * (webhooks) and /health reports the cloud channel. */
   cloud?: {
@@ -894,8 +897,21 @@ export async function createHttpServer(
         validationError(res, "since and until must be ISO dates or epoch milliseconds");
         return;
       }
+      const agent = params.get("agent");
+      if (agent !== null && !AGENT_SLUG.test(agent)) {
+        validationError(res, "agent must be an agent slug such as claude-code or codex");
+        return;
+      }
       sendJson(res, 200, {
         messages: searchMessages(store, params.get("q") ?? "", {
+          ...(agent === null
+            ? {}
+            : {
+                agent:
+                  opts.homeDir === undefined
+                    ? { sources: [agent], subIds: [] }
+                    : agentLogScope(opts.homeDir, agent),
+              }),
           chatJid: params.get("chat_jid") ?? undefined,
           direction: direction ?? undefined,
           fromJid: params.get("from_jid") ?? undefined,
@@ -2796,7 +2812,19 @@ export async function createHttpServer(
       });
   };
 
-  const server: Server = createServer(async (req, res) => {
+  const installEnv = opts.installEnv ?? defaultInstallEnv(opts.homeDir ?? "");
+
+  const sendSourceOf = (req: IncomingMessage): string => {
+    const header = req.headers["x-wa-agent"];
+    const value = (Array.isArray(header) ? header[0] : header)?.trim().toLowerCase();
+    return value !== undefined && AGENT_SLUG.test(value) ? value : "ui";
+  };
+
+  const server: Server = createServer((req, res) =>
+    withSendSource(sendSourceOf(req), () => handleRequest(req, res)),
+  );
+
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const ip = req.socket.remoteAddress ?? "unknown";
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
     // T74: neither /health (cheap, polled by every UI tab) nor /events (one
@@ -4053,7 +4081,10 @@ export async function createHttpServer(
           }
           if (connectionMatch[1] === undefined && req.method === "GET") {
             sendJson(res, 200, {
-              connections: listConnections(opts.homeDir).map(withSubscription),
+              connections: listConnections(opts.homeDir).map((connection) => ({
+                ...withSubscription(connection),
+                installed: detectInstalled(connection.agent, installEnv),
+              })),
               generatedAt: new Date().toISOString(),
             });
             return;
@@ -4861,7 +4892,7 @@ export async function createHttpServer(
         sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown route" } });
       })
       .catch(respondOrLog(res, opts.logger));
-  });
+  }
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(opts.port ?? 0, opts.host ?? DEFAULT_HOST, () => {

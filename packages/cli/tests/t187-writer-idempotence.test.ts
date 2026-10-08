@@ -157,7 +157,7 @@ test("T187 codex — reinstall with a new port leaves exactly one args array, fo
   const parsed = parseToml(text);
   expect(parsed["mcp_servers.wa-mcp"]).toEqual({
     command: "/usr/local/bin/node",
-    args: [BIN, "--bridge-url", "http://127.0.0.1:27777", "--token", "tok-new"],
+    args: [BIN, "--bridge-url", "http://127.0.0.1:27777", "--token", "tok-new", "--agent", "codex"],
   });
   expect(parsed[""]).toEqual({ model: "o4-mini" });
   expect(parsed["mcp_servers.other"]).toEqual({ command: "npx", args: ["-y", "other-server"] });
@@ -210,7 +210,15 @@ test("T187 hermes — reinstall with a new port replaces the existing entry, oth
   };
   expect(parsed.mcp_servers["wa-mcp"]).toEqual({
     command: "/usr/local/bin/node",
-    args: [BIN, "--bridge-url", "http://127.0.0.1:27777", "--token", "tok-new"],
+    args: [
+      BIN,
+      "--bridge-url",
+      "http://127.0.0.1:27777",
+      "--token",
+      "tok-new",
+      "--agent",
+      "hermes",
+    ],
     env: { WA_TOKEN: "tok-new" },
   });
   expect(Object.keys(parsed.mcp_servers)).toEqual(["other", "wa-mcp", "zeta"]);

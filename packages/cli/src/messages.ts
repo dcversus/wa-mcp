@@ -14,6 +14,7 @@ export interface MessagesArgs {
   to?: string;
   direction?: "in" | "out";
   q?: string;
+  agent?: string;
   limit?: number;
   around?: string;
   follow: boolean;
@@ -123,6 +124,7 @@ function searchPath(
     ["until", args.to],
     ["direction", args.direction],
     ["q", args.q],
+    ["agent", args.agent],
     ["limit", args.limit === undefined ? undefined : String(args.limit)],
   ];
   for (const [key, value] of entries) {

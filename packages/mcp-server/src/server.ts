@@ -21,6 +21,7 @@ export interface JsonRpcResponse {
 
 export interface McpSession {
   subscriptions: Set<string>;
+  agent?: string;
 }
 
 export interface ServerContext {
@@ -29,6 +30,56 @@ export interface ServerContext {
   token: string;
   fetchFn?: typeof fetch;
   session?: McpSession;
+  agent?: string;
+  clientAgent?: string;
+}
+
+const CLIENT_AGENTS: Array<[RegExp, string]> = [
+  [/^claude[-\s]?code/i, "claude-code"],
+  [/^claude/i, "claude-desktop"],
+  [/cursor/i, "cursor"],
+  [/codex/i, "codex"],
+  [/hermes/i, "hermes"],
+  [/grok/i, "grok"],
+  [/antigravity/i, "antigravity"],
+  [/^pi(?:$|[-\s])/i, "pi"],
+];
+
+export function agentFromClientName(name: string): string {
+  const known = CLIENT_AGENTS.find(([pattern]) => pattern.test(name.trim()));
+  if (known !== undefined) {
+    return known[1];
+  }
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function learnClient(ctx: ServerContext, params: unknown): void {
+  const name = (params as { clientInfo?: { name?: unknown } } | undefined)?.clientInfo?.name;
+  if (typeof name !== "string" || name.trim().length === 0) {
+    return;
+  }
+  const agent = agentFromClientName(name);
+  if (agent.length === 0) {
+    return;
+  }
+  ctx.clientAgent = agent;
+  if (ctx.session !== undefined) {
+    ctx.session.agent = agent;
+  }
+}
+
+function toolContext(ctx: ServerContext): ToolContext {
+  const agent = ctx.agent ?? ctx.session?.agent ?? ctx.clientAgent;
+  return {
+    bridgeUrl: ctx.bridgeUrl,
+    token: ctx.token,
+    fetchFn: ctx.fetchFn,
+    ...(agent === undefined ? {} : { agent }),
+  };
 }
 
 export interface WaResource {
@@ -216,6 +267,7 @@ export async function handleRpcMessage(
   const run = async (): Promise<Record<string, unknown>> => {
     switch (request.method) {
       case "initialize":
+        learnClient(ctx, (request as { params?: unknown }).params);
         return {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: {
@@ -330,11 +382,7 @@ export async function handleRpcMessage(
           })),
         };
       case "tools/call":
-        return dispatchToolCall(
-          { bridgeUrl: ctx.bridgeUrl, token: ctx.token, fetchFn: ctx.fetchFn },
-          ctx.tools,
-          request.params,
-        );
+        return dispatchToolCall(toolContext(ctx), ctx.tools, request.params);
       case "resources/list":
         return { resources: WA_RESOURCES };
       case "resources/subscribe":
@@ -358,10 +406,7 @@ export async function handleRpcMessage(
         if (uri === undefined) {
           throw new ParamError("uri is required");
         }
-        return readResource(
-          { bridgeUrl: ctx.bridgeUrl, token: ctx.token, fetchFn: ctx.fetchFn },
-          uri,
-        );
+        return readResource(toolContext(ctx), uri);
       }
       default:
         throw new MethodNotFoundError(String(request.method));

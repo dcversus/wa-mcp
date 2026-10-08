@@ -221,7 +221,7 @@ test("T178 namespacing — `messages` is the message log; `logs` is only ever th
     await main([]);
     const usage = logSpy.mock.calls.flat().join("\n");
     expect(usage).toContain(
-      "messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log (the web UI's Logs page)",
+      "messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--agent <slug>] [--limit <n>] [--follow] — message log (the web UI's Logs page)",
     );
     expect(usage).toContain("logs [--follow] — daemon log (bridge.log)");
     expect(usage).not.toContain("logs [messages]");

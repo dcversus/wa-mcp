@@ -662,6 +662,16 @@ details[open] > summary::before {
   color: var(--text-dim);
 }
 
+.badge-muted {
+  background: transparent;
+  color: var(--text-dim);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.connection-card[data-installed="false"] .connection-name {
+  color: var(--text-dim);
+}
+
 .badge-filter {
   background: var(--warn-soft);
   color: var(--warn);

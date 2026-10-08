@@ -4,6 +4,7 @@ export default defineConfig({
   title: "wa-mcp",
   description: "WhatsApp MCP server — local bridge, 30 tools, zero-dep",
   base: "/wa-mcp/",
+  ignoreDeadLinks: "localhostLinks",
   themeConfig: {
     nav: [
       { text: "Getting started", link: "/getting-started/" },
