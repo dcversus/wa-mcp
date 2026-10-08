@@ -102,3 +102,28 @@ display etc.) moves to Connection page or dies. (2) Nav regrouped into
 exactly two visual groups, NO group headers, larger gap between
 groups: [Logs, Subscriptions, Agents] + [Profile, Contacts,
 Connection, Help]. (3) "Connections" page renamed "Agents".
+
+---
+
+## Owner question + resolution (2026-10-08, verbatim)
+
+> claude mem uses http://127.0.0.1:37777 by default, what port should
+> we use as default? need something NOT 8080 or popular, to avoid
+> conflicts; make websearch and find out what would be the BEST port
+> for us (maybe there is something known for whatsapp mcp already?
+> cause at least we positioning ourself as replacement)
+
+Research (websearch + IANA registry CSV + local lsof, 2026-10-08):
+- WhatsApp-bridge ecosystem ports: WPPConnect-Server = 21465 (the
+  de-facto "WhatsApp HTTP bridge" port, years of usage); WAHA = 3000;
+  Evolution API = 8080; lncitador/whatsapp-mcp = 8080 (conflicts);
+  Sealjay mcp-whatsapp = 8765; panghy = 13491.
+- IANA registry: 21465 UNASSIGNED; 13491 UNASSIGNED; 8765 ASSIGNED
+  (ultraseek-http) — avoid 8765.
+- Local machine listeners: no 21465/13491 in use; busy: 37777
+  (claude-mem), 8080, 8000, 5000, 3000-range dev ports etc.
+Decision: DEFAULT PORT = 21465 (WPPConnect's established WhatsApp-
+bridge port — signals "WhatsApp bridge" to tooling, unassigned by
+IANA, free locally, and replacement-positioning: WPPConnect users
+get a drop-in URL). 8080 remains supported via --port/PORT for
+existing installs; migration note in docs.
