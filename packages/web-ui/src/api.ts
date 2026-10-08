@@ -16,30 +16,21 @@ export interface ApiClient {
     opts?: { replyToMessageId?: string },
   ): Promise<{ message_id: string }>;
   getQr(): Promise<{ qr: string | null; png: string | null }>;
-  getUnread(): Promise<{ unread: Array<{ chatJid: string; unreadCount: number }> }>;
   getHealth(): Promise<Record<string, unknown>>;
   /** ADR 0012: exchange the scoped pairing token for the daemon token.
    * Reachable only from a loopback, same-origin page. */
   uiToken(opts?: { useCookie?: boolean }): Promise<{ token?: string }>;
   getMe(): Promise<{ pn?: string | null; name?: string | null; status?: string | null }>;
-  markRead(chatJid: string, messageIds: string[]): Promise<unknown>;
   pairingCode(phone: string): Promise<{ code?: string; error?: { code: string; message: string } }>;
   resumePairing(): Promise<{ resumed: boolean }>;
-  search(query: string, limit?: number): Promise<unknown>;
   searchLogs(query: string): Promise<{ messages?: unknown[] }>;
   contacts(query: { q?: string; saved?: boolean; limit?: number }): Promise<unknown>;
   addContact(input: { name: string; phone: string; username?: string }): Promise<unknown>;
   renameContact(jid: string, name: string): Promise<unknown>;
   removeContact(jid: string): Promise<unknown>;
+  syncContacts(): Promise<unknown>;
   connections(): Promise<unknown>;
   disconnectConnection(kind: string, agent: string, sub?: string): Promise<unknown>;
-  setAlias(chatJid: string, alias: string): Promise<unknown>;
-  groupParticipants(groupJid: string): Promise<unknown>;
-  groupCreate(subject: string, participants: string[]): Promise<unknown>;
-  groupLeave(groupJid: string): Promise<unknown>;
-  groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
-  groupInfo(groupJid: string): Promise<unknown>;
-  notifications(): Promise<unknown>;
   testSubscription(id: string): Promise<{
     ok: boolean;
     mode: string;
@@ -69,13 +60,10 @@ export interface ApiClient {
   }): Promise<{ saved: boolean }>;
   createSubscription(body: Record<string, unknown>): Promise<unknown>;
   deleteSubscription(id: string): Promise<unknown>;
-  deleteNotification(id: string): Promise<unknown>;
-  profile(): Promise<unknown>;
   privacy(): Promise<unknown>;
   blocklist(): Promise<unknown>;
   downloadMedia(messageId: string): Promise<unknown>;
   transcribe(messageId: string): Promise<unknown>;
-  sendTts(chatJid: string, text: string): Promise<unknown>;
   sendPresence(chatJid: string, state: string): Promise<unknown>;
   getContext(chatJid: string, messageId: string, limit?: number): Promise<unknown>;
   block(chatJid: string): Promise<unknown>;
@@ -181,7 +169,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
           : {}),
       }),
     getQr: () => jsonCall("/api/qr"),
-    getUnread: () => jsonCall("/api/unread"),
     getHealth: () => jsonCall("/health"),
     uiToken: (opts) =>
       jsonCall("/api/ui-token", {
@@ -189,18 +176,8 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
         headers: opts?.useCookie === true ? { authorization: "" } : undefined,
       }),
     getMe: () => jsonCall("/api/me"),
-    markRead: (chatJid, messageIds) =>
-      post("/api/read", { chat_jid: chatJid, message_ids: messageIds }),
     pairingCode: (phone) => post("/api/pairing-code", { phone }),
     resumePairing: () => post("/api/pair/resume", {}),
-    search: (query, limit) => {
-      // T93-C1: the bridge reads ?q= — the old ?query= was silently ignored
-      const params = new URLSearchParams({ q: query });
-      if (limit !== undefined) {
-        params.set("limit", String(limit));
-      }
-      return jsonCall(`/api/search?${params.toString()}`);
-    },
     searchLogs: (query) => jsonCall(`/api/search?${query}`),
     contacts: (query) => {
       const params = new URLSearchParams();
@@ -227,19 +204,13 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
         `/api/connections/${encodeURIComponent(kind)}/${encodeURIComponent(agent)}${sub === undefined ? "" : `?sub=${encodeURIComponent(sub)}`}`,
         { method: "DELETE" },
       ),
-    // T77: the route validates input.jid (NOT chat_jid) — drift fixed
-    setAlias: (chatJid, alias) => post("/api/alias", { jid: chatJid, alias }),
-    groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),
-    groupMeta: (groupJid, patch) => post("/api/group/meta", { group_jid: groupJid, ...patch }),
-    groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
-    groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
-    notifications: () => jsonCall("/api/notifications"),
     testSubscription: (id) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}/test`, { method: "POST" }),
     subscriptions: () => jsonCall("/api/subs2"),
     updateSubscription: (id, patch) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "PATCH", json: patch }),
     sessions: () => jsonCall("/api/sessions"),
+    syncContacts: () => jsonCall("/api/contacts/sync", { method: "POST" }),
     connectionSettings: () => jsonCall("/api/connection-settings"),
     saveConnectionSettings: (body) =>
       jsonCall("/api/connection-settings", { method: "PUT", json: body }),
@@ -250,14 +221,10 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     createSubscription: (body) => post("/api/subs2", body),
     deleteSubscription: (id) =>
       jsonCall(`/api/subs2/${encodeURIComponent(id)}`, { method: "DELETE" }),
-    deleteNotification: (id) =>
-      jsonCall(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }),
-    profile: () => jsonCall("/api/profile"),
     privacy: () => jsonCall("/api/privacy"),
     blocklist: () => jsonCall("/api/blocklist"),
     downloadMedia: (messageId) => post(`/api/media/${encodeURIComponent(messageId)}`, {}),
     transcribe: (messageId) => post("/api/transcribe", { message_id: messageId }),
-    sendTts: (chatJid, text) => post("/api/tts", { chat_jid: chatJid, text }),
     // T77: the route validates input.presence (NOT state) — drift fixed
     sendPresence: (chatJid, state) => post("/api/presence", { chat_jid: chatJid, presence: state }),
     block: (chatJid) => post("/api/block", { jid: chatJid, block: true }),
@@ -265,7 +232,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     setPrivacy: (patch) => post("/api/privacy", patch),
     setProfileStatus: (status) => post("/api/profile", { status }),
     setProfileName: (name) => post("/api/profile", { name }),
-    groupInfo: (groupJid) => jsonCall(`/api/group/info?jid=${encodeURIComponent(groupJid)}`),
     getContext: (chatJid, messageId, radius) => {
       const params = new URLSearchParams({ chat_jid: chatJid, message_id: messageId });
       if (radius !== undefined) {

@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import { ROUTES, renderFrame, type AppDom } from "../src/app.ts";
-import { navHtml, statusDashboardHtml } from "../src/pages.ts";
+import { navHtml } from "../src/pages.ts";
+import { connectionPageHtml } from "../src/connection.ts";
 
 const SRC = join(import.meta.dirname, "..", "src");
 
@@ -44,7 +45,13 @@ test("T178 C — nav renders Contacts and no Automations entry; status links now
   const nav = navHtml("contacts");
   expect(nav).toContain('href="#/contacts" class="active" aria-current="page"');
   expect(nav).not.toMatch(/automation/i);
-  const status = statusDashboardHtml({ health: {}, notifications: [], events: [] });
+  const status = connectionPageHtml({
+    health: {},
+    me: null,
+    stats: null,
+    settings: null,
+    events: [],
+  });
   expect(status).not.toMatch(/automation/i);
 });
 

@@ -15,6 +15,7 @@ export interface MessagesArgs {
   direction?: "in" | "out";
   q?: string;
   limit?: number;
+  around?: string;
   follow: boolean;
   intervalMs?: number;
 }
@@ -133,6 +134,36 @@ function searchPath(
   return query.length > 0 ? `/api/search?${query}` : "/api/search";
 }
 
+async function printContext(
+  deps: MessagesDeps,
+  args: MessagesArgs,
+  chatJid: string | undefined,
+  messageId: string,
+  names: Map<string, string>,
+): Promise<number> {
+  const params = new URLSearchParams();
+  if (chatJid !== undefined) {
+    params.set("chat_jid", chatJid);
+  }
+  params.set("message_id", messageId);
+  params.set("radius", String(args.limit ?? 5));
+  const result = await fetchJson(deps, args, `/api/context?${params.toString()}`);
+  if (!result.ok) {
+    deps.print(`messages failed: ${result.message}`);
+    return 1;
+  }
+  deps.print(HEADER);
+  for (const message of (result.body as { messages?: LogMessage[] }).messages ?? []) {
+    deps.print(
+      formatRow(
+        message.id === messageId ? { ...message, content: `▶ ${message.content ?? ""}` } : message,
+        names,
+      ),
+    );
+  }
+  return 0;
+}
+
 export async function runMessages(deps: MessagesDeps, args: MessagesArgs): Promise<number> {
   if (args.direction !== undefined && args.direction !== "in" && args.direction !== "out") {
     deps.print("messages: --direction must be in or out");
@@ -147,6 +178,9 @@ export async function runMessages(deps: MessagesDeps, args: MessagesArgs): Promi
       return 1;
     }
     chatJid = resolved;
+  }
+  if (args.around !== undefined) {
+    return printContext(deps, args, chatJid, args.around, names);
   }
   const seen = new Set<string>();
   let newest = args.from;

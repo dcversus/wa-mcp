@@ -455,17 +455,14 @@ button.primary:hover,
 }
 
 #subscription-form,
-#group-create,
 #profile-page form,
-#link-input,
-#group-meta-edit {
+#link-input {
   display: flex;
   flex-direction: column;
   gap: var(--s2);
 }
 
 #subscription-form label,
-#group-create label,
 #profile-page form label {
   display: flex;
   flex-direction: column;
@@ -474,31 +471,18 @@ button.primary:hover,
   color: var(--text-dim);
 }
 
-#subscription-form .check-row,
-#group-create .check-row {
+#subscription-form .check-row {
   flex-direction: row;
   color: var(--text);
   font-size: 13px;
 }
 
-.inbox-path,
-.rules code,
 .events code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   background: var(--surface-2);
   border-radius: 4px;
   padding: 1px var(--s1);
-}
-
-.delete-subscription {
-  margin-left: auto;
-  color: var(--danger);
-  border-color: #fecdca;
-}
-
-.delete-subscription:hover {
-  background: var(--danger-soft);
 }
 
 #subscription-list {
@@ -561,26 +545,6 @@ button.primary:hover,
   margin-top: var(--s3);
 }
 
-#group-participants {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-#group-participants li {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s1) 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.admin-flag {
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 600;
-}
-
 .privacy-row {
   display: flex;
   align-items: center;
@@ -611,7 +575,6 @@ button.primary:hover,
   padding: var(--s2);
 }
 
-#qr-status,
 .code-display {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 14px;
@@ -1316,4 +1279,45 @@ a.button.secondary:hover {
 
 #connection-settings-form .hint {
   margin: 0;
+}
+
+#help-page {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.help-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.help-terms,
+.help-cli {
+  margin: 0 0 var(--s3);
+}
+
+.help-terms dt {
+  font-weight: 600;
+  margin-top: var(--s2);
+}
+
+.help-terms dd,
+.help-cli dd {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+}
+
+.help-cli dt {
+  margin-top: var(--s3);
+}
+
+.help-cli dt code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
 }

@@ -1,7 +1,7 @@
 import { escapeHtml } from "./escape.ts";
 import { ApiError } from "./api.ts";
 import { formatPhone } from "./state.ts";
-import { privacyOptionsFor } from "./state.ts";
+import { PRIVACY_LABELS, PRIVACY_SETTINGS, privacyOptionsFor } from "../../shared/src/privacy.ts";
 
 export function initials(name: string): string {
   const trimmed = name.trim();
@@ -28,6 +28,7 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "profile", label: "Profile", href: "#/profile" },
   { id: "connection", label: "Connection", href: "#/connection" },
   { id: "settings", label: "Settings", href: "#/settings" },
+  { id: "help", label: "Help", href: "#/help" },
 ];
 
 export const NAV_TITLES: Record<string, string> = {
@@ -41,6 +42,7 @@ export const NAV_TITLES: Record<string, string> = {
   connection: "Connection",
   settings: "Settings",
   pairing: "Link phone",
+  help: "Help",
 };
 
 export function navHtml(active: string, version = "0.9.0"): string {
@@ -50,11 +52,12 @@ export function navHtml(active: string, version = "0.9.0"): string {
     { label: "Agent", keys: ["connections", "subscriptions"] },
     { label: "Me", keys: ["profile"] },
     { label: "System", keys: ["connection", "settings"] },
+    { label: "", keys: ["help"] },
   ];
   const brand = `<div class="brand"><strong>wa-mcp</strong><span class="version">v${version}</span></div>`;
   const links = groups
     .map((group) => {
-      const label = `<div class="nav-group">${group.label}</div>`;
+      const label = group.label.length > 0 ? `<div class="nav-group">${group.label}</div>` : "";
       const links = group.keys
         .map((key) => {
           const section = NAV_SECTIONS.find((candidate) => candidate.id === key);
@@ -71,10 +74,10 @@ export function navHtml(active: string, version = "0.9.0"): string {
   return `<nav aria-label="Main">${brand}${links}</nav>`;
 }
 
-export interface StatusDashboardInput {
-  health: Record<string, unknown>;
-  notifications: Array<{ id: string; chat_jid?: string; pattern?: string }>;
-  events: Array<{ type: string; at: number; detail?: string }>;
+export interface ActivityEvent {
+  type: string;
+  at: number;
+  detail?: string;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -224,7 +227,7 @@ export function diagnosticsHtml(health: Record<string, unknown>): string {
   return `<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details>`;
 }
 
-export function activityFeedHtml(events: StatusDashboardInput["events"]): string {
+export function activityFeedHtml(events: ActivityEvent[]): string {
   const feed = events
     .map(
       (event) =>
@@ -252,28 +255,6 @@ export function statusCardHtml(
   return linked
     ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${health.connected === true ? " · online" : " · reconnecting"}${typeof health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(health.lastDisconnectAt))}` : ""}${typeof health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
     : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
-}
-
-export function statusDashboardHtml(
-  input: StatusDashboardInput & {
-    me?: { name: string | null; pn: string | null } | null;
-  },
-): string {
-  return `<section id="status-dashboard"><h1>Connection</h1>${statusCardHtml(input.health, input.me)}${diagnosticsHtml(input.health)}<h3>Recent activity</h3>${activityFeedHtml(input.events)}</section>`;
-}
-
-export function groupsPageHtml(
-  groups: Array<{ jid: string; name: string | null; unreadCount: number }>,
-): string {
-  const items = groups
-    .map(
-      (group) =>
-        `<li data-group-jid="${escapeHtml(group.jid)}"><a href="#/chat/${encodeURIComponent(group.jid)}">${escapeHtml(group.name ?? group.jid)}</a>${group.unreadCount > 0 ? ` <span class="unread-badge">${group.unreadCount}</span>` : ""} <button class="group-info-toggle" data-group-info="${escapeHtml(group.jid)}" aria-expanded="false" type="button">info</button> <button class="danger" data-leave-jid="${escapeHtml(group.jid)}" data-group-name="${escapeHtml(group.name ?? group.jid)}">Leave group</button></li>`,
-    )
-    .join("");
-  const empty =
-    groups.length === 0 ? emptyState("No groups yet — create one or ask to be added") : "";
-  return `<section id="groups-page"><h1>Groups</h1><form id="group-create"><input name="subject" placeholder="New group name" aria-label="New group name" /><button class="primary" type="submit">Create group</button></form><ul id="groups-list">${items}</ul>${empty}</section>`;
 }
 
 export interface ChatSummaryView {
@@ -467,41 +448,6 @@ export function transcriptionSettingsHtml(view: TranscriptionSettingsView): stri
 </form>`;
 }
 
-export function pairingHtml(settings: { bridgeUrl: string; token: string }): string {
-  return `<div id="pairing">${settingsHtml(settings)}<p id="qr-status">save the bridge token above to load the QR</p></div>`;
-}
-
-export function qrHtml(pngDataUrl: string | null): string {
-  const src = pngDataUrl === null ? "" : ` src="${pngDataUrl}"`;
-  return `<div id="pairing"><img id="qr-image"${src} /><p id="qr-status">waiting for scan…</p></div>`;
-}
-
-export interface MeInfo {
-  pn: string | null;
-  name: string | null;
-  status: string | null;
-}
-
-const PRIVACY_ROWS: Array<{ key: string; label: string }> = [
-  { key: "last", label: "Last seen" },
-  { key: "online", label: "Online" },
-  { key: "profile", label: "Profile photo" },
-  { key: "status", label: "About" },
-  { key: "groupadd", label: "Who can add me to groups" },
-  { key: "calladd", label: "Who can call me" },
-  { key: "messages", label: "Who can message me" },
-  { key: "readreceipts", label: "Read receipts" },
-];
-
-const PRIVACY_LABELS: Record<string, string> = {
-  all: "Everyone",
-  contacts: "My contacts",
-  contact_blacklist: "My contacts except…",
-  none: "Nobody",
-  match_last_seen: "Same as last seen",
-  known: "People I know",
-};
-
 export function profilePageHtml(input: {
   blocklist: string[];
   me?: { pn: string | null; name: string | null; status: string | null };
@@ -520,7 +466,7 @@ export function profilePageHtml(input: {
     me.pn === null
       ? '<code id="me-phone">—</code>'
       : `${escapeHtml(formatPhone(me.pn))} · <code id="me-phone">${escapeHtml(me.pn)}</code>`;
-  const privacyRows = PRIVACY_ROWS.map((row) => {
+  const privacyRows = PRIVACY_SETTINGS.map((row) => {
     const options = privacyOptionsFor(row.key);
     const live = (input.privacy ?? {})[row.key];
     const all =
@@ -551,25 +497,8 @@ ${all
 </div></section>`;
 }
 
-export function groupParticipantsHtml(
-  groupJid: string,
-  participants: Array<{ id: string; isAdmin?: boolean }>,
-): string {
-  const items = participants
-    .map(
-      (participant) =>
-        `<li data-participant-jid="${escapeHtml(participant.id)}"><code>${escapeHtml(participant.id)}</code>${participant.isAdmin ? ' <span class="admin-flag">admin</span>' : ""} <button data-remove-participant="${escapeHtml(groupJid)}" data-participant="${escapeHtml(participant.id)}">remove</button> <button data-promote-participant="${escapeHtml(groupJid)}" data-participant="${escapeHtml(participant.id)}">promote</button></li>`,
-    )
-    .join("");
-  return `<div id="group-participants"><h3>participants</h3><ul>${items}</ul><form id="participant-add"><input name="participant" placeholder="358…@s.whatsapp.net" /><button type="submit" data-add-participant="${escapeHtml(groupJid)}">add</button></form></div>`;
-}
-
 /** T73 C2: the group subject/description come straight from WhatsApp and are
  * rendered into an HTML attribute — every value escapes before interpolation. */
-export function groupMetaFormHtml(groupJid: string, subject: string, description: string): string {
-  return `<form id="group-meta-edit" data-meta-jid="${escapeHtml(groupJid)}"><input name="subject" placeholder="new subject" value="${escapeHtml(subject)}" /><input name="description" placeholder="new description" value="${escapeHtml(description)}" /><button type="submit">save</button></form>`;
-}
-
 /** T54: a 401 on a just-navigated route renders the token form INLINE on the
  * same route (no redirect loop) with the exact recovery hint. */
 
@@ -618,23 +547,4 @@ export function guardLoader(
       return errorBannerHtml(`could not load this page: ${message}`);
     }
   };
-}
-
-export const AGENT_TARGETS = [
-  "claude-code",
-  "claude-desktop",
-  "cursor",
-  "codex",
-  "grok",
-  "pi",
-  "hermes",
-  "antigravity",
-] as const;
-
-export function agentConnectHtml(): string {
-  const rows = AGENT_TARGETS.map(
-    (target) =>
-      `<li class="agent-target"><code>wa-mcp install --target ${target}</code> <button class="copy-cmd" data-copy-cmd="wa-mcp install --target ${target}" type="button">copy</button></li>`,
-  ).join("");
-  return `<section id="agent-connect" class="pane"><h3>Connect your agent</h3><p class="hint">run one command so your AI agent can use WhatsApp:</p><ul class="agent-targets">${rows}</ul></section>`;
 }

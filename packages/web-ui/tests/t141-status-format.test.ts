@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
-import { formatStatValue, statusDashboardHtml } from "../src/pages.ts";
+import { formatStatValue } from "../src/pages.ts";
+import { connectionPageHtml } from "../src/connection.ts";
 
 const HEALTH = {
   pairingAttempts: { used: 1, limit: 3 },
@@ -10,8 +11,14 @@ const HEALTH = {
   uptime: 912,
 };
 
-test("T141 — statusDashboardHtml renders semantic stat values, never [object Object]", () => {
-  const html = statusDashboardHtml({ health: HEALTH, notifications: [], events: [] });
+test("T141 — the connection page renders semantic stat values, never [object Object]", () => {
+  const html = connectionPageHtml({
+    health: HEALTH,
+    me: null,
+    stats: null,
+    settings: null,
+    events: [],
+  });
   expect(html).not.toContain("[object Object]");
   expect(html).toContain("<dd>1 / 3</dd>");
   expect(html).toContain("<dd>2</dd>");

@@ -1,8 +1,9 @@
 import { expect, test } from "vite-plus/test";
-import { statusDashboardHtml, settingsHtml } from "../src/pages.ts";
+import { settingsHtml } from "../src/pages.ts";
+import { connectionPageHtml } from "../src/connection.ts";
 
 test("T163 S3 — the status page never paints a token value", () => {
-  const html = statusDashboardHtml({
+  const html = connectionPageHtml({
     health: {
       status: "connected",
       connected: true,
@@ -11,7 +12,9 @@ test("T163 S3 — the status page never paints a token value", () => {
       uiBootstrapToken: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
       pairingToken: "pair-secret-value",
     },
-    notifications: [],
+    me: null,
+    stats: null,
+    settings: null,
     events: [],
   });
   expect(html).not.toContain("a1b2c3d4e5f6");

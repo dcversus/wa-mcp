@@ -136,13 +136,3 @@ test("contacts route resolves (T51)", async () => {
   });
   expect(state.appHtml).toContain("contacts-list");
 });
-
-test("groups route resolves (T51)", async () => {
-  const state = fakeDom("#/groups");
-  await renderFrame({
-    dom: state.io.dom,
-    settings: WITH_TOKEN,
-    loaders: { groups: async () => '<ul id="groups-list"></ul>' },
-  });
-  expect(state.appHtml).toContain("groups-list");
-});

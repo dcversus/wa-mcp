@@ -1,12 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { subscriptionsPageHtml } from "../src/subscriptions.ts";
-import {
-  chatListHtml,
-  groupsPageHtml,
-  messageListHtml,
-  profilePageHtml,
-  settingsHtml,
-} from "../src/pages.ts";
+import { chatListHtml, messageListHtml, profilePageHtml, settingsHtml } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
 
 test("T167 P4 — chats page copy", () => {
@@ -40,13 +34,6 @@ test("T167 P4 — contacts copy: Rename, human search", () => {
   });
   expect(html).toContain("Rename");
   expect(html).toContain("Search contacts");
-});
-
-test("T167 P4 — groups copy: Create group, Leave group", () => {
-  const html = groupsPageHtml([{ jid: "g@g.us", name: "G", unreadCount: 0 }]);
-  expect(html).toContain("New group name");
-  expect(html).toContain("Create group");
-  expect(html).toContain("Leave group");
 });
 
 test("T167 P4 — chat view copy: Type a message, Save file on media only", () => {

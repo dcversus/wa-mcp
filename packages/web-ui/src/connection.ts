@@ -6,7 +6,7 @@ import {
   formatDuration,
   formatRelative,
   statusCardHtml,
-  type StatusDashboardInput,
+  type ActivityEvent,
 } from "./pages.ts";
 
 export interface HumanisationView {
@@ -44,7 +44,7 @@ export interface ConnectionPageView {
   me: { name: string | null; pn: string | null } | null;
   stats: ConnectionStatsView | null;
   settings: ConnectionSettingsView | null;
-  events: StatusDashboardInput["events"];
+  events: ActivityEvent[];
   saved?: string;
   error?: string;
 }

@@ -4,24 +4,12 @@ import {
   chatErrorHtml,
   chatListHtml,
   contextViewHtml,
-  groupMetaFormHtml,
-  groupParticipantsHtml,
   messageListHtml,
   navHtml,
-  pairingHtml,
   profilePageHtml,
-  qrHtml,
   settingsHtml,
-  statusDashboardHtml,
 } from "../src/pages.ts";
-
-test("pairingHtml embeds the token form above the qr area", () => {
-  const html = pairingHtml({ bridgeUrl: "http://127.0.0.1:8080", token: "" });
-  expect(html).toContain('id="pairing"');
-  expect(html).toContain('id="settings-form"');
-  expect(html).toContain('id="token"');
-  expect(html).toContain('id="qr-status"');
-});
+import { connectionPageHtml } from "../src/connection.ts";
 
 test("chatListHtml renders chats with unread badges", () => {
   const html = chatListHtml([
@@ -69,14 +57,6 @@ test("settingsHtml renders inputs for bridge url and token", () => {
   expect(html).toContain('value="http://b"');
 });
 
-test("qrHtml renders an image slot and status line", () => {
-  const html = qrHtml(null);
-  expect(html).toContain('id="qr-image"');
-  expect(html).toContain('id="qr-status"');
-  const withQr = qrHtml("data:image/png;base64,QUJD");
-  expect(withQr).toContain('src="data:image/png;base64,QUJD"');
-});
-
 test("sidebar nav lists the full section set with active state (T51)", () => {
   const html = navHtml("chats");
   for (const section of [
@@ -93,8 +73,8 @@ test("sidebar nav lists the full section set with active state (T51)", () => {
   expect(html).toContain('class="active" aria-current="page" data-nav="chats"');
 });
 
-test("status dashboard renders health fields with escaping (T51)", () => {
-  const html = statusDashboardHtml({
+test("connection page renders health fields with escaping (T51)", () => {
+  const html = connectionPageHtml({
     health: {
       status: "qr",
       connected: false,
@@ -103,7 +83,9 @@ test("status dashboard renders health fields with escaping (T51)", () => {
       version: "0.9.0",
       channel: "baileys",
     },
-    notifications: [{ id: "r1", chat_jid: "1@g.us", pattern: "ping" }],
+    me: null,
+    stats: null,
+    settings: null,
     events: [{ type: "connection.update", at: 1, detail: "<script>x</script>" }],
   });
   expect(html).toContain("qr");
@@ -223,18 +205,6 @@ describe("T51-C/D profile + groups participants", () => {
   test("profilePageHtml escapes blocklist entries", () => {
     const html = profilePageHtml({ blocklist: ['"><script>x</script>'] });
     expect(html).not.toContain("<script>x</script>");
-  });
-
-  test("groupParticipantsHtml lists members with admin flags, escaped", () => {
-    const html = groupParticipantsHtml("1@g.us", [
-      { id: "35846@s.whatsapp.net", isAdmin: true },
-      { id: "<script>m</script>", isAdmin: false },
-    ]);
-    expect(html).toContain('data-participant-jid="35846@s.whatsapp.net"');
-    expect(html).toContain("admin");
-    expect(html).not.toContain("<script>m</script>");
-    expect(html).toContain('data-add-participant="1@g.us"');
-    expect(html).toContain('data-remove-participant="1@g.us"');
   });
 });
 
@@ -405,24 +375,6 @@ describe("T70 media query-token", () => {
   });
 });
 
-describe("T73 C2 — group meta form escapes injected subject/description", () => {
-  const EVIL = '"><img src=x onerror=alert(1)>';
-
-  test("subject/description payloads are escaped, no raw attribute breakout", () => {
-    const html = groupMetaFormHtml("120363428874442773@g.us", EVIL, EVIL);
-    // the payload may exist ONLY in entity-escaped form — no raw tag, no
-    // quote that could terminate the value="" attribute
-    expect(html).not.toContain("<img");
-    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
-    expect(html).not.toContain('value="">');
-  });
-
-  test("the jid attribute is escaped too", () => {
-    const html = groupMetaFormHtml('1@g.us" onmouseover="alert(1)', "s", "d");
-    expect(html).not.toContain('" onmouseover="');
-  });
-});
-
 describe("T78 M3 — poll bubbles render question, options and vote counts", () => {
   const row = {
     id: "P1",
@@ -478,22 +430,6 @@ test("C1 — guardLoader renders the banner when a loader throws", async () => {
   const html = await guarded({});
   expect(html).toContain("error-banner");
   expect(html).toContain("429");
-});
-
-test("C3 — retryUntil polls until the check passes or attempts run out", async () => {
-  const { retryUntil } = await import("../src/preflight.ts");
-  let calls = 0;
-  const ok = await retryUntil(
-    async () => {
-      calls += 1;
-      return calls >= 3;
-    },
-    { attempts: 5, delayMs: 1 },
-  );
-  expect(ok).toBe(true);
-  expect(calls).toBe(3);
-  const failed = await retryUntil(async () => false, { attempts: 3, delayMs: 1 });
-  expect(failed).toBe(false);
 });
 
 test("T142-W3 — profilePageHtml mirrors native WhatsApp: me-card + privacy rows", () => {

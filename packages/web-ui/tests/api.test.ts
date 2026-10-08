@@ -132,7 +132,7 @@ test("a 401 triggers the unauthorized callback", async () => {
   expect(redirected).toBe(true);
 });
 
-test("getQr, getUnread, getHealth hit their endpoints", async () => {
+test("getQr, getHealth hit their endpoints", async () => {
   const { fetchFn, calls } = mockFetch({});
   const client = createApiClient({
     baseUrl: "http://bridge:8080",
@@ -141,29 +141,11 @@ test("getQr, getUnread, getHealth hit their endpoints", async () => {
     onUnauthorized: () => {},
   });
   await client.getQr();
-  await client.getUnread();
   await client.getHealth();
   expect(calls.map((call) => call.url)).toEqual([
     "http://bridge:8080/api/qr",
-    "http://bridge:8080/api/unread",
     "http://bridge:8080/health",
   ]);
-});
-
-test("markRead posts chat_jid and message ids", async () => {
-  const { fetchFn, calls } = mockFetch({ read: 1 });
-  const client = createApiClient({
-    baseUrl: "http://bridge:8080",
-    token: "tok",
-    fetchFn,
-    onUnauthorized: () => {},
-  });
-  await client.markRead("g@g.us", ["M1"]);
-  expect(calls[0]?.init.method).toBe("POST");
-  expect(JSON.parse(bodyOf(calls[0]))).toEqual({
-    chat_jid: "g@g.us",
-    message_ids: ["M1"],
-  });
 });
 
 describe("task-51 client surface", () => {
@@ -196,66 +178,26 @@ describe("task-51 client surface", () => {
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
-  test("search hits /api/search with the q param", async () => {
-    const { client, calls } = recordingClient();
-    await client.search("pizza", 5);
-    expect(calls[0]?.path).toBe("/api/search?q=pizza&limit=5");
-  });
-
   test("contacts lists with optional query", async () => {
     const { client, calls } = recordingClient();
     await client.contacts({ q: "ali" });
     expect(calls[0]?.path).toBe("/api/contacts?q=ali");
   });
 
-  test("setAlias posts jid + alias (T77: the route validates input.jid)", async () => {
+  test("privacy/blocklist read paths", async () => {
     const { client, calls } = recordingClient();
-    await client.setAlias("123@s.whatsapp.net", "Andreas");
-    expect(calls[0]?.path).toBe("/api/alias");
-    expect(JSON.parse(bodyOf(calls[0]))).toEqual({
-      jid: "123@s.whatsapp.net",
-      alias: "Andreas",
-    });
-  });
-
-  test("group ops hit the group endpoints", async () => {
-    const { client, calls } = recordingClient();
-    await client.groupParticipants("1@g.us");
-    await client.groupCreate("Test", ["1@s.whatsapp.net"]);
-    await client.groupLeave("1@g.us");
-    expect(calls.map((c) => c.path)).toEqual([
-      "/api/group/participants",
-      "/api/group/create",
-      "/api/group/leave",
-    ]);
-  });
-
-  test("notifications list + delete", async () => {
-    const { client, calls } = recordingClient();
-    await client.notifications();
-    await client.deleteNotification("rule-1");
-    expect(calls[0]?.path).toBe("/api/notifications");
-    expect(calls[1]?.path).toBe("/api/notifications/rule-1");
-    expect(calls[1]?.init?.method).toBe("DELETE");
-  });
-
-  test("profile/privacy/blocklist read paths", async () => {
-    const { client, calls } = recordingClient();
-    await client.profile();
     await client.privacy();
     await client.blocklist();
-    expect(calls.map((c) => c.path)).toEqual(["/api/profile", "/api/privacy", "/api/blocklist"]);
+    expect(calls.map((c) => c.path)).toEqual(["/api/privacy", "/api/blocklist"]);
   });
 
-  test("media + transcribe + tts", async () => {
+  test("media + transcribe", async () => {
     const { client, calls } = recordingClient();
     await client.downloadMedia("msg-1");
     await client.transcribe("msg-1");
-    await client.sendTts("123@s.whatsapp.net", "hello");
     expect(calls[0]?.path).toBe("/api/media/msg-1");
     expect(calls[0]?.init?.method).toBe("POST");
     expect(calls[1]?.path).toBe("/api/transcribe");
-    expect(calls[2]?.path).toBe("/api/tts");
   });
 
   test("getContext hits /api/context with chat, message and radius", async () => {
@@ -319,17 +261,6 @@ describe("T77 — client requests match the bridge validation contracts", () => 
       presence: "composing",
     });
   });
-
-  test("setAlias sends `jid` (the route validates input.jid)", async () => {
-    const { client, calls, pathOf } = harness();
-    await client.setAlias("358497773518@s.whatsapp.net", "V");
-    expect(pathOf(calls[0])).toBe("/api/alias");
-    // RED: the client sent `chat_jid`, the bridge 400s "jid is required"
-    expect(JSON.parse(bodyOf(calls[0]))).toEqual({
-      jid: "358497773518@s.whatsapp.net",
-      alias: "V",
-    });
-  });
 });
 
 test("C1 — a 429/500 error body throws a structured ApiError, not the payload", async () => {
@@ -363,18 +294,6 @@ test("C1 — a non-JSON error page throws a structured ApiError", async () => {
     name: "ApiError",
     status: 502,
   });
-});
-
-test("C1 — search sends the bridge's q param (query was silently ignored)", async () => {
-  const { fetchFn, calls } = mockFetch({ results: [] });
-  const client = createApiClient({
-    baseUrl: "http://bridge:8080",
-    token: "tok",
-    fetchFn,
-    onUnauthorized: () => {},
-  });
-  await client.search("pizza", 5);
-  expect(calls[0]?.url).toBe("http://bridge:8080/api/search?q=pizza&limit=5");
 });
 
 test("healthWithRetry recovers after ApiError 429s then succeeds", async () => {

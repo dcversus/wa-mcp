@@ -33,3 +33,23 @@ wa-mcp doctor             # node, data dir, token, health
 ```
 
 Then ask your assistant to `send_message` with a phone number (or group jid) and text. Safety rails apply: sends are paced, capped per day (`WA_DAILY_CAP`), and can be stopped dead with `WA_SENDS_DISABLED=1`.
+
+## Everything from the terminal
+
+Every web UI page has a `wa-mcp` command with the same capability, so a
+headless machine loses nothing. `wa-mcp` with no arguments prints the full
+reference (the web UI's **Help** page shows the same list). <!-- src: packages/shared/src/cli-reference.ts -->
+
+```bash
+wa-mcp chats --q team
+wa-mcp send --chat +358401112222 --text "on my way"
+wa-mcp messages --chat Team --direction in --limit 20
+wa-mcp media transcribe 3EB0C431D5F1
+wa-mcp contacts sync
+wa-mcp profile privacy last contacts
+wa-mcp profile block +44 7700 900123
+wa-mcp settings set --humanise on --limits on --per-day 300
+wa-mcp pair --resume
+```
+
+`wa-mcp unlink --yes` signs this computer out of WhatsApp.

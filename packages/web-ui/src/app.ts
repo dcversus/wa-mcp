@@ -1,4 +1,5 @@
-import { groupsPageHtml, navHtml, notFoundHtml, settingsHtml, NAV_TITLES } from "./pages.ts";
+import { navHtml, notFoundHtml, settingsHtml, NAV_TITLES } from "./pages.ts";
+import { helpPageHtml } from "./help.ts";
 import { connectionPageHtml } from "./connection.ts";
 import { contactsPageHtml } from "./contacts.ts";
 import { connectionsPageHtml } from "./connections.ts";
@@ -21,13 +22,13 @@ export type Route =
   | "chats"
   | "chat"
   | "contacts"
-  | "groups"
   | "profile"
   | "settings"
   | "logs"
   | "subscriptions"
   | "connections"
-  | "pairing";
+  | "pairing"
+  | "help";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "status", pattern: "status" },
@@ -35,13 +36,13 @@ export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "chats", pattern: "chats" },
   { route: "chat", pattern: "chat/:jid" },
   { route: "contacts", pattern: "contacts" },
-  { route: "groups", pattern: "groups" },
   { route: "profile", pattern: "profile" },
   { route: "settings", pattern: "settings" },
   { route: "logs", pattern: "logs" },
   { route: "subscriptions", pattern: "subscriptions" },
   { route: "connections", pattern: "connections" },
   { route: "pairing", pattern: "pairing" },
+  { route: "help", pattern: "help" },
 ];
 
 export type RouteLoaders = Partial<
@@ -74,6 +75,10 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     dom.setApp(settingsHtml(settings));
     return;
   }
+  if (match.route === "help") {
+    dom.setApp(helpPageHtml());
+    return;
+  }
   const pairingViewRef = io.pairingView;
   if (match.route === "pairing" && pairingViewRef !== undefined) {
     dom.setApp(fullPairingHtml(pairingViewRef()));
@@ -86,14 +91,12 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
           connectionPageHtml({ health: {}, me: null, stats: null, settings: null, events: [] })
       : match.route === "contacts"
         ? async () => contactsPageHtml({ contacts: [], total: 0, query: "", saved: true })
-        : match.route === "groups"
-          ? async () => groupsPageHtml([])
-          : match.route === "subscriptions"
-            ? async () =>
-                subscriptionsPageHtml({ subscriptions: [], chats: [], sessions: [], editing: null })
-            : match.route === "connections"
-              ? async () => connectionsPageHtml({ connections: [] })
-              : undefined);
+        : match.route === "subscriptions"
+          ? async () =>
+              subscriptionsPageHtml({ subscriptions: [], chats: [], sessions: [], editing: null })
+          : match.route === "connections"
+            ? async () => connectionsPageHtml({ connections: [] })
+            : undefined);
   if (loader === undefined) {
     dom.setApp("<p>not implemented</p>");
     return;

@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vite-plus/test";
+import { CLI_COMMANDS, CLI_GLOBAL_FLAGS } from "@wa-mcp/shared";
 import { renderClaudeHooks, renderCodexHooks } from "../src/hooks.ts";
 
 const doc = readFileSync(
@@ -15,52 +16,50 @@ test("the cookbook doc exists and covers the three paths", () => {
   expect(doc).toContain("resources/subscribe");
 });
 
-test("every wa-mcp command in the doc matches real CLI commands", () => {
-  const fences = doc.match(/```bash\n([\s\S]*?)```/g) ?? [];
-  const commands: Array<{ cmd: string; flags: string[] }> = [];
-  for (const fence of fences) {
-    for (const line of fence.replace(/```bash\n?/g, "").split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("wa-mcp ")) {
-        continue;
+const DOCS_ROOT = join(import.meta.dirname, "../../../docs");
+
+function docPages(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name.startsWith(".") || ["raw", "adr"].includes(entry.name)) {
+      return [];
+    }
+    const path = join(dir, entry.name);
+    return entry.isDirectory() ? docPages(path) : entry.name.endsWith(".md") ? [path] : [];
+  });
+}
+
+function knownFlags(): Record<string, string[]> {
+  const globals = [...CLI_GLOBAL_FLAGS.matchAll(/--[a-z-]+/g)].map((match) => match[0]);
+  return Object.fromEntries(
+    CLI_COMMANDS.map((command) => [
+      command.name,
+      [...new Set([...[...command.usage.matchAll(/--[a-z-]+/g)].map((m) => m[0]), ...globals])],
+    ]),
+  );
+}
+
+test("every wa-mcp command in the docs is a real command with real flags (from the CLI reference)", () => {
+  const known = knownFlags();
+  let checked = 0;
+  for (const page of docPages(DOCS_ROOT)) {
+    const text = readFileSync(page, "utf8");
+    for (const fence of text.match(/```bash\n([\s\S]*?)```/g) ?? []) {
+      for (const line of fence.replace(/```bash\n?/g, "").split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("wa-mcp ")) {
+          continue;
+        }
+        const parts = trimmed.split(/\s+/);
+        const cmd = parts[1] ?? "";
+        expect(Object.keys(known), `${page}: ${trimmed}`).toContain(cmd);
+        for (const flag of parts.slice(2).filter((part) => part.startsWith("--"))) {
+          expect(known[cmd] ?? [], `${page}: ${trimmed}`).toContain(flag.split("=")[0]);
+        }
+        checked += 1;
       }
-      const parts = trimmed.split(/\s+/);
-      commands.push({
-        cmd: parts[1] ?? "",
-        flags: parts
-          .slice(2)
-          .filter((p) => p.startsWith("--"))
-          .map((p) => p.split("=")[0]!),
-      });
     }
   }
-  const known: Record<string, string[]> = {
-    subscribe: ["--chat", "--kind", "--all", "--token", "--bridge-url", "--port"],
-    install: ["--hooks", "--sub", "--remove", "--home", "--service"],
-    inbox: ["--inbox", "--state"],
-    subs: [
-      "--name",
-      "--chat",
-      "--all-chats",
-      "--like",
-      "--mention-only",
-      "--prompt",
-      "--delivery",
-      "--session",
-      "--command",
-      "--arg",
-      "--env",
-      "--disable",
-      "--enable",
-    ],
-  };
-  for (const entry of commands) {
-    expect(Object.keys(known)).toContain(entry.cmd);
-    for (const flag of entry.flags) {
-      expect(known[entry.cmd] ?? []).toContain(flag);
-    }
-  }
-  expect(commands.length).toBeGreaterThanOrEqual(4);
+  expect(checked).toBeGreaterThanOrEqual(10);
 });
 
 test("T180 the cookbook documents the subscription model and all three delivery modes", () => {

@@ -7,10 +7,7 @@ import {
   chatErrorHtml,
   chatListHtml,
   contextViewHtml,
-  groupMetaFormHtml,
-  groupParticipantsHtml,
   profilePageHtml,
-  groupsPageHtml,
   messageListHtml,
   settingsHtml,
   transcriptionSettingsHtml,
@@ -21,6 +18,8 @@ import {
   CONTACTS_PAGE_SIZE,
   contactsPageHtml,
   contactRenameFormHtml,
+  contactsSyncSummary,
+  type ContactsSyncResult,
   validateNewContact,
   type ContactView,
 } from "./contacts.ts";
@@ -75,6 +74,7 @@ import {
   firstRunGate,
   shouldClearStaleToken,
   shouldExchange,
+  blockTargetJid,
   buildPrivacyPatch,
 } from "./state.ts";
 
@@ -369,6 +369,7 @@ let chatSearchQuery = "";
 let contactsQuery = "";
 let contactsSavedOnly = true;
 let contactsError: string | undefined;
+let contactsNotice: string | undefined;
 let connectionsError: string | undefined;
 let subsEditing: string | null = null;
 let subsError: string | undefined;
@@ -460,7 +461,7 @@ async function renderCurrent(): Promise<void> {
 }
 
 const loaders: {
-  [R in Exclude<Route, "status">]: (params: Record<string, string>) => Promise<string>;
+  [R in Exclude<Route, "status" | "help">]: (params: Record<string, string>) => Promise<string>;
 } = {
   logs: async () => {
     const [payload, chatsPayload] = await Promise.all([
@@ -501,13 +502,16 @@ const loaders: {
       limit: CONTACTS_PAGE_SIZE,
     })) as { contacts?: ContactView[]; total?: number };
     const error = contactsError;
+    const notice = contactsNotice;
     contactsError = undefined;
+    contactsNotice = undefined;
     return contactsPageHtml({
       contacts: payload.contacts ?? [],
       total: payload.total ?? payload.contacts?.length ?? 0,
       query: contactsQuery,
       saved: contactsSavedOnly,
       ...(error !== undefined ? { error } : {}),
+      ...(notice !== undefined ? { notice } : {}),
     });
   },
   profile: async () => {
@@ -523,14 +527,6 @@ const loaders: {
     });
     return page;
   },
-  groups: async () => {
-    const payload = (await client.getChats()) as {
-      chats?: Array<{ jid: string; name: string | null; unreadCount: number }>;
-    };
-    return groupsPageHtml((payload.chats ?? []).filter((chat) => chat.jid.endsWith("@g.us")));
-  },
-  // group subject/description edit + participants view are bound in
-  // bindGroupsControls via /api/group/info + /api/group/meta
   chats: async () => {
     const health = (await client.getHealth().catch(() => ({}))) as PairingHealth;
     const contactsWarm = (health as { contactsWarm?: unknown }).contactsWarm !== false;
@@ -686,10 +682,6 @@ function bindRoute(): void {
     bindConnectionsControls();
     return;
   }
-  if (hash === "#/groups") {
-    bindGroupsControls();
-    return;
-  }
   if (hash === "#/profile") {
     bindProfileControls();
     return;
@@ -800,6 +792,14 @@ async function contactWrite(action: () => Promise<unknown>): Promise<void> {
 }
 
 function bindContactsControls(): void {
+  document.getElementById("contacts-sync")?.addEventListener("click", async () => {
+    try {
+      contactsNotice = contactsSyncSummary((await client.syncContacts()) as ContactsSyncResult);
+    } catch (err) {
+      contactsError = err instanceof Error ? err.message : "contacts sync failed";
+    }
+    await renderCurrent();
+  });
   const search = document.querySelector<HTMLInputElement>("#contact-search input[name=q]");
   const rerenderKeepingFocus = async (): Promise<void> => {
     await renderCurrent();
@@ -918,88 +918,6 @@ function bindConnectionsControls(): void {
   });
 }
 
-function bindGroupsControls(): void {
-  document.getElementById("group-create")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const subject = (
-      document.querySelector("#group-create input[name=subject]") as HTMLInputElement
-    ).value;
-    if (subject.length > 0) {
-      await client.groupCreate(subject, []).catch(() => undefined);
-      await renderCurrent();
-    }
-  });
-  document.querySelectorAll("[data-leave-jid]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const jid = (button as HTMLElement).dataset.leaveJid ?? "";
-      const groupName =
-        (button as HTMLElement).dataset.groupName ??
-        (button.closest("[data-group-jid]") as HTMLElement | null)?.dataset.groupJid ??
-        jid;
-      if (window.confirm(`Leave “${groupName}”? You'll stop getting its messages.`)) {
-        await client.groupLeave(jid).catch(() => undefined);
-        await renderCurrent();
-      }
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>(".group-info-toggle").forEach((toggle) => {
-    toggle.addEventListener("click", async () => {
-      const item = toggle.closest("[data-group-jid]") as HTMLElement | null;
-      if (item === null) {
-        return;
-      }
-      const jid = toggle.dataset.groupInfo ?? item.dataset.groupJid ?? "";
-      const open = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", open ? "false" : "true");
-      if (open) {
-        document.getElementById("group-participants")?.remove();
-        return;
-      }
-      const meta = (await client.groupInfo(jid).catch(() => null)) as {
-        participants?: Array<{ id?: string; admin?: string | null }> | Array<string>;
-        subject?: string;
-        description?: string;
-      } | null;
-      const list = (meta?.participants ?? []).map((p) =>
-        typeof p === "string" ? { id: p } : { id: p.id ?? "", isAdmin: Boolean(p.admin) },
-      );
-      const panel = document.getElementById("group-participants");
-      if (panel !== null) {
-        panel.remove();
-        return;
-      }
-      item.insertAdjacentHTML(
-        "afterend",
-        groupParticipantsHtml(jid, list) +
-          groupMetaFormHtml(jid, meta?.subject ?? "", meta?.description ?? ""),
-      );
-      bindParticipantsControls();
-      bindGroupMetaControls(jid);
-    });
-  });
-}
-
-function bindParticipantsControls(): void {
-  document.getElementById("participant-add")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = document.querySelector(
-      "#participant-add input[name=participant]",
-    ) as HTMLInputElement;
-    const groupJid = (document.querySelector("[data-add-participant]") as HTMLElement).dataset
-      .addParticipant;
-    if (input.value.length > 0 && groupJid !== undefined) {
-      await client.groupParticipants(groupJid).catch(() => undefined);
-      input.value = "";
-    }
-  });
-  document.querySelectorAll("[data-remove-participant]").forEach((button) => {
-    button.addEventListener("click", () => undefined);
-  });
-  document.querySelectorAll("[data-promote-participant]").forEach((button) => {
-    button.addEventListener("click", () => undefined);
-  });
-}
-
 function bindProfileControls(): void {
   document.getElementById("save-name")?.addEventListener("click", async () => {
     const name = (document.getElementById("me-name") as HTMLInputElement | null)?.value ?? "";
@@ -1035,11 +953,21 @@ function bindProfileControls(): void {
   });
   document.getElementById("block-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const jid = (document.querySelector("#block-form input[name=chat_jid]") as HTMLInputElement)
-      ?.value;
-    if (jid !== undefined && jid.length > 0) {
-      await client.block(jid).catch(() => undefined);
+    const raw =
+      (document.querySelector("#block-form input[name=chat_jid]") as HTMLInputElement | null)
+        ?.value ?? "";
+    const jid = blockTargetJid(raw);
+    if (jid === null) {
+      showProfileError(
+        new Error("Enter a phone number with the country code, like +44 7700 900123"),
+      );
+      return;
+    }
+    try {
+      await client.block(jid);
       await renderCurrent();
+    } catch (err) {
+      showProfileError(err);
     }
   });
   document.querySelectorAll("[data-unblock-jid]").forEach((button) => {
@@ -1257,17 +1185,6 @@ function bindChatExtras(): void {
         target.textContent = payload?.transcript ?? "(transcription unavailable)";
       }
     });
-  });
-}
-
-function bindGroupMetaControls(groupJid: string): void {
-  document.getElementById("group-meta-edit")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget as HTMLFormElement;
-    const subject = (form.querySelector("input[name=subject]") as HTMLInputElement).value;
-    const description = (form.querySelector("input[name=description]") as HTMLInputElement).value;
-    await client.groupMeta(groupJid, { subject, description }).catch(() => undefined);
-    await renderCurrent();
   });
 }
 

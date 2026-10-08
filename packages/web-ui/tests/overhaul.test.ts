@@ -1,11 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  chatListHtml,
-  groupsPageHtml,
-  initials,
-  notFoundHtml,
-  profilePageHtml,
-} from "../src/pages.ts";
+import { chatListHtml, initials, notFoundHtml, profilePageHtml } from "../src/pages.ts";
 import { contactsPageHtml } from "../src/contacts.ts";
 
 describe("T67 layout pass", () => {
@@ -61,14 +55,6 @@ describe("T67 empty states + 404", () => {
     expect(populated).toContain('data-rename-contact="1@s.whatsapp.net"');
     const empty = contactsPageHtml({ contacts: [], total: 0, query: "", saved: true });
     expect(empty).toContain("No contacts yet. They appear once your phone syncs.");
-  });
-
-  test("groups page renders subject/description editing + empty state", () => {
-    const html = groupsPageHtml([]);
-    expect(html).toContain('id="group-create"');
-    expect(html).toContain("No groups yet");
-    const withGroups = groupsPageHtml([{ jid: "1@g.us", name: "G", unreadCount: 0 }]);
-    expect(withGroups).toContain('data-group-jid="1@g.us"');
   });
 
   test("404 is friendly with a link home", () => {

@@ -1,15 +1,7 @@
 import { expect, test } from "vite-plus/test";
-import { agentConnectHtml } from "../src/pages.ts";
 import { pairedIdentityText, pairingHtml } from "../src/pages-pairing.ts";
 
-test("T152 F4 — the connect-your-agent card lists per-target install commands", () => {
-  const html = agentConnectHtml();
-  expect(html).toContain("wa-mcp install --target claude-code");
-  expect(html).toContain("wa-mcp install --target cursor");
-  expect(html).toContain('data-copy-cmd="wa-mcp install --target claude-code"');
-});
-
-test("T152 F4 — the paired pane ends with the connect-your-agent step", () => {
+test("T152 F4 — the paired pane points to Subscriptions and Help for the agent step", () => {
   const html = pairingHtml({
     pane: "paired",
     health: { connected: true },
@@ -17,8 +9,9 @@ test("T152 F4 — the paired pane ends with the connect-your-agent step", () => 
     countdownPct: 0,
     me: "Versus (+358497773518)",
   });
-  expect(html).toContain("Connect your agent");
-  expect(html).toContain("wa-mcp install --target claude-code");
+  expect(html).toContain('<a href="#/subscriptions">Subscriptions</a>');
+  expect(html).toContain('<a href="#/help">Help</a>');
+  expect(html).not.toContain("Connect your agent");
 });
 
 test("T152 F8 — the error pane recovers with a real button, not a dead anchor", () => {

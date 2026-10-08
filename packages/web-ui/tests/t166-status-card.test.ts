@@ -1,8 +1,8 @@
 import { expect, test } from "vite-plus/test";
-import { statusDashboardHtml } from "../src/pages.ts";
+import { connectionPageHtml } from "../src/connection.ts";
 
 test("T166 P3 — the human status card names the account and sums up state", () => {
-  const html = statusDashboardHtml({
+  const html = connectionPageHtml({
     health: {
       connected: true,
       loggedIn: true,
@@ -11,7 +11,8 @@ test("T166 P3 — the human status card names the account and sums up state", ()
       subscriptions: { count: 1, dropped: 0 },
     },
     me: { name: "Versus", pn: "358497773518" },
-    notifications: [],
+    stats: null,
+    settings: null,
     events: [],
   });
   expect(html).toContain("Linked as");
@@ -26,10 +27,11 @@ test("T166 P3 — the human status card names the account and sums up state", ()
 });
 
 test("T166 P3 — an unlinked daemon shows the link call-to-action", () => {
-  const html = statusDashboardHtml({
+  const html = connectionPageHtml({
     health: { connected: false, loggedIn: false },
     me: null,
-    notifications: [],
+    stats: null,
+    settings: null,
     events: [],
   });
   expect(html).toContain("WhatsApp not linked");

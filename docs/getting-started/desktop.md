@@ -27,9 +27,18 @@ polls and flips to the connected state by itself.
 ## 4. Use it
 
 - `#/chats` — browse history, send messages
-- `#/subscriptions` — subscribe a chat so your agent reacts to it (the panel
-  shows the inbox path and a copyable hook snippet)
+- `#/logs` — every message in and out, with filters and live tail
+- `#/contacts` — your WhatsApp contacts; add, rename, remove, sync
+- `#/connections` — the agents wired to this WhatsApp, with disconnect
+- `#/subscriptions` — choose which messages reach your agent and how
+  (inbox file, agent session or a new agent each time)
+- `#/profile` — name, about, privacy and blocked contacts
+- `#/connection` — link status, today's stats, humanisation and send limits
 - `#/settings` — bridge URL, transcription engine, BYOK keys (masked)
+- `#/help` — how everything fits together, plus the full `wa-mcp` command
+  reference
+
+Every page has a `wa-mcp` command with the same capability — see `#/help`.
 
 ## What the browser never needs
 

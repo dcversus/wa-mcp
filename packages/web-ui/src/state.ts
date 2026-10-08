@@ -1,3 +1,13 @@
+export {
+  PRIVACY_READ_TO_WRITE,
+  buildPrivacyPatch,
+  privacyOptionsFor,
+} from "../../shared/src/privacy.ts";
+import { normalizeJid } from "../../shared/src/jid.ts";
+
+export function blockTargetJid(raw: string): string | null {
+  return normalizeJid(raw);
+}
 export interface WebSettings {
   bridgeUrl: string;
   token: string;
@@ -166,19 +176,6 @@ export function effectiveToken(settings: WebSettings, pairingToken: string): str
   return settings.token.length > 0 ? settings.token : pairingToken;
 }
 
-/** Read keys come from GET /api/privacy (Baileys' own naming); write keys are
- * the bridge's PRIVACY_KEYS (profile.ts). One mapping, drift-guarded by test. */
-export const PRIVACY_READ_TO_WRITE: Record<string, string> = {
-  last: "lastSeen",
-  profile: "profilePic",
-  status: "status",
-  groupadd: "groups",
-  calladd: "calls",
-  readreceipts: "readReceipts",
-  online: "online",
-  messages: "messages",
-};
-
 export function formatPhone(jid: string): string {
   const local = jid.split("@")[0] ?? "";
   const digits = local.split(":")[0] ?? "";
@@ -237,27 +234,4 @@ export function firstRunGate(input: LinkGateInput): LinkGateDecision {
     banner: false,
     syncing: input.chatCount === 0 && !input.contactsWarm,
   };
-}
-
-const PRIVACY_VALUES: Record<string, string[]> = {
-  last: ["all", "contacts", "contact_blacklist", "none"],
-  profile: ["all", "contacts", "contact_blacklist", "none"],
-  status: ["all", "contacts", "contact_blacklist", "none"],
-  groupadd: ["all", "contacts", "contact_blacklist", "none"],
-  calladd: ["all", "known"],
-  readreceipts: ["all", "none"],
-  online: ["all", "match_last_seen"],
-  messages: ["all", "contacts"],
-};
-
-export function buildPrivacyPatch(readKey: string, value: string): Record<string, string> {
-  const writeKey = PRIVACY_READ_TO_WRITE[readKey];
-  if (writeKey === undefined) {
-    throw new Error(`unknown privacy key: ${readKey}`);
-  }
-  return { [writeKey]: value };
-}
-
-export function privacyOptionsFor(readKey: string): string[] {
-  return PRIVACY_VALUES[readKey] ?? ["all"];
 }

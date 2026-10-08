@@ -21,7 +21,17 @@ import { runMessages } from "./messages.ts";
 import { runContacts } from "./contacts.ts";
 import { runConnections } from "./connections.ts";
 import { runSubs } from "./subs.ts";
+import { cliUsageLines } from "@wa-mcp/shared";
 import { runSettings } from "./settings.ts";
+import {
+  runChats,
+  runMedia,
+  runPairResume,
+  runProfile,
+  runSend,
+  runUnlink,
+  todayStatsLine,
+} from "./whatsapp.ts";
 import {
   claudeSettingsPath,
   codexHooksPath,
@@ -238,7 +248,7 @@ export async function main(argv: string[]): Promise<void> {
     });
     return;
   }
-  if (command === "pair") {
+  if (command === "pair" && flags.resume === undefined) {
     const token = flags.token ?? readToken(dataDir) ?? "";
     if (token.length === 0) {
       console.error("no bridge token found — start the bridge once or pass --token");
@@ -360,6 +370,17 @@ export async function main(argv: string[]): Promise<void> {
       console.log(
         `bridge ${summary.connected ? "connected" : "not connected"} | loggedIn=${String(summary.loggedIn)} | v${summary.version} | uptime ${summary.uptimeSeconds}s`,
       );
+      const token = flags.token ?? readToken(dataDir) ?? "";
+      if (token.length > 0) {
+        const stats = await fetch(`${bridgeUrl}/api/connection-stats`, {
+          headers: { authorization: `Bearer ${token}` },
+        })
+          .then((res) => (res.ok ? (res.json() as Promise<Record<string, number>>) : null))
+          .catch(() => null);
+        if (stats !== null) {
+          console.log(todayStatsLine(stats));
+        }
+      }
       return;
     } catch (err) {
       console.error(
@@ -468,6 +489,37 @@ export async function main(argv: string[]): Promise<void> {
     }
     return;
   }
+  const whatsappCommands = {
+    chats: runChats,
+    send: runSend,
+    media: runMedia,
+    profile: runProfile,
+    unlink: runUnlink,
+  } as const;
+  if (
+    command === "chats" ||
+    command === "send" ||
+    command === "media" ||
+    command === "profile" ||
+    command === "unlink" ||
+    (command === "pair" && flags.resume !== undefined)
+  ) {
+    const token = flags.token ?? readToken(dataDir) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    const run = command === "pair" ? runPairResume : whatsappCommands[command];
+    const exit = await run(
+      { fetchFn: fetch, print: console.log },
+      { baseUrl: bridgeUrl, token, positionals, flags },
+    );
+    if (exit !== 0) {
+      process.exitCode = exit;
+    }
+    return;
+  }
   if (command === "settings") {
     const token = flags.token ?? readToken(dataDir) ?? "";
     if (token.length === 0) {
@@ -531,6 +583,7 @@ export async function main(argv: string[]): Promise<void> {
         direction: flags.direction as "in" | "out" | undefined,
         q: flags.q,
         limit: flags.limit !== undefined ? Number(flags.limit) : undefined,
+        around: flags.around,
         follow: flags.follow !== undefined,
       },
     );
@@ -596,23 +649,9 @@ export async function main(argv: string[]): Promise<void> {
     console.log(buildUpdateReport(version.version ?? "unknown"));
     return;
   }
-  console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|messages|contacts|connections|subs|settings|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
-  );
-  console.log(
-    `  messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log (the web UI's Logs page)`,
-  );
-  console.log(`  logs [--follow] — daemon log (bridge.log)`);
-  console.log(
-    `  contacts [--q <text>] [--saved] [--limit <n>] | contacts add <phone> --name <name> [--username <u>] | contacts rename <phone|jid> --name <name> | contacts remove <phone|jid> | contacts sync [--dry-run] — your WhatsApp contacts; writes sync to the account like WhatsApp Web`,
-  );
-  console.log(
-    `  subs [list] | subs create --name <n> (--chat <jid>… | --all-chats) [--like %text%] [--mention-only] [--prompt <text>] [--delivery inbox|session|spawn] [--session <id>] [--command <path> --arg <a>… --env K=V…] [--disable] | subs edit <id> [same flags, --enable] | subs delete <id> | subs test <id> | subs sessions — subscriptions (the web UI's Subscriptions page)`,
-  );
-  console.log(
-    `  settings [get] | settings set [--humanise on|off] [--min-delay <ms>] [--max-delay <ms>] [--per-char <ms>] [--typing on|off] [--limits on|off] [--per-minute <n>] [--per-hour <n>] [--per-day <n>] [--per-chat-day <n|off>] — connection settings: human-like reply delay + typing status, send limits (anti-ban; both off by default)`,
-    `  connections | connections disconnect <hooks|mcp> <agent> [--sub <id>] — connected agents (hooks + MCP registrations); disconnect removes only wa-mcp entries`,
-  );
+  for (const line of cliUsageLines()) {
+    console.log(line);
+  }
 }
 
 function readToken(dataDir: string): string | null {

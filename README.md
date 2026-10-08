@@ -2,8 +2,9 @@
 
 WhatsApp as a local MCP server: a **single-user daemon** (Baileys session,
 Node ≥22.5, zero runtime deps in the core) exposing **74 MCP tools** over
-stdio and HTTP, with a built-in web UI — chat, media, contacts, groups,
-privacy, events feed, pairing with all three link methods.
+stdio and HTTP, with a built-in web UI — chats, logs, contacts, agent
+connections, subscriptions, profile, connection settings and help — and a
+`wa-mcp` CLI with the same capabilities.
 
 ```
 WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite store)
