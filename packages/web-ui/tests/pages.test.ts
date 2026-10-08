@@ -6,7 +6,6 @@ import {
   contextViewHtml,
   groupMetaFormHtml,
   groupParticipantsHtml,
-  healthHtml,
   messageListHtml,
   navHtml,
   pairingHtml,
@@ -14,7 +13,6 @@ import {
   qrHtml,
   settingsHtml,
   statusDashboardHtml,
-  unreadHtml,
 } from "../src/pages.ts";
 
 test("pairingHtml embeds the token form above the qr area", () => {
@@ -64,13 +62,6 @@ test("messageListHtml renders messages with sender and text", () => {
   expect(html).toContain('data-chat-jid="g@g.us"');
 });
 
-test("unreadHtml renders counts with mark-read buttons", () => {
-  const html = unreadHtml([{ chatJid: "g@g.us", unreadCount: 2 }]);
-  expect(html).toContain("g@g.us");
-  expect(html).toContain('data-mark-jid="g@g.us"');
-  expect(html).toContain("2");
-});
-
 test("settingsHtml renders inputs for bridge url and token", () => {
   const html = settingsHtml({ bridgeUrl: "http://b", token: "t" });
   expect(html).toContain('id="bridge-url"');
@@ -84,19 +75,6 @@ test("qrHtml renders an image slot and status line", () => {
   expect(html).toContain('id="qr-status"');
   const withQr = qrHtml("data:image/png;base64,QUJD");
   expect(withQr).toContain('src="data:image/png;base64,QUJD"');
-});
-
-test("healthHtml renders status fields", () => {
-  const html = healthHtml({
-    status: "connected",
-    connected: true,
-    loggedIn: true,
-    version: "0.0.0",
-    uptime: 12,
-  });
-  expect(html).toContain("connected");
-  expect(html).toContain("0.0.0");
-  expect(html).toContain("<dd>0 m</dd>");
 });
 
 test("sidebar nav lists the full section set with active state (T51)", () => {
@@ -204,11 +182,6 @@ describe("T51-B chats", () => {
     expect(html).toContain("👍");
     expect(html).not.toContain("<b>bold</b>");
     expect(html).toContain("&lt;b&gt;bold&lt;/b&gt;");
-  });
-
-  test("unreadHtml gains a mark-all-read action", () => {
-    const html = unreadHtml([{ chatJid: "1@s.whatsapp.net", unreadCount: 3 }]);
-    expect(html).toContain('id="mark-all-read"');
   });
 
   test("contextViewHtml renders ±N around a message with escaping", () => {

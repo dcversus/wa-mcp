@@ -546,12 +546,10 @@ button.primary:hover,
   font-weight: 600;
 }
 
-.health dd,
 #app > dl dd {
   margin: 0 0 var(--s2);
 }
 
-.health dt,
 #app > dl dt {
   font-size: 11px;
   text-transform: uppercase;
@@ -860,4 +858,101 @@ h1 {
 
 nav[aria-label="Main"] a[aria-current="page"] {
   font-weight: 600;
+}
+
+#contact-search {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin: 0 0 var(--s3);
+}
+
+#contact-search input[type="search"] {
+  flex: 1;
+}
+
+#contacts-count {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.contact-new {
+  margin: 0 0 var(--s3);
+}
+
+#contact-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s2);
+  padding: var(--s3) 0;
+}
+
+#contacts-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.contact-row:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.contact-open {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.contact-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.contact-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-meta {
+  display: flex;
+  gap: var(--s2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.contact-menu,
+.contact-rename {
+  display: flex;
+  gap: var(--s1);
+}
+
+.contact-menu {
+  flex: none;
+}
+
+.contact-rename {
+  flex: 1;
+}
+
+.contact-rename input {
+  flex: 1;
 }

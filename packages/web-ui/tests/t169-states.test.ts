@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { ApiError } from "../src/api.ts";
-import { errorBannerHtml, guardLoader, unreadHtml, emptyState } from "../src/pages.ts";
+import { errorBannerHtml, guardLoader, emptyState } from "../src/pages.ts";
 
 test("T169 P6 — the error banner carries a Retry button", () => {
   const html = errorBannerHtml("rate limit exceeded");
@@ -34,6 +34,5 @@ test("T169 P6 — a non-429 failure still renders the banner (no retry loop)", a
 });
 
 test("T169 P6 — list pages have human empty states", () => {
-  expect(unreadHtml([], undefined)).toContain("Nothing unread");
   expect(emptyState("No recent activity")).toContain("No recent activity");
 });

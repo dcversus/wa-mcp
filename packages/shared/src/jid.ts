@@ -77,6 +77,30 @@ export function isValidRecipientJid(jid: string): boolean {
   return /^\d+$/.test(local);
 }
 
+export function phoneDigits(input: string): string | null {
+  const trimmed = input.trim();
+  const at = trimmed.indexOf("@");
+  if (at >= 0) {
+    if (trimmed.slice(at + 1).toLowerCase() !== DEFAULT_USER_DOMAIN) {
+      return null;
+    }
+  }
+  const local = (at >= 0 ? trimmed.slice(0, at) : trimmed).replace(DEVICE_SUFFIX, "");
+  const digits = local.replace(SEPARATORS, "");
+  return /^\d{8,15}$/.test(digits) ? digits : null;
+}
+
+export function formatPhone(input: string): string | null {
+  const digits = phoneDigits(input);
+  if (digits === null) {
+    return null;
+  }
+  if (digits.length === 12) {
+    return `+${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+  }
+  return `+${(digits.match(/.{1,4}/g) ?? [digits]).join(" ")}`;
+}
+
 const JID_SHAPE = /^[a-z0-9]{3,}(:\d+)?@(s\.whatsapp\.net|g\.us|lid)$/;
 const BROADCAST_SHAPE = /^[a-z]+@broadcast$/;
 

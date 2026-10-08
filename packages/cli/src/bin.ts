@@ -17,7 +17,8 @@ import {
 } from "./service.ts";
 import { runDoctor } from "./doctor.ts";
 import { drainInbox, runSubscribe, runUnsubscribe } from "./subscribe.ts";
-import { isMessageLogsInvocation, runLogs } from "./logs.ts";
+import { runMessages } from "./messages.ts";
+import { runContacts } from "./contacts.ts";
 import {
   claudeSettingsPath,
   codexHooksPath,
@@ -414,14 +415,41 @@ export async function main(argv: string[]): Promise<void> {
     }
     return;
   }
-  if (command === "logs" && isMessageLogsInvocation(flags, positionals)) {
+  if (command === "contacts") {
     const token = flags.token ?? readToken(dataDir) ?? "";
     if (token.length === 0) {
       console.error("no bridge token found — start the bridge once or pass --token");
       process.exitCode = 1;
       return;
     }
-    const exit = await runLogs(
+    const exit = await runContacts(
+      { fetchFn: fetch, print: console.log },
+      {
+        baseUrl: bridgeUrl,
+        token,
+        action: positionals[0] ?? "list",
+        target: positionals[1],
+        name: flags.name,
+        username: flags.username,
+        q: flags.q,
+        saved: flags.saved !== undefined,
+        dryRun: flags["dry-run"] !== undefined,
+        limit: flags.limit !== undefined ? Number(flags.limit) : undefined,
+      },
+    );
+    if (exit !== 0) {
+      process.exitCode = exit;
+    }
+    return;
+  }
+  if (command === "messages") {
+    const token = flags.token ?? readToken(dataDir) ?? "";
+    if (token.length === 0) {
+      console.error("no bridge token found — start the bridge once or pass --token");
+      process.exitCode = 1;
+      return;
+    }
+    const exit = await runMessages(
       {
         fetchFn: fetch,
         print: console.log,
@@ -504,10 +532,14 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
   console.log(
-    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
+    `wa-mcp — usage: wa-mcp <install|pair|config|doctor|status|start|stop|restart|logs|messages|contacts|inbox|subscribe|unsubscribe|uninstall|update|skills> [--service [--remove]] [--hooks [--remove]] [--target ...] [--home ...] [--data-dir ...] [--bridge-url ...] [--port ...] [--token ...] [--code ...] [--follow] [--purge] [--yes]`,
   );
   console.log(
-    `  logs [messages] [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log; bare \`logs\` (or --daemon) tails the daemon log`,
+    `  messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log (the web UI's Logs page)`,
+  );
+  console.log(`  logs [--follow] — daemon log (bridge.log)`);
+  console.log(
+    `  contacts [--q <text>] [--saved] [--limit <n>] | contacts add <phone> --name <name> [--username <u>] | contacts rename <phone|jid> --name <name> | contacts remove <phone|jid> | contacts sync [--dry-run] — your WhatsApp contacts; writes sync to the account like WhatsApp Web`,
   );
 }
 

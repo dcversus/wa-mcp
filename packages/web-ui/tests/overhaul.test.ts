@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   chatListHtml,
-  contactsPageHtml,
   groupsPageHtml,
   initials,
   notFoundHtml,
   profilePageHtml,
 } from "../src/pages.ts";
+import { contactsPageHtml } from "../src/contacts.ts";
 
 describe("T67 layout pass", () => {
   test("chat rows render avatar initials + name + time + preview + badge", () => {
@@ -40,10 +40,26 @@ describe("T67 layout pass", () => {
 
 describe("T67 empty states + 404", () => {
   test("contacts page renders rows, search and empty-state text", () => {
-    const populated = contactsPageHtml([{ jid: "1@s.whatsapp.net", name: "V" }]);
+    const populated = contactsPageHtml({
+      contacts: [
+        {
+          jid: "1@s.whatsapp.net",
+          displayName: "V",
+          phone: null,
+          name: "V",
+          pushname: null,
+          username: null,
+          alias: null,
+          source: "whatsapp",
+        },
+      ],
+      total: 1,
+      query: "",
+      saved: true,
+    });
     expect(populated).toContain('id="contacts-list"');
-    expect(populated).toContain('data-alias-jid="1@s.whatsapp.net"');
-    const empty = contactsPageHtml([]);
+    expect(populated).toContain('data-rename-contact="1@s.whatsapp.net"');
+    const empty = contactsPageHtml({ contacts: [], total: 0, query: "", saved: true });
     expect(empty).toContain("No contacts yet. They appear once your phone syncs.");
   });
 

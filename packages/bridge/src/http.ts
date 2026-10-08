@@ -40,7 +40,9 @@ import {
   setChatMuted,
   setChatPinned,
 } from "./store/chats.ts";
-import { getContact, listContacts, setAlias } from "./store/contacts.ts";
+import { getContactView, listContactViews, setAlias } from "./store/contacts.ts";
+import { backfillContacts, lidResolver } from "./store/contact-backfill.ts";
+import { serveContactWrite, type ContactEngine } from "./contact-sync.ts";
 import { assignChatLabel, chatLabels, addLabel, listLabels, removeLabel } from "./store/labels.ts";
 import { exportMessages } from "./store/export.ts";
 import { PRESENCE_TYPES, sendPresenceUpdate, sendReadReceipt } from "./presence.ts";
@@ -4332,6 +4334,42 @@ export async function createHttpServer(
           sendJson(res, 200, { cleared: jids.length });
           return;
         }
+        if (path === "/api/contacts/sync" && req.method === "POST") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          // R2-2B: rebuild contact identity from chats + senders + lid mapping
+          const flag = new URL(req.url ?? "/", "http://localhost").searchParams.get("dry_run");
+          const dryRun = flag === "1" || flag === "true";
+          const result = backfillContacts(opts.store, {
+            resolvePn:
+              opts.dataDir === undefined ? () => null : lidResolver(join(opts.dataDir, "auth")),
+            dryRun,
+          });
+          sendJson(res, 200, { dryRun, ...result });
+          return;
+        }
+        const contactWrite = path.match(/^\/api\/contacts(?:\/([^/]+))?$/);
+        if (contactWrite !== null && req.method !== "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const result = await serveContactWrite(
+            req.method ?? "POST",
+            contactWrite[1] === undefined ? undefined : decodeURIComponent(contactWrite[1]),
+            body,
+            opts.store,
+            handle.socket as unknown as ContactEngine | null | undefined,
+          );
+          sendJson(res, result.status, result.body);
+          return;
+        }
         if (path.startsWith("/api/contacts/") && req.method === "GET") {
           if (opts.store === undefined) {
             sendJson(res, 501, {
@@ -4340,8 +4378,8 @@ export async function createHttpServer(
             return;
           }
           const jid = decodeURIComponent(path.slice("/api/contacts/".length));
-          const contact = getContact(opts.store, jid);
-          if (contact === undefined) {
+          const contact = getContactView(opts.store, jid);
+          if (contact === null) {
             sendJson(res, 404, { error: { code: "NOT_FOUND", message: "contact not found" } });
             return;
           }
@@ -4442,12 +4480,15 @@ export async function createHttpServer(
             validationError(res, "limit must be a number");
             return;
           }
-          sendJson(res, 200, {
-            contacts: listContacts(opts.store, {
-              query: params.get("query") ?? undefined,
+          sendJson(
+            res,
+            200,
+            listContactViews(opts.store, {
+              query: params.get("q") ?? params.get("query") ?? undefined,
               limit: limit.value,
+              saved: params.get("saved") === "true",
             }),
-          });
+          );
           return;
         }
         if (path === "/api/chat/modify" && req.method === "POST") {

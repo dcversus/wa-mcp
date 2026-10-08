@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vite-plus/test";
-import { healthHtml, statusDashboardHtml } from "../src/pages.ts";
+import { formatStatValue, statusDashboardHtml } from "../src/pages.ts";
 
 const HEALTH = {
   pairingAttempts: { used: 1, limit: 3 },
@@ -20,19 +20,10 @@ test("T141 — statusDashboardHtml renders semantic stat values, never [object O
   expect(html).toContain("<dd>15 m</dd>");
 });
 
-test("T141 — healthHtml renders the same values escaped and readable", () => {
-  const html = healthHtml(HEALTH);
-  expect(html).not.toContain("[object Object]");
-  expect(html).toContain("1 / 3");
-  expect(html).toContain("yes");
-  expect(html).toContain("no");
-  expect(html).toContain("15 m");
-});
-
 test("T141 — unknown object keys render as k: v pairs", () => {
-  const html = healthHtml({ meta: { a: 1, b: "x" } });
-  expect(html).not.toContain("[object Object]");
-  expect(html).toContain("a: (1), b: (x)");
+  const text = formatStatValue("meta", { a: 1, b: "x" });
+  expect(text).not.toContain("[object Object]");
+  expect(text).toContain("a: (1), b: (x)");
 });
 
 test("T141 — the formatter is a shared pages.ts export", () => {

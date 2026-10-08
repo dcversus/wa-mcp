@@ -27,7 +27,10 @@ export interface ApiClient {
   resumePairing(): Promise<{ resumed: boolean }>;
   search(query: string, limit?: number): Promise<unknown>;
   searchLogs(query: string): Promise<{ messages?: unknown[] }>;
-  contacts(query?: string): Promise<unknown>;
+  contacts(query: { q?: string; saved?: boolean; limit?: number }): Promise<unknown>;
+  addContact(input: { name: string; phone: string; username?: string }): Promise<unknown>;
+  renameContact(jid: string, name: string): Promise<unknown>;
+  removeContact(jid: string): Promise<unknown>;
   setAlias(chatJid: string, alias: string): Promise<unknown>;
   groupParticipants(groupJid: string): Promise<unknown>;
   groupCreate(subject: string, participants: string[]): Promise<unknown>;
@@ -35,19 +38,6 @@ export interface ApiClient {
   groupMeta(groupJid: string, patch: { subject?: string; description?: string }): Promise<unknown>;
   groupInfo(groupJid: string): Promise<unknown>;
   notifications(): Promise<unknown>;
-  createNotificationRule(input: {
-    chat_jid: string;
-    title?: string;
-    body?: string;
-    deliver?: string[];
-  }): Promise<unknown>;
-  listAutoreplies(): Promise<unknown>;
-  deleteAutoreply(id: number): Promise<unknown>;
-  toggleAutoreply(id: number, enabled: boolean): Promise<unknown>;
-  listScheduled(): Promise<unknown>;
-  deleteScheduled(id: number): Promise<unknown>;
-  listSendRules(): Promise<unknown>;
-  deleteSendRule(id: number): Promise<unknown>;
   testSubscription(id: string): Promise<{
     ok: boolean;
     appended: boolean;
@@ -125,7 +115,7 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     try {
       response = await fetchFn(`${opts.baseUrl}${path}`, {
         ...rest,
-        method: json !== undefined ? "POST" : (rest.method ?? "GET"),
+        method: rest.method ?? (json !== undefined ? "POST" : "GET"),
         headers,
         ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
       });
@@ -211,12 +201,23 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     searchLogs: (query) => jsonCall(`/api/search?${query}`),
     contacts: (query) => {
       const params = new URLSearchParams();
-      if (query !== undefined) {
-        params.set("query", query);
+      if (query.q !== undefined && query.q.length > 0) {
+        params.set("q", query.q);
+      }
+      if (query.saved === true) {
+        params.set("saved", "true");
+      }
+      if (query.limit !== undefined) {
+        params.set("limit", String(query.limit));
       }
       const suffix = params.toString();
       return jsonCall(`/api/contacts${suffix ? `?${suffix}` : ""}`);
     },
+    addContact: (input) => post("/api/contacts", input),
+    renameContact: (jid, name) =>
+      jsonCall(`/api/contacts/${encodeURIComponent(jid)}`, { method: "PATCH", json: { name } }),
+    removeContact: (jid) =>
+      jsonCall(`/api/contacts/${encodeURIComponent(jid)}`, { method: "DELETE" }),
     // T77: the route validates input.jid (NOT chat_jid) — drift fixed
     setAlias: (chatJid, alias) => post("/api/alias", { jid: chatJid, alias }),
     groupParticipants: (groupJid) => post("/api/group/participants", { group_jid: groupJid }),
@@ -224,15 +225,6 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     groupCreate: (subject, participants) => post("/api/group/create", { subject, participants }),
     groupLeave: (groupJid) => post("/api/group/leave", { group_jid: groupJid }),
     notifications: () => jsonCall("/api/notifications"),
-    createNotificationRule: (input) => jsonCall("/api/notifications", { json: input }),
-    listAutoreplies: () => jsonCall("/api/autoreply"),
-    deleteAutoreply: (id) => jsonCall(`/api/autoreply/${id}`, { method: "DELETE" }),
-    toggleAutoreply: (id, enabled) =>
-      jsonCall(`/api/autoreply/${id}/toggle`, { json: { enabled } }),
-    listScheduled: () => jsonCall("/api/scheduled"),
-    deleteScheduled: (id) => jsonCall(`/api/scheduled/${id}`, { method: "DELETE" }),
-    listSendRules: () => jsonCall("/api/send-rules"),
-    deleteSendRule: (id) => jsonCall(`/api/send-rules/${id}`, { method: "DELETE" }),
     testSubscription: (id) =>
       jsonCall(`/api/subscriptions/${encodeURIComponent(id)}/test`, { method: "POST" }),
     logout: () => jsonCall("/api/logout", { method: "POST" }),

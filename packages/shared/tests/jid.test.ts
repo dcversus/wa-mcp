@@ -1,12 +1,34 @@
 import { expect, test } from "vite-plus/test";
 import {
+  formatPhone,
   isGroupJid,
   isLidJid,
   isPhoneJid,
   isValidRecipientJid,
   jidType,
   normalizeJid,
+  phoneDigits,
 } from "../src/jid.ts";
+
+test("T178 formatPhone renders WhatsApp-style grouping from digits, +prefix or a PN jid", () => {
+  expect(formatPhone("358497773518")).toBe("+358 49 777 3518");
+  expect(formatPhone("+358 49 777 3518")).toBe("+358 49 777 3518");
+  expect(formatPhone("358400000001@s.whatsapp.net")).toBe("+358 40 000 0001");
+  expect(formatPhone("358400000001:12@s.whatsapp.net")).toBe("+358 40 000 0001");
+  expect(formatPhone("4915112345678")).toBe("+4915 1123 4567 8");
+  expect(formatPhone("120363428874442773@g.us")).toBeNull();
+  expect(formatPhone("55600000009854@lid")).toBeNull();
+  expect(formatPhone("12345")).toBeNull();
+});
+
+test("T178 phoneDigits strips separators and rejects non-phone input", () => {
+  expect(phoneDigits("+358 (49) 777-3518")).toBe("358497773518");
+  expect(phoneDigits("358497773518@s.whatsapp.net")).toBe("358497773518");
+  expect(phoneDigits("1234567")).toBeNull();
+  expect(phoneDigits("1234567890123456")).toBeNull();
+  expect(phoneDigits("+358abc")).toBeNull();
+  expect(phoneDigits("55600000009854@lid")).toBeNull();
+});
 
 test("normalizeJid appends default domain to a bare phone number", () => {
   expect(normalizeJid("358497773518")).toBe("358497773518@s.whatsapp.net");

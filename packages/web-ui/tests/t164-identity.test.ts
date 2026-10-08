@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { displayName, formatPhone } from "../src/state.ts";
-import { unreadHtml, contactsPageHtml } from "../src/pages.ts";
+import { contactRowHtml } from "../src/contacts.ts";
 
 test("T164 P1 — formatPhone renders the WhatsApp-style grouping", () => {
   expect(formatPhone("358497773518")).toBe("+358 49 777 3518");
@@ -17,18 +17,18 @@ test("T164 P1 — displayName prefers contact name, then alias, then phone, then
   expect(displayName("120363428874442773@g.us", contacts, aliases)).toBe("Unknown");
 });
 
-test("T164 P1 — unread rows show human names with the JID behind details", () => {
-  const html = unreadHtml([{ chatJid: "358400000001@s.whatsapp.net", unreadCount: 3 }], (jid) =>
-    displayName(jid, { "358400000001@s.whatsapp.net": "Dana" }),
-  );
-  expect(html).toContain("Dana");
-  expect(html).toContain("<details");
-  expect(html).toContain("358400000001@s.whatsapp.net");
-});
-
-test("T164 P1 — contacts rows keep the JID behind a details disclosure", () => {
-  const html = contactsPageHtml([{ jid: "358400000001@s.whatsapp.net", name: "Dana" }]);
-  expect(html).toContain("Dana");
-  expect(html).toContain("<details");
-  expect(html).toContain("358400000001@s.whatsapp.net");
+test("T164 P1 — contacts rows show the human name and phone, never the raw JID as text", () => {
+  const html = contactRowHtml({
+    jid: "358400000001@s.whatsapp.net",
+    displayName: "Dana",
+    phone: "+358 40 000 0001",
+    name: "Dana",
+    pushname: null,
+    username: null,
+    alias: null,
+    source: "whatsapp",
+  });
+  expect(html).toContain(">Dana<");
+  expect(html).toContain(">+358 40 000 0001<");
+  expect(html).not.toContain(">358400000001@s.whatsapp.net<");
 });

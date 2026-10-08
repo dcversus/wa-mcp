@@ -1,11 +1,11 @@
-export interface LogsDeps {
+export interface MessagesDeps {
   fetchFn: typeof fetch;
   print: (line: string) => void;
   sleep: (ms: number) => Promise<void>;
   keepFollowing: () => boolean;
 }
 
-export interface LogsArgs {
+export interface MessagesArgs {
   baseUrl: string;
   token: string;
   chat?: string;
@@ -28,20 +28,6 @@ interface LogMessage {
   content: string | null;
   mediaType: string | null;
   isFromMe: boolean;
-}
-
-const MESSAGE_LOG_FLAGS = ["chat", "person", "from", "to", "direction", "q", "limit"];
-
-export function isMessageLogsInvocation(
-  flags: Record<string, string>,
-  positionals: string[],
-): boolean {
-  if (flags.daemon !== undefined) {
-    return false;
-  }
-  return (
-    positionals[0] === "messages" || MESSAGE_LOG_FLAGS.some((flag) => flags[flag] !== undefined)
-  );
 }
 
 function cell(value: string, width: number): string {
@@ -67,8 +53,8 @@ function formatRow(message: LogMessage, chatNames: Map<string, string>): string 
 }
 
 async function fetchJson(
-  deps: LogsDeps,
-  args: LogsArgs,
+  deps: MessagesDeps,
+  args: MessagesArgs,
   path: string,
 ): Promise<{ ok: true; body: unknown } | { ok: false; message: string }> {
   const res = await deps.fetchFn(`${args.baseUrl}${path}`, {
@@ -85,7 +71,7 @@ async function fetchJson(
   return { ok: true, body };
 }
 
-async function loadChatNames(deps: LogsDeps, args: LogsArgs): Promise<Map<string, string>> {
+async function loadChatNames(deps: MessagesDeps, args: MessagesArgs): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   for (const archived of ["false", "true"]) {
     const result = await fetchJson(
@@ -124,7 +110,7 @@ function resolveChat(raw: string, names: Map<string, string>): string | null {
 }
 
 function searchPath(
-  args: LogsArgs,
+  args: MessagesArgs,
   chatJid: string | undefined,
   since: string | undefined,
 ): string {
@@ -147,9 +133,9 @@ function searchPath(
   return query.length > 0 ? `/api/search?${query}` : "/api/search";
 }
 
-export async function runLogs(deps: LogsDeps, args: LogsArgs): Promise<number> {
+export async function runMessages(deps: MessagesDeps, args: MessagesArgs): Promise<number> {
   if (args.direction !== undefined && args.direction !== "in" && args.direction !== "out") {
-    deps.print("logs: --direction must be in or out");
+    deps.print("messages: --direction must be in or out");
     return 1;
   }
   const names = await loadChatNames(deps, args);
@@ -157,7 +143,7 @@ export async function runLogs(deps: LogsDeps, args: LogsArgs): Promise<number> {
   if (args.chat !== undefined) {
     const resolved = resolveChat(args.chat, names);
     if (resolved === null) {
-      deps.print(`logs: no chat named '${args.chat}' — pass a jid or an exact chat name`);
+      deps.print(`messages: no chat named '${args.chat}' — pass a jid or an exact chat name`);
       return 1;
     }
     chatJid = resolved;
@@ -168,7 +154,7 @@ export async function runLogs(deps: LogsDeps, args: LogsArgs): Promise<number> {
   const fetchPage = async (since: string | undefined): Promise<LogMessage[] | null> => {
     const result = await fetchJson(deps, args, searchPath(args, chatJid, since));
     if (!result.ok) {
-      deps.print(`logs failed: ${result.message}`);
+      deps.print(`messages failed: ${result.message}`);
       return null;
     }
     return (result.body as { messages?: LogMessage[] }).messages ?? [];

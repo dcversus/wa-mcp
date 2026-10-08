@@ -53,8 +53,6 @@ test("no token + #/pairing renders the pairing FLOW — never a token wall (T53)
     loaders: {
       pairing: async () => '<section id="pairing" class="pane pane-methods">QR</section>',
       chats: boom("chats"),
-      unread: boom("unread"),
-      health: boom("health"),
     },
     pairingView: () => ({
       pane: "methods",
@@ -107,16 +105,6 @@ test("nav is populated on every render", async () => {
   });
   expect(state.navHtml).toContain("#/chats");
   expect(state.navHtml).toContain("#/settings");
-});
-
-test("#/health redirects to #/status (P2 IA fold)", async () => {
-  const state = fakeDom("#/health");
-  await renderFrame({
-    dom: state.io.dom,
-    settings: WITH_TOKEN,
-    loaders: {},
-  });
-  expect(state.hash).toBe("#/status");
 });
 
 test("with a token, route loaders render into the app", async () => {

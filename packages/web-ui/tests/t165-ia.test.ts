@@ -15,23 +15,6 @@ function fakeDom(hash: string) {
   return { dom, calls };
 }
 
-test("T165 P2 — #/unread redirects to the chats filter", async () => {
-  const { dom, calls } = fakeDom("#/unread");
-  await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
-  expect(calls.some((call) => call.hash === "#/chats")).toBe(true);
-});
-
-test("T165 P2 — #/health redirects to #/status", async () => {
-  for (const hash of ["#/health"]) {
-    const { dom, calls } = fakeDom(hash);
-    await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });
-    expect(
-      calls.some((call) => call.hash === "#/status"),
-      hash,
-    ).toBe(true);
-  }
-});
-
 test("T165 P2 — unknown routes highlight nothing in the nav", async () => {
   const { dom, calls } = fakeDom("#/nope");
   await renderFrame({ dom, settings: { bridgeUrl: "", token: "" }, loaders: {} });

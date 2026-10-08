@@ -329,6 +329,18 @@ CREATE TABLE IF NOT EXISTS subscription_configs (
 );
 `;
 
+const MIGRATION_V23 = `
+CREATE TABLE IF NOT EXISTS contacts (
+  jid TEXT PRIMARY KEY,
+  name TEXT,
+  pushname TEXT,
+  business_name TEXT,
+  phone TEXT,
+  username TEXT
+);
+ALTER TABLE contacts ADD COLUMN lid TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -352,6 +364,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 20, sql: MIGRATION_V20 },
   { version: 21, sql: MIGRATION_V21 },
   { version: 22, sql: MIGRATION_V22 },
+  { version: 23, sql: MIGRATION_V23 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

@@ -75,16 +75,39 @@ wa-mcp logs --follow    # follow (polls every 500ms)
 
 ### Message log
 
-Any message-log flag (or the `messages` positional) switches `wa-mcp logs` from the daemon log to the WhatsApp message log — the same data as the web UI **Logs** page (`#/logs`), served by `GET /api/search`. <!-- src: packages/cli/src/logs.ts -->
+`wa-mcp messages` is the WhatsApp message log — the same data as the web UI **Logs** page (`#/logs`), served by `GET /api/search`. It is a separate command so `wa-mcp logs` always means the daemon log (`logs --follow` used to be ambiguous between the two). <!-- src: packages/cli/src/messages.ts -->
 
 ```sh
-wa-mcp logs messages                                   # newest messages, both directions
-wa-mcp logs --chat Family --direction in --limit 20    # chat by name or jid
-wa-mcp logs --person 358401112222@s.whatsapp.net --from 2026-10-01 --to 2026-10-07
-wa-mcp logs --q invoice --follow                       # live tail (polls every 2s)
+wa-mcp messages                                            # newest messages, both directions
+wa-mcp messages --chat Family --direction in --limit 20    # chat by name or jid
+wa-mcp messages --person 358401112222@s.whatsapp.net --from 2026-10-01 --to 2026-10-07
+wa-mcp messages --q invoice --follow                       # live tail (polls every 2s)
 ```
 
-`/api/search` filters: `q` (optional — omit it to list everything), `chat_jid`, `from_jid`, `direction` (`in`|`out`), `since` / `until` (ISO date or epoch milliseconds, inclusive), `limit`, `offset`. Pass `--daemon` to force the daemon log.
+`/api/search` filters: `q` (optional — omit it to list everything), `chat_jid`, `from_jid`, `direction` (`in`|`out`), `since` / `until` (ISO date or epoch milliseconds, inclusive), `limit`, `offset`.
+
+### Contacts
+
+`wa-mcp contacts` lists your WhatsApp contacts — the same data as the web UI **Contacts** page (`#/contacts`), served by `GET /api/contacts`. Writes use the companion-device contact action WhatsApp Web uses (`addOrEditContact` / `removeContact`), so they sync to your account's address book, phone included. <!-- src: packages/cli/src/contacts.ts; packages/bridge/src/contact-sync.ts -->
+
+```sh
+wa-mcp contacts --q dana --saved                        # search name, username, alias or number
+wa-mcp contacts add +358401234567 --name "Dana Scully" --username dana_s
+wa-mcp contacts rename +358401234567 --name "Agent Scully"
+wa-mcp contacts remove 358401234567@s.whatsapp.net
+wa-mcp contacts sync --dry-run                           # preview the identity backfill; drop --dry-run to write
+```
+
+The daemon backfills contact identity at every start (and on `contacts sync` → `POST /api/contacts/sync[?dry_run=1]`): person chat titles fill `name`, inbound sender names fill `pushname`, and `<lid>@lid` rows fold into their phone-number row through the engine's lid mapping (`lid` column kept). It only fills blanks, never overwrites. Groups are not contacts, and a row with no name, phone or WhatsApp name is not listed. <!-- src: packages/bridge/src/store/contact-backfill.ts -->
+
+| Route                                    | Body                              | Result                                                                                                                                                                    |
+| ---------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/contacts?q=&saved=true&limit=` | —                                 | `{contacts: [{jid, displayName, phone, name, pushname, username, lid, businessName, alias, source}], total}` — people only (groups, newsletters and broadcasts are chats) |
+| `POST /api/contacts`                     | `{phone \| jid, name, username?}` | `201 {contact}`; a phone is resolved with `onWhatsApp` first — `422 NOT_ON_WHATSAPP` when it isn't registered                                                             |
+| `PATCH /api/contacts/:phone-or-jid`      | `{name, username?}`               | `200 {contact}`                                                                                                                                                           |
+| `DELETE /api/contacts/:phone-or-jid`     | —                                 | `200 {ok, removed}`; the saved name is cleared, the person's own WhatsApp name stays                                                                                      |
+
+Errors: `400 VALIDATION_ERROR`, `503 NOT_CONNECTED` (writes need a live session), `502 CONTACT_SYNC_FAILED` / `CONTACT_LOOKUP_FAILED` (the engine rejected the app-state patch or lookup), `501` when no store is attached. Removals made on another device are not detected yet — the engine's `contacts.upsert` carries no removal flag.
 
 pino levels: 30 = info, 40 = warn, 50 = error.
 

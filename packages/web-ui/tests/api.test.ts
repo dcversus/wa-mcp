@@ -204,8 +204,8 @@ describe("task-51 client surface", () => {
 
   test("contacts lists with optional query", async () => {
     const { client, calls } = recordingClient();
-    await client.contacts("ali");
-    expect(calls[0]?.path).toBe("/api/contacts?query=ali");
+    await client.contacts({ q: "ali" });
+    expect(calls[0]?.path).toBe("/api/contacts?q=ali");
   });
 
   test("setAlias posts jid + alias (T77: the route validates input.jid)", async () => {

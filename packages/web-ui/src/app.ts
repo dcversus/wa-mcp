@@ -1,5 +1,4 @@
 import {
-  contactsPageHtml,
   subscriptionsPageHtml,
   groupsPageHtml,
   navHtml,
@@ -7,9 +6,9 @@ import {
   settingsHtml,
   statusDashboardHtml,
   agentConnectHtml,
-  automationsPageHtml,
   NAV_TITLES,
 } from "./pages.ts";
+import { contactsPageHtml } from "./contacts.ts";
 import { pairingHtml as fullPairingHtml, type PairingView } from "./pages-pairing.ts";
 import { type WebSettings } from "./state.ts";
 import { resolveRoute, type RoutePattern } from "./router.ts";
@@ -26,39 +25,28 @@ export type Route =
   | "status"
   | "chats"
   | "chat"
-  | "unread"
   | "contacts"
   | "groups"
   | "profile"
   | "settings"
-  | "health"
   | "logs"
   | "subscriptions"
   | "connect"
-  | "automations"
   | "pairing";
 
 export const ROUTES: Array<RoutePattern<Route>> = [
   { route: "status", pattern: "status" },
   { route: "chats", pattern: "chats" },
   { route: "chat", pattern: "chat/:jid" },
-  { route: "unread", pattern: "unread" },
   { route: "contacts", pattern: "contacts" },
   { route: "groups", pattern: "groups" },
   { route: "profile", pattern: "profile" },
   { route: "settings", pattern: "settings" },
-  { route: "health", pattern: "health" },
   { route: "logs", pattern: "logs" },
   { route: "subscriptions", pattern: "subscriptions" },
   { route: "connect", pattern: "connect" },
-  { route: "automations", pattern: "automations" },
   { route: "pairing", pattern: "pairing" },
 ];
-
-const REDIRECTS: Partial<Record<Route, string>> = {
-  unread: "#/chats",
-  health: "#/status",
-};
 
 export type RouteLoaders = Partial<
   Record<Route, (params: Record<string, string>) => Promise<string>>
@@ -75,10 +63,6 @@ export interface RenderFrameIo {
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const { dom, settings, loaders } = io;
   const match = resolveRoute(dom.getHash(), ROUTES);
-  if (match !== null && REDIRECTS[match.route] !== undefined) {
-    dom.setHash(REDIRECTS[match.route] as string);
-    return;
-  }
   dom.setNav(navHtml(match?.route ?? ""));
   if (match === null) {
     dom.setTitle("Not found · wa-mcp");
@@ -88,14 +72,6 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
   dom.setTitle(`${NAV_TITLES[match.route] ?? "wa-mcp"} · wa-mcp`);
   if (match.route === "connect") {
     dom.setApp(agentConnectHtml());
-    return;
-  }
-  if (match.route === "automations") {
-    const automationsLoader: (params: Record<string, string>) => Promise<string> =
-      loaders.automations ??
-      (async () =>
-        automationsPageHtml({ autoreplies: [], scheduled: [], sendRules: [], rules: [] }));
-    dom.setApp(await automationsLoader({}));
     return;
   }
   if (match.route === "settings") {
@@ -112,7 +88,7 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     (match.route === "status"
       ? async () => statusDashboardHtml({ health: {}, notifications: [], events: [] })
       : match.route === "contacts"
-        ? async () => contactsPageHtml([])
+        ? async () => contactsPageHtml({ contacts: [], total: 0, query: "", saved: true })
         : match.route === "groups"
           ? async () => groupsPageHtml([])
           : match.route === "subscriptions"

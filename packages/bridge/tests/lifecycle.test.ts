@@ -1,5 +1,5 @@
 import { mkdtemp, readFile } from "node:fs/promises";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
@@ -902,12 +902,71 @@ describe("T76 H7 — contact + roster events are consumed, not discarded", () =>
       { id: "358497773518@s.whatsapp.net", name: "Vasilisa", notify: "V" },
       { id: "120363428874442773@g.us" },
     ]);
+    // R2-2B: a group is a chat, not a contact — only the person row lands
     const rows = store.db.prepare("SELECT * FROM contacts").all();
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
     const first = store.db
       .prepare("SELECT * FROM contacts WHERE jid = ?")
       .get("358497773518@s.whatsapp.net") as Record<string, unknown>;
     expect(first.name).toBe("Vasilisa");
+    store.close();
+  });
+
+  test("T178 contacts.upsert persists the fork's contactAction shape (username/lid/phoneNumber)", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-t178-contacts-")));
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await trackedStart("/tmp/wa-mcp-test-auth", { store });
+    sock.emit("contacts.upsert", [
+      {
+        id: "358400000001@s.whatsapp.net",
+        name: "Dana Scully",
+        username: "dana_s",
+        lid: "111222333444555@lid",
+        phoneNumber: "358400000001@s.whatsapp.net",
+      },
+      { id: "222333444555666@lid", name: "Lid Saved", phoneNumber: "358400000002@s.whatsapp.net" },
+      { id: "358400000003@s.whatsapp.net", notify: "Shop", verifiedName: "Shop Oy" },
+    ]);
+    const row = (jid: string): Record<string, unknown> =>
+      store.db.prepare("SELECT * FROM contacts WHERE jid = ?").get(jid) as Record<string, unknown>;
+    expect(row("358400000001@s.whatsapp.net")).toMatchObject({
+      name: "Dana Scully",
+      username: "dana_s",
+      lid: "111222333444555@lid",
+      phone: "358400000001",
+    });
+    // R2-2B: a LID event carrying its phoneNumber is stored under the PN jid
+    expect(row("222333444555666@lid")).toBeUndefined();
+    expect(row("358400000002@s.whatsapp.net")).toMatchObject({
+      name: "Lid Saved",
+      lid: "222333444555666@lid",
+      phone: "358400000002",
+    });
+    expect(row("358400000003@s.whatsapp.net")).toMatchObject({
+      name: null,
+      pushname: "Shop",
+      business_name: "Shop Oy",
+      phone: "358400000003",
+    });
+    store.close();
+  });
+
+  test("R2-2B contacts.upsert — a lid-only event resolves via the auth dir's lid mapping; unresolvable bare LIDs are skipped", async () => {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-r22b-contacts-")));
+    const authDir = mkdtempSync(join(tmpdir(), "wa-mcp-r22b-auth-"));
+    writeFileSync(
+      join(authDir, "lid-mapping-55600000009854_reverse.json"),
+      JSON.stringify("351930017568"),
+    );
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    await trackedStart(authDir, { store });
+    sock.emit("contacts.upsert", [{ id: "55600000009854@lid" }, { id: "99887766554433@lid" }]);
+    const rows = store.db.prepare("SELECT jid, lid, phone FROM contacts").all();
+    expect(rows).toEqual([
+      { jid: "351930017568@s.whatsapp.net", lid: "55600000009854@lid", phone: "351930017568" },
+    ]);
     store.close();
   });
 
@@ -1382,6 +1441,32 @@ test("T89-B GAP1 — warmup pulls group participants into contacts at open", asy
   expect(handle.contactsWarm()).toBe(true);
   const rows = store.db.prepare("SELECT COUNT(*) AS n FROM contacts").get() as { n: number };
   expect(rows.n).toBeGreaterThanOrEqual(4);
+  store.close();
+});
+
+test("R2-2B — warmup never stores bare @lid participants; a participant's phoneNumber makes it a PN row", async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-r22b-warmup-")));
+  const sock = fakeSocket();
+  (sock as unknown as { groupFetchAllParticipating?: unknown }).groupFetchAllParticipating = vi.fn(
+    async () => ({
+      "120363428874442773@g.us": {
+        id: "120363428874442773@g.us",
+        participants: [
+          { id: "55600000009854@lid", phoneNumber: "351930017568@s.whatsapp.net" },
+          { id: "99887766554433@lid" },
+        ],
+      },
+    }),
+  );
+  mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+  const handle = await trackedStart(mkdtempSync(join(tmpdir(), "wa-mcp-r22b-auth-")), { store });
+  sock.emit("connection.update", { connection: "open" });
+  for (let i = 0; i < 20 && !handle.contactsWarm(); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  expect(store.db.prepare("SELECT jid, lid FROM contacts").all()).toEqual([
+    { jid: "351930017568@s.whatsapp.net", lid: "55600000009854@lid" },
+  ]);
   store.close();
 });
 

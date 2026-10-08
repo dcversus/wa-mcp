@@ -288,6 +288,9 @@ describe("auth matrix", () => {
     ["POST", "/api/presence"],
     ["POST", "/api/chat/state"],
     ["GET", "/api/contacts"],
+    ["POST", "/api/contacts"],
+    ["PATCH", "/api/contacts/358400000001@s.whatsapp.net"],
+    ["DELETE", "/api/contacts/358400000001@s.whatsapp.net"],
     ["GET", "/api/unread"],
     ["POST", "/api/alias"],
     ["POST", "/api/profile"],
@@ -3194,11 +3197,11 @@ describe("T85 — forward batch, forward attribution, contacts, picture, poll vo
     const list = (await (
       await fetch(url(bridge, "/api/contacts"), { headers: authHeader })
     ).json()) as { contacts: unknown[] };
-    expect(list.contacts).toHaveLength(3);
+    expect(list.contacts).toHaveLength(2);
     const search = (await (
       await fetch(url(bridge, "/api/contacts?query=vas"), { headers: authHeader })
     ).json()) as { contacts: unknown[] };
-    expect(search.contacts).toHaveLength(2);
+    expect(search.contacts).toHaveLength(1);
     const detail = (await (
       await fetch(url(bridge, "/api/contacts/358497773518@s.whatsapp.net"), { headers: authHeader })
     ).json()) as { contact?: { jid: string } };

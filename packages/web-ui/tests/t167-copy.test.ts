@@ -1,14 +1,13 @@
 import { expect, test } from "vite-plus/test";
 import {
   chatListHtml,
-  contactsPageHtml,
   groupsPageHtml,
   messageListHtml,
   profilePageHtml,
   settingsHtml,
   subscriptionsPageHtml,
-  unreadHtml,
 } from "../src/pages.ts";
+import { contactsPageHtml } from "../src/contacts.ts";
 
 test("T167 P4 — chats page copy", () => {
   const empty = chatListHtml([], {});
@@ -21,15 +20,24 @@ test("T167 P4 — chats page copy", () => {
   expect(list).toContain("Archived");
 });
 
-test("T167 P4 — unread copy is human", () => {
-  const html = unreadHtml([{ chatJid: "a@g.us", unreadCount: 1 }], () => "Test group");
-  expect(html).toContain("Mark as read");
-  expect(html).toContain("Mark all as read");
-  expect(html).not.toContain(">Mark read<");
-});
-
 test("T167 P4 — contacts copy: Rename, human search", () => {
-  const html = contactsPageHtml([{ jid: "a@s.whatsapp.net", name: "A" }]);
+  const html = contactsPageHtml({
+    contacts: [
+      {
+        jid: "a@s.whatsapp.net",
+        displayName: "A",
+        phone: null,
+        name: "A",
+        pushname: null,
+        username: null,
+        alias: null,
+        source: "whatsapp",
+      },
+    ],
+    total: 1,
+    query: "",
+    saved: true,
+  });
   expect(html).toContain("Rename");
   expect(html).toContain("Search contacts");
 });

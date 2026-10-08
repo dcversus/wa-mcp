@@ -1,12 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test, vi } from "vite-plus/test";
 import { main } from "../src/bin.ts";
-import { isMessageLogsInvocation, runLogs, type LogsDeps } from "../src/logs.ts";
+import { runMessages, type MessagesDeps } from "../src/messages.ts";
 
 const GROUP = "120363428874442773@g.us";
 const ALICE = "358401112222@s.whatsapp.net";
 
 interface Harness {
-  deps: LogsDeps;
+  deps: MessagesDeps;
   printed: string[];
   urls: string[];
 }
@@ -19,7 +22,7 @@ function harness(
   const printed: string[] = [];
   const urls: string[] = [];
   let remainingPolls = polls;
-  const deps: LogsDeps = {
+  const deps: MessagesDeps = {
     fetchFn: (async (input: string | URL) => {
       const url = String(input);
       urls.push(url);
@@ -65,7 +68,7 @@ function searchUrl(urls: string[], index = 0): URL {
 
 test("T176 A3 — every flag maps onto the /api/search query string", async () => {
   const { deps, urls } = harness([[]]);
-  const exit = await runLogs(deps, {
+  const exit = await runMessages(deps, {
     baseUrl: "http://127.0.0.1:8080",
     token: "tok",
     chat: GROUP,
@@ -93,20 +96,25 @@ test("T176 A3 — every flag maps onto the /api/search query string", async () =
 
 test("T176 A3 — --chat accepts a chat name and resolves it to the jid", async () => {
   const { deps, urls } = harness([[]]);
-  await runLogs(deps, { baseUrl: "http://h", token: "t", chat: "family", follow: false });
+  await runMessages(deps, { baseUrl: "http://h", token: "t", chat: "family", follow: false });
   expect(searchUrl(urls).searchParams.get("chat_jid")).toBe(GROUP);
 });
 
 test("T176 A3 — unknown chat name and bad direction fail before searching", async () => {
   const unknown = harness([[]]);
   expect(
-    await runLogs(unknown.deps, { baseUrl: "http://h", token: "t", chat: "nobody", follow: false }),
+    await runMessages(unknown.deps, {
+      baseUrl: "http://h",
+      token: "t",
+      chat: "nobody",
+      follow: false,
+    }),
   ).toBe(1);
   expect(unknown.printed.join("\n")).toContain("no chat named 'nobody'");
   expect(unknown.urls.some((url) => url.includes("/api/search"))).toBe(false);
   const bad = harness([[]]);
   expect(
-    await runLogs(bad.deps, {
+    await runMessages(bad.deps, {
       baseUrl: "http://h",
       token: "t",
       direction: "up" as "in",
@@ -123,7 +131,7 @@ test("T176 A3 — table output: header + one row per message, oldest first, name
       row("M1", "2026-10-07T10:00:00.000Z", false, "where are you?\nline two"),
     ],
   ]);
-  const exit = await runLogs(deps, { baseUrl: "http://h", token: "t", follow: false });
+  const exit = await runMessages(deps, { baseUrl: "http://h", token: "t", follow: false });
   expect(exit).toBe(0);
   expect(printed).toHaveLength(3);
   const [header, first, second] = printed as [string, string, string];
@@ -146,13 +154,13 @@ test("T176 A3 — table output: header + one row per message, oldest first, name
 
 test("T176 A3 — empty result prints a friendly line", async () => {
   const { deps, printed } = harness([[]]);
-  await runLogs(deps, { baseUrl: "http://h", token: "t", follow: false });
+  await runMessages(deps, { baseUrl: "http://h", token: "t", follow: false });
   expect(printed).toEqual(["no messages match"]);
 });
 
 test("T176 A3 — HTTP errors surface the bridge message and exit 1", async () => {
   const printed: string[] = [];
-  const exit = await runLogs(
+  const exit = await runMessages(
     {
       fetchFn: (async () =>
         Response.json(
@@ -166,7 +174,7 @@ test("T176 A3 — HTTP errors surface the bridge message and exit 1", async () =
     { baseUrl: "http://h", token: "t", follow: false },
   );
   expect(exit).toBe(1);
-  expect(printed.join("\n")).toContain("logs failed: HTTP 400 — direction must be in or out");
+  expect(printed.join("\n")).toContain("messages failed: HTTP 400 — direction must be in or out");
 });
 
 test("T176 A3 — --follow polls with since=<newest> and prints only unseen rows", async () => {
@@ -182,7 +190,7 @@ test("T176 A3 — --follow polls with since=<newest> and prints only unseen rows
     undefined,
     2,
   );
-  const exit = await runLogs(deps, { baseUrl: "http://h", token: "t", follow: true });
+  const exit = await runMessages(deps, { baseUrl: "http://h", token: "t", follow: true });
   expect(exit).toBe(0);
   expect(printed.filter((line) => line.startsWith("TIME"))).toHaveLength(1);
   expect(printed.filter((line) => line.includes("first"))).toHaveLength(1);
@@ -191,33 +199,35 @@ test("T176 A3 — --follow polls with since=<newest> and prints only unseen rows
   expect(searchUrl(urls, 2).searchParams.get("since")).toBe("2026-10-07T10:00:00.000Z");
 });
 
-test("T176 A3 — bare `logs` stays the daemon tail; any message flag selects message logs", () => {
-  expect(isMessageLogsInvocation({}, [])).toBe(false);
-  expect(isMessageLogsInvocation({ follow: "" }, [])).toBe(false);
-  expect(isMessageLogsInvocation({ daemon: "", chat: GROUP }, [])).toBe(false);
-  expect(isMessageLogsInvocation({}, ["messages"])).toBe(true);
-  for (const flag of ["chat", "person", "from", "to", "direction", "q", "limit"]) {
-    expect(isMessageLogsInvocation({ [flag]: "x" }, [])).toBe(true);
-  }
-});
-
-test("T176 A3 — bin routes `logs --direction` to message logs and documents the flags", async () => {
+test("T178 namespacing — `messages` is the message log; `logs` is only ever the daemon log", async () => {
   const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   const fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation((async () => Response.json({ chats: [] })) as unknown as typeof fetch);
+  const dataDir = mkdtempSync(join(tmpdir(), "t178-logs-"));
   const previousExit = process.exitCode;
   try {
-    await main(["logs", "--direction", "sideways", "--token", "tok"]);
-    expect(logSpy.mock.calls.flat().join("\n")).toContain("--direction must be in or out");
+    await main(["messages", "--direction", "sideways", "--token", "tok"]);
+    expect(logSpy.mock.calls.flat().join("\n")).toContain(
+      "messages: --direction must be in or out",
+    );
     expect(process.exitCode).toBe(1);
+    process.exitCode = previousExit;
+    logSpy.mockClear();
+    await main(["logs", "--chat", GROUP, "--follow", "--data-dir", dataDir]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(logSpy.mock.calls.flat().join("\n")).toContain("no daemon log at");
     logSpy.mockClear();
     await main([]);
-    expect(logSpy.mock.calls.flat().join("\n")).toContain(
-      "logs [messages] [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow]",
+    const usage = logSpy.mock.calls.flat().join("\n");
+    expect(usage).toContain(
+      "messages [--chat <jid|name>] [--person <jid>] [--from <date>] [--to <date>] [--direction in|out] [--q <text>] [--limit <n>] [--follow] — message log (the web UI's Logs page)",
     );
+    expect(usage).toContain("logs [--follow] — daemon log (bridge.log)");
+    expect(usage).not.toContain("logs [messages]");
   } finally {
     process.exitCode = previousExit;
+    rmSync(dataDir, { recursive: true, force: true });
     logSpy.mockRestore();
     fetchSpy.mockRestore();
   }

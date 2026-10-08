@@ -1,16 +1,24 @@
 import { expect, test } from "vite-plus/test";
-import {
-  chatListHtml,
-  contactsPageHtml,
-  messageListHtml,
-  navHtml,
-  profilePageHtml,
-} from "../src/pages.ts";
+import { chatListHtml, messageListHtml, navHtml, profilePageHtml } from "../src/pages.ts";
+import { contactsPageHtml, type ContactView } from "../src/contacts.ts";
+
+const ONE_CONTACT: ContactView = {
+  jid: "a@s.whatsapp.net",
+  displayName: "A",
+  phone: null,
+  name: "A",
+  pushname: null,
+  username: null,
+  alias: null,
+  source: "whatsapp",
+};
+const contactsPage = (): string =>
+  contactsPageHtml({ contacts: [ONE_CONTACT], total: 1, query: "", saved: true });
 
 test("T168 P5 — every page has exactly one h1", () => {
   for (const [name, html] of [
     ["chats", chatListHtml([{ jid: "a@g.us", name: "A", unreadCount: 0 }], {})],
-    ["contacts", contactsPageHtml([{ jid: "a@s.whatsapp.net", name: "A" }])],
+    ["contacts", contactsPage()],
     ["profile", profilePageHtml({ blocklist: [], privacy: {} })],
   ] as Array<[string, string]>) {
     expect((html.match(/<h1>/g) ?? []).length, name).toBe(1);
@@ -21,7 +29,7 @@ test("T168 P5 — every page has exactly one h1", () => {
 test("T168 P5 — inputs carry aria-labels", () => {
   const chats = chatListHtml([], {});
   expect(chats).toContain('aria-label="Search chats"');
-  const contacts = contactsPageHtml([{ jid: "a@s.whatsapp.net", name: "A" }]);
+  const contacts = contactsPage();
   expect(contacts).toContain('aria-label="Search contacts"');
   const chat = messageListHtml("c", [
     {

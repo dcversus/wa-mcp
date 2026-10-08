@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { routeKind } from "../src/router.ts";
-import { chatListHtml, unreadHtml } from "../src/pages.ts";
+import { chatListHtml } from "../src/pages.ts";
 
 test("T149 F1 — #/chats is a chats-list route, not a chat view", () => {
   expect(routeKind("#/chats")).toBe("chats-list");
@@ -24,10 +24,5 @@ test("T149 F1 — chat rows are real links to the chat view", () => {
     {},
   );
   expect(html).toContain('<a href="#/chat/120363428874442773@g.us"');
-  expect(html).toContain('<a href="#/chat/351930017568@s.whatsapp.net"');
-});
-
-test("T149 F1 — unread rows link to their chat", () => {
-  const html = unreadHtml([{ chatJid: "351930017568@s.whatsapp.net", unreadCount: 4 }]);
   expect(html).toContain('<a href="#/chat/351930017568@s.whatsapp.net"');
 });

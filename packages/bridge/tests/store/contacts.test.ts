@@ -7,7 +7,7 @@ import {
   deleteContact,
   getAlias,
   getContact,
-  listContacts,
+  listContactViews,
   setAlias,
   upsertContact,
 } from "../../src/store/contacts.ts";
@@ -31,6 +31,8 @@ test("upsertContact inserts and getContact reads it back", () => {
       pushname: "vasi",
       businessName: null,
       phone: null,
+      username: null,
+      lid: null,
     });
   } finally {
     store.close();
@@ -67,19 +69,19 @@ test("phone is stored when provided (rc14 Contact.phoneNumber)", () => {
   }
 });
 
-test("listContacts searches name, pushname and jid case-insensitively", () => {
+test("listContactViews searches name, pushname and jid case-insensitively", () => {
   const store = makeStore();
   try {
     upsertContact(store, { jid: "358461111111@s.whatsapp.net", name: "John Doe" });
     upsertContact(store, { jid: "358462222222@s.whatsapp.net", pushname: "Johnny" });
     upsertContact(store, { jid: "358463333333@s.whatsapp.net", name: "Someone Else" });
-    const hits = listContacts(store, { query: "john" });
+    const hits = listContactViews(store, { query: "john" }).contacts;
     expect(hits).toHaveLength(2);
-    const byJid = listContacts(store, { query: "358463333333" });
+    const byJid = listContactViews(store, { query: "358463333333" }).contacts;
     expect(byJid).toHaveLength(1);
     expect(byJid[0]?.jid).toBe("358463333333@s.whatsapp.net");
-    expect(listContacts(store, {})).toHaveLength(3);
-    expect(listContacts(store, { limit: 1 })).toHaveLength(1);
+    expect(listContactViews(store, {}).contacts).toHaveLength(3);
+    expect(listContactViews(store, { limit: 1 }).contacts).toHaveLength(1);
   } finally {
     store.close();
   }

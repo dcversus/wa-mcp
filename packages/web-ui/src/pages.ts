@@ -25,7 +25,6 @@ const NAV_SECTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "contacts", label: "Contacts", href: "#/contacts" },
   { id: "connect", label: "Connect agent", href: "#/connect" },
   { id: "subscriptions", label: "Agent alerts", href: "#/subscriptions" },
-  { id: "automations", label: "Automations", href: "#/automations" },
   { id: "profile", label: "Profile", href: "#/profile" },
   { id: "status", label: "Connection", href: "#/status" },
   { id: "settings", label: "Settings", href: "#/settings" },
@@ -39,7 +38,6 @@ export const NAV_TITLES: Record<string, string> = {
   contacts: "Contacts",
   connect: "Connect agent",
   subscriptions: "Agent alerts",
-  automations: "Automations",
   profile: "Profile",
   status: "Connection",
   settings: "Settings",
@@ -50,7 +48,7 @@ export function navHtml(active: string, version = "0.9.0"): string {
   const groups: Array<{ label: string; keys: string[] }> = [
     { label: "Messages", keys: ["chats", "logs"] },
     { label: "People", keys: ["contacts"] },
-    { label: "Agent", keys: ["connect", "subscriptions", "automations"] },
+    { label: "Agent", keys: ["connect", "subscriptions"] },
     { label: "Me", keys: ["profile"] },
     { label: "System", keys: ["status", "settings", "pairing"] },
   ];
@@ -248,26 +246,7 @@ export function statusDashboardHtml(
   const card = linked
     ? `<p class="status-card">✅ Linked as <strong>${escapeHtml(identity)}</strong>${input.health.connected === true ? " · online" : " · reconnecting"}${typeof input.health.lastDisconnectAt === "number" ? ` · last reconnect ${escapeHtml(formatRelative(input.health.lastDisconnectAt))}` : ""}${typeof input.health.uptime === "number" ? ` · running for ${escapeHtml(formatDuration(input.health.uptime))}` : ""} · ${subCount} agent subscription${subCount === 1 ? "" : "s"}</p>`
     : `<p class="status-card">⚠ WhatsApp not linked — <a href="#/pairing">Link now</a></p>`;
-  return `<section id="status-dashboard"><h1>Connection</h1>${card}<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details><h3>Recent activity</h3><ul class="events">${feed.length > 0 ? feed : `<li>${emptyState("No recent activity")}</li>`}</ul><p class="hint">What your agent does in your name — <a href="#/automations">Automations</a></p></section>`;
-}
-
-export function contactsPageHtml(
-  contacts: Array<{ jid: string; name: string | null }>,
-  query = "",
-): string {
-  const items = contacts
-    .map(
-      (contact) =>
-        `<li data-contact-jid="${escapeHtml(contact.jid)}"><span class="contact-name">${escapeHtml(contact.name ?? contact.jid)}</span> <details><summary>details</summary><code>${escapeHtml(contact.jid)}</code></details> <button data-alias-jid="${escapeHtml(contact.jid)}">Rename</button></li>`,
-    )
-    .join("");
-  const empty =
-    contacts.length === 0
-      ? query.length > 0
-        ? `<p class="empty">No contacts match “${escapeHtml(query)}” — <button id="clear-contacts-search" type="button">Clear search</button></p>`
-        : emptyState("No contacts yet. They appear once your phone syncs.")
-      : "";
-  return `<section id="contacts-page"><h1>Contacts</h1><form id="contact-search"><input name="query" placeholder="Search contacts" aria-label="Search contacts" value="${escapeHtml(query)}" /></form><ul id="contacts-list">${items}</ul>${empty}</section>`;
+  return `<section id="status-dashboard"><h1>Connection</h1>${card}<details class="diagnostics"><summary>Diagnostics</summary><dl class="stats">${fields}</dl></details><h3>Recent activity</h3><ul class="events">${feed.length > 0 ? feed : `<li>${emptyState("No recent activity")}</li>`}</ul></section>`;
 }
 
 export function groupsPageHtml(
@@ -446,27 +425,6 @@ export function contextViewHtml(
   return `<div id="context-view"><h3>Around this message</h3><ul>${items}</ul></div>`;
 }
 
-export interface UnreadEntryView {
-  chatJid: string;
-  unreadCount: number;
-}
-
-export function unreadHtml(
-  entries: Array<UnreadEntryView>,
-  resolveName?: (jid: string) => string | null,
-): string {
-  if (entries.length === 0) {
-    return `<section id="unread-page"><h1>Unread</h1>${emptyState("Nothing unread")}</section>`;
-  }
-  const items = entries
-    .map((entry) => {
-      const name = resolveName?.(entry.chatJid) ?? entry.chatJid;
-      return `<li><a href="#/chat/${escapeHtml(entry.chatJid)}">${escapeHtml(name)}</a><details><summary>details</summary><code>${escapeHtml(entry.chatJid)}</code></details><span class="unread-badge">${entry.unreadCount}</span><button data-mark-jid="${entry.chatJid}">Mark as read</button></li>`;
-    })
-    .join("");
-  return `<section id="unread-page"><h1>Unread</h1><ul class="unread-list">${items}</ul><button id="mark-all-read">Mark all as read</button></section>`;
-}
-
 export function settingsHtml(settings: { bridgeUrl: string; token: string }): string {
   return `<section id="settings-page"><h1>Settings</h1><form id="settings-form"><label>Server address<input id="bridge-url" aria-label="Server address" value="${escapeHtml(settings.bridgeUrl)}" /></label><label>Access key — filled in automatically; only change this if support asks you to<input id="token" type="password" aria-label="Access key" value="${escapeHtml(settings.token)}" autocomplete="off" /></label><button id="reveal-token" type="button">show</button><button class="primary" type="submit">Save</button></form></section>`;
 }
@@ -503,15 +461,6 @@ export function pairingHtml(settings: { bridgeUrl: string; token: string }): str
 export function qrHtml(pngDataUrl: string | null): string {
   const src = pngDataUrl === null ? "" : ` src="${pngDataUrl}"`;
   return `<div id="pairing"><img id="qr-image"${src} /><p id="qr-status">waiting for scan…</p></div>`;
-}
-
-export function healthHtml(health: Record<string, unknown>): string {
-  return `<dl class="health">${Object.entries(health)
-    .map(
-      ([key, value]) =>
-        `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(formatStatValue(key, value))}</dd>`,
-    )
-    .join("")}</dl>`;
 }
 
 export interface MeInfo {
@@ -690,74 +639,6 @@ export interface ChatPick {
   jid: string;
   name: string | null;
   unreadCount: number;
-}
-
-export interface AutomationInputs {
-  autoreplies: Array<{
-    id: number;
-    match: string;
-    reply: string;
-    enabled: boolean;
-    createdAt?: string | null;
-  }>;
-  scheduled: Array<{
-    id: number;
-    chat_jid: string;
-    payload: string;
-    send_at: string;
-    status: string;
-  }>;
-  sendRules: Array<{ id: number; target: string; mode: string; expiresAt?: string | null }>;
-  rules: Array<{
-    id: string;
-    chat_jid?: string | null;
-    title?: string | null;
-    body?: string | null;
-    pattern?: string | null;
-  }>;
-  resolveName?: (jid: string) => string | null;
-  chatOptions?: Array<{ jid: string; name: string | null }>;
-}
-
-export function automationsPageHtml(input: AutomationInputs): string {
-  const resolve = input.resolveName;
-  const autoreplies = input.autoreplies
-    .map(
-      (rule) =>
-        `<li data-autoreply-id="${rule.id}"><span class="auto-when">${rule.enabled ? "active" : "Paused"}</span> <strong dir="auto">${escapeHtml(rule.match)}</strong> → <span dir="auto">${escapeHtml(rule.reply)}</span> <button class="danger" data-delete-autoreply="${rule.id}" type="button">Delete</button> <button data-toggle-autoreply="${rule.id}" data-enabled="${rule.enabled ? "false" : "true"}" type="button">${rule.enabled ? "Pause" : "Resume"}</button></li>`,
-    )
-    .join("");
-  const scheduled = input.scheduled
-    .map(
-      (row) =>
-        `<li data-scheduled-id="${row.id}"><strong dir="auto">${escapeHtml(resolve?.(row.chat_jid) ?? row.chat_jid)}</strong>: <span dir="auto">${escapeHtml(row.payload.slice(0, 80))}</span> <time title="${escapeHtml(row.send_at)}">${escapeHtml(formatWhen(row.send_at))}</time> <span class="auto-when">${escapeHtml(row.status)}</span> <button class="danger" data-delete-scheduled="${row.id}" type="button">Delete</button></li>`,
-    )
-    .join("");
-  const sendRules = input.sendRules
-    .map(
-      (rule) =>
-        `<li data-sendrule-id="${rule.id}"><code>${escapeHtml(rule.target)}</code> → ${escapeHtml(rule.mode)}${rule.expiresAt ? ` until ${escapeHtml(rule.expiresAt.slice(0, 10))}` : ""} <button class="danger" data-delete-sendrule="${rule.id}" type="button">Delete</button></li>`,
-    )
-    .join("");
-  const rules = input.rules
-    .map(
-      (rule) =>
-        `<li data-rule-id="${escapeHtml(rule.id)}"><span>${escapeHtml(resolve?.(rule.chat_jid ?? "") ?? rule.chat_jid ?? "All chats")}</span> <code>${escapeHtml(rule.title ?? rule.pattern ?? "")}</code> <button class="danger" data-delete-rule="${escapeHtml(rule.id)}">Delete</button></li>`,
-    )
-    .join("");
-  const chatSelect = (input.chatOptions ?? [])
-    .map(
-      (chat) =>
-        `<option value="${escapeHtml(chat.jid)}">${escapeHtml(resolve?.(chat.jid) ?? chat.name ?? chat.jid)}</option>`,
-    )
-    .join("");
-  return `<section id="automations-page"><h1>Automations</h1><p class="hint">everything your agent can send or react in your name — read, pause or remove it here</p>
-<h3>Autoreplies</h3><p class="hint">Replies sent automatically by your agent</p><ul class="list">${autoreplies.length > 0 ? autoreplies : `<li>${emptyState("No autoreplies — your agent sends only what you type")}</li>`}</ul>
-<h3>Scheduled messages</h3><ul class="list">${scheduled.length > 0 ? scheduled : `<li>${emptyState("Nothing scheduled")}</li>`}</ul>
-<h3>Send rules</h3><ul class="list">${sendRules.length > 0 ? sendRules : `<li>${emptyState("No send rules — your agent may message any chat it can see")}</li>`}</ul>
-<h3>Notification rules</h3><ul class="list">${rules.length > 0 ? rules : `<li>${emptyState("No notification rules")}</li>`}</ul>
-<form id="rule-create"><label>chat<select name="chat_jid" aria-label="chat">${chatSelect}</select></label><label>when the message matches<input name="title" aria-label="match pattern" placeholder="invoice" /></label><label>notify text<input name="body" aria-label="notification text" placeholder="new invoice arrived" /></label><label class="check-row"><input type="checkbox" name="deliver" value="mcp" checked /> tell the agent (MCP)</label><label class="check-row"><input type="checkbox" name="deliver" value="file" /> write to an inbox file</label><label class="check-row"><input type="checkbox" name="deliver" value="ui" /> show in the UI</label><button class="primary" type="submit">Create rule</button></form>
-</section>`;
 }
 
 export function subscriptionsPageHtml(

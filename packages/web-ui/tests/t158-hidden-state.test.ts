@@ -1,13 +1,14 @@
 import { expect, test } from "vite-plus/test";
-import { contactsPageHtml, profilePageHtml } from "../src/pages.ts";
+import { profilePageHtml } from "../src/pages.ts";
+import { contactsPageHtml } from "../src/contacts.ts";
 
 test("T158 W9 — the contacts search box echoes the query", () => {
-  const html = contactsPageHtml([{ jid: "1@s.whatsapp.net", name: "A" }], "anette");
+  const html = contactsPageHtml({ contacts: [], total: 0, query: "anette", saved: false });
   expect(html).toContain('value="anette"');
 });
 
 test("T158 W9 — a no-match contact search says so and offers a way back", () => {
-  const html = contactsPageHtml([], "zzzz");
+  const html = contactsPageHtml({ contacts: [], total: 0, query: "zzzz", saved: false });
   expect(html).toContain("No contacts match");
   expect(html).toContain('id="clear-contacts-search"');
   expect(html).not.toContain("No contacts yet");

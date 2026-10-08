@@ -10,19 +10,23 @@ import {
   groupMetaFormHtml,
   groupParticipantsHtml,
   profilePageHtml,
-  contactsPageHtml,
   groupsPageHtml,
   messageListHtml,
   settingsHtml,
   transcriptionSettingsHtml,
   statusDashboardHtml,
-  unreadHtml,
   guardLoader,
   subscriptionsPageHtml,
   agentConnectHtml,
-  automationsPageHtml,
   replyPreviewHtml,
 } from "./pages.ts";
+import {
+  CONTACTS_PAGE_SIZE,
+  contactsPageHtml,
+  contactRenameFormHtml,
+  validateNewContact,
+  type ContactView,
+} from "./contacts.ts";
 import {
   pairedIdentityText,
   pairingHtml,
@@ -318,7 +322,7 @@ function startStatusLive(): void {
   }
   if (statusPoll === null) {
     statusPoll = setInterval(() => {
-      if (location.hash !== "#/status" && location.hash !== "#/health") {
+      if (location.hash !== "#/status") {
         return;
       }
       void renderCurrent();
@@ -344,15 +348,16 @@ const resolveName = (jid: string): string | null => {
   return viaIdentity === "Unknown" ? null : viaIdentity;
 };
 async function loadIdentity(): Promise<void> {
-  const payload = (await client.contacts("")) as {
-    contacts?: Array<{ jid: string; name: string | null }>;
-  };
+  const payload = (await client.contacts({ limit: 1000 })) as { contacts?: ContactView[] };
   identityContacts = Object.fromEntries(
-    (payload.contacts ?? []).map((contact) => [contact.jid, contact.name]),
+    (payload.contacts ?? []).map((contact) => [contact.jid, contact.displayName]),
   );
 }
 let chatSearchQuery = "";
 let contactsQuery = "";
+let contactsSavedOnly = true;
+let contactsError: string | undefined;
+let contactsSearchTimer: ReturnType<typeof setTimeout> | null = null;
 let replyToId: string | null = null;
 let lastUnauthorizedRender = 0;
 let bridgeDown = false;
@@ -465,11 +470,20 @@ const loaders: {
     });
   },
   contacts: async () => {
-    const payload = (await client.contacts(contactsQuery)) as {
-      contacts?: Array<{ jid: string; name: string | null }>;
-    };
-    await loadIdentity();
-    return contactsPageHtml(payload.contacts ?? [], contactsQuery);
+    const payload = (await client.contacts({
+      q: contactsQuery,
+      saved: contactsSavedOnly,
+      limit: CONTACTS_PAGE_SIZE,
+    })) as { contacts?: ContactView[]; total?: number };
+    const error = contactsError;
+    contactsError = undefined;
+    return contactsPageHtml({
+      contacts: payload.contacts ?? [],
+      total: payload.total ?? payload.contacts?.length ?? 0,
+      query: contactsQuery,
+      saved: contactsSavedOnly,
+      ...(error !== undefined ? { error } : {}),
+    });
   },
   profile: async () => {
     const [blockPayload, privacy, me] = await Promise.all([
@@ -547,13 +561,6 @@ const loaders: {
       mediaToken: effectiveToken(settings, pairingToken),
     });
   },
-  unread: async () => {
-    const [payload] = await Promise.all([client.getUnread(), loadIdentity()]);
-    return unreadHtml(
-      (payload as { unread: Parameters<typeof unreadHtml>[0] }).unread,
-      resolveName,
-    );
-  },
   settings: async () => {
     const emptyConfig: {
       transcription?: {
@@ -615,48 +622,6 @@ const loaders: {
     });
   },
   connect: async () => agentConnectHtml(),
-  automations: async () => {
-    const [autoreplies, scheduled, sendRules, notifications, chatsPayload] = await Promise.all([
-      client.listAutoreplies().catch(() => ({ autoreplies: [] })),
-      client.listScheduled().catch(() => ({ scheduled: [] })),
-      client.listSendRules().catch(() => ({ rules: [] })),
-      client.notifications().catch(() => ({ rules: [] })),
-      client.getChats().catch(() => ({ chats: [] })) as Promise<{
-        chats?: Array<{ jid: string; name: string | null }>;
-      }>,
-    ]);
-    await loadIdentity();
-    return automationsPageHtml({
-      autoreplies:
-        (autoreplies as { autoreplies?: Parameters<typeof automationsPageHtml>[0]["autoreplies"] })
-          .autoreplies ?? [],
-      scheduled:
-        (scheduled as { scheduled?: Parameters<typeof automationsPageHtml>[0]["scheduled"] })
-          .scheduled ?? [],
-      sendRules:
-        (sendRules as { rules?: Parameters<typeof automationsPageHtml>[0]["sendRules"] }).rules ??
-        [],
-      rules:
-        (
-          notifications as {
-            rules?: Array<{
-              id: string;
-              chat_jid?: string | null;
-              title?: string | null;
-              body?: string | null;
-              pattern?: string | null;
-            }>;
-          }
-        ).rules ?? [],
-      resolveName,
-      chatOptions: (chatsPayload.chats ?? []).map((chat) => ({
-        jid: chat.jid,
-        name: chat.name,
-      })),
-    });
-  },
-  health: async () =>
-    statusDashboardHtml({ health: await client.getHealth(), notifications: [], events: [] }),
   pairing: async () => {
     await refreshPairing();
     return pairingHtml(pairingView);
@@ -686,21 +651,12 @@ function bindRoute(): void {
     bindChatsControls();
     return;
   }
-  if (hash === "#/unread") {
-    bindMarkRead();
-    bindMarkAllRead();
-    return;
-  }
   if (hash === "#/contacts") {
     bindContactsControls();
     return;
   }
   if (hash === "#/subscriptions") {
     bindSubscriptionsControls();
-    return;
-  }
-  if (hash === "#/automations") {
-    bindAutomationsControls();
     return;
   }
   if (hash === "#/groups") {
@@ -711,7 +667,7 @@ function bindRoute(): void {
     bindProfileControls();
     return;
   }
-  if (hash === "#/status" || hash === "#/health") {
+  if (hash === "#/status") {
     bindStatusControls();
     startStatusLive();
     return;
@@ -806,26 +762,102 @@ function bindSendBox(): void {
   });
 }
 
+async function contactWrite(action: () => Promise<unknown>): Promise<void> {
+  try {
+    await action();
+    await loadIdentity().catch(() => undefined);
+  } catch (err) {
+    contactsError = err instanceof Error ? err.message : "could not update the contact";
+  }
+  await renderCurrent();
+}
+
 function bindContactsControls(): void {
+  const search = document.querySelector<HTMLInputElement>("#contact-search input[name=q]");
+  const rerenderKeepingFocus = async (): Promise<void> => {
+    await renderCurrent();
+    const next = document.querySelector<HTMLInputElement>("#contact-search input[name=q]");
+    next?.focus();
+    next?.setSelectionRange(next.value.length, next.value.length);
+  };
+  search?.addEventListener("input", () => {
+    if (contactsSearchTimer !== null) {
+      clearTimeout(contactsSearchTimer);
+    }
+    contactsSearchTimer = setTimeout(() => {
+      contactsSearchTimer = null;
+      contactsQuery = search.value;
+      void rerenderKeepingFocus();
+    }, 250);
+  });
   document.getElementById("contact-search")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    contactsQuery = (
-      document.querySelector("#contact-search input[name=query]") as HTMLInputElement
-    ).value;
-    void renderCurrent();
+    contactsQuery = search?.value ?? "";
+    void rerenderKeepingFocus();
   });
+  document
+    .querySelector<HTMLInputElement>("#contact-search input[name=saved]")
+    ?.addEventListener("change", (event) => {
+      contactsSavedOnly = (event.currentTarget as HTMLInputElement).checked;
+      void renderCurrent();
+    });
   document.getElementById("clear-contacts-search")?.addEventListener("click", () => {
     contactsQuery = "";
     void renderCurrent();
   });
-  document.querySelectorAll("[data-alias-jid]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const jid = (button as HTMLElement).dataset.aliasJid ?? "";
-      const alias = window.prompt(`alias for ${jid}`);
-      if (alias !== null && alias.length > 0) {
-        await client.setAlias(jid, alias).catch(() => undefined);
-        await renderCurrent();
+  const form = document.getElementById("contact-new") as HTMLFormElement | null;
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const field = (key: string): string => {
+      const value = data.get(key);
+      return typeof value === "string" ? value : "";
+    };
+    const checked = validateNewContact({
+      name: field("name"),
+      phone: field("phone"),
+      username: field("username"),
+    });
+    if (!checked.ok) {
+      contactsError = checked.message;
+      void renderCurrent();
+      return;
+    }
+    void contactWrite(() => client.addContact(checked.value));
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-rename-contact]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const jid = button.dataset.renameContact ?? "";
+      const row = button.closest(".contact-row");
+      if (row === null) {
+        return;
       }
+      row.innerHTML = contactRenameFormHtml(jid, button.dataset.contactName ?? "");
+      const renameForm = row.querySelector<HTMLFormElement>(".contact-rename");
+      const input = renameForm?.querySelector<HTMLInputElement>("input[name=name]");
+      input?.focus();
+      input?.select();
+      row.querySelector("[data-cancel-rename]")?.addEventListener("click", () => {
+        void renderCurrent();
+      });
+      renameForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const name = input?.value.trim() ?? "";
+        if (name.length === 0) {
+          return;
+        }
+        void contactWrite(() => client.renameContact(jid, name));
+      });
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-remove-contact]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const jid = button.dataset.removeContact ?? "";
+      const label = button.dataset.contactName ?? jid;
+      if (!window.confirm(`Remove ${label} from your WhatsApp contacts?`)) {
+        return;
+      }
+      void contactWrite(() => client.removeContact(jid));
     });
   });
 }
@@ -1056,24 +1088,6 @@ function bindChatsControls(): void {
   });
 }
 
-function bindMarkAllRead(): void {
-  document.getElementById("mark-all-read")?.addEventListener("click", async () => {
-    const payload = (await client.getUnread()) as {
-      unread: Array<{ chatJid: string; unreadCount: number }>;
-    };
-    for (const entry of payload.unread) {
-      const messages = (await client.getMessages(entry.chatJid, 200)) as {
-        messages: Array<{ id: string; isUnread: boolean }>;
-      };
-      const unreadIds = messages.messages.filter((m) => m.isUnread).map((m) => m.id);
-      if (unreadIds.length > 0) {
-        await client.markRead(entry.chatJid, unreadIds).catch(() => undefined);
-      }
-    }
-    await renderCurrent();
-  });
-}
-
 function bindChatExtras(): void {
   // reply-to: click a message to quote it; send carries reply_to_message_id
   document.querySelectorAll("#app .message").forEach((item) => {
@@ -1172,24 +1186,6 @@ function bindGroupMetaControls(groupJid: string): void {
     const description = (form.querySelector("input[name=description]") as HTMLInputElement).value;
     await client.groupMeta(groupJid, { subject, description }).catch(() => undefined);
     await renderCurrent();
-  });
-}
-
-function bindMarkRead(): void {
-  document.querySelectorAll("#app button[data-mark-jid]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const chatJid = (button as HTMLElement).dataset.markJid ?? "";
-      const payload = (await client.getMessages(chatJid, 200)) as {
-        messages: Array<{ id: string; isUnread: boolean }>;
-      };
-      const unreadIds = payload.messages
-        .filter((message) => message.isUnread)
-        .map((message) => message.id);
-      if (unreadIds.length > 0) {
-        await client.markRead(chatJid, unreadIds);
-      }
-      await renderCurrent();
-    });
   });
 }
 
@@ -1338,82 +1334,6 @@ function bindTranscriptionForm(): void {
   });
 }
 
-function bindAutomationsControls(): void {
-  const confirmDelete = "Remove this automation?";
-  document.querySelectorAll<HTMLButtonElement>("[data-delete-autoreply]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.deleteAutoreply;
-      if (id === undefined || !window.confirm(confirmDelete)) {
-        return;
-      }
-      await client.deleteAutoreply(Number(id)).catch(() => undefined);
-      await renderCurrent();
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-toggle-autoreply]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.toggleAutoreply;
-      const enabled = button.dataset.enabled === "true";
-      if (id === undefined) {
-        return;
-      }
-      await client.toggleAutoreply(Number(id), enabled).catch(() => undefined);
-      await renderCurrent();
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-delete-scheduled]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.deleteScheduled;
-      if (id === undefined || !window.confirm("Cancel this scheduled message?")) {
-        return;
-      }
-      await client.deleteScheduled(Number(id)).catch(() => undefined);
-      await renderCurrent();
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-delete-sendrule]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.deleteSendrule;
-      if (id === undefined || !window.confirm(confirmDelete)) {
-        return;
-      }
-      await client.deleteSendRule(Number(id)).catch(() => undefined);
-      await renderCurrent();
-    });
-  });
-  document.querySelectorAll<HTMLButtonElement>("[data-delete-rule]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const id = button.dataset.deleteRule;
-      if (id === undefined || !window.confirm("Delete this notification rule?")) {
-        return;
-      }
-      await client.deleteNotification(id).catch(() => undefined);
-      await renderCurrent();
-    });
-  });
-  const form = document.getElementById("rule-create") as HTMLFormElement | null;
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const data = new FormData(form);
-    const chatJid = data.get("chat_jid");
-    const title = data.get("title");
-    const body = data.get("body");
-    const deliver = data.getAll("deliver").filter((v): v is string => typeof v === "string");
-    if (typeof chatJid !== "string" || chatJid.length === 0) {
-      return;
-    }
-    await client
-      .createNotificationRule({
-        chat_jid: chatJid,
-        title: typeof title === "string" ? title : undefined,
-        body: typeof body === "string" ? body : undefined,
-        deliver,
-      })
-      .catch(() => undefined);
-    await renderCurrent();
-  });
-}
-
 function bindSettingsForm(): void {
   const form = document.getElementById("settings-form") as HTMLFormElement | null;
   if (form === null) {
@@ -1475,7 +1395,7 @@ function startBridgeDownPoll(): void {
 }
 
 window.addEventListener("hashchange", () => {
-  if (location.hash !== "#/status" && location.hash !== "#/health") {
+  if (location.hash !== "#/status") {
     stopStatusLive();
   }
   if (location.hash !== "#/logs") {

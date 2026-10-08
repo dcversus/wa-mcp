@@ -26,6 +26,7 @@ import { installShutdownHooks } from "./shutdown.ts";
 import { resolveChannel } from "./channels/cloud/config.ts";
 import { SendGuard } from "./send/safety.ts";
 import { openStore } from "./store/schema.ts";
+import { backfillContacts, lidResolver } from "./store/contact-backfill.ts";
 
 export interface BridgeConfig {
   dataDir: string;
@@ -214,6 +215,16 @@ export async function main(
   const authDir = join(config.dataDir, "auth");
   void openAuthStore(authDir);
   const store = openStore(join(config.dataDir, "store"));
+  // R2-2B: contact identity backfill (chats + senders + lid mapping) — a
+  // failure must never block the daemon
+  try {
+    logger.info(
+      backfillContacts(store, { resolvePn: lidResolver(authDir) }),
+      "contacts backfill done",
+    );
+  } catch (err: unknown) {
+    logger.warn({ err }, "contacts backfill failed");
+  }
   const qrPngPath = join(config.dataDir, "qr.png");
   // T94-C2(f): ONE daemon-wide budget — the bridge (autoreply), the HTTP
   // surface and the scheduler all draw from the same SendGuard

@@ -7,7 +7,8 @@ import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
 import { renderQrAscii, saveQrPng } from "./qr.ts";
 import { canonicalChatJid, sendViaSocket } from "./send/send.ts";
-import { upsertContact } from "./store/contacts.ts";
+import { upsertResolvedContact } from "./store/contacts.ts";
+import { lidResolver } from "./store/contact-backfill.ts";
 import { removeGroupParticipants, upsertGroupParticipants } from "./store/groups.ts";
 import { storeMessage, upsertChatMeta } from "./store/messages.ts";
 import { storePollVotes, type PollVoteUpdate } from "./store/poll-votes.ts";
@@ -122,6 +123,7 @@ export async function startBridge(
   let lastDisconnectAt: number | null = null;
   let failureStreak = 0;
   let contactsWarmDone = false;
+  const resolvePn = lidResolver(storeDir);
   let alertFired = false;
 
   // T79 line48: the fork surfaces LTHash 409s ONLY through the injected
@@ -492,7 +494,10 @@ export async function startBridge(
                   try {
                     const engine = socket as unknown as {
                       groupFetchAllParticipating?: () => Promise<
-                        Record<string, { participants?: Array<{ id?: string }> }>
+                        Record<
+                          string,
+                          { participants?: Array<{ id?: string; phoneNumber?: string }> }
+                        >
                       >;
                     };
                     if (typeof engine.groupFetchAllParticipating !== "function") {
@@ -503,7 +508,11 @@ export async function startBridge(
                     for (const group of Object.values(groups ?? {})) {
                       for (const participant of group.participants ?? []) {
                         if (typeof participant.id === "string" && participant.id.length > 0) {
-                          upsertContact(opts.store!, { jid: participant.id });
+                          upsertResolvedContact(
+                            opts.store!,
+                            { jid: participant.id, phone: participant.phoneNumber },
+                            resolvePn,
+                          );
                         }
                       }
                     }
@@ -780,17 +789,29 @@ export async function startBridge(
               name?: string;
               notify?: string;
               verifiedName?: string;
+              username?: string;
+              lid?: string;
+              phoneNumber?: string;
             }>;
             if (opts.store !== undefined) {
               for (const contact of contacts) {
                 if (typeof contact.id !== "string" || contact.id.length === 0) {
                   continue;
                 }
-                upsertContact(opts.store, {
-                  jid: contact.id,
-                  name: contact.name ?? contact.verifiedName,
-                  pushname: contact.notify,
-                });
+                // R2-2B: LID ids land on their PN row; all-NULL rows are skipped
+                upsertResolvedContact(
+                  opts.store,
+                  {
+                    jid: contact.id,
+                    name: contact.name,
+                    pushname: contact.notify,
+                    businessName: contact.verifiedName,
+                    username: contact.username,
+                    lid: contact.lid,
+                    phone: contact.phoneNumber,
+                  },
+                  resolvePn,
+                );
               }
             }
           }

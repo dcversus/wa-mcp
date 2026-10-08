@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { automationsPageHtml, statusDashboardHtml } from "../src/pages.ts";
+import { statusDashboardHtml } from "../src/pages.ts";
 
 test("T166 P3 — the human status card names the account and sums up state", () => {
   const html = statusDashboardHtml({
@@ -34,17 +34,4 @@ test("T166 P3 — an unlinked daemon shows the link call-to-action", () => {
   });
   expect(html).toContain("WhatsApp not linked");
   expect(html).toContain("#/pairing");
-});
-
-test("T166 P3 — notification rules live on the Automations page", () => {
-  const html = automationsPageHtml({
-    autoreplies: [],
-    scheduled: [],
-    sendRules: [],
-    rules: [{ id: "r1", chat_jid: "120363428874442773@g.us", title: "invoice" }],
-    resolveName: (jid) => (jid === "120363428874442773@g.us" ? "Test group" : null),
-  });
-  expect(html).toContain("Notification rules");
-  expect(html).toContain("Test group");
-  expect(html).toContain('data-delete-rule="r1"');
 });
