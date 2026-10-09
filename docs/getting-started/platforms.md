@@ -131,3 +131,35 @@ if an older install left one. `wa-mcp uninstall --target pi` removes only the
 
 Troubleshooting: pi (pi-mcp-extension) never reads `~/.pi/mcp/` — if the
 connection fails, confirm the entry landed in `~/.pi/agent/mcp.json`.
+
+### Pi reacts to WhatsApp (extension)
+
+`wa-mcp install --target pi` also installs the wa-mcp pi extension so a running
+pi session can react to incoming messages:
+
+1. copies the extension (one file, node builtins only) to
+   `~/.wa-mcp/pi-extension-dist`;
+2. appends that absolute path to the `packages` array in
+   `~/.pi/agent/settings.json` (other entries kept; the old file is saved as
+   `settings.json.bak-<timestamp>` first; re-running changes nothing).
+
+Then point a subscription at the session spool and restart pi:
+
+```bash
+wa-mcp subs create --name Family --chat 120363000000000000@g.us --delivery session \
+  --prompt "Summarise and draft a reply"
+```
+
+On `session_start` the extension tails `~/.wa-mcp/subs/*/session.jsonl`
+(`WA_MCP_HOME` overrides `~/.wa-mcp`) and sends each new event to pi as a
+follow-up user message:
+
+```text
+[wa-mcp] message from Mom in Family (chat_jid 1203…@g.us, message_id 3EB0…): dinner at 7? — your subscription asks: Summarise and draft a reply
+```
+
+Only events that arrive while pi runs are injected (no backlog replay). Events
+whose `session` targets another agent (`claude:…`, `codex:…`) are skipped;
+`active`, `pi:…` and untargeted events are delivered. The extension never reads
+the bridge token. `wa-mcp install --target pi --dry-run` prints the plan;
+`wa-mcp uninstall --target pi` removes the entry and the copy.

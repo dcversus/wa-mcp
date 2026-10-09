@@ -23,6 +23,7 @@ for (const pkg of [
   "packages/bridge/package.json",
   "packages/cli/package.json",
   "packages/mcp-server/package.json",
+  "packages/pi-extension/package.json",
   "packages/shared/package.json",
   "packages/web-ui/package.json",
 ]) {

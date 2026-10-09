@@ -22,6 +22,7 @@
   "dependencies": {
     "@wa-mcp/bridge": "workspace:*",
     "@wa-mcp/mcp-server": "workspace:*",
+    "@wa-mcp/pi-extension": "workspace:*",
     "@wa-mcp/shared": "workspace:*",
     "qrcode": "^1.5.4"
   },
@@ -34,6 +35,7 @@
   "bundledDependencies": [
     "@wa-mcp/bridge",
     "@wa-mcp/mcp-server",
+    "@wa-mcp/pi-extension",
     "@wa-mcp/shared"
   ]
 }

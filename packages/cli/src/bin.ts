@@ -42,7 +42,8 @@ import {
 import { installSkills } from "./skills.ts";
 import { runPair } from "./pair.ts";
 import { runImport } from "./import-store.ts";
-import { PLATFORMS } from "./platforms.ts";
+import { PLATFORMS, resolveConfigPath } from "./platforms.ts";
+import { installPiExtension, piExtensionPlan, uninstallPiExtension } from "./pi-extension.ts";
 import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
 const DEFAULT_DATA_DIR = join(process.env.HOME ?? "", ".wa-mcp");
@@ -57,6 +58,7 @@ const BRIDGE_BIN = join(packageDir("@wa-mcp/bridge"), "dist", "bin.mjs");
 const MCP_BIN = join(packageDir("@wa-mcp/mcp-server"), "dist", "bin.mjs");
 const BRIDGE_WEB = join(packageDir("@wa-mcp/bridge"), "dist", "web");
 const SKILLS_SOURCE = join(packageDir("@wa-mcp/cli"), "skills", "wa-mcp");
+const PI_EXTENSION_DIST = join(packageDir("@wa-mcp/pi-extension"), "dist");
 
 export async function main(argv: string[]): Promise<void> {
   const { command, flags, lists, positionals } = parseArgs(argv);
@@ -200,11 +202,25 @@ export async function main(argv: string[]): Promise<void> {
     const targets = (
       lists.target !== undefined && lists.target.length > 0 ? lists.target : [...PLATFORMS]
     ) as Array<string>;
+    const dryRun = flags["dry-run"] !== undefined;
+    const piExtension = { home, dataDir, sourceDir: PI_EXTENSION_DIST };
     let failures = 0;
+    if (dryRun) {
+      console.log("dry run — nothing written");
+    }
     for (const target of targets) {
       if (!PLATFORMS.includes(target as never)) {
         console.error(`unknown target: ${target}`);
         failures += 1;
+        continue;
+      }
+      if (dryRun) {
+        console.log(`${target}: would write ${resolveConfigPath(target as never, home)}`);
+        if (target === "pi") {
+          for (const line of piExtensionPlan(piExtension)) {
+            console.log(line);
+          }
+        }
         continue;
       }
       const result = writeServerEntry(target as never, { home, spec });
@@ -214,6 +230,21 @@ export async function main(argv: string[]): Promise<void> {
       if (!result.verified) {
         failures += 1;
       }
+      if (target === "pi") {
+        try {
+          const pi = installPiExtension(piExtension);
+          console.log(
+            `pi extension: ${pi.distDir} listed in ${pi.settingsPath}${pi.backupPath === undefined ? "" : ` (backup ${pi.backupPath})`}`,
+          );
+        } catch (err) {
+          console.error(`pi extension: ${err instanceof Error ? err.message : String(err)}`);
+          failures += 1;
+        }
+      }
+    }
+    if (dryRun) {
+      console.log(`skills: would install into ${home}`);
+      return;
     }
     const skills = installSkills({ home, sourceDir: SKILLS_SOURCE, dataDir });
     console.log(`skills installed: ${skills.skillDir}`);
@@ -626,6 +657,17 @@ export async function main(argv: string[]): Promise<void> {
     }
     for (const entry of removed) {
       console.log(`removed ${entry.platform}: ${entry.path}`);
+    }
+    if (targets.includes("pi")) {
+      try {
+        const pi = uninstallPiExtension({ home, dataDir });
+        if (pi.changed) {
+          console.log(`removed pi extension: ${pi.distDir} from ${pi.settingsPath}`);
+        }
+      } catch (err) {
+        console.error(`pi extension: ${err instanceof Error ? err.message : String(err)}`);
+        process.exitCode = 1;
+      }
     }
     if (flags.purge !== undefined) {
       const result = purgeDataDir(dataDir, {

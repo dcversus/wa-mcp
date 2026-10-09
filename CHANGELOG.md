@@ -15,6 +15,11 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 - `GET /api/connections` reports `installed` per agent (app bundle / CLI probe; `null` when unknowable); the Agents page sorts installed agents first and badges the rest **App not installed**. `wa-mcp connections` does the same.
 - **View logs** opens `#/logs?agent=<slug>`: the Logs page gains an **Agent** filter, `/api/search` an `agent` param and `wa-mcp messages` an `--agent` flag. An agent's log = its MCP sends (the stdio server stamps `x-wa-agent` from `--agent`/`WA_AGENT` or the MCP `clientInfo`; `wa-mcp install` now writes `--agent <platform>`) plus deliveries from its hook-linked subscriptions, recorded in the new `agent_activity` table (migration v25).
 
+### pi reacts to WhatsApp
+
+- New `@wa-mcp/pi-extension` package: a zero-dependency pi extension that tails `~/.wa-mcp/subs/*/session.jsonl` from `session_start` and injects each new event into the live pi session via `sendUserMessage(…, { deliverAs: "followUp" })`. Partial lines wait, rotation is followed, malformed lines are skipped, errors are logged once to stderr and never crash pi; events targeted at another agent's session are skipped.
+- `wa-mcp install --target pi` copies it to `~/.wa-mcp/pi-extension-dist` and appends that path to `~/.pi/agent/settings.json` `packages` (backup first, idempotent); `uninstall --target pi` reverses it. `wa-mcp install --dry-run` prints the plan and writes nothing.
+
 ### Bridge
 
 - Baileys session daemon: pairing (ASCII + PNG + web QR), persistent auth (0700/0600), exponential-backoff reconnect, single-instance lock, graceful shutdown, `WA_DEVICE_NAME`.

@@ -121,7 +121,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     name: "install",
     group: "agents",
     usage:
-      "install [--target <platform>…] | install --hooks claude|codex --sub <id> [--remove] | install --service",
+      "install [--target <platform>…] [--dry-run] | install --hooks claude|codex --sub <id> [--remove] | install --service",
     summary:
       "register the MCP server with your agents, install subscription hooks, or a login service",
   },

@@ -271,6 +271,9 @@ importers:
       '@wa-mcp/mcp-server':
         specifier: workspace:*
         version: link:../mcp-server
+      '@wa-mcp/pi-extension':
+        specifier: workspace:*
+        version: link:../pi-extension
       '@wa-mcp/shared':
         specifier: workspace:*
         version: link:../shared
@@ -292,6 +295,18 @@ importers:
         version: 1.0.0(@types/node@24.19.0)(@vitest/coverage-v8@5.0.1)(@vitest/ui@5.0.1)(typescript@7.0.2)
 
   packages/mcp-server:
+    devDependencies:
+      '@types/node':
+        specifier: ^24
+        version: 24.19.0
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vite-plus:
+        specifier: ^1.0.0
+        version: 1.0.0(@types/node@24.19.0)(@vitest/coverage-v8@5.0.1)(@vitest/ui@5.0.1)(typescript@7.0.2)
+
+  packages/pi-extension:
     devDependencies:
       '@types/node':
         specifier: ^24

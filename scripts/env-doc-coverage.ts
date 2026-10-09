@@ -6,6 +6,7 @@ const SRC_DIRS = [
   join(ROOT, "packages/bridge/src"),
   join(ROOT, "packages/cli/src"),
   join(ROOT, "packages/mcp-server/src"),
+  join(ROOT, "packages/pi-extension/src"),
 ];
 const DOC = join(ROOT, "docs/configuration.md");
 

@@ -124,6 +124,7 @@ per-variable errors — nothing silently falls back.
 | `WA_BRIDGE_URL` | `http://127.0.0.1:27777` | bridge URL for the stdio MCP server and CLI commands                 |
 | `WA_TOKEN`      | token file               | bearer token for CLI/stdio clients (same file default)               |
 | `WA_AGENT`      | MCP `clientInfo` name    | agent slug the stdio MCP server stamps on its sends (`--agent` wins) |
+| `WA_MCP_HOME`   | `~/.wa-mcp`              | data dir the pi extension tails (`<dir>/subs/*/session.jsonl`)       |
 
 The stdio MCP server sends an `x-wa-agent` header with every bridge call so the
 Logs page can show exactly what one agent did. `wa-mcp install` writes

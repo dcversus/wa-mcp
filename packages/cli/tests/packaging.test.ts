@@ -10,7 +10,12 @@ const pkg = JSON.parse(readFileSync(join(cliRoot, "package.json"), "utf8")) as {
 };
 
 test("cli declares the runtime packages as bundled dependencies", () => {
-  for (const dep of ["@wa-mcp/bridge", "@wa-mcp/mcp-server", "@wa-mcp/shared"]) {
+  for (const dep of [
+    "@wa-mcp/bridge",
+    "@wa-mcp/mcp-server",
+    "@wa-mcp/pi-extension",
+    "@wa-mcp/shared",
+  ]) {
     expect(pkg.dependencies?.[dep], dep).toBe("workspace:*");
     expect(pkg.bundledDependencies, dep).toContain(dep);
   }

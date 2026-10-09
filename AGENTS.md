@@ -18,6 +18,11 @@ wa-mcp: a 100% TypeScript WhatsApp MCP server. pnpm monorepo, Vite+ toolchain
   (copy-dist runs after every bridge build; hash-changed bundles replace, not
   accumulate).
 - `packages/shared` — jid utils + validation shared by bridge and cli.
+- `packages/pi-extension` — pi extension (node builtins only) that tails
+  `~/.wa-mcp/subs/*/session.jsonl` and injects each event into the live pi
+  session via `sendUserMessage` (follow-up). `wa-mcp install --target pi`
+  copies its `dist` to `~/.wa-mcp/pi-extension-dist` and lists it in
+  `~/.pi/agent/settings.json` `packages`.
 
 ## Engine fork pin
 
