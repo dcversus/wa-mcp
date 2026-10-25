@@ -58,50 +58,56 @@ test("T103 — renderSystemdUnit renders the user unit", async () => {
   expect(unit).toContain("WantedBy=default.target");
 });
 
-test.skipIf(process.platform !== "darwin")("T103 — install --service writes the plist into the user LaunchAgents dir",, async () => {
-  process.env.WA_CLI_TEST_HOME = tmpHome();
-  const home = process.env.WA_CLI_TEST_HOME as string;
-  const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t103-data-"));
-  const free = await new Promise<number>((resolve) => {
-    const probe = createServer();
-    probe.listen(0, "127.0.0.1", () => {
-      const port = (probe.address() as AddressInfo).port;
-      probe.close(() => resolve(port));
+test.skipIf(process.platform !== "darwin")(
+  "T103 — install --service writes the plist into the user LaunchAgents dir",
+  async () => {
+    process.env.WA_CLI_TEST_HOME = tmpHome();
+    const home = process.env.WA_CLI_TEST_HOME as string;
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t103-data-"));
+    const free = await new Promise<number>((resolve) => {
+      const probe = createServer();
+      probe.listen(0, "127.0.0.1", () => {
+        const port = (probe.address() as AddressInfo).port;
+        probe.close(() => resolve(port));
+      });
     });
-  });
-  // a free port: the T104 guard must pass (8080 is the live daemon here)
-  await main([
-    "install",
-    "--service",
-    "--home",
-    home,
-    "--data-dir",
-    dataDir,
-    "--port",
-    String(free),
-  ]);
-  const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
-  expect(existsSync(plistPath)).toBe(true);
-  const plist = readFileSync(plistPath, "utf8");
-  expect(plist).toContain(process.execPath);
-  expect(plist).toContain(join(dataDir, "bridge.log"));
-});
+    // a free port: the T104 guard must pass (8080 is the live daemon here)
+    await main([
+      "install",
+      "--service",
+      "--home",
+      home,
+      "--data-dir",
+      dataDir,
+      "--port",
+      String(free),
+    ]);
+    const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
+    expect(existsSync(plistPath)).toBe(true);
+    const plist = readFileSync(plistPath, "utf8");
+    expect(plist).toContain(process.execPath);
+    expect(plist).toContain(join(dataDir, "bridge.log"));
+  },
+);
 
-test.skipIf(process.platform !== "darwin")("T103 — uninstall --service --remove unloads and removes the plist",, async () => {
-  const home = tmpHome();
-  const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
-  mkdirSync(dirname(plistPath), { recursive: true });
-  writeFileSync(plistPath, "<plist/>");
-  const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-  try {
-    await main(["uninstall", "--service", "--remove", "--home", home]);
-    expect(existsSync(plistPath)).toBe(false);
-    const printed = logSpy.mock.calls.map((call) => call.join(" ")).join("\n");
-    expect(printed).toContain("launchctl unload");
-  } finally {
-    logSpy.mockRestore();
-  }
-});
+test.skipIf(process.platform !== "darwin")(
+  "T103 — uninstall --service --remove unloads and removes the plist",
+  async () => {
+    const home = tmpHome();
+    const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
+    mkdirSync(dirname(plistPath), { recursive: true });
+    writeFileSync(plistPath, "<plist/>");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await main(["uninstall", "--service", "--remove", "--home", home]);
+      expect(existsSync(plistPath)).toBe(false);
+      const printed = logSpy.mock.calls.map((call) => call.join(" ")).join("\n");
+      expect(printed).toContain("launchctl unload");
+    } finally {
+      logSpy.mockRestore();
+    }
+  },
+);
 
 test("T103 — parseArgs treats --service as a boolean flag", async () => {
   const { parseArgs } = (await import("../src/commands.ts")) as {
