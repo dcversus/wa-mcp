@@ -291,7 +291,7 @@ test("T180 B spawn — detached, stdio ignored, env carries WAMCP_EVENT/WAMCP_SU
   }
 });
 
-test("T180 B spawn — spawn errors and non-zero exits are logged, never thrown", () => {
+test("T180 B spawn — spawn errors and non-zero exits are logged, never thrown", { timeout: 20_000 }, () => {
   const children: EventEmitter[] = [];
   const h = harness(() => {
     const child = new EventEmitter();

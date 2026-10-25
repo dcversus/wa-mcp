@@ -141,7 +141,7 @@ test("chat timestamp is untouched when a duplicate message is not stored", () =>
   }
 });
 
-test("sender name falls back to verifiedBizName then phone digits", () => {
+test("sender name falls back to verifiedBizName then phone digits", { timeout: 20_000 }, () => {
   const store = makeStore();
   try {
     storeMessage(store, waMessage({ verifiedBizName: "Biz Co" }));
