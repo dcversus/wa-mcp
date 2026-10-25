@@ -1,0 +1,7 @@
+# gitleaks fingerprints (commit:file:rule:line). Audited 2026-10-25:
+# - t163 test fixture token is a dummy value (a1b2c3d4…)
+# - dogfood artifact tokens are dead ephemeral pairing/ui tokens from
+#   2026-10-03; verified NOT to match any live credential
+57d462b307889c71b22ba716c2b703ca80fafa27:packages/web-ui/tests/t163-sec-ui.test.ts:generic-api-key:11
+1611cb749fc6c7887924e93a09aa8618732d14eb:review/dogfood/2026-10-03-webui-final.json:generic-api-key:111
+1611cb749fc6c7887924e93a09aa8618732d14eb:review/dogfood/2026-10-03-webui-final.json:generic-api-key:112
