@@ -2,6 +2,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   test: {
+    globalSetup: ["../../tests-global-setup.mjs"],
     coverage: {
       // T93-F: build output must never dilute (or pad) the gate numbers
       exclude: ["dist/**", "**/node_modules/**"],

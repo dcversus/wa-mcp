@@ -58,7 +58,7 @@ test("T103 — renderSystemdUnit renders the user unit", async () => {
   expect(unit).toContain("WantedBy=default.target");
 });
 
-test("T103 — install --service writes the plist into the user LaunchAgents dir", async () => {
+test.skipIf(process.platform !== "darwin")("T103 — install --service writes the plist into the user LaunchAgents dir",, async () => {
   process.env.WA_CLI_TEST_HOME = tmpHome();
   const home = process.env.WA_CLI_TEST_HOME as string;
   const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t103-data-"));
@@ -87,7 +87,7 @@ test("T103 — install --service writes the plist into the user LaunchAgents dir
   expect(plist).toContain(join(dataDir, "bridge.log"));
 });
 
-test("T103 — uninstall --service --remove unloads and removes the plist", async () => {
+test.skipIf(process.platform !== "darwin")("T103 — uninstall --service --remove unloads and removes the plist",, async () => {
   const home = tmpHome();
   const plistPath = join(home, "Library", "LaunchAgents", "com.wa-mcp.bridge.plist");
   mkdirSync(dirname(plistPath), { recursive: true });

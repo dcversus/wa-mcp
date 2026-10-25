@@ -26,6 +26,7 @@ jobs:
           pnpm --filter @wa-mcp/mcp-server build
           pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
+          pnpm --filter @wa-mcp/pi-extension build
       - run: pnpm exec vp check
 
   build:
@@ -47,6 +48,7 @@ jobs:
           pnpm --filter @wa-mcp/mcp-server build
           pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
+          pnpm --filter @wa-mcp/pi-extension build
           pnpm run build
       - uses: actions/upload-artifact@v4
         with:
@@ -118,6 +120,7 @@ jobs:
           pnpm --filter @wa-mcp/mcp-server build
           pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
+          pnpm --filter @wa-mcp/pi-extension build
           pnpm exec vp test
       # T93-F: thresholds live in each package's vite.config.ts
       # (coverage.thresholds.lines: shared 90, bridge/mcp-server 80; dist/**
