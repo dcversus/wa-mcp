@@ -10,6 +10,8 @@ Symptom → cause → fix, grouped by area. Start with `wa-mcp doctor`, then see
 
 Do: stop ALL attempts → 24h+ quiet (longer for fresh accounts) → on the phone: update WhatsApp, remove other Linked Devices sessions, use the account normally → then pair **once** with `wa-mcp pair --code` (single registration) with an operator present. Containers: gate bridge start on creds existing so restart loops can't fire registrations (see the [voice-dictation cookbook's container notes](/cookbook/voice-dictation.md); a `--no-pair` boot mode is tracked).
 
+The code flow hits the same wall with the same message at code entry (beta data point, 2026-10-25: fresh SIM rejected QR and code across two days of attempts — consistent rejection of BOTH flows after quiet windows points at the phased server-side cohort, which moves on the scale of days-to-weeks; the fast path to a working bot is an established account, or leave the fresh SIM in daily personal use ~a week and retry weekly).
+
 Don't: delete/re-register the number, retry in a loop, or leave an unpaired daemon running under a restart policy.
 
 | Symptom                                                | Cause                                                                                                                                                                                                                                                                      | Fix                                                                                                                                   |
