@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "wa-mcp",
-  description: "WhatsApp MCP server — local bridge, 30 tools, zero-dep",
+  description: "WhatsApp MCP server — one daemon, 74 MCP tools, six agent adapters, web UI",
   base: "/wa-mcp/",
   ignoreDeadLinks: "localhostLinks",
   themeConfig: {
@@ -22,7 +22,6 @@ export default defineConfig({
       { text: "Getting started", link: "/getting-started/" },
       { text: "Desktop (web-first)", link: "/getting-started/desktop" },
       { text: "Headless CLI", link: "/getting-started/index" },
-      { text: "Docker", link: "/getting-started/docker" },
       { text: "Per-platform install", link: "/getting-started/platforms" },
       { text: "Tool reference", link: "/reference/tools" },
       { text: "React to messages", link: "/cookbook/react-to-messages" },
@@ -46,7 +45,12 @@ export default defineConfig({
           { text: "0007 Store schema", link: "/adr/0007-store-schema" },
           { text: "0008 Send safety", link: "/adr/0008-send-safety" },
           { text: "0009 Census-first scope", link: "/adr/0009-census-first-scope" },
-          { text: "0010 No-publish", link: "/adr/0010-no-publish" },
+          { text: "0010 No-publish (superseded)", link: "/adr/0010-no-publish" },
+          { text: "0011 Engine pairing fix", link: "/adr/0011-engine-pairing-fix" },
+          {
+            text: "0012 Scoped pairing token",
+            link: "/adr/0012-scoped-pairing-token-and-loopback-guard",
+          },
         ],
       },
     ],

@@ -37,7 +37,7 @@ transcription and TTS.
 
 - **74 MCP tools** — messaging (text/media/polls/reactions/edit/forward/
   location/contacts/scheduled/templates), reads (chats/messages/context/
-  full-text search/digests/catch-up), groups, contacts + aliases + labels,
+  full-text search/digests/catch-up), group management, contacts + aliases + labels,
   profile/privacy/blocklist, newsletters, autoreply, notification rules,
   subscriptions with agent inbox files, media understanding, export.
 - **Six agent adapters, one daemon** — `wa-mcp install --target <platform>`
@@ -64,7 +64,6 @@ transcription and TTS.
 
 - [Getting started](https://github.com/dcversus/wa-mcp/blob/main/docs/getting-started/index.md)
   · [Per-platform install](https://github.com/dcversus/wa-mcp/blob/main/docs/getting-started/platforms.md)
-  · [Docker](https://github.com/dcversus/wa-mcp/blob/main/docs/getting-started/docker.md)
 - [Tool reference (all 74)](https://github.com/dcversus/wa-mcp/blob/main/docs/reference/tools.md)
 - [Configuration](https://github.com/dcversus/wa-mcp/blob/main/docs/configuration.md)
   · [Troubleshooting](https://github.com/dcversus/wa-mcp/blob/main/docs/troubleshooting.md)
@@ -94,9 +93,9 @@ See [CONTRIBUTING.md](https://github.com/dcversus/wa-mcp/blob/main/CONTRIBUTING.
 
 ## Credits
 
-Built on the shoulders of the WhatsApp-MCP community — every upstream item is
-dispositioned in
-[review/ACCOUNTING.md](https://github.com/dcversus/wa-mcp/blob/main/review/ACCOUNTING.md):
+Built on the shoulders of the WhatsApp-MCP community — every upstream item was
+catalogued and dispositioned during development (census archived in git
+history; see the `archive` issues):
 **lharries/whatsapp-mcp** (reference architecture), **verygoodplugins/whatsapp-mcp**,
 **chigwell/telegram-mcp** (patterns), **FelixIsaac/whatsapp-mcp-extended**,
 **jonzarecki/wa-mcp**, **delltrak/wamcp**, and the issue/PR authors catalogued

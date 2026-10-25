@@ -74,8 +74,6 @@ jobs:
           ./gitleaks detect --redact -v
       - name: version-drift guard
         run: node scripts/version-drift.mjs
-      - name: accounting census check
-        run: pnpm run accounting:check
       - name: env var doc coverage
         run: pnpm run env-doc-coverage
       - name: tool doc coverage

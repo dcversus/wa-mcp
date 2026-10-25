@@ -67,15 +67,9 @@ if (!changelog.includes(`## ${expected} (unreleased)`)) {
 
 /** R2-0.1.0: no stale version mentions in repo-owned files. The forbidden
  * literals are built by concatenation so this script never matches itself.
- * Excluded: pnpm-lock.yaml and the upstream census artifacts (their version
- * strings belong to third parties, not wa-mcp). */
+ * Excluded: pnpm-lock.yaml (dependency versions belong to third parties). */
 const STALE = ["0.9" + ".0", "0.8" + ".0"];
-const STALE_EXEMPT = new Set([
-  "pnpm-lock.yaml",
-  "review/BACKLOG-FULL.md",
-  "review/ACCOUNTING.md",
-  ...tracked.filter((f) => f.startsWith("review/raw/")),
-]);
+const STALE_EXEMPT = new Set(["pnpm-lock.yaml"]);
 for (const file of tracked) {
   if (STALE_EXEMPT.has(file) || !/\.(md|ts|mjs|mts|json|yml|yaml|sh|html|txt)$/.test(file)) {
     continue;

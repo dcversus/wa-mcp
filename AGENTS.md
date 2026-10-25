@@ -40,19 +40,15 @@ Mocks emulate the engine's real output protos. Timer-heavy tests get 15s
 timeouts. `vp test --coverage` enforces bridge/mcp-server ≥80%, shared ≥90%
 lines.
 
-## Ledger files and how they interlock
+## Issue tracking (the ledger is GitHub Issues)
 
-- `GOAL.md` — the 229-box contract. Ticked ONLY with a `— VERIFY: <anchor>`
-  inline; pending boxes carry `— PENDING: live/ci` markers.
-- `review/VERIFY.md` — append-only evidence ledger; every PASS cites its task
-  and gate. TICK a GOAL box only after a VERIFY line exists.
-- `review/GATES.md` — phase records (A–J); each cites its VERIFY lines.
-- `review/ACCOUNTING.md` — 1,029-item census from 14 upstream repos,
-  dispositioned; `pnpm run accounting:check` enforces counts (CI).
-- `review/BLOCKED.md` — external blockers (CI billing, pairing lockout) with
-  proposed defaults.
-  Rule: evidence lives in VERIFY; GOAL references it; nothing is claimed
-  without it.
+Work items, bugs, blockers, dogfood checklists and the historical ledger
+archives all live in the repo's GitHub issues (labels: `bug`,
+`enhancement`, `blocked`, `dogfood`, `verification`, `release`, `backlog`,
+`archive`). The old file ledgers (GOAL/VERIFY/GATES/ACCOUNTING/BLOCKED)
+were retired with the first public release; immutable copies are linked
+from the `archive` issues. Rule: nothing is claimed without evidence —
+cite the issue, commit or test that proves it.
 
 ## Current operational notes
 
@@ -105,8 +101,7 @@ lines.
 - `vp test --coverage` — coverage floors (bridge/mcp-server ≥80, shared ≥90)
 - `pnpm run docs:coverage` — every MCP tool documented
 - `pnpm run env-doc-coverage` — every env var documented
-- `pnpm run accounting:check` — census counts
 - `pnpm run docs:build` — VitePress build (dead links fail)
 - `scripts/webui-e2e.mjs` — browser e2e against the live daemon
-- Live smoke rules: `review/GATES.md` (Test group + owner + Vasilisa only,
-  spaced sends, never auto-retry pairing)
+- Live smoke rules (unchanged): owner's real account, Test group + owner's
+  own number only, spaced sends, never auto-retry pairing

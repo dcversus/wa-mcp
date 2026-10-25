@@ -1,5 +1,9 @@
 # 0009 — Census-first scope: 1,029 items → ACCOUNTING
 
+> Historical record. The census artifacts (`review/BACKLOG-FULL.md`,
+> `review/ACCOUNTING.md`) and their generator scripts were retired with the
+> first public release; immutable copies are linked from the `archive` issues.
+
 ## Status
 
 Accepted

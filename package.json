@@ -8,8 +8,6 @@
     "test": "vp test",
     "build": "vp run -r build",
     "ready": "vp check && vp test && vp build",
-    "accounting:gen": "node --experimental-strip-types scripts/gen-accounting.ts",
-    "accounting:check": "node --experimental-strip-types review/accounting-check.ts",
     "docs:build": "vitepress build docs",
     "docs:gen": "node --experimental-strip-types scripts/gen-docs.ts",
     "docs:coverage": "node --experimental-strip-types scripts/doc-coverage.ts",

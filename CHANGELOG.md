@@ -74,9 +74,9 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 - Web UI: first-run deadlock fixed (main.ts was never wired to the render pipeline); `#/pairing` renders in place with the token form inline — no redirect; CDP headless-Chrome smoke wired (`scripts/webui-smoke.mjs`).
 - Reconnect: QR-pool exhaustion (close 428) auto-reissues a fresh QR with backoff — no manual restart; lifecycle tests made hermetic (no leaked real reconnect timers).
 - Build: bridge `vp pack` no longer wipes the served web assets — `pnpm run -r build` always ends with `bridge/dist/web` present (copy-dist after pack, web-ui ordered first via devDep).
-- Platform: node floor raised to `>=22.5.0` — the store is `node:sqlite`; fresh-container install test passes on node:22 (nested bundled-dep resolution fixed in the docker harness).
+- Platform: node floor raised — the store is `node:sqlite`; a fresh-container install test validates the tarball end-to-end.
 - Quality: `vp test --coverage` with enforced per-package line thresholds (bridge 80 / mcp-server 80 / shared 90; actuals 82.89 / 88.36 / 97.77), wired into CI's test job.
-- Packaging: release tarball reproducible via `scripts/pack-release.sh` (final: sha256 cc8b9ed6…); docker install test green against it.
+- Packaging: release tarball reproducible via `scripts/pack-release.sh` (final: sha256 cc8b9ed6…); fresh-container install test green against it.
 
 ### Independent-review + hardening sweep (2026-10-03/04)
 

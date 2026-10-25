@@ -25,4 +25,4 @@ vp run accounting:check  # assert ACCOUNTING.md covers the 1,029-item census
 - TDD: failing test first, RED evidence in the test commit message.
 - Conventional commits; one logical change per commit; `vp check && vp test` green on every commit.
 - Engine truth from installed type definitions and runtime probes — never assumptions (see `docs/adr/0001`).
-- Scope changes go through `review/BACKLOG-FULL.md` → ACCOUNTING dispositions, not ad-hoc features.
+- Scope changes go through GitHub issues (`enhancement`/`backlog` labels), not ad-hoc features.

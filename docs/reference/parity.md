@@ -1,18 +1,18 @@
-# Tool parity — wa-mcp vs reference implementations (T101-D, GOAL L286)
+# Tool parity — wa-mcp vs reference implementations
 
 Per-tool crosswalk against the reference repos from the census
-(`review/BACKLOG-FULL.md` → `review/ACCOUNTING.md`, 1029 items dispositioned).
+(derived from the 1,029-item upstream census taken during development; the census archive is linked from the `archive` issues).
 
 ## Counts
 
 | project               | tools/features | basis                                                                                                           |
 | --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
 | **wa-mcp (ours)**     | 71             | live registry (`packages/mcp-server/src/tools.ts`)                                                              |
-| chigwell/telegram-mcp | 80+ tools      | GOAL L286 research; per-tool presence below derived from its 252 census rows                                    |
+| chigwell/telegram-mcp | 80+ tools      | per-tool presence below derived from its 252 census rows                                                        |
 | kahflane/whatsapp-mcp | 87             | README feature-level count — trackers empty (0 issues, 0 PRs), per-tool presence not enumerable from the census |
 | biliboss/whatsapp-mcp | 62             | README feature-level count — trackers empty, same caveat                                                        |
 
-Full census with dispositions: review/ACCOUNTING.md in the repository
+Full census with dispositions: see the `archive` issues (immutable git history)
 
 ## Legend
 

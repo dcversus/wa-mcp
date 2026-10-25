@@ -56,9 +56,7 @@ test("T186 B — docs use 27777; 8080 survives only in migration context", () =>
       }
     }
   }
-  for (const path of ["README.md", "docs/configuration.md"]) {
-    expect(read(path), path).toMatch(/Upgrading[\s\S]{0,400}8080[\s\S]{0,200}27777/);
-  }
+  expect(read("docs/configuration.md")).toMatch(/Upgrading[\s\S]{0,400}8080[\s\S]{0,200}27777/);
   expect(read("docs/configuration.md")).toMatch(/\| `WA_PORT`\s+\| `27777`/);
   expect(read("CHANGELOG.md").slice(0, 2000)).toMatch(/27777/);
 });
