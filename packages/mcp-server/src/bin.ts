@@ -74,9 +74,9 @@ export async function handleStream(
     }
     if (
       pump === null &&
-      ctx.session !== undefined &&
-      ctx.session.subscriptions.size > 0 &&
-      ctx.fetchFn !== undefined
+      ctx.fetchFn !== undefined &&
+      ((ctx.session !== undefined && ctx.session.subscriptions.size > 0) ||
+        (ctx.channelSubs !== undefined && ctx.channelSubs.size > 0))
     ) {
       pump = pumpNotifications(ctx, write);
     }
