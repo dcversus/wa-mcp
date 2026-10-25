@@ -16,7 +16,7 @@ function errorOf(input: unknown): string {
 }
 
 test("T177 B1 — delivery modes are inbox | session | spawn", () => {
-  expect(DELIVERY_MODES).toEqual(["inbox", "session", "spawn"]);
+  expect(DELIVERY_MODES).toEqual(["inbox", "session", "spawn", "channel"]);
 });
 
 test("T177 B1 — a minimal inbox config normalises defaults", () => {
@@ -78,10 +78,10 @@ test("T177 B1 — validation errors name the bad field", () => {
     "chats[1] is not a WhatsApp chat id: not-a-jid",
   );
   expect(errorOf({ name: "x", chats: [DM] })).toBe(
-    "delivery.mode must be one of inbox, session, spawn",
+    "delivery.mode must be one of inbox, session, spawn, channel",
   );
   expect(errorOf({ name: "x", chats: [DM], delivery: { mode: "email" } })).toBe(
-    "delivery.mode must be one of inbox, session, spawn",
+    "delivery.mode must be one of inbox, session, spawn, channel",
   );
   expect(errorOf({ name: "x", chats: [DM], delivery: { mode: "spawn" } })).toBe(
     "delivery.agent.command is required for spawn",

@@ -606,6 +606,11 @@ export async function createHttpServer(
       },
       spawnFn: opts.spawnFn ?? spawn,
       ...(opts.logger !== undefined ? { logger: opts.logger } : {}),
+      channelEmit: (frame) => {
+        for (const listener of channelListeners) {
+          listener(frame);
+        }
+      },
     });
     const unsubscribeBus = handle.events.subscribe((event) => {
       if (event.type === "messages.upsert") {
@@ -1896,6 +1901,9 @@ export async function createHttpServer(
   const mcpSessions = new Map<string, McpSession>();
   const eventsWriters = new Set<(frame: string) => void>();
   const toolsChanged = createToolsChangedWatcher(() => TOOLS.map((tool) => tool.name));
+  /** channel-mode subscription frames → every /api/mcp-notify SSE client;
+   * stdio servers filter by agent + own subscription ids */
+  const channelListeners = new Set<(frame: { jsonrpc: "2.0"; method: string }) => void>();
   const serveMcp = (req: IncomingMessage, res: ServerResponse, body: Buffer): void => {
     let parsed: unknown;
     try {
@@ -3104,6 +3112,10 @@ export async function createHttpServer(
             connection: "keep-alive",
           });
           res.write(": connected\n\n");
+          const channelListener = (frame: { jsonrpc: "2.0"; method: string }) => {
+            res.write(`data: ${JSON.stringify(frame)}\n\n`);
+          };
+          channelListeners.add(channelListener);
           const unsubscribeNotify = handle.events.subscribe((event) => {
             for (const notification of toMcpNotifications(event)) {
               res.write(`data: ${JSON.stringify(notification)}\n\n`);
@@ -3116,6 +3128,7 @@ export async function createHttpServer(
           });
           req.on("close", () => {
             unsubscribeNotify();
+            channelListeners.delete(channelListener);
           });
           return;
         }

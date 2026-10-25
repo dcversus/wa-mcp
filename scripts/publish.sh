@@ -33,4 +33,12 @@ NODE
 cp README.md LICENSE "$stage/package/"
 (cd "$stage" && tar -czf "wa-mcp-${version}.tgz" package)
 echo "staged: $stage/wa-mcp-${version}.tgz ($(tar -tzf "$stage/wa-mcp-${version}.tgz" | wc -l | tr -d ' ') files)"
+if [ "${WAMCP_NO_PUBLISH:-0}" = "1" ]; then
+  echo "staging only (WAMCP_NO_PUBLISH=1); artifact kept at: $stage/wa-mcp-${version}.tgz"
+  trap - EXIT
+  exit 0
+fi
 npm publish "$stage/wa-mcp-${version}.tgz" --access public "$@"
+git tag "v${version}" 2>/dev/null || true
+git push origin "v${version}" 2>/dev/null || true
+gh release create "v${version}" --repo dcversus/wa-mcp --title "wa-mcp ${version}" --generate-from-changelog 2>/dev/null || true

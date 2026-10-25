@@ -157,3 +157,28 @@ Subscriptions created before this model are imported at daemon start with
 the same id (so installed hooks keep their inbox path), named
 `Imported <id>`, inbox delivery. `GET /api/subscriptions` still lists the old
 rows; `POST /api/subscriptions` answers `410 Gone` — use `POST /api/subs2`.
+
+## Live channels in Claude Code
+
+Subscriptions can deliver **into the Claude Code session itself**: with
+`channel: true` on `subscribe_events`, every matching message on that chat
+arrives as a Claude Code channel notification (`notifications/claude/channel`)
+— each subscribed chat works as its own channel, and Claude replies with
+`send_message` using the `chat_id` from the notification's meta.
+
+```json
+{
+  "name": "subscribe_events",
+  "arguments": { "chat_jid": "…@g.us", "channel": true, "mention_only": true }
+}
+```
+
+Isolation: the stdio server forwards frames only for subscriptions created
+in that session and tagged with its agent — two sessions never hear each
+other's chats. Media messages arrive as a note; ask Claude to
+`get_media`/`transcribe_message` when needed. Channel messages are untrusted
+input: the shipped `/wa-mcp:wa-channel` command carries the guardrails.
+
+The full plugin (marketplace install, channel command, `wa-mcp mcp` launcher):
+`claude plugin marketplace add dcversus/wa-mcp`, then install the **wa-mcp**
+plugin and run `/wa-mcp:wa-channel`.

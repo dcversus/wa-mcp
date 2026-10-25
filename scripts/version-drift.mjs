@@ -60,6 +60,15 @@ if (deviceVersion === null) {
   check("packages/bridge/src/lifecycle.ts (device label)", deviceVersion[1]);
 }
 
+const pluginManifest = read("plugins/claude-code/.claude-plugin/plugin.json");
+const pluginVersion = JSON.parse(pluginManifest).version;
+check("plugins/claude-code/.claude-plugin/plugin.json", pluginVersion);
+const marketplace = read(".claude-plugin/marketplace.json");
+const marketVersion = JSON.parse(marketplace).plugins[0]?.version;
+if (marketVersion !== undefined) {
+  check(".claude-plugin/marketplace.json (plugin entry)", marketVersion);
+}
+
 const changelog = read("CHANGELOG.md");
 if (!changelog.includes(`## ${expected} (unreleased)`)) {
   failures.push(`CHANGELOG.md: missing "## ${expected} (unreleased)" heading`);

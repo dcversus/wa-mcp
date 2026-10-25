@@ -64,6 +64,7 @@ All tools talk to the local bridge at `WA_BRIDGE_URL` (default `http://127.0.0.1
 
 - `list_notification_rules` / `add_notification_rule` / `delete_notification_rule` — notification rules.
 - `transcribe_message` — transcribe a voice note to text.
+- `subscribe_events` with `channel: true` delivers a chat live into the Claude Code session as channel notifications (reply via send_message with meta.chat_id); each subscribed chat is its own channel.
 - voice notes can also arrive as `/voice` dictation in Claude Code: `wa-mcp voice install` puts rec/sox shims on PATH so holding the dictation key transcribes the next WhatsApp voice note (`wa-mcp voice test` verifies; docs/cookbook/voice-dictation.md).
 
 Full reference with input schemas: `references/tools.md`. Errors and fixes: `references/troubleshooting.md`.

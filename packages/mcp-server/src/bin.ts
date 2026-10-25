@@ -119,7 +119,7 @@ async function pumpNotifications(ctx: ServerContext, write: (line: string) => vo
               method: string;
               params: Record<string, unknown>;
             };
-            if (shouldForward(ctx.session, notification)) {
+            if (shouldForward(ctx.session, notification, ctx)) {
               write(JSON.stringify(notification));
             }
           } catch {
@@ -197,6 +197,7 @@ export async function main(args: string[], env: NodeJS.ProcessEnv = process.env)
     bridgeUrl: config.bridgeUrl,
     token: config.token,
     fetchFn: fetch,
+    channelSubs: new Set<string>(),
     ...(config.agent === undefined ? {} : { agent: config.agent }),
   };
   await handleStream(

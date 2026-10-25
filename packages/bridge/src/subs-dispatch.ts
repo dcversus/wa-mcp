@@ -28,6 +28,57 @@ export interface SubsDispatcherDeps {
   spawnFn: typeof spawn;
   now?: () => Date;
   logger?: { error(obj: unknown, msg?: string): void; warn(obj: unknown, msg?: string): void };
+  /** channel-mode deliveries: frames are forwarded to connected MCP clients
+   * (the /api/mcp-notify SSE listeners); each stdio server filters by its
+   * own agent + the subscriptions it created */
+  channelEmit?: (frame: ChannelNotification) => void;
+}
+
+export interface ChannelNotification {
+  jsonrpc: "2.0";
+  method: "notifications/claude/channel";
+  params: {
+    content: string;
+    meta: Record<string, unknown>;
+  };
+}
+
+/** Claude Code channel contract (verified against claude 2.1.310 and the
+ * whatsapp-claude-plugin reference): notifications/claude/channel with
+ * { content, meta { chat_id, message_id, user, user_id, ts, … } }. Extra
+ * meta keys pass through (the reference ships group_config_path et al). */
+export function buildChannelNotification(
+  config: SubscriptionConfig,
+  event: InboxEvent,
+): ChannelNotification {
+  const isGroup = event.chat.includes("@g.us");
+  const text =
+    event.text.length > 0
+      ? event.text
+      : event.media
+        ? "[media message — use get_media/download_media to inspect]"
+        : "[empty message]";
+  return {
+    jsonrpc: "2.0",
+    method: "notifications/claude/channel",
+    params: {
+      content: `${event.fromName ?? event.from}: ${text}`,
+      meta: {
+        chat_id: event.chat,
+        chat_name: event.chatName ?? event.chat,
+        chat_type: isGroup ? "group" : "dm",
+        message_id: event.id ?? `sub-${config.id}-${event.ts}`,
+        user: event.fromName ?? event.from,
+        user_id: event.from,
+        ts: event.ts,
+        subscription_id: config.id,
+        ...(config.delivery.agentName !== undefined ? { agent: config.delivery.agentName } : {}),
+        ...(config.prompt !== undefined && config.prompt.length > 0
+          ? { prompt: config.prompt }
+          : {}),
+      },
+    },
+  };
 }
 
 export interface SubsDispatcher {
@@ -190,6 +241,10 @@ export function createSubsDispatcher(deps: SubsDispatcherDeps): SubsDispatcher {
   const deliver = (config: SubscriptionConfig, event: InboxEvent): void => {
     if (config.delivery.mode === "spawn") {
       spawnAgent(config, event);
+      return;
+    }
+    if (config.delivery.mode === "channel") {
+      deps.channelEmit?.(buildChannelNotification(config, event));
       return;
     }
     writer(config.id, config.delivery.mode === "session" ? SESSION_SPOOL : "inbox").append(event);

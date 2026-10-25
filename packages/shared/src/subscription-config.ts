@@ -2,7 +2,7 @@ import { isJid } from "./jid.ts";
 
 export const ALL_CHATS = "*";
 
-export const DELIVERY_MODES = ["inbox", "session", "spawn"] as const;
+export const DELIVERY_MODES = ["inbox", "session", "spawn", "channel"] as const;
 
 export type DeliveryMode = (typeof DELIVERY_MODES)[number];
 
@@ -16,6 +16,9 @@ export interface SubscriptionDelivery {
   mode: DeliveryMode;
   session?: string;
   agent?: SpawnAgent;
+  /** channel mode: agent slug whose MCP sessions may receive the frames
+   * (the stdio server filters by its own --agent identity) */
+  agentName?: string;
 }
 
 export interface SubscriptionFilter {
@@ -112,6 +115,12 @@ function validateDelivery(raw: unknown): SubscriptionDelivery | string {
   if (mode === "spawn") {
     const agent = validateAgent(delivery.agent);
     return typeof agent === "string" ? agent : { mode, agent };
+  }
+  if (mode === "channel") {
+    if (delivery.agentName !== undefined && typeof delivery.agentName !== "string") {
+      return "delivery.agentName must be a string";
+    }
+    return delivery.agentName === undefined ? { mode } : { mode, agentName: delivery.agentName };
   }
   return { mode: "inbox" };
 }

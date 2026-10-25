@@ -44,8 +44,10 @@ transcription and TTS.
   writes the right config for Claude Code, Claude Desktop, Codex, Pi, Grok
   and Antigravity; per-agent send attribution and agent-filtered logs.
 - **Agents that react** — subscribe a chat; events spool to an inbox the
-  agent drains, or land live inside **pi** sessions via the bundled pi
-  extension.
+  agent drains, land live inside **pi** sessions via the bundled pi
+  extension, or arrive as **live Claude Code channels**: with `channel: true`
+  each subscribed chat becomes a channel in the running session (install the
+  plugin: `claude plugin marketplace add dcversus/wa-mcp`).
 - **Voice notes as `/voice` dictation** — `wa-mcp voice install` drops
   `rec`/`sox` shims so Claude Code's own speech-to-text transcribes your
   WhatsApp voice notes when you hold the dictation key — no transcription

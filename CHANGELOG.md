@@ -20,6 +20,13 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 - The whole product is versioned **0.1.0** (the internal pre-release line was retired): every package.json, the bridge SERVER payload, MCP `SERVER_INFO`, device label, web UI, CHANGELOG and docs now carry 0.1.0, enforced by the version-drift guard which additionally fails on any stale pre-release version mention in repo-owned files. Historical ledgers were rewritten to match (owner directive).
 - Node floor raised to **≥26** (latest LTS line): root `engines.node`, `doctor` min-node check, CI matrix (ubuntu/macos/windows × node 26), docker install-test images (`node:26`), and docs. The no-publish CI guard and ADR-0010's publish ban are superseded — the repo is public and the npm release is owner-authorized.
 
+### Live channels in Claude Code
+
+- `subscribe_events` gains `channel: true`: matching messages are delivered to the session as Claude Code channel notifications (`notifications/claude/channel` — the contract pinned from claude 2.1.310 and the whatsapp-claude-plugin reference). Each subscribed chat = one channel; Claude replies with `send_message` using `meta.chat_id`.
+- Isolation by construction: the bridge broadcasts channel frames on `/api/mcp-notify`, and each stdio server forwards only frames for subscriptions created in that process and tagged with its `--agent`.
+- New `wa-mcp mcp` command runs the bundled stdio server (what hosts and the plugin spawn). The Claude Code plugin ships as a marketplace-installable channel plugin: `.claude-plugin/marketplace.json` (category `channels`), `plugins/claude-code/` manifest + `.mcp.json` launcher + `/wa-mcp:wa-channel` onboarding command; versions covered by the drift guard.
+- Cookbook: [React to messages → Live channels in Claude Code](https://github.com/dcversus/wa-mcp/blob/main/docs/cookbook/react-to-messages.md).
+
 ### WhatsApp voice notes as /voice dictation
 
 - New `wa-mcp voice` command family: `voice install` writes POSIX-sh `rec` + `sox` shims (0755, marker-guarded, `--force` to replace foreign ones) plus a 0600 env file (`~/.wa-mcp/voice-shim.env`); `voice uninstall` reverses; `voice test` probes the shims and serves one note end-to-end through the exact Claude Code recorder argv.

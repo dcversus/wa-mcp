@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "wa-mcp",
+  "version": "0.1.0",
+  "description": "WhatsApp channels for Claude Code — one wa-mcp daemon, 74 tools, voice notes as /voice dictation",
+  "owner": { "name": "dcversus" },
+  "plugins": [
+    {
+      "name": "wa-mcp",
+      "description": "WhatsApp as live Claude Code channels: subscribe chats, messages arrive in-session, Claude replies with 74 MCP tools; voice notes as /voice dictation.",
+      "version": "0.1.0",
+      "source": "./plugins/claude-code",
+      "category": "channels"
+    }
+  ]
+}

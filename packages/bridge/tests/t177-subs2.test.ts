@@ -207,7 +207,7 @@ test("T177 B3 http — validation errors: empty chats, bad mode, bad jid, bad JS
     [{ ...SPAWN, chats: [] }, "chats must list at least one chat"],
     [
       { ...SPAWN, delivery: { mode: "carrier-pigeon" } },
-      "delivery.mode must be one of inbox, session, spawn",
+      "delivery.mode must be one of inbox, session, spawn, channel",
     ],
     [{ ...SPAWN, chats: [GROUP, "bogus"] }, "chats[1] is not a WhatsApp chat id: bogus"],
     ["{not json", "body must be valid JSON"],

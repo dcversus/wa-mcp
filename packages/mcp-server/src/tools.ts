@@ -1293,7 +1293,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "subscribe_events",
     description:
-      "Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt. Optional %like% text filter and mention-only gate. Returns the subscription with its id and inboxPath for the agent to watch. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.",
+      "Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1314,6 +1314,11 @@ export const TOOLS: ToolDef[] = [
         mention_only: {
           type: "boolean",
           description: "Only deliver messages that @mention this WhatsApp account",
+        },
+        channel: {
+          type: "boolean",
+          description:
+            "Deliver as Claude Code channel notifications instead of an inbox file — the subscribed chat becomes a live channel in the Claude Code session; reply with send_message using meta.chat_id",
         },
         prompt: { type: "string", description: "Instructions stamped into every delivered event" },
       },
@@ -1337,7 +1342,13 @@ export const TOOLS: ToolDef[] = [
         ...(typeof args.prompt === "string" && args.prompt.length > 0
           ? { prompt: args.prompt }
           : {}),
-        delivery: { mode: "inbox" },
+        delivery:
+          args.channel === true
+            ? {
+                mode: "channel",
+                ...(toolCtx.agent !== undefined ? { agentName: toolCtx.agent } : {}),
+              }
+            : { mode: "inbox" },
       };
       const payload = (await bridgeFetch(toolCtx, "/api/subs2", {
         method: "POST",

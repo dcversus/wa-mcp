@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -387,6 +388,31 @@ export async function main(argv: string[]): Promise<void> {
     if (!report.ok) {
       process.exitCode = 1;
     }
+    return;
+  }
+  if (command === "mcp") {
+    // plugin/host entry point: run the bundled stdio MCP server with the
+    // same data dir / token / agent the CLI uses; args pass through
+    const mcpToken = flags.token ?? readToken(dataDir) ?? "";
+    const mcpIndex = argv.indexOf("mcp");
+    const mcpArgs = (mcpIndex >= 0 ? argv : process.argv).slice(mcpIndex + 1);
+    const mcpBin = process.env.WA_MCP_SERVER_BIN ?? MCP_BIN;
+    if (!existsSync(mcpBin)) {
+      console.error(`mcp server not built: ${mcpBin} — run pnpm run -r build`);
+      process.exitCode = 1;
+      return;
+    }
+    const child = spawn(process.execPath, [mcpBin, ...mcpArgs], {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        WA_BRIDGE_URL: process.env.WA_BRIDGE_URL ?? bridgeUrl,
+        ...(mcpToken.length > 0 ? { WA_TOKEN: mcpToken } : {}),
+      },
+    });
+    child.on("exit", (code) => {
+      process.exitCode = code ?? 0;
+    });
     return;
   }
   if (command === "status") {

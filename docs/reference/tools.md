@@ -672,7 +672,7 @@ Clear all messages in a chat (chat stays in the list).
 
 ### subscribe_events
 
-Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt. Optional %like% text filter and mention-only gate. Returns the subscription with its id and inboxPath for the agent to watch. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.
+Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.
 
 ```json
 {
@@ -698,6 +698,10 @@ Create a subscription for a chat (or all chats): matching incoming messages are 
       "type": "boolean",
       "description": "Only deliver messages that @mention this WhatsApp account"
     },
+    "channel": {
+      "type": "boolean",
+      "description": "Deliver as Claude Code channel notifications instead of an inbox file — the subscribed chat becomes a live channel in the Claude Code session; reply with send_message using meta.chat_id"
+    },
     "prompt": { "type": "string", "description": "Instructions stamped into every delivered event" }
   }
 }
@@ -708,6 +712,7 @@ Create a subscription for a chat (or all chats): matching incoming messages are 
 - `name` (string, optional) — Subscription name (default: "MCP: " plus the chat id)
 - `like` (string, optional) — SQL LIKE text filter, case-insensitive: % any text, _ one character; without wildcards it matches anywhere
 - `mention_only` (boolean, optional) — Only deliver messages that @mention this WhatsApp account
+- `channel` (boolean, optional) — Deliver as Claude Code channel notifications instead of an inbox file — the subscribed chat becomes a live channel in the Claude Code session; reply with send_message using meta.chat_id
 - `prompt` (string, optional) — Instructions stamped into every delivered event
 
 ### unsubscribe_events

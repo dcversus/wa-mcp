@@ -1,11 +1,24 @@
 {
   "name": "wa-mcp",
-  "version": "0.10.0",
-  "description": "WhatsApp bridge for Claude Code — messaging, groups, media, health via the wa-mcp MCP server",
-  "mcpServers": {
-    "wa-mcp": {
-      "command": "wa-mcp",
-      "args": ["skills"]
+  "displayName": "WhatsApp channels for Claude Code",
+  "description": "WhatsApp as live Claude Code channels — subscribe chats with wa-mcp; every subscribed chat arrives in-session and Claude replies with its 74 MCP tools. Voice notes as /voice dictation included.",
+  "version": "0.1.0",
+  "author": { "name": "dcversus" },
+  "homepage": "https://github.com/dcversus/wa-mcp",
+  "repository": "https://github.com/dcversus/wa-mcp",
+  "license": "MIT",
+  "keywords": ["whatsapp", "mcp", "channel", "messaging", "claude-code"],
+  "userConfig": {
+    "bridge_url": {
+      "type": "string",
+      "title": "Bridge URL",
+      "description": "wa-mcp daemon URL (default http://127.0.0.1:27777)"
+    },
+    "bridge_token": {
+      "type": "string",
+      "title": "Bridge token",
+      "description": "Bearer token from ~/.wa-mcp/token",
+      "sensitive": true
     }
   }
 }

@@ -99,6 +99,7 @@ wa-mcp settings set --limits on --per-minute 20 --per-day 300 --per-chat-day 40
 | `WA_WHISPER_BIN`       | `whisper-cli`                      | whisper.cpp binary path                                                                                    |
 | `WA_WHISPER_MODEL`     | unset (required for whisper-local) | ggml `.bin` model path                                                                                     |
 | `WA_FFMPEG_BIN`        | `ffmpeg`                           | ffmpeg path (video frames, audio extraction)                                                               |
+| `WA_MCP_SERVER_BIN`    | _unset_                            | override the stdio MCP server binary the `wa-mcp mcp` command spawns (tests)                               |
 | `WA_TTS_ALLOW_MOCK`    | unset                              | `1` = allow the mock TTS engine (otherwise structured error)                                               |
 | `WA_OCR_ENGINE`        | `none`                             | `tesseract` enables OCR of images in `read_document`                                                       |
 | `WA_OCR_LANG`          | `eng`                              | tesseract language                                                                                         |

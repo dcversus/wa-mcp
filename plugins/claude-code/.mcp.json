@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "wa-mcp": {
+      "command": "npx",
+      "args": ["-y", "wa-mcp", "mcp", "--agent", "claude-code"],
+      "env": {
+        "WA_BRIDGE_URL": "${user_config.bridge_url}",
+        "WA_TOKEN": "${user_config.bridge_token}"
+      }
+    }
+  }
+}

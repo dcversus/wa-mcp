@@ -206,6 +206,13 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     summary: "show the installed version and how to update",
   },
   {
+    name: "mcp",
+    group: "daemon",
+    usage: "mcp [--agent <name>] [--bridge-url <url>] [--token <t>] [args…]",
+    summary:
+      "run the stdio MCP server (what hosts and the Claude Code plugin spawn) — args pass through",
+  },
+  {
     name: "voice",
     group: "daemon",
     usage:

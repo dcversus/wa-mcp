@@ -32,6 +32,9 @@ export interface ServerContext {
   session?: McpSession;
   agent?: string;
   clientAgent?: string;
+  /** subscription ids adopted by THIS stdio process (via subscribe_events
+   * tool calls) — channel frames are only forwarded for these */
+  channelSubs?: Set<string>;
 }
 
 const CLIENT_AGENTS: Array<[RegExp, string]> = [
@@ -190,6 +193,7 @@ function validId(id: unknown): string | number | null {
 }
 
 async function dispatchToolCall(
+  ctx: ServerContext,
   toolCtx: ToolContext,
   registry: ToolDef[],
   params: unknown,
@@ -211,12 +215,14 @@ async function dispatchToolCall(
   // because bridgeFetch arms its own abort timeout.
   try {
     if (args === undefined || args === null) {
-      return toolResultToPayload(await tool.handler(toolCtx, {}));
+      return toolResultToPayload(trackChannelSub(tool.name, await tool.handler(toolCtx, {}), ctx));
     }
     if (typeof args !== "object" || Array.isArray(args)) {
       throw new ParamError("arguments must be an object");
     }
-    return toolResultToPayload(await tool.handler(toolCtx, args as Record<string, unknown>));
+    return toolResultToPayload(
+      trackChannelSub(tool.name, await tool.handler(toolCtx, args as Record<string, unknown>), ctx),
+    );
   } catch (err) {
     if (err instanceof ParamError) {
       throw err;
@@ -240,6 +246,35 @@ function toolResultToPayload(result: import("./tools.ts").ToolResult): Record<st
 }
 
 type PromptGetParams = { name?: string; arguments?: Record<string, string> };
+
+/** subscribe_events/unsubscribe_events results update the process-local
+ * channel-adoption set, so notifications/claude/channel frames only reach
+ * the session that created the subscription. */
+function trackChannelSub(
+  toolName: string,
+  result: import("./tools.ts").ToolResult,
+  ctx: ServerContext,
+): import("./tools.ts").ToolResult {
+  const set = ctx.channelSubs;
+  if (set === undefined || result.isError === true) {
+    return result;
+  }
+  const text = result.content.find((part) => part.type === "text")?.text;
+  if (typeof text !== "string") {
+    return result;
+  }
+  try {
+    const payload = JSON.parse(text) as { id?: unknown };
+    if (toolName === "subscribe_events" && typeof payload.id === "string") {
+      set.add(payload.id);
+    } else if (toolName === "unsubscribe_events" && typeof payload.id === "string") {
+      set.delete(payload.id);
+    }
+  } catch {
+    // non-JSON result — nothing to track
+  }
+  return result;
+}
 
 export async function handleRpcMessage(
   message: unknown,
@@ -380,7 +415,7 @@ export async function handleRpcMessage(
           })),
         };
       case "tools/call":
-        return dispatchToolCall(toolContext(ctx), ctx.tools, request.params);
+        return dispatchToolCall(ctx, toolContext(ctx), ctx.tools, request.params);
       case "resources/list":
         return { resources: WA_RESOURCES };
       case "resources/subscribe":
@@ -460,12 +495,29 @@ export interface ForwardableNotification {
 export function shouldForward(
   session: McpSession | undefined,
   notification: ForwardableNotification,
+  ctx?: ServerContext,
 ): boolean {
   if (
     notification.method === "notifications/message" ||
     notification.method === "notifications/tools/list_changed"
   ) {
     return true;
+  }
+  if (notification.method === "notifications/claude/channel") {
+    const meta = notification.params.meta as
+      | { subscription_id?: unknown; agent?: unknown }
+      | undefined;
+    if (meta === undefined) {
+      return false;
+    }
+    if (
+      typeof meta.agent === "string" &&
+      typeof ctx?.agent === "string" &&
+      meta.agent !== ctx.agent
+    ) {
+      return false;
+    }
+    return ctx?.channelSubs?.has(String(meta.subscription_id)) ?? false;
   }
   if (notification.method === "notifications/resources/updated") {
     const uri = notification.params.uri;
