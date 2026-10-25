@@ -1,5 +1,7 @@
 # 0011 — Engine pairing fix: fork pin for companion_reg_refresh
 
+> Update 2026-10-25: the fork is now consumed as a prebuilt vendored tarball (, built from this branch) so installs never re-run its yarn/tsc prepack; the pin rationale below is unchanged.
+
 ## Status
 
 Accepted

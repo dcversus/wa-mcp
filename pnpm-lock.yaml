@@ -235,8 +235,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       baileys:
-        specifier: github:doryani-ai/Baileys#fix/companion-reg-refresh
-        version: https://codeload.github.com/doryani-ai/Baileys/tar.gz/4f263f0e365c2e74dd1b824031d1c5910f518c26(sharp@0.35.5(@types/node@24.19.0))
+        specifier: file:../../vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz
+        version: file:vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz(sharp@0.35.5(@types/node@24.19.0))
       pino:
         specifier: ^9.14.0
         version: 9.14.0
@@ -647,19 +647,19 @@ packages:
 
   '@img/sharp-darwin-arm64@0.35.5':
     resolution: {integrity: sha512-QRUlFQ0WxvdWyqqG/WtI3iupfD5rBzmCHXSdPsY91sAtVtTo7Q4cb6zOccZ3gqEqkr0f1As1ehLqmEpDsRf+lg==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [darwin]
 
   '@img/sharp-darwin-x64@0.35.5':
     resolution: {integrity: sha512-+BR255RhDlpygUpOc/Jdt1nT6DQ3XG/ERo5wbcdOf5Q320dKtPCKPLR1LJs9VGXRaMa8l1uUa0tkCNOXiAxZUw==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [darwin]
 
   '@img/sharp-freebsd-wasm32@0.35.5':
     resolution: {integrity: sha512-Y/z91nEZ4uIBX5X3nfTovjU9lHNKFYbL2lpHCLVNmXQK03VIZvXBBt0KxbPGp2SdGSF+2mQU4e+hQaWOt86iAw==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     os: [freebsd]
 
   '@img/sharp-libvips-darwin-arm64@1.3.4':
@@ -722,84 +722,84 @@ packages:
 
   '@img/sharp-linux-arm64@0.35.5':
     resolution: {integrity: sha512-LYVx5JTsOM2CBzmxreh+nl64/3H6Xb09iSLknqH47z2T2DFFxDeFLP5y4dJwe6H7uGQlHPyEEtIqyo3DYsRwdQ==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linux-arm@0.35.5':
     resolution: {integrity: sha512-LEaXK2WdXVK5ykcw0buWyPMsmLLL2vpHLD6yrNSW+JGEL3BZPA4tpKN6iaMc4AxTTAoaX/sU1rOL51lcIz48ZQ==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linux-ppc64@0.35.5':
     resolution: {integrity: sha512-QVxAAq8evVRI9ia2vqgwrmWucn5Dfv+JdWzj75pD8omHLPSP7f8p20O8jxzjCcuCEQEOtYOZUmX1hkiZ0kdevA==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [ppc64]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linux-riscv64@0.35.5':
     resolution: {integrity: sha512-LtdreXguaavKODPIfzJ4kffx7UNt1omwtK0rch4EBbbSTXPnxWmYSayXdLJw0fJzQ97kHt1gL/yh4tvU+nCyRQ==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [riscv64]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linux-s390x@0.35.5':
     resolution: {integrity: sha512-UZasTOFiYzotTsGOCu42BfUzP6Tu6Do/947iRm1RsLKvlllxwGcn4RN27LibGWceix4Y+Pmw3jsnTcCQIgWjqA==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [s390x]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linux-x64@0.35.5':
     resolution: {integrity: sha512-SxFtLTeJInhAA9Q836kux2vZNeOBQEx658qvbboZScr0wIARym3IcGmW7KpVD5sbVg0Ojy+udFQdayYIZyoNog==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
   '@img/sharp-linuxmusl-arm64@0.35.5':
     resolution: {integrity: sha512-9HbMclmI1zlNkFRs3z9/eBtDjfD0sGlrX1z6b1qwmiFY5ElDLh4BC0LPBdVp7z1DXFiKlIcznf+ZlsuZzLxQqg==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
   '@img/sharp-linuxmusl-x64@0.35.5':
     resolution: {integrity: sha512-4KOphqB035HrVdqLZfCgMzzERrQkkzOwRhl4OAkRO1YCldbaFjySXMaK534Mo0V+LndnlJk+sbUyLeU0ULyD1A==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
   '@img/sharp-wasm32@0.35.5':
     resolution: {integrity: sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
 
   '@img/sharp-webcontainers-wasm32@0.35.5':
     resolution: {integrity: sha512-hfhF/FmoQyTUkA0bIKFOtw536BQSeBMe6BF6QyWlrPxT754+TFLaZ7sKKTfvvM0yJgKgaYTwnFCIZ/GuDw5SUA==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [wasm32]
 
   '@img/sharp-win32-arm64@0.35.5':
     resolution: {integrity: sha512-X4t7g+7ZA5DKblCBEXGjUqqemj4vczING/5viFwAL8h4N3qYeyjwdCvRLHi4EdOUI+2Z7UFlp1VM+p/AuEtm6Q==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [arm64]
     os: [win32]
 
   '@img/sharp-win32-ia32@0.35.5':
     resolution: {integrity: sha512-5Zm82LoBc43nhwNybZlG7Y1KO//Zhsn306fQl29ZOuStHLGTo3BWL83q3cznX0poxSAMuYL1On/BHBxkBeKr6A==}
-    engines: {node: ^20.1.0}
+    engines: {node: ^20.9.0}
     cpu: [ia32]
     os: [win32]
 
   '@img/sharp-win32-x64@0.35.5':
     resolution: {integrity: sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     cpu: [x64]
     os: [win32]
 
@@ -1913,8 +1913,8 @@ packages:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
 
-  baileys@https://codeload.github.com/doryani-ai/Baileys/tar.gz/4f263f0e365c2e74dd1b824031d1c5910f518c26:
-    resolution: {gitHosted: true, integrity: sha512-XrLnrKM89+zRUmjYwZ98nNHlTNsENjQ2Gk+NR58nEJX11JEl2VZjq1/GuvS5HmBty9kGMcpI8nfIpwrlAOm+cA==, tarball: https://codeload.github.com/doryani-ai/Baileys/tar.gz/4f263f0e365c2e74dd1b824031d1c5910f518c26}
+  baileys@file:vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz:
+    resolution: {integrity: sha512-ueWuo01bxeIS+uLUax5p0LJBuPGm3vqqM7Wu4Gu0dr1bkLDlut/dg866JDD3JNoCHWj/VRJjiWk2E4peBL1Hqw==, tarball: file:vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz}
     version: 7.0.0-rc14
     engines: {node: '>=20.0.0'}
     peerDependencies:
@@ -2451,7 +2451,7 @@ packages:
 
   sharp@0.35.5:
     resolution: {integrity: sha512-Ywn4OnzGukp7CDMrp08RQ50YKmuwG47brZgIVPTvBaaAfQlRlygrRqSrxdCiL9M+LlzLBiJ68IR1QqvzHyjC7g==}
-    engines: {node: '>=20.1.0'}
+    engines: {node: '>=20.9.0'}
     peerDependencies:
       '@types/node': '*'
     peerDependenciesMeta:
@@ -3896,7 +3896,7 @@ snapshots:
 
   atomic-sleep@1.0.0: {}
 
-  baileys@https://codeload.github.com/doryani-ai/Baileys/tar.gz/4f263f0e365c2e74dd1b824031d1c5910f518c26(sharp@0.35.5(@types/node@24.19.0)):
+  baileys@file:vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz(sharp@0.35.5(@types/node@24.19.0)):
     dependencies:
       '@cacheable/node-cache': 1.7.6
       '@hapi/boom': 9.1.4

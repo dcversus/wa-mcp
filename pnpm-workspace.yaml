@@ -1,7 +1,7 @@
 packages:
   - packages/*
 allowBuilds:
-  baileys@https://codeload.github.com/doryani-ai/Baileys/tar.gz/4f263f0e365c2e74dd1b824031d1c5910f518c26: true
+  baileys@file:vendor/baileys-7.0.0-rc14-companion-reg-refresh.tgz: false
   esbuild: true
   protobufjs: false
 peerDependencyRules:
