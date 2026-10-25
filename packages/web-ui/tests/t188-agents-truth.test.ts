@@ -45,7 +45,7 @@ const CLAUDE_HOOK: ConnectionView = {
 };
 
 test("T188 P1 — a host app that is not installed gets a muted badge", () => {
-  const html = connectionCardHtml(mcp("cursor", "Cursor", false));
+  const html = connectionCardHtml(mcp("grok", "Grok", false));
   expect(html).toContain('<span class="badge badge-muted">App not installed</span>');
   expect(html).toContain('data-installed="false"');
   expect(connectionCardHtml(mcp("codex", "Codex", true))).not.toContain("App not installed");
@@ -55,7 +55,7 @@ test("T188 P1 — a host app that is not installed gets a muted badge", () => {
 test("T188 P1 — installed agents sort first, unknown next, not-installed last (stable)", () => {
   const html = connectionsPageHtml({
     connections: [
-      mcp("cursor", "Cursor", false),
+      mcp("antigravity", "Antigravity", false),
       mcp("pi", "Pi", null),
       mcp("codex", "Codex", true),
       mcp("grok", "Grok", false),
@@ -63,7 +63,7 @@ test("T188 P1 — installed agents sort first, unknown next, not-installed last 
     ],
   });
   const order = [...html.matchAll(/data-connection-agent="([^"]+)"/g)].map((match) => match[1]);
-  expect(order).toEqual(["codex", "claude", "pi", "cursor", "grok"]);
+  expect(order).toEqual(["codex", "claude", "pi", "antigravity", "grok"]);
 });
 
 test("T188 P2 — View logs links to the logs page filtered to that agent", () => {
@@ -72,8 +72,8 @@ test("T188 P2 — View logs links to the logs page filtered to that agent", () =
   expect(connectionCardHtml(CLAUDE_HOOK)).toContain(
     '<a href="#/logs?agent=claude-code">View logs</a>',
   );
-  expect(connectionCardHtml(mcp("cursor", "Cursor", false))).toContain(
-    '<a href="#/logs?agent=cursor">View logs</a>',
+  expect(connectionCardHtml(mcp("grok", "Grok", false))).toContain(
+    '<a href="#/logs?agent=grok">View logs</a>',
   );
 });
 

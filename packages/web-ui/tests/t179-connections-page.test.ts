@@ -27,11 +27,11 @@ const CODEX_HOOK: ConnectionView = {
   subId: "gone",
   subscription: null,
 };
-const CURSOR_MCP: ConnectionView = {
+const GROK_MCP: ConnectionView = {
   kind: "mcp",
-  agent: "cursor",
-  label: "Cursor",
-  configPath: "/home/u/.cursor/mcp.json",
+  agent: "grok",
+  label: "Grok",
+  configPath: "/home/u/.grok/mcp.json",
   detail: "wa-mcp-server · env WA_TOKEN=[redacted]",
   enabled: true,
   subId: null,
@@ -75,18 +75,18 @@ test("T179 C card — disabled hooks and a missing subscription are called out",
 });
 
 test("T179 C card — MCP registrations get an MCP badge and a set-up-subscription link", () => {
-  const html = connectionCardHtml(CURSOR_MCP);
+  const html = connectionCardHtml(GROK_MCP);
   expect(html).toContain('<span class="badge badge-mcp">MCP</span>');
   expect(html).toContain("Registered ✓");
   expect(html).toContain("wa-mcp-server · env WA_TOKEN=[redacted]");
-  expect(html).toContain('data-disconnect-kind="mcp" data-disconnect-agent="cursor"');
+  expect(html).toContain('data-disconnect-kind="mcp" data-disconnect-agent="grok"');
   expect(html).not.toContain("data-disconnect-sub");
   expect(html).toContain('<a href="#/subscriptions">Set up a subscription</a>');
 });
 
 test("T179 C page — h1, Connected agents list, error banner", () => {
   const html = connectionsPageHtml({
-    connections: [CLAUDE_HOOK, CURSOR_MCP],
+    connections: [CLAUDE_HOOK, GROK_MCP],
     error: "could not disconnect <x>",
   });
   expect(html.match(/<h1>/g)).toHaveLength(1);
@@ -117,10 +117,10 @@ test("T179 C router — the agents page (renamed from Connections in R2-9) repla
   const { dom, calls } = fakeDom("#/agents");
   await renderFrame({
     dom,
-    loaders: { agents: async () => connectionsPageHtml({ connections: [CURSOR_MCP] }) },
+    loaders: { agents: async () => connectionsPageHtml({ connections: [GROK_MCP] }) },
   });
   expect(calls.some((call) => call.title === "Agents · wa-mcp")).toBe(true);
-  expect(calls.at(-1)?.app).toContain("Cursor");
+  expect(calls.at(-1)?.app).toContain("Grok");
   const fallback = fakeDom("#/agents");
   await renderFrame({ dom: fallback.dom, loaders: {} });
   expect(fallback.calls.at(-1)?.app).toContain("No agents connected yet");

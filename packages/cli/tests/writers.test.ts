@@ -28,12 +28,10 @@ test("every platform writer verifies its own write", () => {
 const PLATFORM_SHAPE: Record<Platform, () => void> = {
   "claude-code": () => {},
   "claude-desktop": () => {},
-  cursor: () => {},
   grok: () => {},
   antigravity: () => {},
   pi: () => {},
   codex: () => {},
-  hermes: () => {},
 };
 
 test("json platforms merge into existing config without dupes", () => {
@@ -63,19 +61,6 @@ test("codex toml gets a wa-mcp table and stays parseable on re-write", () => {
   expect(text).toContain("[mcp_servers.wa-mcp]");
   expect(text).toContain('command = "node"');
   expect(text.match(/\[mcp_servers\.wa-mcp\]/g)).toHaveLength(1);
-});
-
-test("hermes yaml gets mcp_servers.wa-mcp and preserves other keys", () => {
-  const home = fakeHome();
-  const config = join(home, ".hermes", "config.yaml");
-  mkdirSync(join(home, ".hermes"), { recursive: true });
-  writeFileSync(config, "platform_toolsets:\n  cli:\n    - browser\n");
-  writeServerEntry("hermes", { home, spec: SPEC });
-  const text = readFileSync(config, "utf8");
-  expect(text).toContain("platform_toolsets:");
-  expect(text).toContain("mcp_servers:");
-  expect(text).toContain("wa-mcp:");
-  expect(text).toContain("command: node");
 });
 
 test("antigravity carries command and args keys", () => {
@@ -113,6 +98,6 @@ test("pi merges into agent/mcp.json with an mcpServers wrapper and migrates the 
 test("listRegisteredPlatforms reports verified installs", () => {
   const home = fakeHome();
   expect(listRegisteredPlatforms(home)).toEqual([]);
-  writeServerEntry("cursor", { home, spec: SPEC });
-  expect(listRegisteredPlatforms(home)).toEqual(["cursor"]);
+  writeServerEntry("grok", { home, spec: SPEC });
+  expect(listRegisteredPlatforms(home)).toEqual(["grok"]);
 });

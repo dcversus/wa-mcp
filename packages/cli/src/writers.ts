@@ -148,98 +148,6 @@ function writeCodex(path: string, spec: ServerSpec): WriteResult {
   return { platform: "codex", path, verified };
 }
 
-function indentOf(row: string): number {
-  return row.length - row.trimStart().length;
-}
-
-function yamlChildRange(
-  rows: string[],
-  key: string,
-): { serverIndex: number; childrenEnd: number; depth: number; start: number; end: number } | null {
-  const serverIndex = rows.findIndex((row) => /^mcp_servers:\s*$/.test(row));
-  if (serverIndex < 0) {
-    return null;
-  }
-  let childrenEnd = serverIndex + 1;
-  while (
-    childrenEnd < rows.length &&
-    ((rows[childrenEnd] ?? "").trim() === "" || indentOf(rows[childrenEnd] ?? "") > 0)
-  ) {
-    childrenEnd += 1;
-  }
-  const firstChild = rows.slice(serverIndex + 1, childrenEnd).find((row) => row.trim().length > 0);
-  const depth = firstChild === undefined ? 2 : indentOf(firstChild);
-  const start = rows.findIndex(
-    (row, index) =>
-      index > serverIndex &&
-      index < childrenEnd &&
-      indentOf(row) === depth &&
-      row.trim() === `${key}:`,
-  );
-  if (start < 0) {
-    return { serverIndex, childrenEnd, depth, start: -1, end: -1 };
-  }
-  let end = start + 1;
-  while (
-    end < childrenEnd &&
-    ((rows[end] ?? "").trim() === "" || indentOf(rows[end] ?? "") > depth)
-  ) {
-    end += 1;
-  }
-  return { serverIndex, childrenEnd, depth, start, end: dropTrailingBlanks(rows, start + 1, end) };
-}
-
-function upsertYamlMapping(text: string, entry: string[]): string {
-  const rows = toRows(text);
-  const range = yamlChildRange(rows, "wa-mcp");
-  if (range === null) {
-    return fromRows([...rows, "mcp_servers:", ...entry.map((row) => `  ${row}`)]);
-  }
-  const indented = entry.map((row) => `${" ".repeat(range.depth)}${row}`);
-  if (range.start < 0) {
-    return fromRows([
-      ...rows.slice(0, range.serverIndex + 1),
-      ...indented,
-      ...rows.slice(range.serverIndex + 1),
-    ]);
-  }
-  return fromRows([...rows.slice(0, range.start), ...indented, ...rows.slice(range.end)]);
-}
-
-export function removeYamlServer(text: string, key: string): string {
-  const rows = toRows(text);
-  const range = yamlChildRange(rows, key);
-  if (range === null || range.start < 0) {
-    return text;
-  }
-  return fromRows([...rows.slice(0, range.start), ...rows.slice(range.end)]);
-}
-
-function hermesEntry(spec: ServerSpec): string[] {
-  return [
-    "wa-mcp:",
-    `  command: ${spec.command}`,
-    `  args: [${spec.args.map((arg) => `"${arg}"`).join(", ")}]`,
-    "  env:",
-    `    WA_TOKEN: "${spec.env?.WA_TOKEN ?? ""}"`,
-  ];
-}
-
-function writeHermes(path: string, spec: ServerSpec): WriteResult {
-  ensureParent(path);
-  const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const entry = hermesEntry(spec);
-  const updated = upsertYamlMapping(existing, entry);
-  writeFileSync(path, updated, { mode: 0o600 });
-  const keyRow = toRows(updated).find((row) => row.trim() === "wa-mcp:") ?? "";
-  const pad = " ".repeat(indentOf(keyRow));
-  const verified =
-    /^mcp_servers:\s*$/m.test(updated) &&
-    updated.match(/^\s+wa-mcp:\s*$/gm)?.length === 1 &&
-    updated.includes(entry.map((row) => `${pad}${row}`).join("\n"));
-  return { platform: "hermes", path, verified };
-}
-
 function bridgeUrlOf(spec: ServerSpec): string {
   const index = spec.args.indexOf("--bridge-url");
   return (index >= 0 ? spec.args[index + 1] : undefined) ?? DEFAULT_BRIDGE_URL;
@@ -261,8 +169,6 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
     }
     case "claude-desktop":
       return { ...writeJsonServer(path, "mcpServers", "wa-mcp", spec), platform };
-    case "cursor":
-      return { ...writeJsonServer(path, "mcpServers", "wa-mcp", spec), platform };
     case "grok":
       return { ...writeJsonServer(path, "mcpServers", "wa-mcp", spec), platform };
     case "antigravity":
@@ -282,8 +188,6 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
     }
     case "codex":
       return writeCodex(path, spec);
-    case "hermes":
-      return writeHermes(path, spec);
     default: {
       throw new Error(`unknown platform: ${String(platform)}`);
     }

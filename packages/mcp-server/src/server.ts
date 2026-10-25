@@ -37,9 +37,7 @@ export interface ServerContext {
 const CLIENT_AGENTS: Array<[RegExp, string]> = [
   [/^claude[-\s]?code/i, "claude-code"],
   [/^claude/i, "claude-desktop"],
-  [/cursor/i, "cursor"],
   [/codex/i, "codex"],
-  [/hermes/i, "hermes"],
   [/grok/i, "grok"],
   [/antigravity/i, "antigravity"],
   [/^pi(?:$|[-\s])/i, "pi"],
@@ -167,7 +165,7 @@ async function bridgeFetchResource(toolCtx: ToolContext, path: string): Promise<
   return response.json();
 }
 
-export const SERVER_INFO = { name: "wa-mcp", version: "0.9.0" } as const;
+export const SERVER_INFO = { name: "wa-mcp", version: "0.1.0" } as const;
 export const PROTOCOL_VERSION = "2025-06-18";
 
 const PARSE_ERROR = -32700;

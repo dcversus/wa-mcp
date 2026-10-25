@@ -66,72 +66,6 @@ function parseToml(text: string): Record<string, Record<string, TomlValue>> {
   return tables;
 }
 
-type Yaml = string | Yaml[] | { [key: string]: Yaml };
-
-function parseYamlScalar(raw: string): Yaml {
-  const value = raw.trim();
-  if (value.startsWith("[") && value.endsWith("]")) {
-    const inner = value.slice(1, -1).trim();
-    return inner.length === 0
-      ? []
-      : (inner.match(/"(?:[^"\\]|\\.)*"|[^,\s][^,]*/g) ?? []).map(parseYamlScalar);
-  }
-  const quoted = /^"((?:[^"\\]|\\.)*)"$/.exec(value);
-  return quoted !== null ? (quoted[1] ?? "") : value;
-}
-
-function parseYaml(text: string): { [key: string]: Yaml } {
-  const lines = text
-    .split("\n")
-    .map((raw, index) => ({ raw, index }))
-    .filter(({ raw }) => raw.trim().length > 0 && !raw.trim().startsWith("#"));
-  let cursor = 0;
-  function block(indent: number): Yaml {
-    const first = lines[cursor];
-    if (first?.raw.trim().startsWith("- ")) {
-      const list: Yaml[] = [];
-      while (cursor < lines.length) {
-        const line = lines[cursor];
-        if (line === undefined) break;
-        const depth = line.raw.length - line.raw.trimStart().length;
-        if (depth < indent) break;
-        if (depth !== indent || !line.raw.trim().startsWith("- ")) {
-          throw new Error(`bad list item at line ${line.index + 1}`);
-        }
-        list.push(parseYamlScalar(line.raw.trim().slice(2)));
-        cursor += 1;
-      }
-      return list;
-    }
-    const map: { [key: string]: Yaml } = {};
-    while (cursor < lines.length) {
-      const line = lines[cursor];
-      if (line === undefined) break;
-      const depth = line.raw.length - line.raw.trimStart().length;
-      if (depth < indent) break;
-      if (depth > indent) throw new Error(`unexpected indent at line ${line.index + 1}`);
-      const pair = /^([A-Za-z0-9_.-]+):(?:\s+(.*))?$/.exec(line.raw.trim());
-      if (pair === null)
-        throw new Error(`not a mapping line at line ${line.index + 1}: ${line.raw}`);
-      const key = pair[1] ?? "";
-      if (key in map) throw new Error(`duplicate key ${key} at line ${line.index + 1}`);
-      cursor += 1;
-      if (pair[2] !== undefined && pair[2].length > 0) {
-        map[key] = parseYamlScalar(pair[2]);
-      } else {
-        const next = lines[cursor];
-        const nextDepth = next === undefined ? -1 : next.raw.length - next.raw.trimStart().length;
-        map[key] = nextDepth > indent ? block(nextDepth) : "";
-      }
-    }
-    return map;
-  }
-  const parsed = block(0);
-  if (cursor !== lines.length)
-    throw new Error(`trailing content at line ${(lines[cursor]?.index ?? 0) + 1}`);
-  return parsed as { [key: string]: Yaml };
-}
-
 const CODEX_SEED = `model = "o4-mini"
 
 [mcp_servers.other]
@@ -180,69 +114,7 @@ test("T187 codex — a config already holding orphaned arrays is cleaned on the 
   expect(parsed["mcp_servers.other"]).toEqual({ command: "npx" });
 });
 
-const HERMES_SEED = `platform_toolsets:
-  cli:
-    - browser
-mcp_servers:
-  other:
-    command: npx
-    args: ["-y", "other-server"]
-  wa-mcp:
-    command: /usr/local/bin/node
-    args: ["${BIN}", "--bridge-url", "http://127.0.0.1:8080", "--token", "tok-old"]
-    env:
-      WA_TOKEN: "tok-old"
-  zeta:
-    command: zeta
-model: claude
-`;
-
-test("T187 hermes — reinstall with a new port replaces the existing entry, other keys byte-for-byte", () => {
-  const home = fakeHome();
-  const path = join(home, ".hermes", "config.yaml");
-  mkdirSync(join(home, ".hermes"), { recursive: true });
-  writeFileSync(path, HERMES_SEED);
-  const result = writeServerEntry("hermes", { home, spec: spec(27777) });
-  expect(result.verified).toBe(true);
-  const text = readFileSync(path, "utf8");
-  const parsed = parseYaml(text) as {
-    mcp_servers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
-  };
-  expect(parsed.mcp_servers["wa-mcp"]).toEqual({
-    command: "/usr/local/bin/node",
-    args: [
-      BIN,
-      "--bridge-url",
-      "http://127.0.0.1:27777",
-      "--token",
-      "tok-new",
-      "--agent",
-      "hermes",
-    ],
-    env: { WA_TOKEN: "tok-new" },
-  });
-  expect(Object.keys(parsed.mcp_servers)).toEqual(["other", "wa-mcp", "zeta"]);
-  expect(text).not.toContain("8080");
-  const outside = (body: string): string =>
-    body.replace(/ {2}wa-mcp:\n(?: {4}.*\n)+/, "<wa-mcp>\n");
-  expect(outside(text)).toBe(outside(HERMES_SEED));
-});
-
-test("T187 hermes — only the wa-mcp key under mcp_servers counts; a mention elsewhere is not an entry", () => {
-  const home = fakeHome();
-  const path = join(home, ".hermes", "config.yaml");
-  mkdirSync(join(home, ".hermes"), { recursive: true });
-  writeFileSync(path, 'notes: "see wa-mcp: docs"\nmcp_servers:\n  other:\n    command: npx\n');
-  writeServerEntry("hermes", { home, spec: spec(27777) });
-  const parsed = parseYaml(readFileSync(path, "utf8")) as {
-    notes: string;
-    mcp_servers: Record<string, unknown>;
-  };
-  expect(parsed.notes).toBe("see wa-mcp: docs");
-  expect(Object.keys(parsed.mcp_servers).sort()).toEqual(["other", "wa-mcp"]);
-});
-
-for (const platform of ["codex", "hermes"] as const) {
+for (const platform of ["codex"] as const) {
   test(`T187 ${platform} — installing N times yields the same file as installing once`, () => {
     const once = fakeHome();
     const many = fakeHome();
@@ -276,23 +148,6 @@ test("T187 uninstall codex — removes the whole wa-mcp table (args too), foreig
   expect(parsed["mcp_servers.other"]).toEqual({ command: "npx", args: ["-y", "other-server"] });
   expect(parsed["profiles.fast"]).toEqual({ model: "gpt-5-mini" });
   expect(text).not.toContain(BIN);
-});
-
-test("T187 uninstall hermes — removes only the wa-mcp entry; sibling servers after it survive", async () => {
-  const { uninstallRegistrations } = await import("../src/service.ts");
-  const home = fakeHome();
-  const path = join(home, ".hermes", "config.yaml");
-  mkdirSync(join(home, ".hermes"), { recursive: true });
-  writeFileSync(path, HERMES_SEED);
-  expect(uninstallRegistrations(home, ["hermes"])).toHaveLength(1);
-  const parsed = parseYaml(readFileSync(path, "utf8")) as {
-    model: string;
-    platform_toolsets: unknown;
-    mcp_servers: Record<string, unknown>;
-  };
-  expect(Object.keys(parsed.mcp_servers)).toEqual(["other", "zeta"]);
-  expect(parsed.model).toBe("claude");
-  expect(parsed.platform_toolsets).toEqual({ cli: ["browser"] });
 });
 
 test("T187 codex — a quoted-key table right after wa-mcp is a header, not part of the entry", () => {

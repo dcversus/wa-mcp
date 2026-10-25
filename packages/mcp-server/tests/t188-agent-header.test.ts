@@ -37,8 +37,8 @@ const SEND = { name: "send_message", arguments: { chat_jid: "358497773518", text
 
 test("T188 P2 — --agent / WA_AGENT name the agent explicitly", () => {
   expect(parseMcpConfig(["--agent", "pi"], {}).agent).toBe("pi");
-  expect(parseMcpConfig([], { WA_AGENT: "hermes" }).agent).toBe("hermes");
-  expect(parseMcpConfig(["--agent", "pi"], { WA_AGENT: "hermes" }).agent).toBe("pi");
+  expect(parseMcpConfig([], { WA_AGENT: "grok" }).agent).toBe("grok");
+  expect(parseMcpConfig(["--agent", "pi"], { WA_AGENT: "grok" }).agent).toBe("pi");
   expect(parseMcpConfig([], {}).agent).toBeUndefined();
 });
 
@@ -46,10 +46,8 @@ test.each([
   ["claude-code", "claude-code"],
   ["claude-ai", "claude-desktop"],
   ["Claude Desktop", "claude-desktop"],
-  ["cursor-vscode", "cursor"],
   ["codex-mcp-client", "codex"],
   ["Codex", "codex"],
-  ["hermes-agent", "hermes"],
   ["grok-cli", "grok"],
   ["antigravity", "antigravity"],
   ["pi", "pi"],

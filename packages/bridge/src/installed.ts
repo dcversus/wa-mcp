@@ -16,10 +16,8 @@ export interface InstallEnv {
 export const INSTALL_PROBES: Record<Platform, InstallProbe> = {
   "claude-code": { apps: [], bins: ["claude"] },
   "claude-desktop": { apps: ["Claude.app"], bins: [] },
-  cursor: { apps: ["Cursor.app"], bins: ["cursor"] },
   codex: { apps: ["Codex.app"], bins: ["codex"] },
   pi: { apps: [], bins: ["pi"] },
-  hermes: { apps: [], bins: ["hermes"] },
   grok: { apps: ["Grok.app"], bins: ["grok"] },
   antigravity: { apps: ["Antigravity.app"], bins: ["antigravity", "agy"] },
 };

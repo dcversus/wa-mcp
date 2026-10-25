@@ -42,14 +42,6 @@ is down — `npx wa-mcp status`.
 Troubleshooting: Desktop only reads the config at launch — restart it after
 `wa-mcp install`.
 
-## Cursor
-
-`~/.cursor/mcp.json` → `mcpServers.wa-mcp` (same JSON as Claude Code
-without the `"type"` field).
-
-Troubleshooting: Cursor caches MCP state per workspace — reload the
-window after install.
-
 ## Codex
 
 `~/.codex/config.toml`:
@@ -68,22 +60,7 @@ Troubleshooting: TOML tables are last-write-wins — re-run
 `~/.grok/mcp.json` → `mcpServers.wa-mcp` (same JSON as Claude Code
 without the `"type"` field).
 
-Troubleshooting: same as Cursor — reload after install.
-
-## Hermes
-
-`~/.hermes/config.yaml`:
-
-```yaml
-mcp_servers:
-  wa-mcp:
-    command: node
-    args: ["<bin.mjs>", "--bridge-url", "http://127.0.0.1:27777", "--token", "<token>"]
-    env:
-      WA_TOKEN: "<token>"
-```
-
-Troubleshooting: YAML indentation is two spaces, exactly as written above.
+Troubleshooting: Grok caches MCP state — reload after install.
 
 ## Antigravity
 

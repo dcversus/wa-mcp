@@ -49,10 +49,8 @@ test("T188 P1 — every platform has a documented probe", () => {
   expect(Object.keys(INSTALL_PROBES).sort()).toEqual([...PLATFORMS].sort());
   expect(INSTALL_PROBES["claude-code"]).toEqual({ apps: [], bins: ["claude"] });
   expect(INSTALL_PROBES["claude-desktop"]).toEqual({ apps: ["Claude.app"], bins: [] });
-  expect(INSTALL_PROBES.cursor).toEqual({ apps: ["Cursor.app"], bins: ["cursor"] });
   expect(INSTALL_PROBES.codex).toEqual({ apps: ["Codex.app"], bins: ["codex"] });
   expect(INSTALL_PROBES.pi).toEqual({ apps: [], bins: ["pi"] });
-  expect(INSTALL_PROBES.hermes).toEqual({ apps: [], bins: ["hermes"] });
   expect(INSTALL_PROBES.grok).toEqual({ apps: ["Grok.app"], bins: ["grok"] });
   expect(INSTALL_PROBES.antigravity).toEqual({
     apps: ["Antigravity.app"],
@@ -64,17 +62,14 @@ test("T188 P1 — macOS: an app bundle or an executable CLI on the search path m
   const root = tempRoot();
   const env = fakeEnv(root);
   app(join(root, "Applications"), "Claude.app");
-  app(join(root, "home", "Applications"), "Cursor.app");
+  app(join(root, "home", "Applications"), "Grok.app");
   bin(join(root, "bin"), "claude");
-  bin(join(root, "home", ".local", "bin"), "hermes");
   bin(join(root, "home", ".local", "bin"), "agy");
   bin(join(root, "bin"), "codex", false);
   expect(detectInstalled("claude-desktop", env)).toBe(true);
-  expect(detectInstalled("cursor", env)).toBe(true);
+  expect(detectInstalled("grok", env)).toBe(true);
   expect(detectInstalled("claude-code", env)).toBe(true);
-  expect(detectInstalled("hermes", env)).toBe(true);
   expect(detectInstalled("codex", env)).toBe(false);
-  expect(detectInstalled("grok", env)).toBe(false);
   expect(detectInstalled("antigravity", env)).toBe(true);
   expect(detectInstalled("pi", env)).toBe(false);
 });
@@ -92,9 +87,9 @@ test("T188 P1 — off macOS app bundles are unknowable: app-only hosts are null,
   const root = tempRoot();
   const env = fakeEnv(root, "linux");
   app(join(root, "Applications"), "Claude.app");
-  bin(join(root, "bin"), "cursor");
+  bin(join(root, "bin"), "grok");
   expect(detectInstalled("claude-desktop", env)).toBeNull();
-  expect(detectInstalled("cursor", env)).toBe(true);
+  expect(detectInstalled("grok", env)).toBe(true);
   expect(detectInstalled("pi", env)).toBe(false);
 });
 
@@ -156,7 +151,7 @@ test("T188 P1 — GET /api/connections carries installed per connection", async 
   const home = join(root, "home");
   const entry = { mcpServers: { "wa-mcp": { command: "node", args: ["wa-mcp"] } } };
   put(join(home, ".claude.json"), JSON.stringify(entry));
-  put(join(home, ".cursor", "mcp.json"), JSON.stringify(entry));
+  put(join(home, ".grok", "mcp.json"), JSON.stringify(entry));
   bin(join(root, "bin"), "claude");
   const bridge = await createHttpServer(stubHandle(), {
     token: "t188",
@@ -172,6 +167,6 @@ test("T188 P1 — GET /api/connections carries installed per connection", async 
   };
   expect(body.connections.map((c) => [c.agent, c.installed])).toEqual([
     ["claude-code", true],
-    ["cursor", false],
+    ["grok", false],
   ]);
 });

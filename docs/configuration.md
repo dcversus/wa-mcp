@@ -18,7 +18,7 @@ BYOK config file `~/.wa-mcp/config.json` (see cookbook → media understanding).
 
 ## Upgrading: the default port
 
-Upgrading: the default port changed from 8080 to 27777 in 0.9.0. Installs that pass a port explicitly — the launchd/systemd service
+Upgrading: the default port changed from 8080 to 27777 in 0.1.0. Installs that pass a port explicitly — the launchd/systemd service
 (`--port 8080`) and every MCP host entry written by `wa-mcp install`
 (`--bridge-url http://127.0.0.1:8080`) — keep working unchanged. To move to
 27777, run `wa-mcp install --service` and `wa-mcp install` again without
@@ -130,7 +130,7 @@ The stdio MCP server sends an `x-wa-agent` header with every bridge call so the
 Logs page can show exactly what one agent did. `wa-mcp install` writes
 `--agent <platform>` into each host entry; without it the slug comes from the
 host's MCP `initialize` handshake (`claude-code`, `claude-ai` → `claude-desktop`,
-`cursor-vscode` → `cursor`, `codex-mcp-client` → `codex`, …). Web UI and CLI sends
+`grok-cli` → `grok`, `codex-mcp-client` → `codex`, …). Web UI and CLI sends
 are recorded as `ui`.
 
 ## Client config targets
@@ -141,10 +141,8 @@ are recorded as `ui`.
 | -------------- | ----------------------------------------------------------------- |
 | claude-code    | `~/.claude.json` (`mcpServers.wa-mcp`)                            |
 | claude-desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| cursor         | `~/.cursor/mcp.json`                                              |
 | codex          | `~/.codex/config.toml` (`[mcp_servers.wa-mcp]`)                   |
 | pi             | `~/.pi/mcp/wa-mcp.json`                                           |
-| hermes         | `~/.hermes/config.yaml` (`mcp_servers:` block)                    |
 | grok           | `~/.grok/mcp.json`                                                |
 | antigravity    | `~/.gemini/antigravity/mcp_config.json`                           |
 

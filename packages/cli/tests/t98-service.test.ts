@@ -87,8 +87,8 @@ test("T98 uninstall — removes every registration; purge needs confirmation", a
     seedSpec(home, platform);
   }
   // pi's standalone spec file carries no "wa-mcp" marker, so the registry
-  // list sees 7 — the removal path still covers all 8 targets explicitly
-  expect(listRegisteredPlatforms(home).length).toBeGreaterThanOrEqual(7);
+  // list sees 5 — the removal path still covers all 6 targets explicitly
+  expect(listRegisteredPlatforms(home).length).toBeGreaterThanOrEqual(5);
   const { uninstallRegistrations } = (await import("../src/service.ts")) as {
     uninstallRegistrations: (
       home: string,
@@ -96,7 +96,7 @@ test("T98 uninstall — removes every registration; purge needs confirmation", a
     ) => Array<{ platform: string; path: string }>;
   };
   const removed = uninstallRegistrations(home, [...PLATFORMS]);
-  expect(removed).toHaveLength(8);
+  expect(removed).toHaveLength(6);
   expect(listRegisteredPlatforms(home)).toEqual([]);
 
   const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-t98-purge-"));
@@ -118,8 +118,8 @@ test("T98 update — reports the version and the tarball flow, no self-update", 
   const { buildUpdateReport } = (await import("../src/service.ts")) as {
     buildUpdateReport: (version: string) => string;
   };
-  const report = buildUpdateReport("0.9.0");
-  expect(report).toContain("0.9.0");
+  const report = buildUpdateReport("0.1.0");
+  expect(report).toContain("0.1.0");
   expect(report).toContain("pack-release.sh");
   expect(report).toContain("no self-update");
 });

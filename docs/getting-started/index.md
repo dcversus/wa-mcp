@@ -4,7 +4,7 @@
 
 ```sh
 wa-mcp install            # writes client configs for all detected platforms
-wa-mcp install --target cursor   # or one platform: claude-code, claude-desktop, cursor, codex, pi, hermes, grok, antigravity
+wa-mcp install --target codex   # or one platform: claude-code, claude-desktop, codex, pi, grok, antigravity
 ```
 
 Every write is read back and verified. Re-running updates in place.

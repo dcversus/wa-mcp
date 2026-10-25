@@ -51,7 +51,7 @@ curl -s http://127.0.0.1:27777/health | jq
 | `uiBootstrapToken` | web UI bootstrap credential (see [Security](./security.md#auth-design-adr-0012)) |
 | `channel`          | `baileys` or `cloud`                                                             |
 | `credentialsValid` | cloud only: verify token present                                                 |
-| `version`          | e.g. `0.9.0`                                                                     |
+| `version`          | e.g. `0.1.0`                                                                     |
 | `uptime`           | seconds since the HTTP server started                                            |
 | `subscriptions`    | `{ count, dropped }`, where `dropped` counts failed inbox writes                 |
 | `reconnects`       | reconnect counter                                                                |
@@ -88,7 +88,7 @@ wa-mcp messages --q invoice --follow                       # live tail (polls ev
 
 `agent=<slug>` (`wa-mcp messages --agent <slug>`, the Logs page **Agent** select) keeps only what that agent did: messages it sent through its MCP server (attributed by the `x-wa-agent` header, see configuration) and messages its hook-linked subscriptions delivered to it. Attribution is recorded from this release on; older messages carry none. Web UI and CLI sends are attributed to `ui`.
 
-Agents page install detection (`installed` on `GET /api/connections`): on macOS an app bundle in `/Applications` or `~/Applications`, or the agent's CLI on the daemon's `PATH` plus `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.bun/bin`, `~/.npm-global/bin`, `~/.claude/local` and the running Node's bin directory. Probes: Claude Code `claude`; Claude Desktop `Claude.app`; Cursor `Cursor.app`/`cursor`; Codex `Codex.app`/`codex`; Pi `pi`; Hermes `hermes`; Grok `Grok.app`/`grok`; Antigravity `Antigravity.app`/`antigravity`. Off macOS app bundles are not checked, so app-only hosts report unknown (no badge).
+Agents page install detection (`installed` on `GET /api/connections`): on macOS an app bundle in `/Applications` or `~/Applications`, or the agent's CLI on the daemon's `PATH` plus `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.bun/bin`, `~/.npm-global/bin`, `~/.claude/local` and the running Node's bin directory. Probes: Claude Code `claude`; Claude Desktop `Claude.app`; Codex `Codex.app`/`codex`; Pi `pi`; Grok `Grok.app`/`grok`; Antigravity `Antigravity.app`/`antigravity`. Off macOS app bundles are not checked, so app-only hosts report unknown (no badge).
 
 ### Contacts
 
@@ -118,11 +118,11 @@ Errors: `400 VALIDATION_ERROR`, `503 NOT_CONNECTED` (writes need a live session)
 `wa-mcp connections` lists the agents wired to this daemon — the same data as the web UI **Connections** page (`#/connections`), served by `GET /api/connections`. The daemon reads the agent configs of the user it runs as: <!-- src: packages/bridge/src/connections.ts; packages/cli/src/connections.ts -->
 
 - **Hooks** — `wa-mcp inbox drain` entries in `~/.claude/settings.json` (Claude Code) and `~/.codex/hooks.json` (Codex). Each entry is one connection; its subscription id comes from the inbox path (`…/subs/<id>/inbox.jsonl`). `disableAllHooks: true` shows it as disabled.
-- **MCP** — a `wa-mcp` server entry in `~/.claude.json`, Claude Desktop's `claude_desktop_config.json`, `~/.cursor/mcp.json`, `~/.codex/config.toml` (`[mcp_servers.wa-mcp]`), `~/.pi/agent/mcp.json`, `~/.hermes/config.yaml`, `~/.grok/mcp.json` and `~/.gemini/antigravity/mcp_config.json`. `disabled: true` / `enabled = false` shows it as disabled.
+- **MCP** — a `wa-mcp` server entry in `~/.claude.json`, Claude Desktop's `claude_desktop_config.json`, `~/.codex/config.toml` (`[mcp_servers.wa-mcp]`), `~/.pi/agent/mcp.json`, `~/.grok/mcp.json` and `~/.gemini/antigravity/mcp_config.json`. `disabled: true` / `enabled = false` shows it as disabled.
 
 ```sh
 wa-mcp connections                                   # AGENT  KIND  STATUS  SUBSCRIPTION
-wa-mcp connections disconnect mcp cursor             # remove the wa-mcp server from Cursor's config
+wa-mcp connections disconnect mcp grok              # remove the wa-mcp server from Grok's config
 wa-mcp connections disconnect hooks claude --sub abc # remove only subscription abc's hook
 ```
 

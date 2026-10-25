@@ -44,10 +44,8 @@ type HookAgent = keyof typeof HOOK_AGENTS;
 const PLATFORM_LABELS: Record<Platform, string> = {
   "claude-code": "Claude Code",
   "claude-desktop": "Claude Desktop",
-  cursor: "Cursor",
   codex: "Codex",
   pi: "Pi",
-  hermes: "Hermes",
   grok: "Grok",
   antigravity: "Antigravity",
 };
@@ -275,82 +273,9 @@ function tomlServer(path: string): ServerEntry | null {
   };
 }
 
-function indentOf(line: string): number {
-  return line.length - line.trimStart().length;
-}
-
-function yamlBlock(lines: string[]): { start: number; end: number } | null {
-  const parent = lines.findIndex((line) => line.trim() === "mcp_servers:");
-  if (parent < 0) {
-    return null;
-  }
-  const parentIndent = indentOf(lines[parent] ?? "");
-  let start = -1;
-  for (let index = parent + 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
-    if (line.trim().length > 0 && indentOf(line) <= parentIndent) {
-      break;
-    }
-    if (unquote(line.trim().replace(/:$/, "")) === SERVER_KEY && line.trim().endsWith(":")) {
-      start = index;
-      break;
-    }
-  }
-  if (start < 0) {
-    return null;
-  }
-  const keyIndent = indentOf(lines[start] ?? "");
-  let end = start + 1;
-  while (end < lines.length) {
-    const line = lines[end] ?? "";
-    if (line.trim().length > 0 && indentOf(line) <= keyIndent) {
-      break;
-    }
-    end += 1;
-  }
-  while (end > start + 1 && (lines[end - 1] ?? "").trim().length === 0) {
-    end -= 1;
-  }
-  return { start, end };
-}
-
-function yamlServer(path: string): ServerEntry | null {
-  const lines = readText(path)?.split("\n") ?? [];
-  const block = yamlBlock(lines);
-  if (block === null) {
-    return null;
-  }
-  const body = lines.slice(block.start + 1, block.end);
-  const value = (key: string): string | undefined =>
-    body.map((line) => line.match(new RegExp(`^\\s*${key}:\\s*(.+)$`))?.[1]).find(Boolean);
-  const envAt = body.findIndex((line) => line.trim() === "env:");
-  const envKeys: string[] = [];
-  if (envAt >= 0) {
-    const envIndent = indentOf(body[envAt] ?? "");
-    for (const line of body.slice(envAt + 1)) {
-      if (line.trim().length > 0 && indentOf(line) <= envIndent) {
-        break;
-      }
-      const key = line.match(/^\s*([\w-]+):/)?.[1];
-      if (key !== undefined) {
-        envKeys.push(key);
-      }
-    }
-  }
-  return {
-    command: unquote(value("command") ?? ""),
-    args: parseArray(value("args")),
-    envKeys,
-    enabled: value("enabled")?.trim() !== "false" && value("disabled")?.trim() !== "true",
-  };
-}
-
 function readServer(platform: Platform, path: string): ServerEntry | null {
   if (platform === "codex") {
     return tomlServer(path);
-  }
-  if (platform === "hermes") {
-    return yamlServer(path);
   }
   return jsonServer(path);
 }
@@ -432,9 +357,9 @@ function disconnectMcp(home: string, platform: Platform): DisconnectResult {
   if (readServer(platform, path) === null) {
     return { status: "not-connected", removed: 0 };
   }
-  if (platform === "codex" || platform === "hermes") {
+  if (platform === "codex") {
     const text = readText(path) ?? "";
-    const block = (platform === "codex" ? tomlBlock : yamlBlock)(text.split("\n"));
+    const block = tomlBlock(text.split("\n"));
     writeWithBackup(path, withoutBlock(text, block as { start: number; end: number }));
   } else {
     const parsed = readJsonObject(path) as Record<string, unknown>;

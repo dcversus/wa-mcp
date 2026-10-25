@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { resolveConfigPath, type Platform } from "./platforms.ts";
-import { removeTomlTable, removeYamlServer } from "./writers.ts";
+import { removeTomlTable } from "./writers.ts";
 
 export type SpawnFn = (
   command: string,
@@ -335,8 +335,6 @@ function removeServerEntry(platform: Platform, home: string): boolean {
   let updated: string;
   if (platform === "codex") {
     updated = removeTomlTable(text, "mcp_servers.wa-mcp");
-  } else if (platform === "hermes") {
-    updated = removeYamlServer(text, "wa-mcp");
   } else {
     if (!removeJsonKeyEntry(path)) {
       return false;

@@ -55,6 +55,6 @@ test("T189 — install --target pi registers the MCP server and the extension; u
 
 test("T189 — install for other targets leaves pi settings alone", async () => {
   const { home, flags } = homes();
-  await run(["install", "--target", "cursor", ...flags]);
+  await run(["install", "--target", "grok", ...flags]);
   expect(existsSync(join(home, ".pi", "agent", "settings.json"))).toBe(false);
 });

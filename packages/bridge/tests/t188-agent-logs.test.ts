@@ -274,6 +274,6 @@ test("T188 P2 — /api/search?agent= resolves the agent's sends and its linked s
   expect((await search(bridge, "?agent=codex")).ids).toEqual(["SENT1"]);
   expect((await search(bridge, "?agent=claude-code")).ids).toEqual(["SENT2", "D1"]);
   expect((await search(bridge, "?agent=claude-code&direction=in")).ids).toEqual(["D1"]);
-  expect((await search(bridge, "?agent=cursor")).ids).toEqual([]);
+  expect((await search(bridge, "?agent=grok")).ids).toEqual([]);
   expect((await search(bridge, "?agent=Not%20A%20Slug")).status).toBe(400);
 });

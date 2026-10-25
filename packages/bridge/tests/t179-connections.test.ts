@@ -100,18 +100,13 @@ function seedHome(): { home: string; claudeInbox: string; codexInbox: string } {
   );
   put(
     home,
-    ".cursor/mcp.json",
+    ".grok/mcp.json",
     `${JSON.stringify({ mcpServers: { "wa-mcp": { command: "wa-mcp-server", args: [], disabled: true } } })}\n`,
   );
   put(
     home,
     ".codex/config.toml",
     'model = "o4"\n\n[mcp_servers.wa-mcp]\ncommand = "wa-mcp-server"\nargs = ["--token=SECRET-TOML"]\n\n[mcp_servers.wa-mcp.env]\nWA_TOKEN = "SECRET-TOML-ENV"\n\n[mcp_servers.other]\ncommand = "other"\n',
-  );
-  put(
-    home,
-    ".hermes/config.yaml",
-    'theme: dark\nmcp_servers:\n  wa-mcp:\n    command: wa-mcp-server\n    args: ["--x"]\n    env:\n      WA_TOKEN: "SECRET-YAML"\n  other:\n    command: other\n',
   );
   return { home, claudeInbox, codexInbox };
 }
@@ -164,15 +159,14 @@ test("T179 A — disableAllHooks marks claude hook connections disabled", () => 
   }
 });
 
-test("T179 A — MCP registrations across json/toml/yaml surfaces, disabled flag honoured", () => {
+test("T179 A — MCP registrations across json/toml surfaces, disabled flag honoured", () => {
   const { home } = seedHome();
   try {
     const mcp = listConnections(home).filter((c) => c.kind === "mcp");
     expect(mcp.map((c) => [c.agent, c.enabled])).toEqual([
       ["claude-code", true],
-      ["cursor", false],
       ["codex", true],
-      ["hermes", true],
+      ["grok", false],
     ]);
     expect(mcp[0]).toMatchObject({
       label: "Claude Code",
@@ -181,8 +175,7 @@ test("T179 A — MCP registrations across json/toml/yaml surfaces, disabled flag
       inboxPath: null,
     });
     expect(mcp[0]?.detail).toContain("/usr/local/bin/wa-mcp-server");
-    expect(mcp[2]?.detail).toContain("wa-mcp-server");
-    expect(mcp[3]?.detail).toContain("wa-mcp-server");
+    expect(mcp[1]?.detail).toContain("wa-mcp-server");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -211,7 +204,7 @@ test("T179 A — missing or malformed files → empty list, no throw", () => {
     expect(listConnections(home)).toEqual([]);
     put(home, ".claude/settings.json", "{not json");
     put(home, ".claude.json", "[]");
-    put(home, ".cursor/mcp.json", JSON.stringify({ mcpServers: { other: { command: "x" } } }));
+    put(home, ".grok/mcp.json", JSON.stringify({ mcpServers: { other: { command: "x" } } }));
     expect(listConnections(home)).toEqual([]);
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -265,7 +258,7 @@ test("T179 B — disconnect hooks with a subId removes only that subscription's 
   }
 });
 
-test("T179 B — disconnect mcp/<host> removes only the wa-mcp server key (json/toml/yaml)", () => {
+test("T179 B — disconnect mcp/<host> removes only the wa-mcp server key (json/toml)", () => {
   const { home } = seedHome();
   try {
     expect(disconnectAgent(home, "mcp", "claude-code")).toEqual({ status: "removed", removed: 1 });
@@ -277,12 +270,11 @@ test("T179 B — disconnect mcp/<host> removes only the wa-mcp server key (json/
     expect(readFileSync(join(home, ".codex", "config.toml"), "utf8")).toBe(
       'model = "o4"\n\n[mcp_servers.other]\ncommand = "other"\n',
     );
-    expect(disconnectAgent(home, "mcp", "hermes")).toEqual({ status: "removed", removed: 1 });
-    expect(readFileSync(join(home, ".hermes", "config.yaml"), "utf8")).toBe(
-      "theme: dark\nmcp_servers:\n  other:\n    command: other\n",
-    );
     expect(disconnectAgent(home, "mcp", "codex")).toEqual({ status: "not-connected", removed: 0 });
-    expect(disconnectAgent(home, "mcp", "grok")).toEqual({ status: "not-connected", removed: 0 });
+    expect(disconnectAgent(home, "mcp", "antigravity")).toEqual({
+      status: "not-connected",
+      removed: 0,
+    });
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -291,7 +283,7 @@ test("T179 B — disconnect mcp/<host> removes only the wa-mcp server key (json/
 test("T179 B — unknown kind/agent → unknown", () => {
   const { home } = seedHome();
   try {
-    expect(disconnectAgent(home, "hooks", "cursor")).toEqual({ status: "unknown", removed: 0 });
+    expect(disconnectAgent(home, "hooks", "grok")).toEqual({ status: "unknown", removed: 0 });
     expect(disconnectAgent(home, "mcp", "nope")).toEqual({ status: "unknown", removed: 0 });
     expect(disconnectAgent(home, "other", "claude")).toEqual({ status: "unknown", removed: 0 });
   } finally {
@@ -369,17 +361,17 @@ test("T179 B — DELETE /api/connections/:kind/:agent → 200 then 404; unknown 
   const { home } = seedHome();
   try {
     await withBridge(home, async (bridge) => {
-      const first = await call(bridge, "/api/connections/mcp/cursor", "DELETE");
+      const first = await call(bridge, "/api/connections/mcp/grok", "DELETE");
       expect(first.status).toBe(200);
       expect(await first.json()).toEqual({ ok: true, removed: 1 });
-      const again = await call(bridge, "/api/connections/mcp/cursor", "DELETE");
+      const again = await call(bridge, "/api/connections/mcp/grok", "DELETE");
       expect(again.status).toBe(404);
       expect(await again.json()).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
       const unknown = await call(bridge, "/api/connections/mcp/nope", "DELETE");
       expect(unknown.status).toBe(404);
       const scoped = await call(bridge, "/api/connections/hooks/codex?sub=sub-codex", "DELETE");
       expect(scoped.status).toBe(200);
-      expect(existsSync(join(home, ".cursor", "mcp.json"))).toBe(true);
+      expect(existsSync(join(home, ".grok", "mcp.json"))).toBe(true);
     });
   } finally {
     rmSync(home, { recursive: true, force: true });
