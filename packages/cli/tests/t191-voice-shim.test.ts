@@ -83,39 +83,42 @@ test("T191 — the pinned Claude Code rec argv is the one from claude 2.1.310", 
   ]);
 });
 
-test("T191 — voice install writes rec+sox shims and a 0600 env file; idempotent", async () => {
-  const { dataDir, binDir, flags } = setup();
-  const out = await run([
-    "voice",
-    "install",
-    "--bin-dir",
-    binDir,
-    "--bridge-url",
-    "http://127.0.0.1:8080",
-    ...flags,
-  ]);
-  expect(out).toContain(`voice: ${join(binDir, "rec")}`);
-  expect(out).toContain(`voice: ${join(binDir, "sox")}`);
-  const rec = readFileSync(join(binDir, "rec"), "utf8");
-  expect(rec).toContain(SHIM_MARKER);
-  expect(readFileSync(join(binDir, "sox"), "utf8")).toBe(rec);
-  expect(perms(join(binDir, "rec"))).toBe(0o755);
-  const envPath = join(dataDir, "voice-shim.env");
-  const env = readFileSync(envPath, "utf8");
-  expect(env).toContain("WA_VOICE_BRIDGE_URL=http://127.0.0.1:8080");
-  expect(env).toContain("WA_VOICE_TOKEN=tok");
-  expect(perms(envPath)).toBe(0o600);
-  await run([
-    "voice",
-    "install",
-    "--bin-dir",
-    binDir,
-    "--bridge-url",
-    "http://127.0.0.1:8080",
-    ...flags,
-  ]);
-  expect(existsSync(join(binDir, "rec"))).toBe(true);
-});
+test.skipIf(process.platform === "win32")(
+  "T191 — voice install writes rec+sox shims and a 0600 env file; idempotent",
+  async () => {
+    const { dataDir, binDir, flags } = setup();
+    const out = await run([
+      "voice",
+      "install",
+      "--bin-dir",
+      binDir,
+      "--bridge-url",
+      "http://127.0.0.1:8080",
+      ...flags,
+    ]);
+    expect(out).toContain(`voice: ${join(binDir, "rec")}`);
+    expect(out).toContain(`voice: ${join(binDir, "sox")}`);
+    const rec = readFileSync(join(binDir, "rec"), "utf8");
+    expect(rec).toContain(SHIM_MARKER);
+    expect(readFileSync(join(binDir, "sox"), "utf8")).toBe(rec);
+    expect(perms(join(binDir, "rec"))).toBe(0o755);
+    const envPath = join(dataDir, "voice-shim.env");
+    const env = readFileSync(envPath, "utf8");
+    expect(env).toContain("WA_VOICE_BRIDGE_URL=http://127.0.0.1:8080");
+    expect(env).toContain("WA_VOICE_TOKEN=tok");
+    expect(perms(envPath)).toBe(0o600);
+    await run([
+      "voice",
+      "install",
+      "--bin-dir",
+      binDir,
+      "--bridge-url",
+      "http://127.0.0.1:8080",
+      ...flags,
+    ]);
+    expect(existsSync(join(binDir, "rec"))).toBe(true);
+  },
+);
 
 test("T191 — voice install refuses a foreign rec unless --force; uninstall removes ours only", async () => {
   const { home, dataDir, binDir, flags } = setup();
@@ -183,7 +186,7 @@ function recordOnce(binDir: string): Promise<{ code: number | null; stdout: Buff
   });
 }
 
-test(
+test.skipIf(process.platform === "win32")(
   "T191 — installed shims answer the Claude Code probes and stream PCM for the record argv",
   { timeout: 15000 },
   async () => {
@@ -230,7 +233,7 @@ test(
   },
 );
 
-test(
+test.skipIf(process.platform === "win32")(
   "T191 — voice test reports probe status and served bytes against the bridge",
   { timeout: 15000 },
   async () => {

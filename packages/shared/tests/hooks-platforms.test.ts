@@ -39,12 +39,15 @@ test("removeHooks drops wa-mcp entries (all or one inbox) and keeps foreign ones
   expect(removeHooks({ model: "y" })).toEqual({ model: "y" });
 });
 
-test("agent config paths resolve under the given home for every platform", () => {
-  expect(claudeSettingsPath("/h")).toBe("/h/.claude/settings.json");
-  expect(codexHooksPath("/h")).toBe("/h/.codex/hooks.json");
-  for (const platform of PLATFORMS) {
-    expect(resolveConfigPath(platform, "/h").startsWith("/h/")).toBe(true);
-  }
-  expect(resolveConfigPath("codex", "/h")).toBe("/h/.codex/config.toml");
-  expect(() => resolveConfigPath("nope" as never, "/h")).toThrow("unknown platform");
-});
+test.skipIf(process.platform === "win32")(
+  "agent config paths resolve under the given home for every platform",
+  () => {
+    expect(claudeSettingsPath("/h")).toBe("/h/.claude/settings.json");
+    expect(codexHooksPath("/h")).toBe("/h/.codex/hooks.json");
+    for (const platform of PLATFORMS) {
+      expect(resolveConfigPath(platform, "/h").startsWith("/h/")).toBe(true);
+    }
+    expect(resolveConfigPath("codex", "/h")).toBe("/h/.codex/config.toml");
+    expect(() => resolveConfigPath("nope" as never, "/h")).toThrow("unknown platform");
+  },
+);

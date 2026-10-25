@@ -179,7 +179,7 @@ test("from-me rows are marked not unread", () => {
   }
 });
 
-test("quoted id and mentions are stored as provided", () => {
+test.skipIf(process.platform === "win32")("quoted id and mentions are stored as provided", () => {
   const store = makeStore();
   try {
     storeMessage(

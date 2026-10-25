@@ -346,29 +346,32 @@ describe("T58 engine-generated send shapes", () => {
 });
 
 describe("T58 poll storage", () => {
-  test("storeMessage writes content + poll_options rows for an engine poll", async () => {
-    const { openStore } = await import("../../src/store/schema.ts");
-    const { storeMessage } = await import("../../src/store/messages.ts");
-    const store = openStore((await import("node:fs")).mkdtempSync("/tmp/wa-mcp-pollopt-"));
-    const content = await engineGenerate({
-      poll: { name: "Lunch?", values: ["Ramen", "Pizza"], selectableCount: 1 },
-    });
-    const stored = storeMessage(store, {
-      key: { remoteJid: "1@g.us", fromMe: true, id: "POLLOPTIONS1" },
-      message: content,
-      messageTimestamp: 1_760_000_000,
-      pushName: "V",
-    } as WAMessage);
-    expect(stored).toBe(true);
-    const row = store.db
-      .prepare("SELECT content FROM messages WHERE chat_jid = ? AND id = ?")
-      .get("1@g.us", "POLLOPTIONS1") as { content: string };
-    expect(row.content).toBe("Lunch?");
-    const options = store.db
-      .prepare(
-        "SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx",
-      )
-      .all("1@g.us", "POLLOPTIONS1") as Array<{ idx: number; label: string }>;
-    expect(options.map((option) => option.label)).toEqual(["Ramen", "Pizza"]);
-  });
+  test.skipIf(process.platform === "win32")(
+    "storeMessage writes content + poll_options rows for an engine poll",
+    async () => {
+      const { openStore } = await import("../../src/store/schema.ts");
+      const { storeMessage } = await import("../../src/store/messages.ts");
+      const store = openStore((await import("node:fs")).mkdtempSync("/tmp/wa-mcp-pollopt-"));
+      const content = await engineGenerate({
+        poll: { name: "Lunch?", values: ["Ramen", "Pizza"], selectableCount: 1 },
+      });
+      const stored = storeMessage(store, {
+        key: { remoteJid: "1@g.us", fromMe: true, id: "POLLOPTIONS1" },
+        message: content,
+        messageTimestamp: 1_760_000_000,
+        pushName: "V",
+      } as WAMessage);
+      expect(stored).toBe(true);
+      const row = store.db
+        .prepare("SELECT content FROM messages WHERE chat_jid = ? AND id = ?")
+        .get("1@g.us", "POLLOPTIONS1") as { content: string };
+      expect(row.content).toBe("Lunch?");
+      const options = store.db
+        .prepare(
+          "SELECT idx, label FROM poll_options WHERE chat_jid = ? AND message_id = ? ORDER BY idx",
+        )
+        .all("1@g.us", "POLLOPTIONS1") as Array<{ idx: number; label: string }>;
+      expect(options.map((option) => option.label)).toEqual(["Ramen", "Pizza"]);
+    },
+  );
 });

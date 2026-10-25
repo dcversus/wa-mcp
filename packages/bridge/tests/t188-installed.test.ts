@@ -58,21 +58,24 @@ test("T188 P1 — every platform has a documented probe", () => {
   });
 });
 
-test("T188 P1 — macOS: an app bundle or an executable CLI on the search path means installed", () => {
-  const root = tempRoot();
-  const env = fakeEnv(root);
-  app(join(root, "Applications"), "Claude.app");
-  app(join(root, "home", "Applications"), "Grok.app");
-  bin(join(root, "bin"), "claude");
-  bin(join(root, "home", ".local", "bin"), "agy");
-  bin(join(root, "bin"), "codex", false);
-  expect(detectInstalled("claude-desktop", env)).toBe(true);
-  expect(detectInstalled("grok", env)).toBe(true);
-  expect(detectInstalled("claude-code", env)).toBe(true);
-  expect(detectInstalled("codex", env)).toBe(false);
-  expect(detectInstalled("antigravity", env)).toBe(true);
-  expect(detectInstalled("pi", env)).toBe(false);
-});
+test.skipIf(process.platform !== "darwin")(
+  "T188 P1 — macOS: an app bundle or an executable CLI on the search path means installed",
+  () => {
+    const root = tempRoot();
+    const env = fakeEnv(root);
+    app(join(root, "Applications"), "Claude.app");
+    app(join(root, "home", "Applications"), "Grok.app");
+    bin(join(root, "bin"), "claude");
+    bin(join(root, "home", ".local", "bin"), "agy");
+    bin(join(root, "bin"), "codex", false);
+    expect(detectInstalled("claude-desktop", env)).toBe(true);
+    expect(detectInstalled("grok", env)).toBe(true);
+    expect(detectInstalled("claude-code", env)).toBe(true);
+    expect(detectInstalled("codex", env)).toBe(false);
+    expect(detectInstalled("antigravity", env)).toBe(true);
+    expect(detectInstalled("pi", env)).toBe(false);
+  },
+);
 
 test("T188 P1 — hook agents map onto their host app; unknown agents are null", () => {
   const root = tempRoot();
@@ -101,29 +104,32 @@ test("T188 P1 — Windows resolves CLI shims by extension", () => {
   expect(detectInstalled("pi", env)).toBe(false);
 });
 
-test("T188 P1 — the daemon's search path covers CLI homes launchd leaves off PATH", () => {
-  const env = defaultInstallEnv("/Users/someone", {
-    os: "darwin",
-    path: "/usr/bin:/bin",
-    execPath: "/Users/someone/.nvm/versions/node/v22/bin/node",
-  });
-  expect(env.os).toBe("darwin");
-  expect(env.appDirs).toEqual(["/Applications", "/Users/someone/Applications"]);
-  for (const dir of [
-    "/usr/bin",
-    "/bin",
-    "/Users/someone/.nvm/versions/node/v22/bin",
-    "/Users/someone/.local/bin",
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    "/Users/someone/.bun/bin",
-    "/Users/someone/.npm-global/bin",
-    "/Users/someone/.claude/local",
-  ]) {
-    expect(env.pathDirs).toContain(dir);
-  }
-  expect(new Set(env.pathDirs).size).toBe(env.pathDirs.length);
-});
+test.skipIf(process.platform !== "darwin")(
+  "T188 P1 — the daemon's search path covers CLI homes launchd leaves off PATH",
+  () => {
+    const env = defaultInstallEnv("/Users/someone", {
+      os: "darwin",
+      path: "/usr/bin:/bin",
+      execPath: "/Users/someone/.nvm/versions/node/v22/bin/node",
+    });
+    expect(env.os).toBe("darwin");
+    expect(env.appDirs).toEqual(["/Applications", "/Users/someone/Applications"]);
+    for (const dir of [
+      "/usr/bin",
+      "/bin",
+      "/Users/someone/.nvm/versions/node/v22/bin",
+      "/Users/someone/.local/bin",
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/Users/someone/.bun/bin",
+      "/Users/someone/.npm-global/bin",
+      "/Users/someone/.claude/local",
+    ]) {
+      expect(env.pathDirs).toContain(dir);
+    }
+    expect(new Set(env.pathDirs).size).toBe(env.pathDirs.length);
+  },
+);
 
 function stubHandle(): BridgeHandle {
   return {

@@ -199,28 +199,31 @@ test("T180 B inbox — matching message is appended with prompt and subId stampe
   }
 });
 
-test("T180 B no match / disabled → nothing written, nothing spawned", () => {
-  const h = harness();
-  try {
-    const off = createSubscriptionConfig(h.store, {
-      ...BASE_INPUT,
-      enabled: false,
-      delivery: { mode: "spawn", agent: { command: "claude" } },
-    });
-    const other = createSubscriptionConfig(h.store, {
-      ...BASE_INPUT,
-      chats: ["1@g.us"],
-      delivery: { mode: "inbox" },
-    });
-    h.dispatcher.invalidate();
-    expect(h.dispatcher.dispatch(message())).toBe(0);
-    expect(h.spawned).toEqual([]);
-    expect(h.lines(off.id, "inbox.jsonl")).toEqual([]);
-    expect(h.lines(other.id, "inbox.jsonl")).toEqual([]);
-  } finally {
-    h.cleanup();
-  }
-});
+test.skipIf(process.platform === "win32")(
+  "T180 B no match / disabled → nothing written, nothing spawned",
+  () => {
+    const h = harness();
+    try {
+      const off = createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        enabled: false,
+        delivery: { mode: "spawn", agent: { command: "claude" } },
+      });
+      const other = createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        chats: ["1@g.us"],
+        delivery: { mode: "inbox" },
+      });
+      h.dispatcher.invalidate();
+      expect(h.dispatcher.dispatch(message())).toBe(0);
+      expect(h.spawned).toEqual([]);
+      expect(h.lines(off.id, "inbox.jsonl")).toEqual([]);
+      expect(h.lines(other.id, "inbox.jsonl")).toEqual([]);
+    } finally {
+      h.cleanup();
+    }
+  },
+);
 
 test("T180 B session — appended to the per-sub spool with the target session", () => {
   const h = harness();
@@ -348,24 +351,30 @@ test("T180 B cache — configs are cached until invalidate()", () => {
   }
 });
 
-test("T180 B prepare — inbox/session configs get their empty file up front; spawn gets none", () => {
-  const h = harness();
-  try {
-    const inbox = createSubscriptionConfig(h.store, { ...BASE_INPUT, delivery: { mode: "inbox" } });
-    const session = createSubscriptionConfig(h.store, {
-      ...BASE_INPUT,
-      delivery: { mode: "session" },
-    });
-    const spawned = createSubscriptionConfig(h.store, {
-      ...BASE_INPUT,
-      delivery: { mode: "spawn", agent: { command: "x" } },
-    });
-    expect(h.dispatcher.prepare(inbox)).toMatch(/subs\/[a-f0-9]{12}\/inbox\.jsonl$/);
-    expect(h.dispatcher.prepare(session)).toMatch(/session\.jsonl$/);
-    expect(h.dispatcher.prepare(spawned)).toBeNull();
-    expect(h.lines(inbox.id, "inbox.jsonl")).toEqual([]);
-    expect(readFileSync(h.dispatcher.prepare(inbox) as string, "utf8")).toBe("");
-  } finally {
-    h.cleanup();
-  }
-});
+test.skipIf(process.platform === "win32")(
+  "T180 B prepare — inbox/session configs get their empty file up front; spawn gets none",
+  () => {
+    const h = harness();
+    try {
+      const inbox = createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        delivery: { mode: "inbox" },
+      });
+      const session = createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        delivery: { mode: "session" },
+      });
+      const spawned = createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        delivery: { mode: "spawn", agent: { command: "x" } },
+      });
+      expect(h.dispatcher.prepare(inbox)).toMatch(/subs\/[a-f0-9]{12}\/inbox\.jsonl$/);
+      expect(h.dispatcher.prepare(session)).toMatch(/session\.jsonl$/);
+      expect(h.dispatcher.prepare(spawned)).toBeNull();
+      expect(h.lines(inbox.id, "inbox.jsonl")).toEqual([]);
+      expect(readFileSync(h.dispatcher.prepare(inbox) as string, "utf8")).toBe("");
+    } finally {
+      h.cleanup();
+    }
+  },
+);

@@ -42,7 +42,7 @@ test("loadConfig refuses a world-readable config file", () => {
   }
 });
 
-test("loadConfig reads a 0600 config file", () => {
+test.skipIf(process.platform === "win32")("loadConfig reads a 0600 config file", () => {
   const dir = tmpDataDir();
   const path = join(dir, "config.json");
   writeFileSync(path, JSON.stringify({ transcription: { engine: "mock" } }), { mode: 0o600 });

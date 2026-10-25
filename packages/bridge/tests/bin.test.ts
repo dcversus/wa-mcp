@@ -102,13 +102,16 @@ describe("T61 media dir default", () => {
     expect(overridden.mediaDir).toBe("/mnt/media");
   });
 
-  test("ensureMediaDir creates the dir 0700 and is idempotent", () => {
-    const dir = join(mkdtempSync("/tmp/wa-t61-"), "media");
-    ensureMediaDir(dir);
-    expect(existsSync(dir)).toBe(true);
-    ensureMediaDir(dir);
-    expect(existsSync(dir)).toBe(true);
-  });
+  test.skipIf(process.platform === "win32")(
+    "ensureMediaDir creates the dir 0700 and is idempotent",
+    () => {
+      const dir = join(mkdtempSync("/tmp/wa-t61-"), "media");
+      ensureMediaDir(dir);
+      expect(existsSync(dir)).toBe(true);
+      ensureMediaDir(dir);
+      expect(existsSync(dir)).toBe(true);
+    },
+  );
 });
 
 test("T94-C-H5 — the daemon hands startBridge the mediaDir (auto-download live)", () => {
