@@ -9,7 +9,7 @@ All tools talk to the local bridge at `WA_BRIDGE_URL` (default `http://127.0.0.1
 
 ## Quickstart
 
-1. `wa-mcp install` — writes MCP client configs (claude-code, claude-desktop, cursor, codex, pi, hermes, grok, antigravity).
+1. `wa-mcp install` — writes MCP client configs (claude-code, claude-desktop, codex, pi, grok, antigravity).
 2. `wa-mcp start` then scan the QR (bridge prints it; also at `#/pairing` in the web UI).
 3. `wa-mcp doctor` — verify node, data dir, token, bridge health.
 4. `send_message` with a phone number or group jid.
@@ -64,5 +64,6 @@ All tools talk to the local bridge at `WA_BRIDGE_URL` (default `http://127.0.0.1
 
 - `list_notification_rules` / `add_notification_rule` / `delete_notification_rule` — notification rules.
 - `transcribe_message` — transcribe a voice note to text.
+- voice notes can also arrive as `/voice` dictation in Claude Code: `wa-mcp voice install` puts rec/sox shims on PATH so holding the dictation key transcribes the next WhatsApp voice note (`wa-mcp voice test` verifies; docs/cookbook/voice-dictation.md).
 
 Full reference with input schemas: `references/tools.md`. Errors and fixes: `references/troubleshooting.md`.

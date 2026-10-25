@@ -78,6 +78,7 @@ test("T182 drift — declared actions are dispatched by the command's module and
     settings: "settings.ts",
     profile: "whatsapp.ts",
     media: "whatsapp.ts",
+    voice: "voice-dictation.ts",
   };
   for (const command of CLI_COMMANDS.filter((entry) => entry.actions !== undefined)) {
     const file = modules[command.name];
@@ -320,7 +321,7 @@ test("T182 bin — status adds today's stats when a token is available", async (
   const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((async (input: string) =>
     String(input).endsWith("/health")
-      ? Response.json({ connected: true, loggedIn: true, version: "0.9.0", uptime: 60 })
+      ? Response.json({ connected: true, loggedIn: true, version: "0.1.0", uptime: 60 })
       : Response.json({
           sentToday: 1,
           receivedToday: 2,
@@ -329,7 +330,7 @@ test("T182 bin — status adds today's stats when a token is available", async (
   try {
     await main(["status", "--token", "tok", "--bridge-url", "http://h"]);
     expect(logSpy.mock.calls.map((call) => call.join(" "))).toEqual([
-      "bridge connected | loggedIn=true | v0.9.0 | uptime 60s",
+      "bridge connected | loggedIn=true | v0.1.0 | uptime 60s",
       "today: 1 sent · 2 received · 0 reconnects",
     ]);
   } finally {

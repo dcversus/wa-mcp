@@ -224,6 +224,7 @@ const HOST_ONLY = [
   "restart",
   "logs",
   "doctor",
+  "voice",
   "import",
   "update",
   "inbox",

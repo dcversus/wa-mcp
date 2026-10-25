@@ -44,6 +44,7 @@ import { runPair } from "./pair.ts";
 import { runImport } from "./import-store.ts";
 import { PLATFORMS, resolveConfigPath } from "./platforms.ts";
 import { installPiExtension, piExtensionPlan, uninstallPiExtension } from "./pi-extension.ts";
+import { runVoice } from "./voice-dictation.ts";
 import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
 
 const DEFAULT_DATA_DIR = join(process.env.HOME ?? "", ".wa-mcp");
@@ -375,7 +376,7 @@ export async function main(argv: string[]): Promise<void> {
       home,
       dataDir,
       bridgeUrl,
-      minNodeMajor: 22,
+      minNodeMajor: 26,
       engines: flags.engines === "true" || flags.engines === "",
     });
     for (const check of report.checks) {
@@ -528,6 +529,23 @@ export async function main(argv: string[]): Promise<void> {
     profile: runProfile,
     unlink: runUnlink,
   } as const;
+  if (command === "voice") {
+    const token = flags.token ?? readToken(dataDir) ?? "";
+    const exit = await runVoice(
+      { fetchFn: fetch, print: console.log },
+      {
+        baseUrl: bridgeUrl,
+        token,
+        dataDir,
+        action: positionals[0] ?? "test",
+        flags,
+      },
+    );
+    if (exit !== 0) {
+      process.exitCode = exit;
+    }
+    return;
+  }
   if (
     command === "chats" ||
     command === "send" ||

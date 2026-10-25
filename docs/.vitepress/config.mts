@@ -27,6 +27,7 @@ export default defineConfig({
       { text: "Tool reference", link: "/reference/tools" },
       { text: "React to messages", link: "/cookbook/react-to-messages" },
       { text: "Media understanding", link: "/cookbook/media-understanding" },
+      { text: "Voice notes as /voice dictation", link: "/cookbook/voice-dictation" },
       { text: "Configuration", link: "/configuration" },
       { text: "Security", link: "/security" },
       { text: "Development", link: "/development" },

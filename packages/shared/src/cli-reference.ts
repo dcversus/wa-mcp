@@ -205,6 +205,15 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     usage: "update",
     summary: "show the installed version and how to update",
   },
+  {
+    name: "voice",
+    group: "daemon",
+    usage:
+      "voice install [--bin-dir <dir>] [--bridge-url <url>] [--token <t>] [--force] | voice uninstall [--bin-dir <dir>] | voice test [--bin-dir <dir>]",
+    summary:
+      "install the /voice dictation shims — Claude Code transcribes WhatsApp voice notes through its rec/sox fallback",
+    actions: ["install", "uninstall", "test"],
+  },
 ];
 
 export function cliUsageLines(): string[] {

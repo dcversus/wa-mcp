@@ -126,6 +126,12 @@ import {
   writeTranscriptionSection,
   extractAudio,
 } from "./media/transcribe.ts";
+import {
+  advanceVoiceCursor,
+  nextVoiceNote,
+  pendingVoiceCount,
+  toDictationPcm,
+} from "./media/dictation.ts";
 import { MockTtsEngine } from "./media/tts.ts";
 import {
   TOOLS,
@@ -3147,6 +3153,72 @@ export async function createHttpServer(
             unsubscribe();
             clearInterval(heartbeat);
           });
+          return;
+        }
+        if (path === "/api/voice/next" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const next = nextVoiceNote(opts.store);
+          sendJson(res, 200, {
+            pending: pendingVoiceCount(opts.store),
+            next:
+              next === null
+                ? null
+                : {
+                    id: next.id,
+                    chatJid: next.chatJid,
+                    senderName: next.senderName,
+                    timestamp: next.timestamp,
+                    mediaType: next.mediaType,
+                  },
+          });
+          return;
+        }
+        if (path === "/api/voice/next.pcm" && req.method === "GET") {
+          if (opts.store === undefined) {
+            sendJson(res, 501, {
+              error: { code: "NOT_IMPLEMENTED", message: "store not attached" },
+            });
+            return;
+          }
+          const store = opts.store;
+          const note = nextVoiceNote(store);
+          if (note === null) {
+            res.writeHead(204);
+            res.end();
+            return;
+          }
+          void readFile(note.mediaPath)
+            .then((buffer) =>
+              toDictationPcm(buffer, note.mediaType === "video" ? "video/mp4" : "audio/ogg", {
+                spawnFn: opts.spawnFn,
+              }),
+            )
+            .then((pcm) => {
+              advanceVoiceCursor(store, note.rowid);
+              res.writeHead(200, {
+                "content-type": "audio/L16;rate=16000;channels=1",
+                "x-wa-mcp-voice-rowid": String(note.rowid),
+                "x-wa-mcp-voice-chat": note.chatJid,
+                "x-wa-mcp-voice-id": note.id,
+                "x-wa-mcp-voice-sender": encodeURIComponent(note.senderName ?? ""),
+              });
+              res.end(pcm);
+            })
+            .catch((err: unknown) => {
+              if (err instanceof MediaError) {
+                sendJson(res, 422, { error: { code: err.code, message: err.message } });
+                return;
+              }
+              advanceVoiceCursor(store, note.rowid);
+              sendJson(res, 404, {
+                error: { code: "NOT_FOUND", message: "stored media file is gone" },
+              });
+            });
           return;
         }
         if (path.startsWith("/api/media/") && path.length > "/api/media/".length) {

@@ -3,6 +3,9 @@
 wa-mcp turns WhatsApp media into text an agent can use. Every result is
 cached as a transcript on the message (never re-transcribed).
 
+Voice notes can also ride Claude Code's own `/voice` dictation — no engine
+setup at all: see [voice notes as /voice dictation](/cookbook/voice-dictation.md).
+
 ## Voice notes
 
 ```sh
