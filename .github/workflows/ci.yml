@@ -24,6 +24,7 @@ jobs:
       - run: |
           pnpm --filter @wa-mcp/shared build
           pnpm --filter @wa-mcp/mcp-server build
+          pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
       - run: pnpm exec vp check
 
@@ -44,6 +45,7 @@ jobs:
       - run: |
           pnpm --filter @wa-mcp/shared build
           pnpm --filter @wa-mcp/mcp-server build
+          pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
           pnpm run build
       - uses: actions/upload-artifact@v4
@@ -114,6 +116,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter @wa-mcp/shared build
           pnpm --filter @wa-mcp/mcp-server build
+          pnpm --filter @wa-mcp/web-ui build
           pnpm --filter @wa-mcp/bridge build
           pnpm exec vp test
       # T93-F: thresholds live in each package's vite.config.ts
