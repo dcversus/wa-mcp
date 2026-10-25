@@ -42,13 +42,15 @@ lines.
 
 ## Issue tracking (the ledger is GitHub Issues)
 
-Work items, bugs, blockers, dogfood checklists and the historical ledger
-archives all live in the repo's GitHub issues (labels: `bug`,
-`enhancement`, `blocked`, `dogfood`, `verification`, `release`, `backlog`,
-`archive`). The old file ledgers (GOAL/VERIFY/GATES/ACCOUNTING/BLOCKED)
-were retired with the first public release; immutable copies are linked
-from the `archive` issues. Rule: nothing is claimed without evidence —
-cite the issue, commit or test that proves it.
+Work items, bugs, blockers, dogfood checklists and feature backlogs all
+live in the repo's GitHub issues — one issue per feature, each linking its
+upstream references and carrying an implementation-status line (labels:
+`bug`, `enhancement`, `blocked`, `dogfood`, `verification`, `release`,
+`backlog`). The old file ledgers (GOAL/VERIFY/GATES/ACCOUNTING/BLOCKED)
+were retired with the first public release; immutable copies remain in git
+history (deleted at commit 96fc502, tree state before it carries the full
+set). Docs describe only shipped behavior. Rule: nothing is claimed
+without evidence — cite the issue, commit or test that proves it.
 
 ## Current operational notes
 

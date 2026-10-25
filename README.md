@@ -95,7 +95,7 @@ See [CONTRIBUTING.md](https://github.com/dcversus/wa-mcp/blob/main/CONTRIBUTING.
 
 Built on the shoulders of the WhatsApp-MCP community — every upstream item was
 catalogued and dispositioned during development (census archived in git
-history; see the `archive` issues):
+history):
 **lharries/whatsapp-mcp** (reference architecture), **verygoodplugins/whatsapp-mcp**,
 **chigwell/telegram-mcp** (patterns), **FelixIsaac/whatsapp-mcp-extended**,
 **jonzarecki/wa-mcp**, **delltrak/wamcp**, and the issue/PR authors catalogued
