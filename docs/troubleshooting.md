@@ -4,6 +4,14 @@ Symptom → cause → fix, grouped by area. Start with `wa-mcp doctor`, then see
 
 ## Pairing
 
+### Pairing-block playbook (fresh accounts, containers)
+
+"Can't link new devices right now" is a server-side gate on the account+number. Ranked causes: a **fresh account** (new SIM = highest-risk class — give it 2–3 days of normal use before linking), **attempt cadence** (every attempt restarts the cooldown; QR rotation counts per rotation — the code flow is one attempt), **virtual/VoIP number ranges**, and a phased server-side cohort that blocks third-party clients during WhatsApp's rollout (engine-wide; only time fixes it).
+
+Do: stop ALL attempts → 24h+ quiet (longer for fresh accounts) → on the phone: update WhatsApp, remove other Linked Devices sessions, use the account normally → then pair **once** with `wa-mcp pair --code` (single registration) with an operator present. Containers: gate bridge start on creds existing so restart loops can't fire registrations (see the [voice-dictation cookbook's container notes](/cookbook/voice-dictation.md); a `--no-pair` boot mode is tracked).
+
+Don't: delete/re-register the number, retry in a loop, or leave an unpaired daemon running under a restart policy.
+
 | Symptom                                                | Cause                                                                                                                                                                                                                                                                      | Fix                                                                                                                                   |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | "can't link new devices right now"                     | WhatsApp's anti-abuse counts **every** link attempt, and each attempt restarts its cooldown. After 3 registrations without a successful pairing, wa-mcp stops creating new ones (`/health.pairingBlocked: true`). <!-- src: packages/bridge/src/http.ts:2398-2399, 572 --> | Stop all attempts and wait hours. Then send `POST /api/pair/resume` with the account token, or restart, and pair **once**. See below. |
