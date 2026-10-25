@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildStatusSummary, parseArgs } from "./commands.ts";
 import { installService, isPortBusy, uninstallService, startReport } from "./service.ts";
 import {
@@ -53,6 +53,11 @@ const DEFAULT_DATA_DIR = join(process.env.HOME ?? "", ".wa-mcp");
 const req = createRequire(import.meta.url);
 
 function packageDir(name: string): string {
+  if (name === "@wa-mcp/cli") {
+    // published as `wa-mcp` (manifest renamed by scripts/publish.sh) —
+    // locate this package by the running file, not by workspace name
+    return dirname(dirname(fileURLToPath(import.meta.url)));
+  }
   return dirname(req.resolve(`${name}/package.json`));
 }
 
