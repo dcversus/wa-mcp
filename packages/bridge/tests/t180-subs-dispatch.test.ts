@@ -291,33 +291,37 @@ test("T180 B spawn — detached, stdio ignored, env carries WAMCP_EVENT/WAMCP_SU
   }
 });
 
-test("T180 B spawn — spawn errors and non-zero exits are logged, never thrown", { timeout: 20_000 }, () => {
-  const children: EventEmitter[] = [];
-  const h = harness(() => {
-    const child = new EventEmitter();
-    children.push(child);
-    return child;
-  });
-  try {
-    createSubscriptionConfig(h.store, {
-      ...BASE_INPUT,
-      delivery: { mode: "spawn", agent: { command: "missing-agent" } },
+test(
+  "T180 B spawn — spawn errors and non-zero exits are logged, never thrown",
+  { timeout: 20_000 },
+  () => {
+    const children: EventEmitter[] = [];
+    const h = harness(() => {
+      const child = new EventEmitter();
+      children.push(child);
+      return child;
     });
-    h.dispatcher.invalidate();
-    h.dispatcher.dispatch(message());
-    children[0]?.emit("error", new Error("spawn missing-agent ENOENT"));
-    h.dispatcher.dispatch(message());
-    children[1]?.emit("exit", 3);
-    h.dispatcher.dispatch(message());
-    children[2]?.emit("exit", 0);
-    expect(h.logged.map((entry) => entry.msg)).toEqual([
-      "subscription spawn failed",
-      "subscription agent exited non-zero",
-    ]);
-  } finally {
-    h.cleanup();
-  }
-});
+    try {
+      createSubscriptionConfig(h.store, {
+        ...BASE_INPUT,
+        delivery: { mode: "spawn", agent: { command: "missing-agent" } },
+      });
+      h.dispatcher.invalidate();
+      h.dispatcher.dispatch(message());
+      children[0]?.emit("error", new Error("spawn missing-agent ENOENT"));
+      h.dispatcher.dispatch(message());
+      children[1]?.emit("exit", 3);
+      h.dispatcher.dispatch(message());
+      children[2]?.emit("exit", 0);
+      expect(h.logged.map((entry) => entry.msg)).toEqual([
+        "subscription spawn failed",
+        "subscription agent exited non-zero",
+      ]);
+    } finally {
+      h.cleanup();
+    }
+  },
+);
 
 test("T180 B spawn — a throwing spawnFn is logged and other deliveries continue", () => {
   const h = harness(() => {
