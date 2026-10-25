@@ -97,7 +97,7 @@ test("buildConfig reads WA_DAILY_CAP as an integer or falls back to null", () =>
 describe("T61 media dir default", () => {
   test("buildConfig defaults mediaDir to <dataDir>/media; WA_MEDIA_DIR overrides", () => {
     const defaults = buildConfig({ WA_DATA_DIR: "/tmp/wa-t61-data" });
-    expect(defaults.mediaDir).toBe(join("tmp", "wa-t61-data", "media"));
+    expect(defaults.mediaDir).toBe(join("/tmp", "wa-t61-data", "media"));
     const overridden = buildConfig({ WA_DATA_DIR: "/tmp/wa-t61-data", WA_MEDIA_DIR: "/mnt/media" });
     expect(overridden.mediaDir).toBe("/mnt/media");
   });
