@@ -1,8 +1,8 @@
-# wa-mcp 0.9.0 — FINAL REPORT (2026-10-05T02:31:58Z, HEAD 2e08e5b)
+# wa-mcp 0.1.0 — FINAL REPORT (2026-10-05T02:31:58Z, HEAD 2e08e5b)
 
 ## Verdict
 
-0.9.0 is COMPLETE per the EXECUTE-0.9.0-COMPLETE contract: every phase closed with
+0.1.0 is COMPLETE per the EXECUTE-0.1.0-COMPLETE contract: every phase closed with
 mechanical evidence, every GOAL box ticked-with-evidence or dispositioned-with-anchor,
 independent review (opus, 2 rounds) findings all resolved, all final gates green.
 
@@ -40,7 +40,7 @@ independent review (opus, 2 rounds) findings all resolved, all final gates green
 | docs:build | EXIT 0 |
 | version-drift guard (NEW) | OK — root was 0.10.0 (leftover), fixed; guard CI-wired |
 | no-publish guard (CI grep) | green |
-| 8-platform sandbox registration | 8/8 read-back verified |
+| 6-platform sandbox registration | 6/6 read-back verified |
 | Fresh-container Docker install | PASS |
 | webui-e2e (current build) | PASS — full send round-trip, zero console errors |
 | webui-dogfood | EXIT 0 |
@@ -50,7 +50,7 @@ independent review (opus, 2 rounds) findings all resolved, all final gates green
 
 ## Tarball
 
-- `wa-mcp-0.9.0.tgz` — 5,504,429 bytes
+- `wa-mcp-0.1.0.tgz` — 5,504,429 bytes
 - sha256: `4f38971fb70da8152db612c207db4857057c4d9362a2f1b7e24e0398a225f9a2`
 - Supersedes the earlier `0fa2fb11…` and `574ef43f…` packs (source changed: Gate D
   corrections + root-version fix). Never shipped anywhere.
@@ -73,5 +73,5 @@ independent review (opus, 2 rounds) findings all resolved, all final gates green
 
 ## Version
 
-0.9.0 everywhere (root + 5 workspaces + bin.ts payload + SERVER_INFO + device label +
+0.1.0 everywhere (root + 5 workspaces + bin.ts payload + SERVER_INFO + device label +
 CHANGELOG heading) — enforced by scripts/version-drift.mjs in CI.

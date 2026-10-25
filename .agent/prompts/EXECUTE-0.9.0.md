@@ -1,4 +1,4 @@
-# EXECUTE: wa-mcp 0.9.0 — implemented, tested, committed. NOT published.
+# EXECUTE: wa-mcp 0.1.0 — implemented, tested, committed. NOT published.
 
 You are the implementing agent for the wa-mcp project. This prompt is your contract.
 Read it fully, then read GOAL.md fully, before touching anything.
@@ -6,14 +6,14 @@ Read it fully, then read GOAL.md fully, before touching anything.
 ## Mission
 
 Build `wa-mcp` — a 100% TypeScript Vite+ monorepo WhatsApp MCP server — to the complete
-0.9.0 state defined in `GOAL.md`: every checkbox executed, committed, and backed by real
+0.1.0 state defined in `GOAL.md`: every checkbox executed, committed, and backed by real
 test output. **Nothing is published**: no npm publish, no public release, no registry or
 directory listings. The deliverable is the private repo `dcversus/wa-mcp` at version
-0.9.0 with green CI and a packed, publish-ready tarball that was never shipped.
+0.1.0 with green CI and a packed, publish-ready tarball that was never shipped.
 
 ## Operating mode (orchestrator-gated) — THIS SECTION OVERRIDES EVERYTHING ELSE
 
-You execute ONE TASK AT A TIME. The orchestrator (Hermes) sends you a small, concrete
+You execute ONE TASK AT A TIME. The orchestrator sends you a small, concrete
 task; you implement it with TDD, commit, and STOP. The orchestrator validates your work
 mechanically (git state, test runs, file diffs) before the next task arrives.
 
@@ -56,16 +56,16 @@ mechanically (git state, test runs, file diffs) before the next task arrives.
       security jobs)
 - [ ] `review/ACCOUNTING.md` complete: all 1,029 census rows dispositioned;
       `vp run accounting:check` green and wired into CI
-- [ ] All 8 owner platforms register in a sandbox `$HOME`: Claude Code, Claude Desktop,
-      Pi, Hermes, Codex, Grok, Antigravity, Cursor — each config path written AND
+- [ ] All 6 owner platforms register in a sandbox `$HOME`: Claude Code, Claude Desktop,
+      Pi, Codex, Grok, Antigravity — each config path written AND
       read-back-verified; HTTP `/mcp` transport works with bearer token
 - [ ] Fresh-container install test: `node:20` Docker → install from local tarball
       (`file:`) → `npx wa-mcp install` → `doctor` all-green → daemon healthy
 - [ ] Live smoke on the owner's real account GREEN (rules below), results in VERIFY.md
-- [ ] `package.json` version = `0.9.0` exactly; `vp pack` produces `wa-mcp-0.9.0.tgz`;
+- [ ] `package.json` version = `0.1.0` exactly; `vp pack` produces `wa-mcp-0.1.0.tgz`;
       publish deferred by design
 - [ ] Git tree clean; all phase work merged to main; CHANGELOG.md has an
-      `## 0.9.0 (unreleased)` section enumerating the phase features
+      `## 0.1.0 (unreleased)` section enumerating the phase features
 - [ ] 10 ADRs exist in `docs/adr/` (0001–0010, topics listed in GOAL §15);
       `docs:build` (VitePress) green; doc-coverage script reports every MCP tool
       documented

@@ -1,4 +1,4 @@
-# Independent review — wa-mcp 0.9.0
+# Independent review — wa-mcp 0.1.0
 
 Reviewer: Grok (read-only). Date: 2026-10-03. No source files were modified and nothing was committed.
 
@@ -60,7 +60,7 @@ Suggested fix: wrap each migration in a transaction. For SQLite builds where `AL
 
 `packages/bridge/src/ingest/extract.ts:234-241` turns `pollUpdateMessage` into a vote with `selections: []`. The encrypted option hashes are never decrypted. `extractContent` is called from `storeMessage` with no `pollUpdates` argument, so `pollVoteFromUpdates` (`extract.ts:388-399`) does not run on the live path. `packages/bridge/src/store/messages.ts:121-125` then returns without writing, citing a "T60 lifecycle messages.update consumer". `messages.update` is not in `EVENT_NAMES` (`packages/bridge/src/events.ts:29-43`) and `lifecycle.ts` never inserts into `poll_votes`. The table is created (`schema.ts:61-68`) and never used.
 
-Why it matters: sending a poll works (`http.ts:652-679`). Counting votes does not. A 0.9.0 that stores poll options and silently discards every vote will look done in the schema and empty in the product.
+Why it matters: sending a poll works (`http.ts:652-679`). Counting votes does not. A 0.1.0 that stores poll options and silently discards every vote will look done in the schema and empty in the product.
 
 Suggested fix: subscribe to the engine event that carries decrypted poll updates, map selected option hashes to `poll_options.idx`, and `INSERT OR REPLACE` `poll_votes` keyed by voter. Until that exists, do not advertise poll results.
 
@@ -88,7 +88,7 @@ Suggested fix: run the merge from the daemon once mappings exist, and repeat it 
 
 `scheduled`, `templates`, and `autoreply_rules` (`schema.ts:91-109`) have no writer anywhere under `packages/`.
 
-Suggested fix: either persist those three events in the handler that already owns the store, or stop subscribing and stop shipping tables that nothing fills. Empty product surface should not be in the 0.9.0 schema.
+Suggested fix: either persist those three events in the handler that already owns the store, or stop subscribing and stop shipping tables that nothing fills. Empty product surface should not be in the 0.1.0 schema.
 
 ### H8. Group subject and description are interpolated into HTML unescaped
 
@@ -124,7 +124,7 @@ Suggested fix: post `{ group_jid, action, jids }` for add, remove, and promote. 
 
 ### M1. Release package does not declare `engines`, and doctor will bless Node 22.0–22.4
 
-Root `package.json:27-29` says `node: ">=22.5.0"`. That package is `"private": true` and is not what `scripts/pack-release.sh` packs. `@wa-mcp/cli`, `@wa-mcp/bridge`, `@wa-mcp/mcp-server`, and `@wa-mcp/shared` have no `engines` field. The packed `package/package.json` inside `wa-mcp-0.9.0.tgz` has none either. `node:sqlite` is required at runtime (AGENTS.md). npm will not refuse Node 20 or 22.4.
+Root `package.json:27-29` says `node: ">=22.5.0"`. That package is `"private": true` and is not what `scripts/pack-release.sh` packs. `@wa-mcp/cli`, `@wa-mcp/bridge`, `@wa-mcp/mcp-server`, and `@wa-mcp/shared` have no `engines` field. The packed `package/package.json` inside `wa-mcp-0.1.0.tgz` has none either. `node:sqlite` is required at runtime (AGENTS.md). npm will not refuse Node 20 or 22.4.
 
 `wa-mcp doctor` calls `runDoctor` with `minNodeMajor: 22` (`packages/cli/src/bin.ts:91`). `packages/cli/src/doctor.ts:23-28` compares the major only. Node 22.0.0 is reported ok and then the bridge dies on `node:sqlite`.
 
@@ -132,7 +132,7 @@ Suggested fix: set `"engines": { "node": ">=22.5.0" }` on every shipped package,
 
 ### M2. `wa-mcp skills install` points at a directory the package does not contain
 
-`packages/cli/src/bin.ts:25` sets the source to `<cli package>/skills/wa-mcp`. `packages/cli` has no `skills/` directory. `package.json` `files` is `["dist"]`. The 0.9.0 tarball has zero `skills/` entries (2097 paths listed). `installSkills` (`packages/cli/src/skills.ts:24`) `cpSync`s that path and will throw `ENOENT`. Tests pass a repo path instead of the path `main` uses, so they do not catch it.
+`packages/cli/src/bin.ts:25` sets the source to `<cli package>/skills/wa-mcp`. `packages/cli` has no `skills/` directory. `package.json` `files` is `["dist"]`. The 0.1.0 tarball has zero `skills/` entries (2097 paths listed). `installSkills` (`packages/cli/src/skills.ts:24`) `cpSync`s that path and will throw `ENOENT`. Tests pass a repo path instead of the path `main` uses, so they do not catch it.
 
 Suggested fix: ship `skills/wa-mcp` inside the cli package (and in `files`), or copy from a path relative to the installed package that actually exists. Test `main(["skills", "install"])` against the packed layout.
 
@@ -140,13 +140,13 @@ Suggested fix: ship `skills/wa-mcp` inside the cli package (and in `files`), or 
 
 `packages/cli/src/bin.ts:30` computes `dataDir` from `--data-dir`. `start` passes it through (`bin.ts:131-133`). `pair` reads the token from `DEFAULT_DATA_DIR` (`bin.ts:61`), which is always `~/.wa-mcp`. A daemon started with `--data-dir` cannot be paired by the matching flag; pair reports "no bridge token" or uses the wrong token.
 
-`install` uses `flags.token ?? readToken(dataDir) ?? ""` (`bin.ts:33-37`) and still writes the MCP config. A first-run install before the daemon has minted a token is "verified" with an empty bearer. `writeFileSync(..., { mode: 0o600 })` (`packages/cli/src/writers.ts:58`) does not change the mode of an existing Claude/Cursor config, which is typically 0644, so a later install drops the real token into a world-readable file.
+`install` uses `flags.token ?? readToken(dataDir) ?? ""` (`bin.ts:33-37`) and still writes the MCP config. A first-run install before the daemon has minted a token is "verified" with an empty bearer. `writeFileSync(..., { mode: 0o600 })` (`packages/cli/src/writers.ts:58`) does not change the mode of an existing Claude/Codex config, which is typically 0644, so a later install drops the real token into a world-readable file.
 
 Suggested fix: use `dataDir` in `pair`. Refuse `install` when the token is empty. After writing, `chmod` the config only if this tool created it; otherwise tell the user the existing file's mode.
 
 ### M4. The release tarball vendors dependency tests, coverage HTML, and VCS junk
 
-`wa-mcp-0.9.0.tgz` contains 2097 paths. 524 of them match `coverage/`, `test/`, `.test.`, `example/`, or `.map`. Examples seen at the top of the listing: `pngjs/coverage/lcov-report/`, `pino/test/`, `thread-stream/.husky/pre-commit`, `qrcode-terminal/example/`. `bundledDependencies` is pulling in each dependency's published tree with no file filter. Baileys itself is present, which is what the github pin needs; the test and coverage files are not.
+`wa-mcp-0.1.0.tgz` contains 2097 paths. 524 of them match `coverage/`, `test/`, `.test.`, `example/`, or `.map`. Examples seen at the top of the listing: `pngjs/coverage/lcov-report/`, `pino/test/`, `thread-stream/.husky/pre-commit`, `qrcode-terminal/example/`. `bundledDependencies` is pulling in each dependency's published tree with no file filter. Baileys itself is present, which is what the github pin needs; the test and coverage files are not.
 
 Suggested fix: pack with a `files` / `.npmignore` policy on the bundled packages, or prune `node_modules/**/{test,tests,coverage,example,examples,.husky}/**` after install and before `pnpm pack`.
 
@@ -170,7 +170,7 @@ Suggested fix: cap and prune the rate-limit map. Reject empty `message_ids` befo
 
 `packages/shared/src/jid.ts:66-78` returns true for `broadcast` and for any local part that is all digits, with no server allowlist. `123@example.com` passes the send gate. The engine will likely reject it, but the gate named in ADR 0004 is not the WhatsApp JID check it appears to be. `@broadcast` is explicitly allowed, which is status-broadcast territory.
 
-Suggested fix: allow only `s.whatsapp.net`, `lid`, `g.us`, and `newsletter`, and decide explicitly whether status broadcast is in 0.9.0.
+Suggested fix: allow only `s.whatsapp.net`, `lid`, `g.us`, and `newsletter`, and decide explicitly whether status broadcast is in 0.1.0.
 
 ## Low
 
@@ -210,4 +210,4 @@ These were on the suspect list and held up under the current code:
 
 ## Release call
 
-Do not call 0.9.0 done while C1 and C2 are in the tree. H1, H2, H3, and H10 are the next cut: a reconnect can drop the linked device, a media URL is an internal-network fetch, a crashed migration bricks the store, and the default voice-note path sends mock bytes. The poll, LID, contact, and group-control gaps (H4–H7, H11) are the ones a user will notice on the first afternoon.
+Do not call 0.1.0 done while C1 and C2 are in the tree. H1, H2, H3, and H10 are the next cut: a reconnect can drop the linked device, a media URL is an internal-network fetch, a crashed migration bricks the store, and the default voice-note path sends mock bytes. The poll, LID, contact, and group-control gaps (H4–H7, H11) are the ones a user will notice on the first afternoon.

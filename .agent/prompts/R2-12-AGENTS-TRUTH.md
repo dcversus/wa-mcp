@@ -1,21 +1,21 @@
 # TASK: R2-12 — Agents page truth + agent-filtered logs (TDD, no commit)
 
 ## Owner complaints (verbatim, 2026-10-08)
-> HOW ALL of agents registered, but i am not have codex or cursor
+> HOW ALL of agents registered, but i am not have codex
 > installed? AND View logs should navigate me to page with agent
 > filter to see EXACTLY logs related to this agent
 
 ## Problem 1 — page shows registrations as if installed
 Current /api/connections lists any config file carrying our entry.
-~/.cursor/mcp.json, ~/.grok/mcp.json, ~/.gemini/antigravity/mcp_config.json
-exist ONLY because our installer wrote them (8-platform E2E); the apps
+~/.grok/mcp.json, ~/.gemini/antigravity/mcp_config.json
+exist ONLY because our installer wrote them (platform E2E); the apps
 aren't installed. That's misleading.
 FIX in bridge connections.ts:
 1. For each MCP connection, detect whether the HOST APP is actually
    installed (macOS: /Applications/<Name>.app existence + common CLI
    path on PATH via which-equivalent check; per-platform table:
-   claude-code CLI (claude), claude-desktop app, cursor app, codex
-   CLI, pi CLI, hermes CLI, grok app, antigravity app — keep it
+   claude-code CLI (claude), claude-desktop app, codex
+   CLI, pi CLI, grok app, antigravity app — keep it
    simple and documented; unknown → null).
 2. Response gains `installed: boolean | null` per connection.
 3. UI: each card shows "Not installed" badge (muted) when false;

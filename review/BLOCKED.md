@@ -7,14 +7,14 @@ resolution line but are not deleted.
 
 ## 2026-10-01 — Session start: two contract inputs missing
 
-**Blocker 1 — contract file absent.** `.agent/prompts/EXECUTE-0.9.0.md` did not exist
+**Blocker 1 — contract file absent.** `.agent/prompts/EXECUTE-0.1.0.md` did not exist
 (repo contained only GOAL.md). Cannot read the original contract.
 
 **Proposed default:** reconstructed the contract from the orchestrator message + GOAL.md §19
-into `.agent/prompts/EXECUTE-0.9.0.md` (marked RECONSTRUCTED at top). Executing under it.
+into `.agent/prompts/EXECUTE-0.1.0.md` (marked RECONSTRUCTED at top). Executing under it.
 Original, if supplied later, supersedes.
 
-**Status:** RESOLVED 2026-10-01 by orchestrator — original contract written to .agent/prompts/EXECUTE-0.9.0.md (orchestrator-gated mode added). The reconstructed copy was replaced.
+**Status:** RESOLVED 2026-10-01 by orchestrator — original contract written to .agent/prompts/EXECUTE-0.1.0.md (orchestrator-gated mode added). The reconstructed copy was replaced.
 
 ---
 
@@ -81,15 +81,15 @@ version) must change. No other task blocked.
   - **PyPI `wa-mcp` → 200 — TAKEN by a third party** (squat risk is REAL, confirmed)
   - npm nearby names: @open-wa/mcp, @wppconnect/wa-version exist — ecosystem squatting observed
 - Blocker: local `npm` has an old npmjs.org token (E401, expired), no valid npm credentials on this machine; `npm login` requires interactive browser + 2FA; gh API cannot create orgs (404 — org creation is web-only per GitHub).
-- Proposed default: owner logs into npm in their browser/terminal once (or drops a fresh granular publish token into ~/.npmrc via `npm token create`), then orchestrator immediately (a) `npm org create wa-mcp` or first-publish of the 0.9.0 tarball as `wa-mcp@0.9.0` placeholder = name claimed, (b) GitHub org `wa-mcp` created manually by owner (web-only), (c) Docker Hub namespace later (post-0.9.0).
-- NOTE: contract "NOT PUBLISHED" hard rule — first publish of the real 0.9.0 stays deferred; the name-claim publish (if owner approves) would be a minimal placeholder package (name + description + repo link) to establish priority. Awaiting owner decision: claim-now-placeholder vs full-0.9.0-first-publish.
+- Proposed default: owner logs into npm in their browser/terminal once (or drops a fresh granular publish token into ~/.npmrc via `npm token create`), then orchestrator immediately (a) `npm org create wa-mcp` or first-publish of the 0.1.0 tarball as `wa-mcp@0.1.0` placeholder = name claimed, (b) GitHub org `wa-mcp` created manually by owner (web-only), (c) Docker Hub namespace later (post-0.1.0).
+- NOTE: contract "NOT PUBLISHED" hard rule — first publish of the real 0.1.0 stays deferred; the name-claim publish (if owner approves) would be a minimal placeholder package (name + description + repo link) to establish priority. Awaiting owner decision: claim-now-placeholder vs full-0.1.0-first-publish.
 
 ## 2026-10-02 — npm name-claim attempt (2FA gate)
 
 - npm authenticated as `dcversus` (fresh token present in ~/.npmrc).
 - `wa-mcp` verified FREE at claim time; placeholder `wa-mcp@0.0.1` (name+description+repo link, 2 files, no code) built and dry-run clean.
 - `npm publish` → blocked by account 2FA (one-time password required). Orchestrator cannot read OTP codes — owner asked via Telegram for: OTP relay, self-publish, or 2FA-disable-then-retry.
-- Real 0.9.0 publish remains deferred (contract rule 2). Placeholder only claims the name.
+- Real 0.1.0 publish remains deferred (contract rule 2). Placeholder only claims the name.
 
 ## 2026-10-02 — Remaining live gates (post Phase E–H)
 
@@ -109,10 +109,10 @@ No alternative runtime on this machine (no podman/colima/lima).
 (syntax-checked). The inner script executes the exact GOAL §11 contract: node:20 container
 (tarball mounted, no repo checkout) → npm install file:tarball → npx wa-mcp install →
 doctor (bridge-down FAIL rows expected) → daemon start → /health must contain
-`"version":"0.9.0"` → doctor all-green → stop.
+`"version":"0.1.0"` → doctor all-green → stop.
 
 **Owner action:** approve the Docker Desktop helper prompt (or start Docker Desktop),
-then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'll run it.
+then run `scripts/docker-install-test.sh wa-mcp-0.1.0.tgz` — or tell me and I'll run it.
 
 **Status:** BLOCKED on owner UI action. Everything else in TASK 35 delivered.
 
@@ -129,7 +129,7 @@ then run `scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` — or tell me and I'
 - node:20 was never actually exercised — T35's docker test was recorded blocked because docker was unavailable; today it ran for the first time.
 - PROPOSED DEFAULT (implemented, awaiting ratification): docker test image `node:20` → `node:22`, root `engines.node` `>=20` → `>=22.5.0`, doctor floor `minNodeMajor` 20 → 22. The CLI/MCP pieces run fine on 20 — the floor is the daemon's.
 - Alternative if node:20 support is a hard requirement for 0.9: replace node:sqlite with a bundled SQLite (native dep or WASM) — real scope, not a 0.9-patch.
-- Full pass evidence on node:22 (fresh container, tarball sha256 325a60d7…): install → doctor(bridge down rows) → daemon start (nested bin resolved) → /health {"version":"0.9.0"} → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS.
+- Full pass evidence on node:22 (fresh container, tarball sha256 325a60d7…): install → doctor(bridge down rows) → daemon start (nested bin resolved) → /health {"version":"0.1.0"} → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS.
 
 ## 2026-10-02 16:10 — WhatsApp anti-abuse cooldown (both owner accounts)
 - 'Can't link new devices right now' on both accounts; cooldown resets on every attempt; daemon's QR-pool recovery was re-registering every ~170s keeping it alive

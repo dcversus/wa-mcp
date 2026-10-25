@@ -1,6 +1,6 @@
 {
   "name": "@wa-mcp/mcp-server",
-  "version": "0.9.0",
+  "version": "0.1.0",
   "private": true,
   "bin": {
     "mcp-server": "./dist/bin.mjs"

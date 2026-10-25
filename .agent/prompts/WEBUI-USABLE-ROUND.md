@@ -86,5 +86,5 @@ web-ui test for profilePageHtml rendering me-card + privacy rows from fixtures.
 - `npx vitest run packages/web-ui/ packages/bridge/` green
 - `vp check` 0; `pnpm --filter @wa-mcp/web-ui build` EXIT 0
 - No selector regressions: webui-e2e + dogfood must stay green (orchestrator runs on live daemon)
-- Version 0.9.0 untouched; zero comments in source; TDD RED→GREEN per workstream
+- Version 0.1.0 untouched; zero comments in source; TDD RED→GREEN per workstream
 - Do NOT commit — leave the tree for orchestrator review

@@ -56,7 +56,7 @@ lines.
 
 ## Current operational notes
 
-- The daemon requires Node ≥22.5 (node:sqlite).
+- The daemon requires Node ≥26 (node:sqlite; latest LTS line).
 - LID-era accounts: resolve recipients through
   `signalRepository.lidMapping` (FULL jids only — see send.ts comments).
 - Pairing attempts are budgeted (3 without pairing → pairing-blocked);

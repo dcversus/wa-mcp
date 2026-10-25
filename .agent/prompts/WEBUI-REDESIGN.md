@@ -1,6 +1,6 @@
 # TASK: WebUI design upgrade — modern, compact, light
 
-Owner verdict on the current UI: "it looks like a mess without proper paddings with strange float checkboxes". Target: modern, compact, light. This is 0.9.0 polish — no behavior changes, no new routes, no new dependencies (stay plain CSS, no framework).
+Owner verdict on the current UI: "it looks like a mess without proper paddings with strange float checkboxes". Target: modern, compact, light. This is 0.1.0 polish — no behavior changes, no new routes, no new dependencies (stay plain CSS, no framework).
 
 ## Scope (files)
 - `packages/web-ui/src/styles.css` — full rewrite of the design system
@@ -22,7 +22,7 @@ Owner verdict on the current UI: "it looks like a mess without proper paddings w
 - Zero comments in source (styles.css section headers like `/* ---- x ---- */` are allowed, they exist today).
 - Do NOT touch: api.ts, main.ts loaders, preflight.ts, app.ts routing logic (markup shell in app.ts renderFrame is OK to restyle), any bridge/CLI code.
 - No dependency changes.
-- Version stays 0.9.0. Conventional commit: `feat(web-ui): light compact redesign — ...`
+- Version stays 0.1.0. Conventional commit: `feat(web-ui): light compact redesign — ...`
 
 ## Acceptance (the orchestrator will verify all of this)
 1. `npx vitest run packages/web-ui/` green (including updated styles tests)

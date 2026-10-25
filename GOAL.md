@@ -1,4 +1,4 @@
-# wa-mcp — GOAL (v0.9.0)
+# wa-mcp — GOAL (v0.1.0)
 
 New repo, empty history. Bin: `npx wa-mcp install` / `bunx wa-mcp install`. 100% TypeScript on Vite+ (`vp`). npm name `wa-mcp` verified FREE (E404 on registry, 2026-10-01). GitHub `dcversus/wa-mcp` free.
 Engine: Baileys (`@whiskeysockets/baileys`, 10.9k★, same multidevice protocol as whatsmeow).
@@ -10,7 +10,7 @@ jonzarecki/wa-mcp (31p: catch_up digest, unread tracking, MCP Prompts), delltrak
 operation-hp/WA-MCP (9p), kahflane (87 tools), biliboss (62 tools), eddmann (FTS5 + catch_up lineage),
 NIXKnight, Jochem, fabienbutz, aserranoni, MuhammadMustafa18, ste-bah, OmarYousef95, Shloimy15e.
 
-**Target platforms (owner-set):** Claude Code, Claude Desktop, Pi, Hermes, Codex, Grok, Antigravity, Cursor.
+**Target platforms (owner-set):** Claude Code, Claude Desktop, Pi, Codex, Grok, Antigravity. (Hermes and Cursor dropped from scope 2026-10-16.)
 
 **Structure:** `packages/{bridge,mcp-server,shared,cli,web-ui}` + `skills/` + `plugins/` + `docs/` + `review/`.
 Daemon model: bridge as background service (launchd/systemd/TaskScheduler), MCP server per harness (stdio) + optional HTTP `/mcp`, everything under `~/.wa-mcp/` (auth 0700, store, logs, media, token).
@@ -50,7 +50,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] Alert on N consecutive reconnect failures → webhook/notification + log (Felix I#12) — verify: 3 synthetic failures → alert fired once — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] stdio MCP server exits on stdin EOF / parent death — no orphan processes (VGP P#177; chigwell P#177) — verify: kill parent → child exits ≤2s — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [x] Business-account pairing path verified or documented limitation (VGP I#205) — verify: live pair on Business account OR ACCOUNTING row with reproduction notes — VERIFY: ACCOUNTING rows (VGP I#205 documented limitation)
-- [x] Concurrent MCP clients: 2 harnesses (e.g. Claude Code + Cursor) simultaneously against ONE daemon, both streams served (chigwell I#214/P#215) — verify: parallel tools/call from 2 clients, both 200 — PENDING: live (pairing); HTTP /mcp + SSE multi-client shipped (T20/T25); 2-harness probe pending — VERIFY: live 2026-10-03 two overlapping /mcp JSON-RPC streams (Promise.all) → both 200, 32 tools each (VERIFY.md)
+- [x] Concurrent MCP clients: 2 harnesses (e.g. Claude Code + Codex) simultaneously against ONE daemon, both streams served (chigwell I#214/P#215) — verify: parallel tools/call from 2 clients, both 200 — PENDING: live (pairing); HTTP /mcp + SSE multi-client shipped (T20/T25); 2-harness probe pending — VERIFY: live 2026-10-03 two overlapping /mcp JSON-RPC streams (Promise.all) → both 200, 32 tools each (VERIFY.md)
 ## 3. Store (`packages/bridge/src/store`)
 
 - [x] better-sqlite3 (prebuilt, no compiler), WAL, busy_timeout=5000 — verify: fresh CI runner installs without gcc — VERIFY: T9 schema tests (WAL + busy_timeout 5000) — NA-ENGINE: node:sqlite replaces better-sqlite3 (ADR 0003)
@@ -221,13 +221,11 @@ Live-testing ground rules: owner's real account, Test group + own number only.
 - [x] `doctor`: daemon, /health, store, ffmpeg (common-path fallback), token perms, registrations, FTS — verify: all-green dev machine; seeded failures → correct diagnosis — VERIFY: T42 doctor all-green in fresh container
 - [x] `pair` foreground QR — verify: ≥2 rotations before timeout — VERIFY: T39 ANSI QR PASS
 - [ ] `update`: npm check → install → restart — verify: downgrade → update → version bumped — OUT-OF-SCOPE 0.9: ACCOUNTING
-- [x] Registrations (path written + read-back verified): — VERIFY: T30 sandbox probe — 8 platforms written + read-back
+- [x] Registrations (path written + read-back verified): — VERIFY: T30 sandbox probe — 6 platforms written + read-back
   - Claude Code `~/.claude.json` → `mcpServers.wa-mcp`
   - Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`
   - Codex `~/.codex/config.toml` `[mcp_servers.wa-mcp]`
-  - Cursor `~/.cursor/mcp.json`
   - Antigravity `~/.gemini/antigravity/mcp_config.json` (uses `command`/`args` or `serverUrl`, NOT `url`)
-  - Hermes `~/.hermes/mcp/wa-mcp.json`
   - Pi `~/.pi/mcp/wa-mcp.json`
   - Grok `~/.grok/mcp.json`
   - auto-detect bonus: Windsurf, Gemini CLI, opencode, VS Code `.vscode/mcp.json`
@@ -255,7 +253,7 @@ Live-testing ground rules: owner's real account, Test group + own number only.
   - [ ] `wa-ops` — status/logs/backup/restore runbook — OUT-OF-SCOPE 0.9: ACCOUNTING
   - verify: each has frontmatter+steps; `claude` loads wa-search in smoke test
 - [x] Claude Code plugin `plugins/claude-code`: `.claude-plugin/plugin.json` + `marketplace.json`, commands `/wa /wa-status /wa-unread /wa-search /wa-doctor`, SessionStart hook → health check — verify: `claude plugin validate` OK — PENDING: live (pairing); plugin dirs shipped (T31); 'claude plugin validate' pending — VERIFIED: .claude-plugin/plugin.json + commands shipped (T101-B 102d2f0)
-- [x] Per-platform plugins `plugins/{antigravity,codex,cursor,grok,hermes,pi}/`: manifest + skills sync + registration snippet — verify: manifest valid; install writes config — PENDING: live (pairing); 3/8 dirs shipped (T31); antigravity/codex/grok/hermes/pi pending — VERIFIED: 6 platform manifests + registration snippets (T101-C 56360eb)
+- [x] Per-platform plugins `plugins/{antigravity,codex,grok,pi}/`: manifest + skills sync + registration snippet — verify: manifest valid; install writes config — PENDING: live (pairing); dirs shipped (T31); — VERIFIED: 4 platform manifests + registration snippets (T101-C 56360eb; hermes+cursor plugins removed from scope 2026-10-16)
 - [ ] Root `marketplace.json` — verify: schema valid, lists all — OUT-OF-SCOPE 0.9: ACCOUNTING
 - [ ] Plugins version-locked to CLI, changesets — verify: release PR bumps all in lockstep — DEFERRED: publish (contract §11); no changesets (contract)
 
@@ -312,7 +310,7 @@ line per item, ALL states (open+closed+merged), fetched 2026-10-01 from 14 repos
 
 - [x] VitePress `docs/`: quickstart, per-platform install ×8, full tool reference, env-var config reference, service mgmt, security model, migration (lharries/Go-fork), troubleshooting runbook, disaster recovery, FAQ — VERIFY: T71+T72 — migration/troubleshooting/FAQ pages + platforms×8 (exact JSON from CLI source) + docs:build green ×2 (my runs); DR runbook = docs/troubleshooting.md disaster section; service mgmt = configuration.md
 - [x] ADRs 0001–0010: engine choice, monorepo layout, store schema, daemon model, auth model, event delivery, alias design, safety model, migration, release model — verify: 10 files indexed — VERIFY: T33 ADRs 0001-0010 + ADR 0011
-- [x] README: pitch, install matrix, feature list, credits (lharries + every fork author + PR #s), architecture diagram — VERIFY: T72 README.md landed (pitch/quickstart/features/diagram/security/credits) + docs/getting-started/platforms.md with all 8 platforms; docs:build green (my run); lychee link CI = post-billing
+- [x] README: pitch, install matrix, feature list, credits (lharries + every fork author + PR #s), architecture diagram — VERIFY: T72 README.md landed (pitch/quickstart/features/diagram/security/credits) + docs/getting-started/platforms.md with all 6 platforms; docs:build green (my run); lychee link CI = post-billing
 - [x] CHANGELOG (changesets), SECURITY, CONTRIBUTING, AGENTS.md, LICENSE MIT — verify: present + linted — VERIFY: T71 — SECURITY.md (reporting + model), CONTRIBUTING.md (setup + gates + TDD policy), AGENTS.md (architecture guide), LICENSE MIT 2026 all present; CHANGELOG PASS (T33); changesets deferred per no-publish contract
 
 ## 16. Web UI (`packages/web-ui`) — auth-gated, loopback default
@@ -361,11 +359,11 @@ Channel-adapter architecture: `ChannelAdapter` interface implemented by `Baileys
 - **G** §7+§10 groups+security — gate: independent security review (grok agent) + §10 verifies green
 - **H** §11+§12+§17+§18 distribution & surfaces — gate: fresh-container install + doctor green; plugin validate; web UI pairing page; resources+prompts listed
 - **I** §13+§15 docs+accounting — gate: doc-coverage 100%; accounting count-assert passes
-- **J** §14 release — gate: 14-day dogfood (Test group + own number), then `wa-mcp@0.9.0` public on npm
+- **J** §14 release — gate: 14-day dogfood (Test group + own number), then `wa-mcp@0.1.0` public on npm
 
 - **K (parallel, after G)** §18 dual-channel — gate: contract tests ×2 adapters green; sandbox webhook signature validation; hybrid account live-smoked
 
-## Out of scope 0.9.0 (Phase-10 rows in ACCOUNTING.md)
+## Out of scope 0.1.0 (Phase-10 rows in ACCOUNTING.md)
 
 Multi-account/multi-instance incl. wa_create_instance/wa_restart_instance (biliboss, delltrak; lharries #269/#249) — wa_set_cloud_credentials is IN SCOPE via §19 CloudApiAdapter, commerce `send_order`/`send_product`/catalog (kahflane — Business catalog API), newsletter ops if Baileys lacks support, semantic recall vectors (Felix #56), OpenWebUI/ChatGPT-connector (lharries #51/#52), Smithery (lharries #51), wppconnect bridge (lharries #298),
 event-driven LLM auto-reply agent mode (lharries PR#165/#175/#176 — rule-based autoreply IS in scope, §4),
@@ -373,4 +371,4 @@ MCPL protocol (chigwell P#120), Telegram-style folders/forum-topics/drafts/custo
 
 ---
 
-**Done = every checkbox verified. ACCOUNTING.md covers all source items (1,029 tracked items + kahflane-87/biliboss-62/delltrak-62/chigwell-80 tool lists) with final dispositions. `npx wa-mcp install` + `doctor` green on fresh macOS/Linux/Windows. All 8 platforms registered. Live smoke green. Web UI + resources + prompts live. `wa-mcp@0.9.0` on npm.**
+**Done = every checkbox verified. ACCOUNTING.md covers all source items (1,029 tracked items + kahflane-87/biliboss-62/delltrak-62/chigwell-80 tool lists) with final dispositions. `npx wa-mcp install` + `doctor` green on fresh macOS/Linux/Windows. All 6 platforms registered. Live smoke green. Web UI + resources + prompts live. `wa-mcp@0.1.0` on npm.**

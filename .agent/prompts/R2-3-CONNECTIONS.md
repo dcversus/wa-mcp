@@ -23,7 +23,7 @@ Reads (agent-side, bridge runs as same user):
    for wa-mcp hook entries → {agent: "claude"|"codex", hookFile,
    inboxPath, subId (derived from path), enabled}.
 2. MCP registrations: scan known config surfaces (~/.claude.json
-   mcpServers, ~/.codex, ~/.cursor, ~/.hermes/config.yaml, ~/.pi/agent/
+   mcpServers, ~/.codex, ~/.pi/agent/
    mcp.json) for a "wa-mcp" server entry → {agent: <host>,
    registered: true, command}.
 3. Response: {connections: [{kind: "hooks"|"mcp", agent, detail, subId,
@@ -47,7 +47,7 @@ Nav: replaces "Connect agent" stub in the Agent group (or System group
 status? NO: owner lists Connections as agent-fleet page; keep
 WhatsApp-link stuff on Connection page). Sections:
 1. "Connected agents" — cards per connection: agent name (Claude Code,
-   Codex, Cursor…), kind badge (Hooks / MCP), hook status (enabled ✓ /
+   Codex, Grok…), kind badge (Hooks / MCP), hook status (enabled ✓ /
    disabled), linked subscription (name + link → #/subscriptions),
    shortcut link → #/logs (pre-filtered ?agent= if we have jid context,
    else plain), Disconnect button (confirm → DELETE → refresh).

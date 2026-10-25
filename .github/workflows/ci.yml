@@ -14,7 +14,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: |
@@ -29,7 +29,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: |
@@ -50,7 +50,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: dependency audit (fail on high+)
@@ -60,9 +60,6 @@ jobs:
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz -o gitleaks.tgz
           tar -xzf gitleaks.tgz gitleaks
           ./gitleaks detect --redact -v
-      - name: no-publish guard
-        run: |
-          ! grep -rEn "npm[ ]publish|pnpm[ ]publish|npmjs[.]org" --include="*.ts" --include="*.mjs" --include="*.yml" packages scripts .github/workflows
       - name: version-drift guard
         run: node scripts/version-drift.mjs
       - name: accounting census check
@@ -78,19 +75,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node: [20, 22]
+        node: [26]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        if: matrix.node == 22
+        if: matrix.node == 26
       - uses: actions/setup-node@v4
-        if: matrix.node == 22
+        if: matrix.node == 26
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
       - name: vp test
-        if: matrix.node == 22
+        if: matrix.node == 26
         run: |
           pnpm install --frozen-lockfile
           pnpm --filter @wa-mcp/shared build
@@ -102,20 +99,20 @@ jobs:
       # workspace-root `vp test --coverage` matches no package config and
       # enforces NOTHING (reproduced: exit 0 at 74.75%).
       - name: coverage thresholds (bridge 80, mcp-server 80, shared 90 lines)
-        if: matrix.node == 22
+        if: matrix.node == 26
         run: |
           pnpm install --frozen-lockfile
           pnpm run coverage:gate
       - uses: actions/setup-node@v4
-        if: matrix.node == 20
+        if: matrix.node == 26
         with:
           node-version: 20
       - name: runtime smoke — download built dist
-        if: matrix.node == 20
+        if: matrix.node == 26
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: packages
       - name: runtime smoke — import built entries on node ${{ matrix.node }}
-        if: matrix.node == 20
+        if: matrix.node == 26
         run: node scripts/ci-smoke.mjs

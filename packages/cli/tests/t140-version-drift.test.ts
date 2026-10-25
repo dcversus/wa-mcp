@@ -6,5 +6,6 @@ test("version-drift guard passes at HEAD and detects injected drift", () => {
   const script = join(import.meta.dirname, "../../../scripts/version-drift.mjs");
   const out = execFileSync("node", [script], { encoding: "utf8" });
   expect(out).toContain("version-drift OK");
-  expect(out).toContain("0.9.0");
+  expect(out).toContain("no stale mentions");
+  expect(out).toContain("0.1.0");
 });

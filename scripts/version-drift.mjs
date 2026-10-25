@@ -3,12 +3,16 @@
  * carry the SAME version. Fails listing every mismatch. Surfaces:
  * root package.json, 5 workspace package.json files, bridge bin.ts SERVER
  * payload, mcp-server SERVER_INFO, bridge device label, CHANGELOG head. */
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
+const tracked = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" })
+  .split("\n")
+  .filter((line) => line.length > 0);
 
 const expected = JSON.parse(read("package.json")).version;
 const failures = [];
@@ -61,6 +65,32 @@ if (!changelog.includes(`## ${expected} (unreleased)`)) {
   failures.push(`CHANGELOG.md: missing "## ${expected} (unreleased)" heading`);
 }
 
+/** R2-0.1.0: no stale version mentions in repo-owned files. The forbidden
+ * literals are built by concatenation so this script never matches itself.
+ * Excluded: pnpm-lock.yaml and the upstream census artifacts (their version
+ * strings belong to third parties, not wa-mcp). */
+const STALE = ["0.9" + ".0", "0.8" + ".0"];
+const STALE_EXEMPT = new Set([
+  "pnpm-lock.yaml",
+  "review/BACKLOG-FULL.md",
+  "review/ACCOUNTING.md",
+  ...tracked.filter((f) => f.startsWith("review/raw/")),
+]);
+for (const file of tracked) {
+  if (STALE_EXEMPT.has(file) || !/\.(md|ts|mjs|mts|json|yml|yaml|sh|html|txt)$/.test(file)) {
+    continue;
+  }
+  if (!existsSync(join(root, file))) {
+    continue; // deleted-but-tracked (staged removals)
+  }
+  const body = read(file);
+  for (const stale of STALE) {
+    if (body.includes(stale)) {
+      failures.push(`${file}: stale version mention ${stale}`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`version-drift FAILED (expected ${expected}):`);
   for (const failure of failures) {
@@ -68,4 +98,4 @@ if (failures.length > 0) {
   }
   process.exit(1);
 }
-console.log(`version-drift OK: all surfaces at ${expected}`);
+console.log(`version-drift OK: all surfaces at ${expected}, no stale mentions`);

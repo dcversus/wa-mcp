@@ -90,6 +90,6 @@ curl -X POST -H "Authorization: Bearer $(cat ~/.wa-mcp/token)" \
 | Two daemons fighting (the token changes, pairing attempts climb) | The launchd/systemd service plus a manually started daemon                                                          | Stop the manual one (`wa-mcp stop`) and keep only the service. The port guard blocks new duplicates. |
 | `config.json permissions too open`                               | Group or other users can read the file <!-- src: packages/cli/src/config-store.ts:36-45 -->                         | `chmod 600 ~/.wa-mcp/config.json`                                                                    |
 | `doctor` reports `bridge token: present but mode …`              | The token file mode isn't 0600 <!-- src: packages/cli/src/doctor.ts:42-57 -->                                       | `chmod 600 ~/.wa-mcp/token`                                                                          |
-| The daemon won't start: `node:sqlite` errors                     | Node is older than 22.5                                                                                             | Upgrade Node.                                                                                        |
+| The daemon won't start: `node:sqlite` errors                     | Node is older than 26                                                                                               | Upgrade Node.                                                                                        |
 
 ---

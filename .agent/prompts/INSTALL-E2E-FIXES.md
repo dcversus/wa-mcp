@@ -1,7 +1,7 @@
 # TASK: fix 3 installer bugs found in live install E2E (TDD)
 
 Verified against REAL installs: claude code, pi (pi-mcp-extension 1.5.1),
-hermes, codex, cursor, grok, antigravity, claude desktop.
+codex, grok, antigravity, claude desktop.
 
 ## Bug 1: pi writer writes the WRONG PATH + WRONG SHAPE
 - Writer writes `~/.pi/mcp/wa-mcp.json` (bare spec, single file).

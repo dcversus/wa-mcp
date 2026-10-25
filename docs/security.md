@@ -1,6 +1,6 @@
 # Security
 
-wa-mcp is a single-user, loopback-only bridge to your personal WhatsApp account. The full rationale is in [ADR 0004](./adr/0004-security-model.md) and [ADR 0012](./adr/0012-scoped-pairing-token-and-loopback-guard.md). This page describes the mechanics that ship in 0.9.0.
+wa-mcp is a single-user, loopback-only bridge to your personal WhatsApp account. The full rationale is in [ADR 0004](./adr/0004-security-model.md) and [ADR 0012](./adr/0012-scoped-pairing-token-and-loopback-guard.md). This page describes the mechanics that ship in 0.1.0.
 
 ## Trust boundary
 
@@ -169,7 +169,7 @@ The Host guard doesn't apply to `/webhooks/*`. Receiving Meta webhooks needs a r
 
 - **Dependencies:** the bridge depends on the pinned Baileys fork (ADR 0011), `pino`, `qrcode` and `qrcode-terminal`. The MCP server's JSON-RPC layer has zero dependencies (ADR 0005). ADR 0002’s zero-dep claim covers the hand-rolled HTTP/MCP/store core; the bridge package additionally pins baileys (engine), pino (logging) and qrcode (pairing) — all pinned, audited, and no others (`packages/bridge/package.json`). Original text continued: `packages/bridge/package.json:23-30`.
 - **CI** runs `pnpm audit --prod --audit-level high`, gitleaks over the full history, and a no-publish grep guard.
-- **0.9.0 isn't published to any registry** (ADR 0010). Install from the repo. Any package named `wa-mcp` on a public registry isn't ours.
+- **0.1.0 isn't published to any registry** (ADR 0010). Install from the repo. Any package named `wa-mcp` on a public registry isn't ours.
 
 ## Reporting
 

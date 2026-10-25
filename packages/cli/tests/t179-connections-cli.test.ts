@@ -49,8 +49,8 @@ const FLEET = {
     },
     {
       kind: "mcp",
-      agent: "cursor",
-      label: "Cursor",
+      agent: "grok",
+      label: "Grok",
       enabled: true,
       subId: null,
       subscription: null,
@@ -65,7 +65,7 @@ test("T179 D list — table with agent, kind, status, subscription", async () =>
   expect(printed[0]).toMatch(/^AGENT\s+KIND\s+STATUS\s+SUBSCRIPTION$/);
   expect(printed[1]).toMatch(/^Claude Code\s+hooks\s+enabled\s+Family alerts \(abc\)$/);
   expect(printed[2]).toMatch(/^Codex\s+hooks\s+disabled\s+zzz \(missing\)$/);
-  expect(printed[3]).toMatch(/^Cursor\s+mcp\s+enabled\s+—$/);
+  expect(printed[3]).toMatch(/^Grok\s+mcp\s+enabled\s+—$/);
   expect(printed[4]).toBe(
     "3 connections — disconnect with: wa-mcp connections disconnect <kind> <agent>",
   );
@@ -82,7 +82,7 @@ test("T179 D list — empty fleet points at subscriptions", async () => {
 test("T179 D disconnect — DELETE /api/connections/:kind/:agent, optional --sub", async () => {
   const { deps, printed, calls } = harness(() => Response.json({ ok: true, removed: 1 }));
   expect(
-    await runConnections(deps, { ...BASE, action: "disconnect", kind: "mcp", agent: "cursor" }),
+    await runConnections(deps, { ...BASE, action: "disconnect", kind: "mcp", agent: "grok" }),
   ).toBe(0);
   expect(
     await runConnections(deps, {
@@ -94,11 +94,11 @@ test("T179 D disconnect — DELETE /api/connections/:kind/:agent, optional --sub
     }),
   ).toBe(0);
   expect(calls).toEqual([
-    { method: "DELETE", url: "http://h/api/connections/mcp/cursor" },
+    { method: "DELETE", url: "http://h/api/connections/mcp/grok" },
     { method: "DELETE", url: "http://h/api/connections/hooks/claude?sub=abc" },
   ]);
   expect(printed).toEqual([
-    "disconnected cursor (mcp) — removed 1 entry",
+    "disconnected grok (mcp) — removed 1 entry",
     "disconnected claude (hooks) — removed 1 entry",
   ]);
 });
@@ -106,17 +106,17 @@ test("T179 D disconnect — DELETE /api/connections/:kind/:agent, optional --sub
 test("T179 D disconnect — 404 and missing args fail with a message", async () => {
   const { deps, printed } = harness(() =>
     Response.json(
-      { ok: false, error: { code: "NOT_FOUND", message: "cursor has no wa-mcp mcp connection" } },
+      { ok: false, error: { code: "NOT_FOUND", message: "grok has no wa-mcp mcp connection" } },
       { status: 404 },
     ),
   );
   expect(
-    await runConnections(deps, { ...BASE, action: "disconnect", kind: "mcp", agent: "cursor" }),
+    await runConnections(deps, { ...BASE, action: "disconnect", kind: "mcp", agent: "grok" }),
   ).toBe(1);
   expect(await runConnections(deps, { ...BASE, action: "disconnect", kind: "mcp" })).toBe(1);
   expect(await runConnections(deps, { ...BASE, action: "bogus" })).toBe(1);
   expect(printed).toEqual([
-    "connections failed: HTTP 404 — cursor has no wa-mcp mcp connection",
+    "connections failed: HTTP 404 — grok has no wa-mcp mcp connection",
     "connections disconnect <hooks|mcp> <agent> [--sub <id>]",
     "connections: unknown action 'bogus' — use list or disconnect",
   ]);

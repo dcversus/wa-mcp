@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.0 (unreleased)
+## 0.1.0 (unreleased)
 
 Phase A–K feature set. Private repo; packed tarball, nothing published.
 
@@ -14,6 +14,18 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 
 - `GET /api/connections` reports `installed` per agent (app bundle / CLI probe; `null` when unknowable); the Agents page sorts installed agents first and badges the rest **App not installed**. `wa-mcp connections` does the same.
 - **View logs** opens `#/logs?agent=<slug>`: the Logs page gains an **Agent** filter, `/api/search` an `agent` param and `wa-mcp messages` an `--agent` flag. An agent's log = its MCP sends (the stdio server stamps `x-wa-agent` from `--agent`/`WA_AGENT` or the MCP `clientInfo`; `wa-mcp install` now writes `--agent <platform>`) plus deliveries from its hook-linked subscriptions, recorded in the new `agent_activity` table (migration v25).
+
+### First public release line: 0.1.0
+
+- The whole product is versioned **0.1.0** (the internal pre-release line was retired): every package.json, the bridge SERVER payload, MCP `SERVER_INFO`, device label, web UI, CHANGELOG and docs now carry 0.1.0, enforced by the version-drift guard which additionally fails on any stale pre-release version mention in repo-owned files. Historical ledgers were rewritten to match (owner directive).
+- Node floor raised to **≥26** (latest LTS line): root `engines.node`, `doctor` min-node check, CI matrix (ubuntu/macos/windows × node 26), docker install-test images (`node:26`), and docs. The no-publish CI guard and ADR-0010's publish ban are superseded — the repo is public and the npm release is owner-authorized.
+
+### WhatsApp voice notes as /voice dictation
+
+- New `wa-mcp voice` command family: `voice install` writes POSIX-sh `rec` + `sox` shims (0755, marker-guarded, `--force` to replace foreign ones) plus a 0600 env file (`~/.wa-mcp/voice-shim.env`); `voice uninstall` reverses; `voice test` probes the shims and serves one note end-to-end through the exact Claude Code recorder argv.
+- The shims make Claude Code's `/voice` dictation transcribe WhatsApp voice notes: on Linux (including docker/alpine) Claude Code falls back to spawning SoX `rec` when its native audio module cannot capture, and streams that process's stdout (raw signed 16-bit LE PCM, 16 kHz, mono) to its claude.ai speech-to-text. The shim fetches the next unplayed voice note from the bridge instead of recording — the transcript lands in the prompt like dictated speech. Contract pinned from the claude 2.1.310 binary (probes `sox`/`rec --version`; argv `-q --buffer 1024 -t raw -r 16000 -e signed -b 16 -c 1 - silence 1 0.1 3% 1 2.0 3%`; SIGTERM stop).
+- Bridge: `GET /api/voice/next` (peek `{pending, next}`) and `GET /api/voice/next.pcm` (oldest-first FIFO over inbound audio/video messages with stored media, cursor `voice_dictation_cursor` in `meta`; 204 when empty; 422 ENGINE_UNAVAILABLE naming the ffmpeg install; missing files are skipped, not blocking). ffmpeg (bridge side) converts ogg/opus to PCM — no engine config, no API key.
+- Docs: new cookbook page (flow, docker/alpine networking, claude.ai-auth + language requirements, error-string troubleshooting); wa-mcp skill mentions the flow.
 
 ### pi reacts to WhatsApp
 
@@ -39,7 +51,7 @@ Phase A–K feature set. Private repo; packed tarball, nothing published.
 
 ### CLI
 
-- `wa-mcp install|doctor|status|start|stop|restart|logs|uninstall|update|skills|pair|config|inbox|hook` — 8 platform config writers with read-back verification, sandbox `--home`, doctor check table, skills + slash-command install, inbox drain reader (JSONL cursor, exit-code protocol for host hooks).
+- `wa-mcp install|doctor|status|start|stop|restart|logs|uninstall|update|skills|pair|config|inbox|hook` — 6 platform config writers with read-back verification, sandbox `--home`, doctor check table, skills + slash-command install, inbox drain reader (JSONL cursor, exit-code protocol for host hooks).
 
 ### Web UI
 

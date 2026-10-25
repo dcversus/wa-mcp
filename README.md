@@ -1,7 +1,7 @@
 # wa-mcp
 
 WhatsApp as a local MCP server: a **single-user daemon** (Baileys session,
-Node ≥22.5, zero runtime deps in the core) exposing **74 MCP tools** over
+Node ≥26, zero runtime deps in the core) exposing **74 MCP tools** over
 stdio and HTTP, with a built-in web UI — logs, contacts, agent
 connections, subscriptions, profile, connection settings and help — and a
 `wa-mcp` CLI with the same capabilities.
@@ -17,17 +17,17 @@ WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite store)
 
 ```bash
 # from the release tarball
-npm install ./wa-mcp-0.9.0.tgz
+npm install ./wa-mcp-0.1.0.tgz
 npx wa-mcp start                      # daemon on 127.0.0.1:27777
-npx wa-mcp install --target claude-code   # or: cursor codex grok hermes pi antigravity claude-desktop
+npx wa-mcp install --target claude-code   # or: codex grok pi antigravity claude-desktop
 npx wa-mcp doctor                     # verifies token, registrations, health
 npx wa-mcp pair                       # QR in the terminal, or --code <phone>
 ```
 
-Requires Node ≥22.5 (`node:sqlite`). Full per-platform setup:
+Requires Node ≥26 (`node:sqlite`). Full per-platform setup:
 [docs/getting-started/platforms](docs/getting-started/platforms.md).
 
-**Upgrading:** the default port changed from 8080 to 27777 in 0.9.0. Installs that pass a port explicitly — the launchd/systemd service
+**Upgrading:** the default port changed from 8080 to 27777 in 0.1.0. Installs that pass a port explicitly — the launchd/systemd service
 (`--port 8080`) and every MCP host entry written by `wa-mcp install`
 (`--bridge-url http://127.0.0.1:8080`) — keep working unchanged. To move to
 27777, run `wa-mcp install --service` and `wa-mcp install` again without

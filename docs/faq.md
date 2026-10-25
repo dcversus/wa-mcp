@@ -19,7 +19,7 @@ sending — WhatsApp's anti-abuse cooldown. See [Troubleshooting](./troubleshoot
 (+votes), edits, revokes, reactions, location, contacts — see the tool
 reference. Buttons/lists are Business-account-only.
 
-**Does it work on Windows?** The daemon needs Node ≥22.5 and has not been
+**Does it work on Windows?** The daemon needs Node ≥26 and has not been
 exercised on Windows (CI matrix covers it for unit tests).
 
 **Can I use the official Cloud API instead of Baileys?** The channel-adapter

@@ -78,7 +78,7 @@
     "route": "#/chat/351930017568%40s.whatsapp.net",
     "title": "wa-mcp",
     "appChildren": 1,
-    "bodyText": "Status | Chats | Unread | Contacts | Groups | Profile | Pairing | Settings | 2026-10-02 | wa-mcp 0.9.0 live smoke — first automated message. Reply anything to complete the round-trip 🤖 | 2026-10-02T22:16:55.000Z | context | download | 2026-10-03 | Vasilisa | Another | 2026-10-03T05:48:29.000Z | context | download | 📄 document wa-mcp test pin (Lisbon) (38.736946, -9.142685) download | 2026-10-03T06:47:23.000Z | context | download | 📄 document wa-mcp test contact: +351930017568 download | 2026-",
+    "bodyText": "Status | Chats | Unread | Contacts | Groups | Profile | Pairing | Settings | 2026-10-02 | wa-mcp 0.1.0 live smoke — first automated message. Reply anything to complete the round-trip 🤖 | 2026-10-02T22:16:55.000Z | context | download | 2026-10-03 | Vasilisa | Another | 2026-10-03T05:48:29.000Z | context | download | 📄 document wa-mcp test pin (Lisbon) (38.736946, -9.142685) download | 2026-10-03T06:47:23.000Z | context | download | 📄 document wa-mcp test contact: +351930017568 download | 2026-",
     "buttons": [
       "context",
       "download",

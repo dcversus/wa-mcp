@@ -2,7 +2,7 @@
 
 ## Supported version
 
-`wa-mcp@0.9.0` (the current main branch). Only the latest release receives
+`wa-mcp@0.1.0` (the current main branch). Only the latest release receives
 security fixes.
 
 ## Reporting a vulnerability

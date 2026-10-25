@@ -2,7 +2,7 @@
 
 ## Dev setup
 
-- Node ≥ 22.5 (the store uses `node:sqlite`), pnpm 11 (see `packageManager`).
+- Node ≥ 26 (the store uses `node:sqlite`), pnpm 11 (see `packageManager`).
 - `pnpm install` then `pnpm run build` (bridges web-ui into bridge/dist/web).
 - Gates: `vp check` (format+lint+types), `vp test`, `vp run -r build`.
 - Docs: `pnpm run docs:build` + `pnpm run docs:coverage` (every tool must be

@@ -46,7 +46,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | chigwell | I#51 | issue | CLOSED | README says file/media tools removed, but main.py still registers them | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | chigwell | I#52 | issue | CLOSED | Add `skills/` documentation folder (usage guide + example workflows) | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | chigwell | I#54 | issue | CLOSED | Wrap `telegram-mcp` with `mcp-cli` to reduce tool-definition context bloat and improve invocation performance | NA-ENGINE | telegram-specific - different messenger |
-| chigwell | I#56 | issue | OPEN | mcp configuration for codker | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| chigwell | I#56 | issue | OPEN | mcp configuration for codker | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | chigwell | I#59 | issue | OPEN | Security scan results for telegram-mcp | NA-ENGINE | telegram-specific - different messenger |
 | chigwell | I#61 | issue | CLOSED | `get_folder` API returns incorrect chat type for supergroups | ABSORBED | groups: wrappers + /api/group/* + 5 group tools |
 | chigwell | I#76 | issue | CLOSED | Bug: `get_entity()` fails with `PeerUser` ValueError on basic group chats when using StringSession | ABSORBED | groups: wrappers + /api/group/* + 5 group tools |
@@ -157,7 +157,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | chigwell | PR#108 | pr | CLOSED | Add pagination to get_participants for large groups | ABSORBED | groups: wrappers + /api/group/* + 5 group tools |
 | chigwell | PR#109 | pr | MERGED | Add pagination to get_participants for large groups | ABSORBED | groups: wrappers + /api/group/* + 5 group tools |
 | chigwell | PR#110 | pr | MERGED | chore: add pre-commit hooks and document contribution workflow | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
-| chigwell | PR#111 | pr | MERGED | Refactor MCP server structure and add test coverage gate | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| chigwell | PR#111 | pr | MERGED | Refactor MCP server structure and add test coverage gate | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | chigwell | PR#113 | pr | MERGED | feat: add proxy support (SOCKS5/SOCKS4/HTTP/MTProxy) | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | chigwell | PR#114 | pr | MERGED | fix(docker): include package directory in image | OUT-OF-SCOPE-0.9 | container packaging deferred post-0.9 |
 | chigwell | PR#115 | pr | MERGED | chore(pre-commit): add pre-push pytest coverage hook | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
@@ -450,8 +450,8 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | I#46 | issue | OPEN | Client Closed not able to connect to the server | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | I#47 | issue | OPEN | Get metadata in media messages | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | I#48 | issue | OPEN | Get name from chat GetContact | ABSORBED | contacts store + /api/contacts + list_contacts/set_alias |
-| lharries | I#51 | issue | OPEN | Deploy MCP server on smithery.ai | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
-| lharries | I#52 | issue | OPEN | Is there a way to connect this MCP server to openWeb UI | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | I#51 | issue | OPEN | Deploy MCP server on smithery.ai | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
+| lharries | I#52 | issue | OPEN | Is there a way to connect this MCP server to openWeb UI | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | I#53 | issue | OPEN | Update README with Ubuntu 24 Installation Instructions | NOISE | docs chore in source repo |
 | lharries | I#56 | issue | CLOSED | cc1.exe: sorry, unimplemented: 64-bit mode not compiled in | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | I#57 | issue | OPEN | Potential Security Issue | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
@@ -504,7 +504,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | I#202 | issue | CLOSED | Your project is listed on Spark — claim your listing | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | I#204 | issue | OPEN | List WhatsApp MCP on MCPHosting marketplace — 80% creator revenue share | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | I#210 | issue | CLOSED | QR Code works - WhatsApp showing Linked Device - When sending: Server is initializing | ABSORBED | pairing: qr ascii+png+/api/qr+web pairing page; session persistence auth store |
-| lharries | I#214 | issue | OPEN | Your MCP server is now indexed on Joy Trust Network | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | I#214 | issue | OPEN | Your MCP server is now indexed on Joy Trust Network | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | I#215 | issue | OPEN | [Security] Bridge REST API binds to 0.0.0.0 by default — LAN-exposed unauthenticated /api/send and /api/download | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | I#216 | issue | OPEN | Client outdated (405) error on startup — whatsmeow dependency needs update | NA-ENGINE | different engine runtime |
 | lharries | I#218 | issue | OPEN | Add policy enforcement for message sending | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
@@ -528,7 +528,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | I#289 | issue | OPEN | feat: Auto-download & transcribe voice/audio messages | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | I#290 | issue | OPEN | feat: Auto-download & transcribe voice/audio messages | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | I#297 | issue | OPEN | Opencode | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
-| lharries | I#309 | issue | OPEN | Your MCP server is listed on DReview | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | I#309 | issue | OPEN | Your MCP server is listed on DReview | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | I#310 | issue | OPEN | Approved native WhatsApp event does not appear and may degrade to mismatched plain text | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | I#327 | issue | OPEN | Documents sent via send_file arrive as unnamed .bin files (missing mime type + FileName) | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | I#330 | issue | CLOSED | [BUG CRÍTICO] Timestamp Go→Python: fromisoformat não aceita formato time.String() | NA-ENGINE | python-runtime packaging - wa-mcp is a node/vite+ implementation |
@@ -559,7 +559,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | PR#34 | pr | MERGED | feat: handle incoming media (images, audio, videos, documents) and show names in group messages | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | PR#49 | pr | OPEN | Modified main.go and server to get names properly | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | PR#50 | pr | OPEN | So it works on Cline | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
-| lharries | PR#54 | pr | CLOSED | Refactor data handling and enhance WhatsApp MCP server | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | PR#54 | pr | CLOSED | Refactor data handling and enhance WhatsApp MCP server | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | PR#55 | pr | CLOSED | Add safe-containers, merging in a single docker image, improving the onboarding workflow | OUT-OF-SCOPE-0.9 | container packaging deferred post-0.9 |
 | lharries | PR#59 | pr | OPEN | Added message read status real time and history sync, and function for listing unread messages | ABSORBED | read-state: mark_chat_read/get_unread_counts + /api/read + /api/unread |
 | lharries | PR#60 | pr | OPEN | Add uploads directory to send_file and send_audio_message | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
@@ -585,7 +585,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | PR#100 | pr | OPEN | Create Dockerfile | OUT-OF-SCOPE-0.9 | container packaging deferred post-0.9 |
 | lharries | PR#101 | pr | OPEN | feat: Add comprehensive status monitoring system with MCP resources and web dashboard | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | PR#102 | pr | CLOSED | update main.go | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
-| lharries | PR#103 | pr | CLOSED | feat: Add Claude Code Bridge for WhatsApp self-message integration | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | PR#103 | pr | CLOSED | feat: Add Claude Code Bridge for WhatsApp self-message integration | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | PR#105 | pr | CLOSED | Fix whatsmeow API compatibility - add context.Context parameters | NA-ENGINE | different engine runtime |
 | lharries | PR#106 | pr | CLOSED | Fix both websocket and outgoing messages | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | lharries | PR#107 | pr | OPEN | MCP Trust Score | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
@@ -622,7 +622,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | PR#156 | pr | OPEN | fix: use message ID for media filenames to prevent overwrites | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | PR#157 | pr | OPEN | fix: proper MIME types for documents and filename display | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | PR#158 | pr | CLOSED | fix: update whatsmeow API compatibility | NA-ENGINE | different engine runtime |
-| lharries | PR#159 | pr | OPEN | Fix incorrect versions, chat names and sender resolution in WhatsApp bridge and MCP server | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | PR#159 | pr | OPEN | Fix incorrect versions, chat names and sender resolution in WhatsApp bridge and MCP server | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | PR#160 | pr | OPEN | Feat: Add Docker SSE infrastructure and multi-client support | OUT-OF-SCOPE-0.9 | container packaging deferred post-0.9 |
 | lharries | PR#161 | pr | CLOSED | Update whatsmeow library and fix API compatibility | NA-ENGINE | different engine runtime |
 | lharries | PR#162 | pr | OPEN | Fix WebSocket error 1006 by updating whatsmeow and adding context params | NA-ENGINE | different engine runtime |
@@ -706,7 +706,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | lharries | PR#265 | pr | OPEN | Fix 405 client-outdated connect failure and persist outgoing messages | ABSORBED | store: sqlite WAL, migrations, raw content, transcripts |
 | lharries | PR#267 | pr | OPEN | fix: resolve LID-based contact names and lookups | ABSORBED | contacts store + /api/contacts + list_contacts/set_alias |
 | lharries | PR#268 | pr | OPEN | Capture media captions instead of dropping them | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
-| lharries | PR#269 | pr | OPEN | Support multiple WhatsApp accounts in a single MCP server | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| lharries | PR#269 | pr | OPEN | Support multiple WhatsApp accounts in a single MCP server | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | lharries | PR#270 | pr | OPEN | fix(bridge): media downloads fail with 403 + colliding filenames on resync | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | PR#271 | pr | OPEN | Security hardening: media-path allowlist + pagination caps | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | lharries | PR#272 | pr | OPEN | fix: bump whatsmeow to latest + persist REST-sent messages for read-back | NOISE | dependency/CI chore |
@@ -845,7 +845,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | verygoodplugins | PR#19 | pr | MERGED | chore(deps): bump actions/checkout from 4 to 6 | NOISE | dependency/CI chore |
 | verygoodplugins | PR#20 | pr | CLOSED | Claude/add whatsapp read endpoints 13 cz7 | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | verygoodplugins | PR#23 | pr | MERGED | Update command to run WhatsApp bridge | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
-| verygoodplugins | PR#24 | pr | CLOSED | chore: update local Claude Code permission settings | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| verygoodplugins | PR#24 | pr | CLOSED | chore: update local Claude Code permission settings | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | verygoodplugins | PR#26 | pr | CLOSED | fix: contact name resolution + configurable bind address | ABSORBED | contacts store + /api/contacts + list_contacts/set_alias |
 | verygoodplugins | PR#27 | pr | MERGED | Handle StreamReplaced event to recover from session conflicts | ABSORBED | GET /events SSE with heartbeat |
 | verygoodplugins | PR#28 | pr | CLOSED | feat: security fixes + feature backports (localhost bind, Unicode search, quoted replies, RFC 3339) | ABSORBED | FTS5 search_messages with triggers + /api/search |
@@ -978,7 +978,7 @@ Reproducible: same census + same rules → same file. Manual overrides live in t
 | verygoodplugins | PR#174 | pr | MERGED | ci: support merge queue checks | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | verygoodplugins | PR#175 | pr | CLOSED | fix(bridge): webhook captionless audio messages | ABSORBED | media pipeline: resolve/download/transcribe endpoints + send_media/get_media/transcribe_message |
 | verygoodplugins | PR#176 | pr | CLOSED | fix(bridge): store and webhook contact/vCard shares | ABSORBED | contacts store + /api/contacts + list_contacts/set_alias |
-| verygoodplugins | PR#177 | pr | MERGED | fix: exit orphaned stdio MCP servers on parent death | ABSORBED | wa-mcp install writes 8 platform configs with read-back verification |
+| verygoodplugins | PR#177 | pr | MERGED | fix: exit orphaned stdio MCP servers on parent death | ABSORBED | wa-mcp install writes 6 platform configs with read-back verification |
 | verygoodplugins | PR#179 | pr | CLOSED | feat: add configurable WhatsApp MCP access controls | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | verygoodplugins | PR#180 | pr | CLOSED | feat: add a configurable Bridge port | ABSORBED | matched core messaging feature surface (default rule - reviewed sample) |
 | verygoodplugins | PR#181 | pr | CLOSED | chore(deps): bump the actions-version-updates group across 1 directory with 3 updates | NOISE | dependency/CI chore |

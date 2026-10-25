@@ -16,7 +16,7 @@ is to write it verbatim to that path. No code changes. No commit unless the user
 
 ---- BEGIN review/INDEPENDENT-REVIEW2-RUNTIME.md ----
 
-# Independent Review 2 — RUNTIME correctness + security (wa-mcp 0.9.0)
+# Independent Review 2 — RUNTIME correctness + security (wa-mcp 0.1.0)
 
 - Reviewer: independent, read-only (Claude). Date: 2026-10-04.
 - Tree: HEAD `1a35022` plus the working-tree diff (poll-votes/messages). HEAD moved to `0683aef` during the review.

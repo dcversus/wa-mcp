@@ -41,7 +41,7 @@ export const NAV_TITLES: Record<string, string> = {
   help: "Help",
 };
 
-export function navHtml(active: string, version = "0.9.0"): string {
+export function navHtml(active: string, version = "0.1.0"): string {
   const groups: string[][] = [
     ["logs", "subscriptions", "agents"],
     ["profile", "contacts", "connection", "help"],

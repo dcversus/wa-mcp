@@ -1,6 +1,6 @@
 # AUDIT R1 — D1 First-run onboarding (independent, read-only)
 
-Auditor: opus (fresh eyes) · Date: 2026-10-06 · Target: live daemon v0.9.0 at
+Auditor: opus (fresh eyes) · Date: 2026-10-06 · Target: live daemon v0.1.0 at
 http://127.0.0.1:8080 (paired, connected) · Repo HEAD `3ecd8f5`.
 
 ## Method and evidence base
@@ -136,7 +136,7 @@ and fix.
 
 #### 4. [P0 · PRODUCT · M] The UI never mentions the reason the product exists: connecting an AI agent
 - **Evidence:** across all 12 routes (`report.json` text dumps), no page
-  mentions MCP, an agent, Claude, Cursor or `wa-mcp install`. In
+  mentions MCP, an agent, Claude, Codex or `wa-mcp install`. In
   `packages/web-ui/src/pages.ts`, the only matches for "mcp" are the brand
   name and the hook-snippet CLI string (`pages.ts:39`, `pages.ts:486`). The
   only surface for agents is Subscriptions, which shows a hook command that
@@ -403,7 +403,7 @@ that it never mentions.
 | 2 | The QR auto-refreshes with an honest countdown; the phone-code form keeps its input | The poll storm turns the QR into a spinner within ~15–30 s and wipes the phone field | Findings 2, 15 |
 | 3 | On link: "✅ Linked as Name (+358…)", then "Syncing your chats…" progress | "paired as this device", then an empty list | Findings 14, 16 |
 | 4 | The chat list shows names; clicking opens the chat scrolled to the newest message, with a title and a composer placeholder | Rows don't open; the view starts at the oldest message; no title | Findings 1, 6, 19 |
-| 5 | **"Connect your agent"** step: pick Claude Code / Cursor / … and copy one install command, with a live "registered ✓" check | No such step anywhere in the UI | Finding 4 |
+| 5 | **"Connect your agent"** step: pick Claude Code / Codex / … and copy one install command, with a live "registered ✓" check | No such step anywhere in the UI | Finding 4 |
 | 6 | "Let your agent watch a chat": tick a chat, and a working hook command is shown and verified | The picker works, but the hook command points at a nonexistent file and fails silently | Finding 5 |
 | 7 | Human-readable status card; diagnostics behind a disclosure | Raw `/health` dump including a credential | Finding 12 |
 

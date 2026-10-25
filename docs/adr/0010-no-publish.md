@@ -1,12 +1,14 @@
 # 0010 — No-publish release discipline
 
+> **SUPERSEDED 2026-10-25 (owner directive):** the repository is now public and the first npm release (`wa-mcp@0.1.0`) is owner-authorized. The no-publish rule below is retained as history; the CI no-publish guard was removed with it.
+
 ## Status
 
 Accepted
 
 ## Context
 
-The deliverable for 0.9.0 is a private repo with a packed, publish-ready tarball — nothing published. Accidental publishing (npm, registry listings, release tags) is irreversible.
+The deliverable for 0.1.0 is a private repo with a packed, publish-ready tarball — nothing published. Accidental publishing (npm, registry listings, release tags) is irreversible.
 
 ## Decision
 

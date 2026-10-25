@@ -1,4 +1,4 @@
-# AUTO-QA LEDGER — wa-mcp 0.9.0 campaign
+# AUTO-QA LEDGER — wa-mcp 0.1.0 campaign
 
 Target: 25 distinct, independently verified, actually-landed root-cause fixes (scaled from 100 for repo size). Security/persistent-state/protocol changes → user review, outside count. Rule: hypothesis → reproduced → verified → landed, exact SHAs.
 
@@ -29,7 +29,7 @@ Target: 25 distinct, independently verified, actually-landed root-cause fixes (s
 | 21 | CLI subscribe/unsubscribe/inbox token read hardcoded DEFAULT_DATA_DIR, ignores --data-dir | live: --data-dir /tmp probe wrote sub to ~/.wa-mcp | Gate B w5 commit | cli 84/84 |
 | 22 | subscription kinds never validated — live accepted --kind bogus (unmatchable sub) | live probe created sub with kinds:["bogus"]; RED server+client tests | Gate B w5 commit | t107 5/5 + t113 6/6 |
 | 23 | UI boot /health fetch swallows 429 (no pairing token → unauthenticated session; the e2e "no open chat row" failure mode) | e2e failed deterministically under pairing-bucket pressure; RED healthWithRetry tests | Gate B w6 commit (T136) | web-ui 25/25 + live e2e PASS post-restart under pressure |
-| 24 | web-ui src/index.ts hardcodes version "0.0.0" vs package.json 0.9.0 (0.0.0-pack drift class) | grep + RED drift-guard test | Gate B w6 commit | index 1/1, build green |
+| 24 | web-ui src/index.ts hardcodes version "0.0.0" vs package.json 0.1.0 (0.0.0-pack drift class) | grep + RED drift-guard test | Gate B w6 commit | index 1/1, build green |
 | 25 | dead /api/download route advertised in API_PATHS auth scope, answers NOT_IMPLEMENTED "route not wired yet" (skeleton-era 58ea21d leftover) | live probe: 501 route-not-wired; only /api/media/:id/view is real | Gate B w7 commit (T137) | http 172/172 |
 
 ## Hypothesis dispositions (wave 2-3)

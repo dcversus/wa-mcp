@@ -34,7 +34,7 @@ test.each(PLATFORMS)("T188 P2 — the %s entry names its agent for log attributi
 test("T188 P2 — a spec that already names an agent is not given a second one", () => {
   const home = mkdtempSync(join(tmpdir(), "t188-agent-arg-"));
   homes.push(home);
-  const result = writeServerEntry("cursor", {
+  const result = writeServerEntry("grok", {
     home,
     spec: { ...SPEC, args: [...SPEC.args, "--agent", "custom"] },
   });
@@ -80,7 +80,7 @@ test("T188 P1 — wa-mcp connections lists installed agents first and flags miss
       fetchFn: (async () =>
         Response.json({
           connections: [
-            row("cursor", "Cursor", false),
+            row("grok", "Grok", false),
             row("pi", "Pi", null),
             row("codex", "Codex", true),
           ],
@@ -92,5 +92,5 @@ test("T188 P1 — wa-mcp connections lists installed agents first and flags miss
   expect(exit).toBe(0);
   expect(printed[1]).toMatch(/^Codex\s+mcp\s+enabled\s+—$/);
   expect(printed[2]).toMatch(/^Pi\s+mcp\s+enabled\s+—$/);
-  expect(printed[3]).toMatch(/^Cursor\s+mcp\s+enabled\s+— · app not installed$/);
+  expect(printed[3]).toMatch(/^Grok\s+mcp\s+enabled\s+— · app not installed$/);
 });

@@ -1,6 +1,6 @@
-# EXECUTE: wa-mcp 0.9.0 — COMPLETE AND VERIFY. Version stays 0.9.0.
+# EXECUTE: wa-mcp 0.1.0 — COMPLETE AND VERIFY. Version stays 0.1.0.
 
-You are the implementing agent for the wa-mcp project. This prompt is your contract. Read it fully before touching anything. **The owner's verdict: 0.9.0 is NOT finished — verify everything, do not infer it.** Nothing gets re-versioned; this prompt closes 0.9.0 completely: full verification of every claim, full documentation, and QA/AQA review using the four installed skills.
+You are the implementing agent for the wa-mcp project. This prompt is your contract. Read it fully before touching anything. **The owner's verdict: 0.1.0 is NOT finished — verify everything, do not infer it.** Nothing gets re-versioned; this prompt closes 0.1.0 completely: full verification of every claim, full documentation, and QA/AQA review using the four installed skills.
 
 ## Mission
 
@@ -10,7 +10,7 @@ You are the implementing agent for the wa-mcp project. This prompt is your contr
 4. **DOCUMENT fully** — docs a stranger can install from (openclaw-refactor-docs workflow).
 5. **QA/AQA** — systematic quality campaigns over the whole repo (auto-qa + test-audit + deslop skills, now installed at `.agents/skills/` and `.claude/skills/`).
 
-Nothing is published. Deliverable = private repo `dcversus/wa-mcp` at **0.9.0**, green CI, `wa-mcp-0.9.0.tgz` (sha256 0fa2fb11… on record) never shipped.
+Nothing is published. Deliverable = private repo `dcversus/wa-mcp` at **0.1.0**, green CI, `wa-mcp-0.1.0.tgz` (sha256 0fa2fb11… on record) never shipped.
 
 ## The owner's questions — code truth as of 2026-10-04, each a work item
 
@@ -29,13 +29,13 @@ For EVERY claim below, produce evidence or a fix. Record in `review/VERIFY.md` w
 - `vp check` clean; `coverage:gate` green at 80/80/90 floors
 - `pnpm run doc-coverage` → 63/63; `accounting:check` → 1,029 dispositioned
 - GOAL.md 148 ticks: line-by-line, each tick backed by a VERIFY.md evidence line; untick anything unbacked
-- CHANGELOG `## 0.9.0 (unreleased)` exists? — if missing, create from phase history
+- CHANGELOG `## 0.1.0 (unreleased)` exists? — if missing, create from phase history
 - ADRs 0001–0012 exist; 0012 matches current auth design (pairing token + stable UI token)
 - `docs:build` green; release guard greps green; 8-platform sandbox registers green; fresh-container Docker install PASS
 - WebUI e2e + webui-dogfood PASS on the CURRENT daemon build
 - Live daemon: connected, loggedIn, 0 watchdog firings, /health honest
-- Tarball `wa-mcp-0.9.0.tgz` sha256 `0fa2fb11…` reproducible from HEAD
-- package.json version = 0.9.0 across all 6 packages + bin.ts + SERVER_INFO + device label — AND a CI guard preventing version drift (the 0.0.0 pack incident)
+- Tarball `wa-mcp-0.1.0.tgz` sha256 `0fa2fb11…` reproducible from HEAD
+- package.json version = 0.1.0 across all 6 packages + bin.ts + SERVER_INFO + device label — AND a CI guard preventing version drift (the 0.0.0 pack incident)
 - CI: billing-blocked is documented in BLOCKED.md; CI green locally via act or equivalent
 - CHANGELOG/README/docs don't promise anything the binary doesn't do
 
@@ -90,7 +90,7 @@ Wa-mcp mapping of openclaw-specific references (apply when the skill names somet
 | `scripts/run-vitest.mjs <filter>` | `npx vitest run <filter>` (or `vp test` full) |
 | `scripts/check-changed.mjs --dry-run` | `vp check` |
 | `$openclaw-testing` / `$openclaw-qa-testing` | `vp test` + this repo's gates (`review/GATES.md`) |
-| `$crabbox` remote/Docker proof | `bash scripts/docker-install-test.sh wa-mcp-0.9.0.tgz` |
+| `$crabbox` remote/Docker proof | `bash scripts/docker-install-test.sh wa-mcp-0.1.0.tgz` |
 | `$autoreview` | independent reviewer pass: `claude -p --permission-mode plan` on the changed surface |
 | `$openclaw-pr-maintainer` / `scripts/pr` | direct commit to main (single-maintainer repo) |
 | Control UI / gateway / agents.list | wa-mcp web UI / bridge daemon / MCP tools |
@@ -110,7 +110,7 @@ Wa-mcp mapping of openclaw-specific references (apply when the skill names somet
 ## Phase 7 — Final verification + packaging
 
 - Full gate re-run: vp test + vp check + coverage:gate + doc-coverage (all tools) + env-doc-coverage (new) + accounting:check + docs:build + release-guard greps + 8-platform sandbox + fresh-container Docker + webui-e2e + live smoke on the real account (rules in GATES.md).
-- Repack: `bash scripts/pack-release.sh` → `wa-mcp-0.9.0.tgz` + sha256. Version-drift guard proves the name.
+- Repack: `bash scripts/pack-release.sh` → `wa-mcp-0.1.0.tgz` + sha256. Version-drift guard proves the name.
 - GOAL.md fully dispositioned: every box ticked-with-evidence or dispositioned-with-anchor; no silent boxes.
 - Final report: checkbox count, gate table, tarball + sha256, ACCOUNTING deltas, VERIFY line count, BLOCKED contents, **"PUBLISH NOT PERFORMED"**.
 

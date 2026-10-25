@@ -25,7 +25,7 @@ docs/raw/2026-10-07-webui-r2-restructure.md (bottom).
 2. docs/**: every http://127.0.0.1:8080 and :8080 URL → 27777, EXCEPT
    historical/ADR/migration contexts. Add a migration note in
    docs/configuration.md + README ("Upgrading: existing installs with
-   explicit port unaffected; default changed 8080→27777 in 0.9.0").
+   explicit port unaffected; default changed 8080→27777 in 0.1.0").
 3. CHANGELOG entry.
 - RED: docs drift tests if any pin 8080; cli usage tests.
 

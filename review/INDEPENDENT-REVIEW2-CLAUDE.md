@@ -1,7 +1,7 @@
 # Plan: write review/INDEPENDENT-REVIEW2-CLAUDE.md
 
 ## Context
-I ran an independent read-only review of wa-mcp 0.9.0 at commit `eafd8e8`. This was review 1 of a 3-reviewer series, covering functional parity against the reference WhatsApp MCP servers and how strict the MCP surface is. Plan mode blocked writing the deliverable. The only action left is to write the report below to `review/INDEPENDENT-REVIEW2-CLAUDE.md`, word for word: one new file, no code changes, no commit.
+I ran an independent read-only review of wa-mcp 0.1.0 at commit `eafd8e8`. This was review 1 of a 3-reviewer series, covering functional parity against the reference WhatsApp MCP servers and how strict the MCP surface is. Plan mode blocked writing the deliverable. The only action left is to write the report below to `review/INDEPENDENT-REVIEW2-CLAUDE.md`, word for word: one new file, no code changes, no commit.
 
 Verification after writing: `git status` shows only that file as untracked.
 

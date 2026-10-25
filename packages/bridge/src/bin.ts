@@ -324,7 +324,7 @@ export async function main(
     subscriptionsDir: config.dataDir,
     homeDir: process.env.HOME ?? homedir(),
     store,
-    version: "0.9.0",
+    version: "0.1.0",
     sendGuard,
     humanizer,
     uiBootstrapToken,

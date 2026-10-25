@@ -1,6 +1,6 @@
 # Development
 
-Toolchain: [Vite+](https://viteplus.dev) (`vp`) over a pnpm workspace. Node ≥ 20 (sqlite-touching code needs ≥ 22.5); the pinned pnpm is auto-managed via `packageManager`.
+Toolchain: [Vite+](https://viteplus.dev) (`vp`) over a pnpm workspace. Node ≥ 26; the pinned pnpm is auto-managed via `packageManager`.
 
 ```sh
 pnpm install

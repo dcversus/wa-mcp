@@ -1,4 +1,4 @@
-# Independent Code Review: wa-mcp 0.9.0 (Anthropic reviewer)
+# Independent Code Review: wa-mcp 0.1.0 (Anthropic reviewer)
 
 - **Date:** 2026-10-03
 - **Tree:** `main` @ `7bef0c3` (plus uncommitted docs-only changes)
@@ -8,7 +8,7 @@
 
 ## Verdict
 
-**I would not ship a 0.9.0 claim that GOAL §10 (security) holds.** Three Critical issues make the bearer-token model largely ineffective:
+**I would not ship a 0.1.0 claim that GOAL §10 (security) holds.** Three Critical issues make the bearer-token model largely ineffective:
 
 1. Any process or web page that can reach `/health` can read every message and send messages as the user.
 2. A stored XSS in the groups page leads to full account takeover.
@@ -174,7 +174,7 @@ The `api.ts` client never checks `response.ok` (`web-ui/src/api.ts:71-74`), and 
 - **Where:**
   - `notifications.ts:93`: `evaluateRules` has **no caller** in `src/`. Rules can be created, listed and deleted (`http.ts:953-975, 1913-1948`; MCP tools `tools.ts:569-631`), but nothing ever fires.
   - `store/contacts.ts:42`: `upsertContact` has no caller in `src/`. `contacts.upsert` is subscribed (`events.ts:37`), but `lifecycle.ts` never persists it. `/api/contacts`, the contacts page and `list_contacts` return only rows created by tests.
-- **Fix:** wire both (an SSE `notification` event or an OS hook, and `contacts.upsert`/`contacts.update` → `upsertContact`), or remove them from the tool surface and from GOAL before claiming 0.9.0.
+- **Fix:** wire both (an SSE `notification` event or an OS hook, and `contacts.upsert`/`contacts.update` → `upsertContact`), or remove them from the tool surface and from GOAL before claiming 0.1.0.
 
 ### H10. The send guard can be bypassed by concurrent requests and by TTS
 
@@ -414,7 +414,7 @@ Highest-leverage additions, in order:
 6. **Concurrency tests:** fire 10 parallel `/api/send` calls and expect exactly one to pass with the default 1-second interval (H10). Call `resumePairing()` while connected and expect `makeWASocket` to be called exactly once (H1).
 7. **Live E2E (nightly, gated):** the existing `scripts/webui-e2e.mjs` and dogfood scripts are the right direction. Add a second test account (or the Cloud API test number) and cover the round trip: send, receive, react, edit, revoke, poll vote, and media download after a daemon restart. Run it nightly, not per-PR.
 
-## 5. Cleanup before claiming 0.9.0
+## 5. Cleanup before claiming 0.1.0
 
 1. Fix C1–C3 and H1–H3 (security and stability). Flip the T54 tests in `http.test.ts:2092-2136`.
 2. Fix the H4/H5 UI wiring, or hide the broken controls. Make `api.ts` throw on non-2xx.

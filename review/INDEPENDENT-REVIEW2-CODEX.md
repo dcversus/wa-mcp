@@ -5,7 +5,7 @@ Independent read-only review of `packages/bridge/src/store/*`, `lifecycle.ts`, t
 
 ---
 
-# INDEPENDENT REVIEW 3/3 — Store + Daemon Correctness (wa-mcp 0.9.0)
+# INDEPENDENT REVIEW 3/3 — Store + Daemon Correctness (wa-mcp 0.1.0)
 
 Reviewer: independent, read-only. Scope: `packages/bridge/src/store/*`, `lifecycle.ts`, migrations v1–v14, all raw SQL in `packages/bridge/src`, the scheduler/shutdown wiring in `bin.ts`/`shutdown.ts`, and the pinned engine fork (`doryani-ai/Baileys#fix/companion-reg-refresh`), which was read where behavior depended on it.
 

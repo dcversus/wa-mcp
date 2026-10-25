@@ -6,5 +6,5 @@ test("T95 — pack-release asserts the package version against the pack output",
   expect(script).toMatch(/version drift/);
   expect(script).toMatch(/package\.json/);
   expect(script).toContain("expected_version");
-  expect(script).not.toContain("0.9.0.tgz");
+  expect(script).not.toContain("0.1.0.tgz");
 });

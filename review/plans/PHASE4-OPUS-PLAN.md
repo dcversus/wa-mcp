@@ -1,7 +1,7 @@
 # Phase 4 — voice / video / document understanding (T121–T130)
 
 ## Context
-0.9.0 ships transcription (mock/openai/mlx + `transcripts` cache) but agents can't see transcripts in `list_messages`, videos have no audio transcript, there's no offline whisper.cpp engine, BYOK keys can only be set via env, documents aren't readable, and doctor says nothing about engines. Phase 4 closes GAPs 1–6 without adding any hard dependency.
+0.1.0 ships transcription (mock/openai/mlx + `transcripts` cache) but agents can't see transcripts in `list_messages`, videos have no audio transcript, there's no offline whisper.cpp engine, BYOK keys can only be set via env, documents aren't readable, and doctor says nothing about engines. Phase 4 closes GAPs 1–6 without adding any hard dependency.
 
 Things I found that change the plan (verified in code today):
 - `serveTranscribe` (`packages/bridge/src/http.ts:2043`) turns **every** engine failure into `500 INTERNAL "transcription failed"`. That includes the `CONFIG:` error thrown by `OpenAITranscriptionEngine`. It also hardcodes `"audio/ogg"`. So structured setup errors have to come first (T121); every later engine depends on them.

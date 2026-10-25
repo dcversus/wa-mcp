@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs INSIDE the node:20 container. Expects the tarball at /mnt/wa-mcp-0.9.0.tgz.
+# Runs INSIDE the node:26 container. Expects the tarball at /mnt/wa-mcp-0.1.0.tgz.
 set -euo pipefail
 
 echo "== node $(node --version) / npm $(npm --version) =="
@@ -7,7 +7,7 @@ echo "== node $(node --version) / npm $(npm --version) =="
 cd /tmp
 npm init -y >/dev/null
 echo "== npm install tarball =="
-npm install /mnt/wa-mcp-0.9.0.tgz
+npm install /mnt/wa-mcp-0.1.0.tgz
 echo "== npx wa-mcp --version probe =="
 BIN="$(ls /tmp/node_modules/.bin/wa-mcp)"
 "$BIN" --data-dir /tmp/data >/dev/null 2>&1 || true # usage line, exercises the binary
@@ -16,9 +16,9 @@ mkdir -p /tmp/h /tmp/data
 node -e "require('fs').writeFileSync('/tmp/data/token','containertok\n',{mode:0o600})"
 
 echo "== install =="
-npx wa-mcp install --home /tmp/h --target cursor --token containertok
-test -s /tmp/h/.cursor/mcp.json
-grep -q wa-mcp /tmp/h/.cursor/mcp.json
+npx wa-mcp install --home /tmp/h --target grok --token containertok
+test -s /tmp/h/.grok/mcp.json
+grep -q wa-mcp /tmp/h/.grok/mcp.json
 echo "install: config written + contains wa-mcp"
 
 echo "== doctor (bridge down — FAIL rows expected) =="
@@ -54,7 +54,7 @@ done
 echo "== /health =="
 HEALTH=$(curl -sf http://127.0.0.1:8080/health)
 echo "$HEALTH"
-echo "$HEALTH" | grep -q '"version":"0.9.0"'
+echo "$HEALTH" | grep -q '"version":"0.1.0"'
 
 echo "== doctor (bridge up — all green expected) =="
 npx wa-mcp doctor --home /tmp/h --data-dir /tmp/data --bridge-url http://127.0.0.1:8080

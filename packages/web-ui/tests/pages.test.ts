@@ -61,7 +61,7 @@ test("connection page renders health fields with escaping (T51)", () => {
       connected: false,
       pairingBlocked: false,
       uptime: 42,
-      version: "0.9.0",
+      version: "0.1.0",
       channel: "baileys",
     },
     me: null,

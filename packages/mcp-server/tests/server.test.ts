@@ -857,7 +857,7 @@ test("T99 — resources expose wa://sync-status and wa://config (no token)", asy
   );
   const configText = (resultOf(readConfig).contents as Array<{ text: string }>)[0]?.text ?? "";
   expect(configText).toContain(ctx.bridgeUrl);
-  expect(configText).toContain('"version":"0.9.0"');
+  expect(configText).toContain('"version":"0.1.0"');
   // the token must NEVER appear in the config resource
   expect(configText).not.toContain(ctx.token);
 });

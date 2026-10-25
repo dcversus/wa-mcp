@@ -89,27 +89,27 @@ deferred — see deviations.
 ## Phase H — §11/§12/§16/§17 distribution + surfaces (unit gate GREEN)
 
 - web UI (router/state/api/pages pure modules, static serving, SPA shell) — T29, 322/322, live probe (GET / 200 built bundle, assets, traversal 401, API auth intact)
-- cli bin (install/doctor/status/start/stop) — T30, 337/337, sandbox probe (8 platforms written+read-back, antigravity command+serverUrl, idempotent re-install)
+- cli bin (install/doctor/status/start/stop) — T30, 337/337, sandbox probe (6 platforms written+read-back, antigravity command+serverUrl, idempotent re-install)
 - skills + plugins (SKILL.md + references + installer) — T31, 344/344, sandbox probe (skills install + frontmatter)
 - MCP transport/tools — T20 (225/225) + T28 (301/301) live probes; docs (ADRs + vitepress + coverage 30/30) — T33; accounting (1,029 dispositions, CI green) — T32; security CI job — T27 (run 36947830588, 10/10)
 - Verdict: unit-complete; fresh-container `npx wa-mcp install` probe is the remaining §11 live gate.
 
-## Phase I/J prep — version 0.9.0 + pack + records (this entry)
+## Phase I/J prep — version 0.1.0 + pack + records (this entry)
 
-- All 6 packages at 0.9.0; SERVER_INFO 0.9.0; check/test/build green post-bump.
-- Packed: wa-mcp-0.9.0.tgz (cli publish artifact), sha256 recorded in VERIFY.md, tarball gitignored.
+- All 6 packages at 0.1.0; SERVER_INFO 0.1.0; check/test/build green post-bump.
+- Packed: wa-mcp-0.1.0.tgz (cli publish artifact), sha256 recorded in VERIFY.md, tarball gitignored.
 
 ## Phase I — §15 docs + §13 accounting (gate GREEN; CI badge BLOCKED-billing)
 
-- Docs: 10 ADRs (0001–0010) + ADR 0011 (engine pairing fork pin) — T33 + T-A; VitePress build green (docs:build 1.85s); docs:coverage 30/30 (every registry tool documented); CHANGELOG 0.9.0 section — orchestrator-validated.
+- Docs: 10 ADRs (0001–0010) + ADR 0011 (engine pairing fork pin) — T33 + T-A; VitePress build green (docs:build 1.85s); docs:coverage 30/30 (every registry tool documented); CHANGELOG 0.1.0 section — orchestrator-validated.
 - Accounting: 1,029 census items dispositioned (BACKLOG-FULL → ACCOUNTING), `accounting:check` wired into the CI security job — green locally and in pre-billing run 36955241911 — T32.
 - Verdict: GREEN on every mechanically checkable item. CI badge re-confirmation BLOCKED (GitHub Actions billing — runs never start).
 
 ## Phase J — release gates (PARTIAL: local gates GREEN; CI + live BLOCKED, by design)
 
 - Coverage gates (T41): per-package line thresholds enforced — bridge 80 (actual 82.89), mcp-server 80 (88.36 lines / 88.53 stmts), shared 90 (97.77); vitest engine proven to bite (99% probe against 97.77% → exit 1); wired into the ci.yml test job and verified locally with the exact CI commands (`pnpm --filter <pkg> exec vp test --coverage`).
-- Fresh-container install (T42): `scripts/docker-install-test.sh` exit 0 on node:22 (docker 27.4.0) after the nested-bridge-bin resolution fix — npm install tarball → `npx wa-mcp install` verified → doctor bridge-down rows → daemon start → `/health {"version":"0.9.0"}` → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS. DEVIATION: contract image node:20 is impossible (bridge store is node:sqlite, ≥22.5) — floor raised to `>=22.5.0`, owner ratification pending (BLOCKED.md).
-- Release tarball: wa-mcp-0.9.0.tgz sha256 325a60d7… (fork engine + pair CLI + web fixes), reproducible via `scripts/pack-release.sh`; bundled socket.js verified to carry companion_reg_refresh (2 refs).
+- Fresh-container install (T42): `scripts/docker-install-test.sh` exit 0 on node:22 (docker 27.4.0) after the nested-bridge-bin resolution fix — npm install tarball → `npx wa-mcp install` verified → doctor bridge-down rows → daemon start → `/health {"version":"0.1.0"}` → doctor all-green → FRESH-CONTAINER INSTALL TEST: PASS. DEVIATION: contract image node:20 is impossible (bridge store is node:sqlite, ≥22.5) — floor raised to `>=22.5.0`, owner ratification pending (BLOCKED.md).
+- Release tarball: wa-mcp-0.1.0.tgz sha256 325a60d7… (fork engine + pair CLI + web fixes), reproducible via `scripts/pack-release.sh`; bundled socket.js verified to carry companion_reg_refresh (2 refs).
 - CI-green: BLOCKED — GitHub Actions billing (runs 36979526866+ never start; owner action recorded 5d17b71). Local gates green: vp check exit 0, vp test 369/369.
 - Live smoke: BLOCKED — pairing scan. Live pairing still fails (creds.update never persists; engine analysis complete: stale `creds.me` from earlier pairing-code calls blocks the fork's adv-secret rotation — identical devicePairingData across cycles); instrumented rescan is the next step.
 - Verdict: PARTIAL honestly — every gate runnable without pairing or paid CI is green; the two open items are external blockers, not missing work.
@@ -118,7 +118,7 @@ deferred — see deviations.
 - vp check: exit 0 (0 errors). vp test: 726/726 (72 files) — supersedes the 369/369 figure above.
 - Live smoke: GREEN since 2026-10-02 pairing success — send matrix (text/poll/edit/location/contact/reaction/profile-status/delete/forward/media), incoming ingest, LID canonicalization (T63 proven by owner's live reply), group metadata, FTS/search/context, presence, concurrent MCP (2×200, 58 tools), SSE, rate starvation fixes (T74/T75), annotations live-verified. Evidence lines in VERIFY.md (T55–T92).
 - Fresh-container: PASS re-run 2026-10-04 on final tarball cc8b9ed6 (log /tmp/docker-test.log EXIT 0).
-- 8-platform sandbox registration: all 8 verified read-back (VERIFY Phase-J entry).
+- 6-platform sandbox registration: all 6 verified read-back (VERIFY Phase-J entry).
 - CI matrix: still BLOCKED — GitHub billing (fresh evidence run 37200516247, 2026-10-04 14:59). node:20 deviation unchanged (floor >=22.5.0, owner ratification pending).
 - Publish: NOT PERFORMED (by design) — §11 deferred items remain unchecked per contract.
 - Dogfood offer (14-day): delivered to owner 2026-10-04; awaiting decision.

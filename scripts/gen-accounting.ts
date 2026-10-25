@@ -259,7 +259,7 @@ const KEYWORD_RULES: Array<{ test: RegExp; disposition: Disposition; note: strin
   {
     test: /mcp (config|server|registry)|add to claude|claude code/i,
     disposition: "ABSORBED",
-    note: "wa-mcp install writes 8 platform configs with read-back verification",
+    note: "wa-mcp install writes 6 platform configs with read-back verification",
   },
   { test: /skill/i, disposition: "ABSORBED", note: "skills/wa-mcp + wa-mcp skills install" },
   {

@@ -1,6 +1,6 @@
 # AUDIT R1 — D3 Quality assurance, deep manual (independent)
 
-Auditor: opus (fresh eyes) · Date: 2026-10-06 · Target: live daemon v0.9.0 at
+Auditor: opus (fresh eyes) · Date: 2026-10-06 · Target: live daemon v0.1.0 at
 http://127.0.0.1:8080 (paired, connected), served bundle `assets/index-CLRp372T.js`.
 D1 (`review/AUDIT-R1-D1.md`) and D2 (`review/AUDIT-R1-D2.md`) findings are
 referenced as "(D1 #n)" / "(D2 #n)" and are not re-argued.

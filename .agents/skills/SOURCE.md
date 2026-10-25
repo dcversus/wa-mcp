@@ -7,4 +7,4 @@ These four skills are installed verbatim from openclaw/openclaw `.agents/skills/
 - deslop
 - openclaw-refactor-docs
 
-wa-mcp-specific mapping (openclaw references -> our equivalents) lives in `.agent/prompts/EXECUTE-0.9.0-COMPLETE.md`.
+wa-mcp-specific mapping (openclaw references -> our equivalents) lives in `.agent/prompts/EXECUTE-0.1.0-COMPLETE.md`.
