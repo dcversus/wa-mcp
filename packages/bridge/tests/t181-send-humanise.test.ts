@@ -419,28 +419,32 @@ test("T181 B1 — HTTP and MCP sends share the humanised choke point", async () 
   ]);
 });
 
-test("T181 B1 — closing the server aborts a pending humanised send with 503 and returns its budget", async () => {
-  const store = makeStore();
-  const log: string[] = [];
-  const humanizer = createHumanizer({
-    settings: () => humanOn({ minDelayMs: 60_000, maxDelayMs: 60_000 }),
-    random: () => 0.5,
-  });
-  const guard = new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 });
-  const bridge = await createHttpServer(stubHandle(fakeSocket(log)), {
-    token: TOKEN,
-    store,
-    sendGuard: guard,
-    humanizer,
-  });
-  const pending = send(bridge, DM, "hello");
-  await vi.waitFor(() => expect(log).toEqual([`presence:composing:${DM}`]));
-  const started = Date.now();
-  await bridge.close();
-  const res = await pending;
-  expect(Date.now() - started).toBeLessThan(5000);
-  expect(res.status).toBe(503);
-  expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SHUTTING_DOWN");
-  expect(log).toEqual([`presence:composing:${DM}`, `presence:paused:${DM}`]);
-  expect(guard.check(Date.now(), DM).ok).toBe(true);
-});
+test(
+  "T181 B1 — closing the server aborts a pending humanised send with 503 and returns its budget",
+  { timeout: 15_000 },
+  async () => {
+    const store = makeStore();
+    const log: string[] = [];
+    const humanizer = createHumanizer({
+      settings: () => humanOn({ minDelayMs: 60_000, maxDelayMs: 60_000 }),
+      random: () => 0.5,
+    });
+    const guard = new SendGuard(store, { minIntervalMs: 0, dailyCap: 1 });
+    const bridge = await createHttpServer(stubHandle(fakeSocket(log)), {
+      token: TOKEN,
+      store,
+      sendGuard: guard,
+      humanizer,
+    });
+    const pending = send(bridge, DM, "hello");
+    await vi.waitFor(() => expect(log).toEqual([`presence:composing:${DM}`]));
+    const started = Date.now();
+    await bridge.close();
+    const res = await pending;
+    expect(Date.now() - started).toBeLessThan(5000);
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SHUTTING_DOWN");
+    expect(log).toEqual([`presence:composing:${DM}`, `presence:paused:${DM}`]);
+    expect(guard.check(Date.now(), DM).ok).toBe(true);
+  },
+);

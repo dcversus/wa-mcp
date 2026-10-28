@@ -1148,6 +1148,7 @@ test("POST /mcp answers JSON-RPC over HTTP", async () => {
     prompts: {},
     logging: {},
     notifications: {},
+    experimental: { "claude/channel": {} },
   });
   expect(body.result.serverInfo.name).toBe("wa-mcp");
 });
