@@ -1,6 +1,6 @@
 # Tool reference
 
-Generated from the MCP registry (`scripts/gen-docs.ts`) — 74 tools. Regenerate with `pnpm run docs:gen`.
+Generated from the MCP registry (`scripts/gen-docs.ts`) — 77 tools. Regenerate with `pnpm run docs:gen`.
 
 ### get_login_qr
 
@@ -485,13 +485,75 @@ List or search stored WhatsApp contacts.
       "type": "string",
       "description": "Case-insensitive search over name, pushname and jid"
     },
-    "limit": { "type": "number" }
+    "limit": { "type": "number" },
+    "saved": { "type": "boolean", "description": "Only people saved in the account's contact list" }
   }
 }
 ```
 
 - `query` (string, optional) — Case-insensitive search over name, pushname and jid
 - `limit` (number, optional)
+- `saved` (boolean, optional) — Only people saved in the account's contact list
+
+### add_contact
+
+Save a person to the WhatsApp account's contact list (synced to the phone's address book). Give a phone number with country code, or a person jid.
+
+```json
+{
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "description": "Full name to save the contact under" },
+    "phone": {
+      "type": "string",
+      "description": "Phone number with country code, e.g. +358401112222"
+    },
+    "jid": { "type": "string", "description": "Person jid (PN or LID) instead of a phone number" }
+  }
+}
+```
+
+- `name` (string, required) — Full name to save the contact under
+- `phone` (string, optional) — Phone number with country code, e.g. +358401112222
+- `jid` (string, optional) — Person jid (PN or LID) instead of a phone number
+- required: `name`
+
+### rename_contact
+
+Change the name a saved contact is stored under (synced to the phone).
+
+```json
+{
+  "type": "object",
+  "required": ["jid", "name"],
+  "properties": {
+    "jid": { "type": "string", "description": "The contact's jid (from list_contacts)" },
+    "name": { "type": "string", "description": "New full name" }
+  }
+}
+```
+
+- `jid` (string, required) — The contact's jid (from list_contacts)
+- `name` (string, required) — New full name
+- required: `jid`, `name`
+
+### remove_contact
+
+Remove a person from the account's contact list (synced to the phone). Chats and messages stay.
+
+```json
+{
+  "type": "object",
+  "required": ["jid"],
+  "properties": {
+    "jid": { "type": "string", "description": "The contact's jid (from list_contacts)" }
+  }
+}
+```
+
+- `jid` (string, required) — The contact's jid (from list_contacts)
+- required: `jid`
 
 ### set_presence
 
@@ -672,7 +734,7 @@ Clear all messages in a chat (chat stays in the list).
 
 ### subscribe_events
 
-Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.
+Create a subscription for a chat, every DM from a saved contact (saved_contacts), or all chats: matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.
 
 ```json
 {
@@ -685,6 +747,10 @@ Create a subscription for a chat (or all chats): matching incoming messages are 
     "all_chats": {
       "type": "boolean",
       "description": "Match every chat (requires chat_jid omitted)"
+    },
+    "saved_contacts": {
+      "type": "boolean",
+      "description": "Match every one-to-one chat with a person saved in the contact list (add_contact); combines with chat_jid"
     },
     "name": {
       "type": "string",
@@ -709,6 +775,7 @@ Create a subscription for a chat (or all chats): matching incoming messages are 
 
 - `chat_jid` (string, optional) — Chat or group jid; omit with all_chats for every chat
 - `all_chats` (boolean, optional) — Match every chat (requires chat_jid omitted)
+- `saved_contacts` (boolean, optional) — Match every one-to-one chat with a person saved in the contact list (add_contact); combines with chat_jid
 - `name` (string, optional) — Subscription name (default: "MCP: " plus the chat id)
 - `like` (string, optional) — SQL LIKE text filter, case-insensitive: % any text, _ one character; without wildcards it matches anywhere
 - `mention_only` (boolean, optional) — Only deliver messages that @mention this WhatsApp account

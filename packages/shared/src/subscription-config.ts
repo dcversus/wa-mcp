@@ -1,6 +1,9 @@
 import { isJid } from "./jid.ts";
 
 export const ALL_CHATS = "*";
+/** chats selector: every one-to-one chat with a person saved in the
+ * account's contact list (matched by phone number and by LID) */
+export const SAVED_CONTACTS = "@contacts";
 
 export const DELIVERY_MODES = ["inbox", "session", "spawn", "channel"] as const;
 
@@ -139,7 +142,7 @@ export function validateSubscriptionConfigInput(raw: unknown): ConfigValidation 
     return fail("chats: * (all chats) cannot be combined with specific chats");
   }
   for (const [index, chat] of raw.chats.entries()) {
-    if (chat === ALL_CHATS) {
+    if (chat === ALL_CHATS || chat === SAVED_CONTACTS) {
       continue;
     }
     if (!isJid(chat)) {

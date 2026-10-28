@@ -61,6 +61,10 @@ export function chatsLabel(chats: string[]): string {
   if (chats.includes("*")) {
     return "all chats";
   }
+  if (chats.includes("@contacts")) {
+    const rest = chats.length - 1;
+    return rest === 0 ? "saved contacts" : `saved contacts + ${rest} chat${rest === 1 ? "" : "s"}`;
+  }
   return chats.length === 1 ? (chats[0] as string) : `${chats.length} chats`;
 }
 

@@ -58,6 +58,9 @@ test("the registry exposes the full launch set", () => {
     "mark_chat_read",
     "set_chat_state",
     "list_contacts",
+    "add_contact",
+    "rename_contact",
+    "remove_contact",
     "set_presence",
     "set_alias",
     "get_unread_counts",
@@ -1080,4 +1083,49 @@ test("T99 — get_privacy reads the engine privacy settings", async () => {
   const result = await tool.handler({ ...ctx, fetchFn }, {});
   expect(calls[0]?.method).toBe("GET");
   expect(firstText(result)).toContain("lastSeen");
+});
+
+test("contact tools: add by phone, rename and remove hit the bridge's contact routes", async () => {
+  const { fetchFn, calls } = mockFetch({});
+  const toolCtx = { ...ctx, fetchFn };
+  await toolByName("add_contact")!.handler(toolCtx, { name: "Anna K", phone: "+358401112222" });
+  await toolByName("rename_contact")!.handler(toolCtx, {
+    jid: "358401112222@s.whatsapp.net",
+    name: "Anna Korhonen",
+  });
+  await toolByName("remove_contact")!.handler(toolCtx, { jid: "358401112222@s.whatsapp.net" });
+  await toolByName("list_contacts")!.handler(toolCtx, { saved: true });
+  expect(
+    calls.map((call) => [call.method ?? "GET", call.url.replace("http://bridge.test:8080", "")]),
+  ).toEqual([
+    ["POST", "/api/contacts"],
+    ["PATCH", "/api/contacts/358401112222%40s.whatsapp.net"],
+    ["DELETE", "/api/contacts/358401112222%40s.whatsapp.net"],
+    ["GET", "/api/contacts?saved=true"],
+  ]);
+  expect(JSON.parse(calls[0]?.body ?? "{}")).toEqual({ name: "Anna K", phone: "+358401112222" });
+  expect(JSON.parse(calls[1]?.body ?? "{}")).toEqual({ name: "Anna Korhonen" });
+});
+
+test("add_contact needs a phone or a jid and sends nothing without one", async () => {
+  const { fetchFn, calls } = mockFetch({});
+  await expect(
+    toolByName("add_contact")!.handler({ ...ctx, fetchFn }, { name: "Nobody" }),
+  ).rejects.toThrow("phone or jid is required");
+  expect(calls).toHaveLength(0);
+});
+
+test("subscribe_events saved_contacts subscribes to every saved-contact DM, optionally plus chats", async () => {
+  const { fetchFn, calls } = mockFetch({ "/api/subs2": { id: "s1" } });
+  const tool = toolByName("subscribe_events")!;
+  await tool.handler({ ...ctx, fetchFn }, { saved_contacts: true });
+  await tool.handler(
+    { ...ctx, fetchFn },
+    { saved_contacts: true, chat_jid: "120363000000000000@g.us" },
+  );
+  const bodies = calls
+    .filter((call) => call.url.endsWith("/api/subs2"))
+    .map((call) => JSON.parse(call.body ?? "{}") as { chats: string[]; name: string });
+  expect(bodies[0]).toMatchObject({ chats: ["@contacts"], name: "MCP: saved contacts" });
+  expect(bodies[1]?.chats).toEqual(["@contacts", "120363000000000000@g.us"]);
 });

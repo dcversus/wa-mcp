@@ -1,7 +1,7 @@
 {
   "name": "wa-mcp",
   "displayName": "WhatsApp channels for Claude Code",
-  "description": "WhatsApp as live Claude Code channels — subscribe chats with wa-mcp; every subscribed chat arrives in-session and Claude replies with its 74 MCP tools. Voice notes as /voice dictation included.",
+  "description": "WhatsApp as live Claude Code channels — subscribe chats with wa-mcp; every subscribed chat arrives in-session and Claude replies with its 77 MCP tools. Voice notes as /voice dictation included.",
   "version": "0.1.0",
   "author": { "name": "dcversus" },
   "homepage": "https://github.com/dcversus/wa-mcp",

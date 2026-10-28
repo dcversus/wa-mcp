@@ -1010,15 +1010,92 @@ export const TOOLS: ToolDef[] = [
           description: "Case-insensitive search over name, pushname and jid",
         },
         limit: { type: "number" },
+        saved: {
+          type: "boolean",
+          description: "Only people saved in the account's contact list",
+        },
       },
     },
     handler: async (toolCtx, args) => {
       const queryValue = typeof args.query === "string" ? args.query : undefined;
       const limit = optionalNumber(args, "limit");
+      const saved = args.saved === true ? "true" : undefined;
       const payload = (await bridgeFetch(
         toolCtx,
-        `/api/contacts${query({ query: queryValue, limit })}`,
+        `/api/contacts${query({ query: queryValue, limit, saved })}`,
       )) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "add_contact",
+    description:
+      "Save a person to the WhatsApp account's contact list (synced to the phone's address book). Give a phone number with country code, or a person jid.",
+    inputSchema: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string", description: "Full name to save the contact under" },
+        phone: {
+          type: "string",
+          description: "Phone number with country code, e.g. +358401112222",
+        },
+        jid: { type: "string", description: "Person jid (PN or LID) instead of a phone number" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const phone = optionalString(args, "phone");
+      const jid = optionalString(args, "jid");
+      if (phone === undefined && jid === undefined) {
+        throw new ParamError("phone or jid is required");
+      }
+      const payload = (await bridgeFetch(toolCtx, "/api/contacts", {
+        method: "POST",
+        body: JSON.stringify({
+          name: requireString(args, "name"),
+          ...(phone !== undefined ? { phone } : {}),
+          ...(jid !== undefined ? { jid } : {}),
+        }),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "rename_contact",
+    description: "Change the name a saved contact is stored under (synced to the phone).",
+    inputSchema: {
+      type: "object",
+      required: ["jid", "name"],
+      properties: {
+        jid: { type: "string", description: "The contact's jid (from list_contacts)" },
+        name: { type: "string", description: "New full name" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      const payload = (await bridgeFetch(toolCtx, `/api/contacts/${encodeURIComponent(jid)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: requireString(args, "name") }),
+      })) as Record<string, unknown>;
+      return textResult(payload);
+    },
+  },
+  {
+    name: "remove_contact",
+    description:
+      "Remove a person from the account's contact list (synced to the phone). Chats and messages stay.",
+    inputSchema: {
+      type: "object",
+      required: ["jid"],
+      properties: {
+        jid: { type: "string", description: "The contact's jid (from list_contacts)" },
+      },
+    },
+    handler: async (toolCtx, args) => {
+      const jid = requireString(args, "jid");
+      const payload = (await bridgeFetch(toolCtx, `/api/contacts/${encodeURIComponent(jid)}`, {
+        method: "DELETE",
+      })) as Record<string, unknown>;
       return textResult(payload);
     },
   },
@@ -1293,7 +1370,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "subscribe_events",
     description:
-      "Create a subscription for a chat (or all chats): matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.",
+      "Create a subscription for a chat, every DM from a saved contact (saved_contacts), or all chats: matching incoming messages are appended as JSONL lines to a local inbox file, stamped with your prompt — or, with channel=true, delivered live into the Claude Code session as channel notifications (each subscribed chat = one channel; reply via send_message with the chat_id from meta). Optional %like% text filter and mention-only gate. Session and spawn delivery are configured with the web UI or `wa-mcp subs`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1302,6 +1379,11 @@ export const TOOLS: ToolDef[] = [
           description: "Chat or group jid; omit with all_chats for every chat",
         },
         all_chats: { type: "boolean", description: "Match every chat (requires chat_jid omitted)" },
+        saved_contacts: {
+          type: "boolean",
+          description:
+            "Match every one-to-one chat with a person saved in the contact list (add_contact); combines with chat_jid",
+        },
         name: {
           type: "string",
           description: 'Subscription name (default: "MCP: " plus the chat id)',
@@ -1324,7 +1406,13 @@ export const TOOLS: ToolDef[] = [
       },
     },
     handler: async (toolCtx, args) => {
-      const chats = args.all_chats === true ? ["*"] : [requireString(args, "chat_jid")];
+      const chatJid = optionalString(args, "chat_jid");
+      const chats =
+        args.all_chats === true
+          ? ["*"]
+          : args.saved_contacts === true
+            ? ["@contacts", ...(chatJid !== undefined ? [chatJid] : [])]
+            : [requireString(args, "chat_jid")];
       const filter: Record<string, unknown> = {};
       if (typeof args.like === "string" && args.like.length > 0) {
         filter.like = args.like;
@@ -1336,7 +1424,7 @@ export const TOOLS: ToolDef[] = [
         name:
           typeof args.name === "string" && args.name.trim().length > 0
             ? args.name
-            : `MCP: ${args.all_chats === true ? "all chats" : chats[0]}`,
+            : `MCP: ${args.all_chats === true ? "all chats" : args.saved_contacts === true ? "saved contacts" : chats[0]}`,
         chats,
         filter,
         ...(typeof args.prompt === "string" && args.prompt.length > 0
@@ -2379,6 +2467,9 @@ export const TOOL_ANNOTATIONS: Record<string, ToolAnnotations> = {
   // pairing endpoint and burns the T56 anti-abuse budget
   // T94-A — destructive: account-state mutations
   bulk_clear: { destructiveHint: true },
+  add_contact: { idempotentHint: true },
+  rename_contact: { idempotentHint: true },
+  remove_contact: { destructiveHint: true },
   label_remove: { destructiveHint: true },
   newsletter_unfollow: { destructiveHint: true },
   label_assign: { destructiveHint: true },

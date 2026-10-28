@@ -1396,6 +1396,7 @@ function bindSubscriptionsControls(): void {
         name: text("name"),
         chats: data.getAll("chats").filter((jid): jid is string => typeof jid === "string"),
         allChats: data.get("all_chats") === "on",
+        savedContacts: data.get("saved_contacts") === "on",
         like: text("like"),
         mentionOnly: data.get("mention_only") === "on",
         prompt: text("prompt"),

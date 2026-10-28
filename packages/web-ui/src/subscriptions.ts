@@ -42,6 +42,8 @@ export interface SubscriptionFormValues {
   name: string;
   chats: string[];
   allChats: boolean;
+  /** adds the @contacts selector (every DM from a saved contact) */
+  savedContacts?: boolean;
   like: string;
   mentionOnly: boolean;
   prompt: string;
@@ -54,6 +56,8 @@ export interface SubscriptionFormValues {
 }
 
 export const ALL_CHATS = "*";
+/** every one-to-one chat with a saved contact (matched by PN and LID) */
+export const SAVED_CONTACTS = "@contacts";
 
 export const DELIVERY_OPTIONS: Array<{ mode: DeliveryMode; title: string; help: string }> = [
   {
@@ -85,7 +89,10 @@ export function likePreview(pattern: string): string {
 }
 
 function chatLabel(jid: string, resolveName?: (jid: string) => string | null): string {
-  return jid === ALL_CHATS ? "All chats" : (resolveName?.(jid) ?? jid);
+  if (jid === ALL_CHATS) {
+    return "All chats";
+  }
+  return jid === SAVED_CONTACTS ? "Saved contacts (DMs)" : (resolveName?.(jid) ?? jid);
 }
 
 function deliveryBadge(sub: SubscriptionView, sessions: SessionOption[]): string {
@@ -146,7 +153,7 @@ export function subscriptionCardHtml(
 function chatPicker(selected: string[], chats: ChatOption[]): string {
   const known = new Set(chats.map((chat) => chat.jid));
   const extra = selected
-    .filter((jid) => jid !== ALL_CHATS && !known.has(jid))
+    .filter((jid) => jid !== ALL_CHATS && jid !== SAVED_CONTACTS && !known.has(jid))
     .map((jid) => ({ jid, name: null }));
   const sorted = [...chats].sort((a, b) => {
     const groupOrder = (a.jid.endsWith("@g.us") ? 0 : 1) - (b.jid.endsWith("@g.us") ? 0 : 1);
@@ -199,6 +206,7 @@ export function subscriptionFormHtml(
   const mode = draft?.delivery.mode ?? "inbox";
   const selected = draft?.chats ?? [];
   const allChats = selected.includes(ALL_CHATS);
+  const savedContacts = selected.includes(SAVED_CONTACTS);
   const like = draft?.filter.like ?? "";
   const heading = draft === null ? "New subscription" : `Edit “${escapeHtml(draft.name)}”`;
   const delivery = DELIVERY_OPTIONS.map(
@@ -206,7 +214,7 @@ export function subscriptionFormHtml(
       `<label class="delivery-option"><input type="radio" name="mode" value="${option.mode}"${option.mode === mode ? " checked" : ""} /> <strong>${option.title}</strong> <span class="hint">${escapeHtml(option.help)}</span></label><div class="delivery-config" data-mode-config="${option.mode}"${option.mode === mode ? "" : " hidden"}>${modeConfig(option.mode, draft, sessions)}</div>`,
   ).join("");
   return `<form id="subscription-form" data-sub-id="${escapeHtml(draft?.id ?? "")}"><h2>${heading}</h2>
-<fieldset><legend>1. Name and chats</legend><label>Name<input name="name" required autocomplete="off" aria-label="Subscription name" value="${escapeHtml(draft?.name ?? "")}" /></label><label class="check-row"><input type="checkbox" name="all_chats"${allChats ? " checked" : ""} /> All chats</label><input type="search" id="sub-chat-filter" placeholder="Search chats…" aria-label="Filter chats" autocomplete="off" />${chatPicker(selected, chats)}</fieldset>
+<fieldset><legend>1. Name and chats</legend><label>Name<input name="name" required autocomplete="off" aria-label="Subscription name" value="${escapeHtml(draft?.name ?? "")}" /></label><label class="check-row"><input type="checkbox" name="all_chats"${allChats ? " checked" : ""} /> All chats</label><label class="check-row"><input type="checkbox" name="saved_contacts"${savedContacts ? " checked" : ""} /> Every DM from a saved contact</label><input type="search" id="sub-chat-filter" placeholder="Search chats…" aria-label="Filter chats" autocomplete="off" />${chatPicker(selected, chats)}</fieldset>
 <fieldset><legend>2. Filter</legend><label>Message text<input name="like" placeholder="%invoice%" autocomplete="off" aria-label="Message filter" aria-describedby="like-preview" value="${escapeHtml(like)}" /></label><p class="hint" id="like-preview">${escapeHtml(likePreview(like))}</p><label class="check-row"><input type="checkbox" name="mention_only"${draft?.filter.mentionOnly === true ? " checked" : ""} /> Only when my account is @mentioned</label></fieldset>
 <fieldset><legend>3. Prompt</legend><label>System prompt your agent receives with the event<textarea name="prompt" rows="3" aria-label="Prompt">${escapeHtml(draft?.prompt ?? "")}</textarea></label></fieldset>
 <fieldset><legend>4. Delivery</legend>${delivery}</fieldset>
@@ -259,7 +267,9 @@ export function readSubscriptionForm(
   if (name.length === 0) {
     return { ok: false, message: "Give the subscription a name" };
   }
-  const chats = values.allChats ? [ALL_CHATS] : values.chats;
+  const chats = values.allChats
+    ? [ALL_CHATS]
+    : [...(values.savedContacts === true ? [SAVED_CONTACTS] : []), ...values.chats];
   if (chats.length === 0) {
     return { ok: false, message: "Pick at least one chat, or tick All chats" };
   }

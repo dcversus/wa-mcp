@@ -281,3 +281,28 @@ export function getAlias(store: Store, alias: string): { jid: string } | null {
   const hit = rows.find((row) => row.alias.toLowerCase() === needle);
   return hit === undefined ? null : { jid: hit.jid };
 }
+
+/** Whether a one-to-one chat is with someone saved in the contact list. The
+ * chat may arrive as a PN or a LID jid and the contact row may be keyed by
+ * either, so the jid, the recorded LID and the phone digits all count. */
+export function isSavedContactDm(store: Store, chatJids: string[]): boolean {
+  const people = [...new Set(chatJids)].filter((jid) => {
+    const type = jidType(jid);
+    return type === "user" || type === "lid";
+  });
+  if (people.length === 0) {
+    return false;
+  }
+  const bare = people.map((jid) => jid.replace(/:\d+@/, "@"));
+  const phones = bare
+    .filter((jid) => jidType(jid) === "user")
+    .map((jid) => phoneDigits(jid))
+    .filter((digits): digits is string => digits !== null);
+  const marks = (count: number) => Array.from({ length: count }, () => "?").join(", ");
+  const row = store.db
+    .prepare(
+      `SELECT 1 AS hit FROM contacts WHERE name IS NOT NULL AND TRIM(name) != '' AND (jid IN (${marks(bare.length)}) OR lid IN (${marks(bare.length)})${phones.length > 0 ? ` OR REPLACE(REPLACE(REPLACE(phone, '+', ''), ' ', ''), '-', '') IN (${marks(phones.length)})` : ""}) LIMIT 1`,
+    )
+    .get(...bare, ...bare, ...phones);
+  return row !== undefined;
+}

@@ -436,6 +436,8 @@ test(
   "qr events render stderr, persist png, and expose getLastQr",
   { timeout: 15_000 },
   async () => {
+    // half-block output; a legacy Windows console (no WT_SESSION) gets ASCII cells
+    vi.stubEnv("WT_SESSION", "test");
     const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-"));
     const pngPath = join(dir, "qr.png");
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);

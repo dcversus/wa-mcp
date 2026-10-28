@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { spawn } from "node:child_process";
-import { ALL_CHATS, type SubscriptionConfig } from "@wa-mcp/shared";
+import { ALL_CHATS, SAVED_CONTACTS, type SubscriptionConfig } from "@wa-mcp/shared";
 import { openInbox, type InboxEvent, type InboxWriter } from "./inbox.ts";
 import type { Store } from "./store/schema.ts";
 import { recordAgentActivity } from "./store/agent-activity.ts";
+import { isSavedContactDm } from "./store/contacts.ts";
 import { listSubscriptionConfigs } from "./store/subscription-configs.ts";
 import { subscriptionDir } from "./subscriptions.ts";
 
@@ -148,6 +149,7 @@ export function matchesConfig(
   config: SubscriptionConfig,
   message: InboundMessage,
   ownJids: string[],
+  fromSavedContact: () => boolean = () => false,
 ): boolean {
   if (!config.enabled) {
     return false;
@@ -155,7 +157,8 @@ export function matchesConfig(
   if (
     !config.chats.includes(ALL_CHATS) &&
     !config.chats.includes(message.chatJid) &&
-    !config.chats.includes(message.rawChatJid)
+    !config.chats.includes(message.rawChatJid) &&
+    !(config.chats.includes(SAVED_CONTACTS) && fromSavedContact())
   ) {
     return false;
   }
@@ -278,8 +281,11 @@ export function createSubsDispatcher(deps: SubsDispatcherDeps): SubsDispatcher {
       const ownJids = deps.ownJids();
       const ts = now().toISOString();
       let delivered = 0;
+      let saved: boolean | undefined;
+      const fromSavedContact = (): boolean =>
+        (saved ??= isSavedContactDm(deps.store, [message.chatJid, message.rawChatJid]));
       for (const config of cache) {
-        if (matchesConfig(config, message, ownJids)) {
+        if (matchesConfig(config, message, ownJids, fromSavedContact)) {
           deliver(config, subscriptionEvent(config, message, ts));
           delivered += 1;
           if (message.id !== undefined) {

@@ -1,4 +1,4 @@
-import { expect, test } from "vite-plus/test";
+import { expect, test, vi } from "vite-plus/test";
 import { runPair, type PairDeps } from "../src/pair.ts";
 
 function makeDeps(overrides: Partial<PairDeps> = {}): PairDeps & {
@@ -111,6 +111,8 @@ test("qr path renders an ANSI qr through the injected renderer and keeps the url
 });
 
 test("default renderer draws a terminal qr for the real wa.me url", async () => {
+  // half-block output; a legacy Windows console (no WT_SESSION) gets ASCII cells
+  vi.stubEnv("WT_SESSION", "test");
   const deps = makeDeps({
     fetchFn: (async (url: string | URL) => {
       const urlText = String(url);

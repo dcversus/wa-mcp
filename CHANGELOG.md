@@ -8,6 +8,11 @@
 - `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
 - A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
 
+### Contact list tools and saved-contact subscriptions
+
+- New MCP tools `add_contact`, `rename_contact` and `remove_contact` let an agent manage the account's contact list (synced to the phone's address book), and `list_contacts` takes `saved: true` (77 tools).
+- New subscription selector `@contacts`: every one-to-one chat with a saved contact, matched by phone number and by LID, following the contact list as it changes. It combines with explicit chats. Available as `--chat @contacts`, `subscribe_events` `saved_contacts: true`, and the **Every DM from a saved contact** box in the web UI.
+
 ### Pairing on demand, the way WhatsApp Web does it
 
 - The daemon only registers with WhatsApp when a person asks: opening the pairing page, running `wa-mcp pair`, or requesting a pairing code (new `POST /api/pair/start`, also on the pairing surface). Before, an unpaired daemon registered at every boot and again every time an unscanned QR batch expired, and after WhatsApp removed the device it wiped the credentials and registered again. Each of those re-armed WhatsApp's anti-abuse cooldown, so a restart loop could lock a number out. Now an unpaired daemon idles in a new `unpaired` state, an expired batch stops registration (the page offers **Show a new QR code**), and a removed device stays logged out. `WA_AUTO_PAIR=1` restores the old behavior.

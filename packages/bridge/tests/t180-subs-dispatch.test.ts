@@ -382,3 +382,32 @@ test.skipIf(process.platform === "win32")(
     }
   },
 );
+
+test("@contacts — every DM from a saved contact is delivered, by PN or by LID; strangers are not", () => {
+  const h = harness();
+  try {
+    h.store.db
+      .prepare("INSERT INTO contacts (jid, name, phone, lid) VALUES (?, ?, ?, ?)")
+      .run("358400000002@s.whatsapp.net", "Dana", "358400000002", "71111111111111@lid");
+    const sub = createSubscriptionConfig(h.store, {
+      ...BASE_INPUT,
+      name: "Contacts",
+      chats: ["@contacts"],
+      delivery: { mode: "inbox" },
+    });
+    h.dispatcher.invalidate();
+    const dm = (chatJid: string, rawChatJid = chatJid) =>
+      message({ chatJid, rawChatJid, fromJid: chatJid, chatName: null, id: `M-${rawChatJid}` });
+    expect(h.dispatcher.dispatch(dm("358400000002@s.whatsapp.net"))).toBe(1);
+    // the same person arriving under their LID (canonicalisation failed)
+    expect(h.dispatcher.dispatch(dm("71111111111111@lid"))).toBe(1);
+    expect(h.dispatcher.dispatch(dm("358400000009@s.whatsapp.net"))).toBe(0);
+    expect(h.dispatcher.dispatch(message())).toBe(0); // the group isn't a contact DM
+    expect(h.lines(sub.id, "inbox.jsonl").map((line) => line.chat)).toEqual([
+      "358400000002@s.whatsapp.net",
+      "71111111111111@lid",
+    ]);
+  } finally {
+    h.cleanup();
+  }
+});

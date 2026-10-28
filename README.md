@@ -6,12 +6,12 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **WhatsApp as a local MCP server.** One single-user daemon holds your WhatsApp
-session (Baileys) and exposes **74 MCP tools** over stdio and HTTP, a built-in
+session (Baileys) and exposes **77 MCP tools** over stdio and HTTP, a built-in
 web UI, a `wa-mcp` CLI — and your agents react to messages in real time.
 
 ```
 WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite, loopback-only)
-               ├─ MCP stdio + POST /mcp  → 74 tools (Claude Code, Codex, Grok,
+               ├─ MCP stdio + POST /mcp  → 77 tools (Claude Code, Codex, Grok,
                │                            Antigravity, Claude Desktop, Pi)
                ├─ HTTP /api/* + SSE       → web UI (logs, chats, settings)
                ├─ subscriptions + inboxes → agents react to incoming messages
@@ -35,7 +35,7 @@ transcription and TTS.
 
 ## Highlights
 
-- **74 MCP tools** — messaging (text/media/polls/reactions/edit/forward/
+- **77 MCP tools** — messaging (text/media/polls/reactions/edit/forward/
   location/contacts/scheduled/templates), reads (chats/messages/context/
   full-text search/digests/catch-up), group management, contacts + aliases + labels,
   profile/privacy/blocklist, newsletters, autoreply, notification rules,
@@ -66,7 +66,7 @@ transcription and TTS.
 
 - [Getting started](https://github.com/dcversus/wa-mcp/blob/main/docs/getting-started/index.md)
   · [Per-platform install](https://github.com/dcversus/wa-mcp/blob/main/docs/getting-started/platforms.md)
-- [Tool reference (all 74)](https://github.com/dcversus/wa-mcp/blob/main/docs/reference/tools.md)
+- [Tool reference (all 77)](https://github.com/dcversus/wa-mcp/blob/main/docs/reference/tools.md)
 - [Configuration](https://github.com/dcversus/wa-mcp/blob/main/docs/configuration.md)
   · [Troubleshooting](https://github.com/dcversus/wa-mcp/blob/main/docs/troubleshooting.md)
   · [FAQ](https://github.com/dcversus/wa-mcp/blob/main/docs/faq.md)

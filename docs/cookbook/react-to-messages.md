@@ -3,7 +3,9 @@
 A **subscription** decides which incoming WhatsApp messages reach your agent
 and how. Each one has: <!-- src: packages/shared/src/subscription-config.ts; packages/bridge/src/subs-dispatch.ts -->
 
-- **chats** — one or more chat jids, or `*` for all chats
+- **chats** — one or more chat jids, `@contacts` for every one-to-one chat
+  with a person saved in your contact list (combines with chat jids), or `*`
+  for all chats
 - **filter** — an optional `%like%` text pattern (SQL LIKE, case-insensitive:
   `%` is any text, `_` is one character, `\%` a literal percent; a pattern
   without wildcards matches anywhere in the text) and a **mention-only** flag
@@ -24,6 +26,24 @@ wa-mcp subs delete <subscription-id>
 
 The web UI **Subscriptions** page (`#/subscriptions`) does the same, and the
 `subscribe_events` MCP tool creates inbox subscriptions.
+
+### Every DM from your saved contacts
+
+`@contacts` follows your contact list: save someone and their DMs start
+arriving, remove them and they stop, with no subscription edit. A DM counts
+when the person is saved under a name, whether WhatsApp addresses the chat by
+phone number or by LID. Groups never match `@contacts`; list them next to it.
+
+```bash
+wa-mcp contacts add +358401112222 --name "Anna Korhonen"
+wa-mcp subs create --name "Contacts" --chat @contacts --prompt "Answer as the support desk"
+```
+
+An agent manages the same list with the `add_contact`, `rename_contact` and
+`remove_contact` MCP tools (`list_contacts` with `saved: true` shows it), and
+subscribes with `subscribe_events` and `saved_contacts: true`. In the web UI,
+tick **Every DM from a saved contact**. Contact changes sync to the phone's
+address book.
 
 ## Delivery modes
 

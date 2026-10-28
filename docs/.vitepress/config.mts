@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "wa-mcp",
-  description: "WhatsApp MCP server — one daemon, 74 MCP tools, six agent adapters, web UI",
+  description: "WhatsApp MCP server — one daemon, 77 MCP tools, six agent adapters, web UI",
   base: "/wa-mcp/",
   ignoreDeadLinks: "localhostLinks",
   themeConfig: {

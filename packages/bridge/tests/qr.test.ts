@@ -9,6 +9,8 @@ vi.setConfig({ testTimeout: 20_000 });
 import { renderQrForTerminal, saveQrPng } from "../src/qr.ts";
 
 test("renderQrForTerminal forces black-on-white instead of inheriting the terminal theme", () => {
+  // half-block output; a legacy Windows console (no WT_SESSION) gets ASCII cells
+  vi.stubEnv("WT_SESSION", "test");
   const rendered = renderQrForTerminal("QRDATA-rotation-1");
   expect(rendered).toContain("\x1b[30;");
   expect(rendered).toContain(";47m");
