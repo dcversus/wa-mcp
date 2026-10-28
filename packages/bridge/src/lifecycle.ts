@@ -649,6 +649,10 @@ export async function startBridge(
                 // T94-D-H4codex(a): everything downstream (rules, autoreply,
                 // poll votes, media) keys off the CANONICAL jid — the raw LID
                 // leaked before this fix
+                const wire = {
+                  remoteJid: message.key.remoteJid,
+                  participant: message.key.participant,
+                };
                 let remoteJid: string | null | undefined = message.key.remoteJid;
                 if (remoteJid !== undefined && remoteJid !== null && remoteJid.endsWith("@lid")) {
                   remoteJid = await canonicalChatJid(socket, remoteJid);
@@ -665,7 +669,7 @@ export async function startBridge(
                 ) {
                   message.key.participant = await canonicalChatJid(socket, participant);
                 }
-                storeMessage(opts.store, message);
+                storeMessage(opts.store, message, wire);
                 // T94-C-H1: the pinned fork's poll-vote decrypt block is
                 // commented out (process-message.js:576-624) — replicate its
                 // orchestration here: fetch the poll creation row, decrypt with
@@ -823,10 +827,11 @@ export async function startBridge(
                 let stored = 0;
                 for (const message of history.messages ?? []) {
                   const remoteJid = message.key.remoteJid;
+                  const wire = { remoteJid, participant: message.key.participant };
                   if (remoteJid !== undefined && remoteJid !== null && lidToPn.has(remoteJid)) {
                     message.key.remoteJid = lidToPn.get(remoteJid);
                   }
-                  if (storeMessage(store, message)) {
+                  if (storeMessage(store, message, wire)) {
                     stored += 1;
                   }
                 }

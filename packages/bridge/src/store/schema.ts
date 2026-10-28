@@ -371,6 +371,14 @@ CREATE INDEX IF NOT EXISTS agent_activity_source ON agent_activity (source);
 CREATE INDEX IF NOT EXISTS agent_activity_sub ON agent_activity (sub_id);
 `;
 
+// the message key exactly as WhatsApp addressed it (remoteJid/participant
+// before LID→PN canonicalisation) — reactions and other key-addressed
+// actions must echo it back or the phones can't attach them
+const MIGRATION_V26 = `
+ALTER TABLE messages ADD COLUMN key_remote_jid TEXT;
+ALTER TABLE messages ADD COLUMN key_participant TEXT;
+`;
+
 const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: MIGRATION_V2 },
@@ -397,6 +405,7 @@ const MIGRATIONS: ReadonlyArray<{ version: number; sql: string }> = [
   { version: 23, sql: MIGRATION_V23 },
   { version: 24, sql: MIGRATION_V24 },
   { version: 25, sql: MIGRATION_V25 },
+  { version: 26, sql: MIGRATION_V26 },
 ];
 
 /** T76 H3: each migration runs inside one transaction — a statement that

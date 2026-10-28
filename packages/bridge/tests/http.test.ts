@@ -4464,3 +4464,100 @@ describe("T144 — GET /api/me reads identity from the auth state (no sender_nam
     rmSync(dataDir, { recursive: true, force: true });
   });
 });
+
+describe("group reactions carry the original message key (servr-supp: ❤️ into the void)", () => {
+  const GROUP = "120363428874442773@g.us";
+  const SENDER_PN = "351900000001@s.whatsapp.net";
+  const SENDER_LID = "70000000000001@lid";
+
+  async function serve(socket: WASocket) {
+    const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-react-key-")));
+    openedStores.push(store);
+    const bridge = await createHttpServer(stubHandle("connected", null, socket), {
+      token: "test-token",
+      store,
+      sendGuard: new SendGuard(store),
+    });
+    created.push(bridge);
+    return { store, bridge };
+  }
+  // the engine's real upsert shape for a LID-addressed group (fork
+  // decode-wa-message.js: participant = stanza participant, alt = PN); the
+  // daemon canonicalises participant to the phone jid before storing
+  function liveGroupMessage(store: Store, id: string) {
+    storeMessage(
+      store,
+      {
+        key: { remoteJid: GROUP, id, fromMe: false, participant: SENDER_PN },
+        message: { conversation: "thanks!" },
+        messageTimestamp: 1_793_200_000,
+        pushName: "Operator",
+      } as never,
+      { remoteJid: GROUP, participant: SENDER_LID },
+    );
+  }
+  async function react(bridge: BridgeHttp, messageId: string) {
+    return fetch(`http://127.0.0.1:${bridge.port}/api/send`, {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_jid: GROUP,
+        kind: "reaction",
+        message_id: messageId,
+        emote: "❤️",
+      }),
+    });
+  }
+  function sentKey(socket: WASocket): Record<string, unknown> {
+    const calls = (socket.sendMessage as ReturnType<typeof vi.fn>).mock.calls;
+    const content = (calls.at(-1)?.[1] ?? {}) as { react?: { key?: Record<string, unknown> } };
+    return content.react?.key ?? {};
+  }
+
+  test("a reaction to someone's group message names them as WhatsApp addressed them (the LID)", async () => {
+    const socket = makeFakeSocket();
+    const { store, bridge } = await serve(socket);
+    liveGroupMessage(store, "3A00000000000000REAC");
+    expect((await react(bridge, "3A00000000000000REAC")).status).toBe(200);
+    expect(sentKey(socket)).toEqual({
+      remoteJid: GROUP,
+      id: "3A00000000000000REAC",
+      fromMe: false,
+      participant: SENDER_LID,
+    });
+  });
+
+  test("a reaction to the account's own message says fromMe", async () => {
+    const socket = makeFakeSocket();
+    const { store, bridge } = await serve(socket);
+    storeMessage(store, {
+      key: { remoteJid: GROUP, id: "OWN1", fromMe: true },
+      message: { conversation: "hello all" },
+      messageTimestamp: 1_793_200_000,
+    } as never);
+    await react(bridge, "OWN1");
+    expect(sentKey(socket)).toMatchObject({ remoteJid: GROUP, id: "OWN1", fromMe: true });
+    expect(sentKey(socket).participant).toBeUndefined();
+  });
+
+  test("rows stored before the fix fall back to the sender's mapped LID", async () => {
+    const socket = makeFakeSocket();
+    (socket as unknown as { signalRepository: unknown }).signalRepository = {
+      lidMapping: {
+        getLIDForPN: async (pn: string) => (pn === SENDER_PN ? SENDER_LID : null),
+      },
+    };
+    const { store, bridge } = await serve(socket);
+    liveGroupMessage(store, "OLD1");
+    store.db.prepare("UPDATE messages SET key_participant = NULL, key_remote_jid = NULL").run();
+    await react(bridge, "OLD1");
+    expect(sentKey(socket)).toMatchObject({ fromMe: false, participant: SENDER_LID });
+  });
+
+  test("an unknown message still reacts with a bare key instead of failing", async () => {
+    const socket = makeFakeSocket();
+    const { bridge } = await serve(socket);
+    expect((await react(bridge, "NEVER-SEEN")).status).toBe(200);
+    expect(sentKey(socket)).toEqual({ remoteJid: GROUP, id: "NEVER-SEEN", fromMe: false });
+  });
+});

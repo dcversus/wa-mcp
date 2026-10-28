@@ -6,8 +6,9 @@ import type { Store } from "./schema.ts";
 const INSERT_MESSAGE = `
 INSERT OR IGNORE INTO messages (
   id, chat_jid, sender_jid, sender_name, timestamp, content, media_type,
-  media_path, quoted_message_id, mentions, is_from_me, is_unread, reactions, raw
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  media_path, quoted_message_id, mentions, is_from_me, is_unread, reactions, raw,
+  key_remote_jid, key_participant
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const UPSERT_CHAT = `
@@ -120,7 +121,13 @@ function protocolActorAllowed(
   return original !== undefined && original.sender_jid === actor;
 }
 
-export function storeMessage(store: Store, message: WAMessage): boolean {
+/** `wire` is the key as WhatsApp addressed it, when the caller rewrote
+ * message.key (LID→PN) before storing; defaults to message.key itself. */
+export function storeMessage(
+  store: Store,
+  message: WAMessage,
+  wire: { remoteJid?: string | null; participant?: string | null } = {},
+): boolean {
   const chatJid = message.key.remoteJid ?? "";
   const messageId = message.key.id ?? "";
   if (chatJid.length === 0 || messageId.length === 0) {
@@ -210,6 +217,8 @@ export function storeMessage(store: Store, message: WAMessage): boolean {
       message.message === undefined || message.message === null
         ? null
         : JSON.stringify(message.message),
+      wire.remoteJid ?? message.key.remoteJid ?? null,
+      wire.participant ?? message.key.participant ?? null,
     );
   if (info.changes === 0) {
     return false;

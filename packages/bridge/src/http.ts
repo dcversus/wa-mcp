@@ -150,6 +150,7 @@ import {
   sendProtoViaSocket,
   sendViaSocket,
 } from "./send/send.ts";
+import { targetMessageKey } from "./send/target-key.ts";
 import type { GuardVerdict, SendGuard } from "./send/safety.ts";
 import type { Humanizer } from "./send/humanize.ts";
 
@@ -1441,10 +1442,14 @@ export async function createHttpServer(
         }
         const messageId = input.message_id;
         const emote = input.emote;
-        builder = () =>
-          Promise.resolve({
-            react: { key: { remoteJid: chatJid, id: messageId, fromMe: false }, text: emote },
-          });
+        // the original key (participant, fromMe) — without it a group
+        // reaction is accepted by the server but never shows on any phone
+        builder = async () => ({
+          react: {
+            key: await targetMessageKey(opts.store, handle.socket, chatJid, messageId),
+            text: emote,
+          },
+        });
         break;
       }
       case "edit": {

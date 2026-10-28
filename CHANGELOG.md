@@ -8,6 +8,10 @@
 - `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
 - A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
 
+### Fixed: group reactions never showed
+
+- Reactions sent through `send_reaction` or `POST /api/send` (`kind: "reaction"`) in a group were accepted, logged and stored, but never appeared on anyone's phone. The bridge built the reaction's target key without the original sender (`participant`) and always as `fromMe: false`. Each message now stores its key as WhatsApp addressed it: the chat and the participant, which is the sender's LID in LID-addressed groups, kept apart from the phone jid used everywhere else. Reactions reuse that key, so reacting to the account's own messages works too. For messages stored before this change the bridge uses the sender's mapped LID.
+
 ### Retention limits for everything on disk
 
 - The daemon can write and rotate its own log: `WA_LOG_FILE` with `WA_LOG_MAX_MB` (default 10) and `WA_LOG_FILES` (default 3 rotated copies). `wa-mcp start` and the launchd/systemd service now use it for `<dataDir>/bridge.log`, so the log no longer grows without bound; raw stderr from before the logger exists goes to `bridge.stderr.log`. `wa-mcp logs --follow` keeps following across a rotation. Re-run `wa-mcp install --service` to update an installed service.
