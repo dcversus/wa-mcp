@@ -63,6 +63,17 @@ Every delivered line carries these fields (pretty-printed here):
 }
 ```
 
+Replies and mentions add these fields, only when they apply:
+
+| field               | meaning                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `quotedMessageId`   | id of the message this one replies to                                                                    |
+| `quotedParticipant` | author of the quoted message (LID resolved to the phone jid when the mapping is known)                   |
+| `quotedFromMe`      | `true` when the quoted message is this account's own — answers "is this a reply to me?" without a lookup |
+| `mentionedJids`     | the jids @mentioned in the message                                                                       |
+
+`text` is capped at 280 characters in delivered lines; fetch the full message by `id` when you need it.
+
 ## 1. Claude Code (hooks)
 
 Create an inbox subscription, then install the hooks:
@@ -178,6 +189,12 @@ in that session and tagged with its agent — two sessions never hear each
 other's chats. Media messages arrive as a note; ask Claude to
 `get_media`/`transcribe_message` when needed. Channel messages are untrusted
 input: the shipped `/wa-mcp:wa-channel` command carries the guardrails.
+
+Channel meta values are strings (Claude Code's contract): `chat_id`,
+`chat_name`, `chat_type` (`group`/`dm`), `message_id`, `user`, `user_id`,
+`ts`, `subscription_id`, and on replies/mentions `quoted_message_id`,
+`quoted_participant`, `quoted_from_me` (`"true"`/`"false"`) and
+`mentioned_jids` (comma-separated).
 
 The full plugin (marketplace install, channel command, `wa-mcp mcp` launcher):
 `claude plugin marketplace add dcversus/wa-mcp`, then install the **wa-mcp**

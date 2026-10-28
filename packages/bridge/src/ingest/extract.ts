@@ -347,6 +347,32 @@ function textOf(content: Content): {
   return { text: null, mediaType: null, ...base };
 }
 
+export interface ReplyContext {
+  quotedMessageId: string | null;
+  quotedParticipant: string | null;
+  mentionedJids: string[];
+}
+
+/** #241: the reply/mention context a delivery payload carries, read through
+ * the same ephemeral/view-once wrappers as extractContent. */
+export function replyContext(message: WAMessage): ReplyContext {
+  const { content } = unwrapLayers(message.message);
+  const context = content === null ? null : contextOf(content);
+  const quotedMessageId = context?.stanzaId;
+  const quotedParticipant = context?.participant;
+  return {
+    quotedMessageId:
+      typeof quotedMessageId === "string" && quotedMessageId.length > 0 ? quotedMessageId : null,
+    quotedParticipant:
+      typeof quotedParticipant === "string" && quotedParticipant.length > 0
+        ? quotedParticipant
+        : null,
+    mentionedJids: (context?.mentionedJid ?? []).filter(
+      (jid): jid is string => typeof jid === "string" && jid.length > 0,
+    ),
+  };
+}
+
 export function extractContent(
   message: WAMessage,
   pollUpdates?: IncomingPollUpdate[],

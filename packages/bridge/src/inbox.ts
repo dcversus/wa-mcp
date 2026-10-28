@@ -15,6 +15,12 @@ export interface InboxEvent {
   subId?: string;
   prompt?: string;
   session?: string;
+  /** #241: present only when the message replies to another message */
+  quotedMessageId?: string;
+  quotedParticipant?: string;
+  quotedFromMe?: boolean;
+  /** #241: present only when the message @mentions someone */
+  mentionedJids?: string[];
 }
 
 export interface InboxWriter {

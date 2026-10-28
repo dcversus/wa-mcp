@@ -114,6 +114,7 @@ import {
   type ResolvedMedia,
 } from "./media/resolve.ts";
 import { downloadMessageMedia } from "./media/download.ts";
+import { replyContext } from "./ingest/extract.ts";
 import { viewMedia } from "./media/view.ts";
 import { extractDocumentText } from "./media/document.ts";
 import { ocrImage } from "./media/ocr.ts";
@@ -250,6 +251,15 @@ const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   "/api/ui-token",
 ]);
 const API_PATHS = new Set(["/api/messages", "/api/chats", "/api/send", "/events", "/mcp"]);
+
+function nonEmpty(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** '351…:12@s.whatsapp.net' → '351…@s.whatsapp.net' (engine own-ids carry a device) */
+function deviceless(jid: string): string {
+  return jid.replace(/:\d+@/, "@");
+}
 
 function sepChar(): string {
   return process.platform === "win32" ? "\\" : "/";
@@ -597,13 +607,41 @@ export async function createHttpServer(
     }
     const store = opts.store;
     migrateV1Subscriptions(store);
+    const ownJids = (): string[] => {
+      const user = (handle.socket as { user?: { id?: unknown; lid?: unknown } } | null)?.user;
+      return [user?.id, user?.lid].filter((jid): jid is string => typeof jid === "string");
+    };
+    /** #241: true when the quoted message is the linked account's own — the
+     * store row is authoritative (every send is persisted); otherwise the
+     * quoted participant is matched against the account's PN and LID (device
+     * suffix ignored). null when neither can tell. */
+    const resolveQuotedFromMe = (input: {
+      quotedMessageId: string | null;
+      participants: Array<string | null>;
+      chats: string[];
+    }): boolean | null => {
+      if (input.quotedMessageId === null) {
+        return null;
+      }
+      const row = store.db
+        .prepare("SELECT is_from_me FROM messages WHERE id = ? AND chat_jid IN (?, ?) LIMIT 1")
+        .get(input.quotedMessageId, input.chats[0] ?? "", input.chats[1] ?? "") as
+        | { is_from_me: number }
+        | undefined;
+      if (row !== undefined) {
+        return row.is_from_me === 1;
+      }
+      const known = input.participants.filter((jid): jid is string => jid !== null);
+      if (known.length === 0) {
+        return null;
+      }
+      const own = new Set(ownJids().map(deviceless));
+      return known.some((jid) => own.has(deviceless(jid)));
+    };
     const dispatcher = createSubsDispatcher({
       store,
       subscriptionsDir: opts.subscriptionsDir,
-      ownJids: () => {
-        const user = (handle.socket as { user?: { id?: unknown; lid?: unknown } } | null)?.user;
-        return [user?.id, user?.lid].filter((jid): jid is string => typeof jid === "string");
-      },
+      ownJids,
       spawnFn: opts.spawnFn ?? spawn,
       ...(opts.logger !== undefined ? { logger: opts.logger } : {}),
       channelEmit: (frame) => {
@@ -650,7 +688,9 @@ export async function createHttpServer(
         }
         const rawChatJid = upsert.key.remoteJid ?? "";
         let chatJid = rawChatJid;
-        let fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+        // #247: an empty participant must fall through to the chat peer
+        const rawFromJid = nonEmpty(upsert.key.participant) ?? nonEmpty(upsert.key.remoteJid) ?? "";
+        let fromJid = rawFromJid;
         try {
           if (chatJid.endsWith("@lid")) {
             chatJid = await canonicalChatJid(handle.socket, chatJid);
@@ -660,7 +700,7 @@ export async function createHttpServer(
           }
         } catch {
           chatJid = rawChatJid;
-          fromJid = upsert.key.participant ?? upsert.key.remoteJid ?? "";
+          fromJid = rawFromJid;
         }
         const chatName = store.db.prepare("SELECT name FROM chats WHERE jid = ?").get(chatJid) as
           | { name: string | null }
@@ -672,12 +712,26 @@ export async function createHttpServer(
                 .get(fromJid) as { name: string | null; pushname: string | null } | undefined)
             : undefined;
         const fromName =
-          (typeof event.payload.pushName === "string" && event.payload.pushName.length > 0
-            ? event.payload.pushName
-            : null) ??
+          nonEmpty(upsert.pushName) ??
+          nonEmpty(event.payload.pushName) ??
           contactRow?.name ??
           contactRow?.pushname ??
           null;
+        // #241: reply/mention context for every delivery mode
+        const reply = replyContext(upsert);
+        let quotedParticipant = reply.quotedParticipant;
+        if (quotedParticipant !== null && quotedParticipant.endsWith("@lid")) {
+          try {
+            quotedParticipant = await canonicalChatJid(handle.socket, quotedParticipant);
+          } catch {
+            quotedParticipant = reply.quotedParticipant;
+          }
+        }
+        const quotedFromMe = resolveQuotedFromMe({
+          quotedMessageId: reply.quotedMessageId,
+          participants: [reply.quotedParticipant, quotedParticipant],
+          chats: [chatJid, rawChatJid],
+        });
         const content = (upsert.message ?? {}) as Record<
           string,
           { text?: unknown; caption?: unknown } | string | undefined
@@ -719,7 +773,10 @@ export async function createHttpServer(
           id: typeof upsert.key.id === "string" ? upsert.key.id : undefined,
           text,
           media,
-          mentionedJids: extractMentions(content),
+          mentionedJids: [...new Set([...extractMentions(content), ...reply.mentionedJids])],
+          quotedMessageId: reply.quotedMessageId,
+          quotedParticipant,
+          quotedFromMe,
           backlogTsMs: event.payload.type === "append" ? tsMs : null,
         });
       }

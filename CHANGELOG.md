@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Reply context in delivery payloads (#241)
+
+- Inbox lines, session spools and channel frames now say whether a message is a reply and to whom: `quotedMessageId`, `quotedParticipant` and `quotedFromMe` (channel meta: `quoted_message_id`, `quoted_participant`, `quoted_from_me`), plus `mentionedJids` (`mentioned_jids`). Fields appear only when they apply. `quotedFromMe` is resolved from the stored message (every send is persisted) and falls back to matching the quoted author against the account's phone and LID ids, so a consumer that sends from another process can tell "a reply to me" without a lookup.
+- `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
+- A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
+
 ## 0.1.0 (unreleased)
 
 Phase A–K feature set. Private repo; packed tarball, nothing published.

@@ -18,6 +18,9 @@ export interface InboundMessage {
   text: string;
   media: boolean;
   mentionedJids: string[];
+  quotedMessageId?: string | null;
+  quotedParticipant?: string | null;
+  quotedFromMe?: boolean | null;
   backlogTsMs: number | null;
 }
 
@@ -75,6 +78,17 @@ export function buildChannelNotification(
         ...(config.delivery.agentName !== undefined ? { agent: config.delivery.agentName } : {}),
         ...(config.prompt !== undefined && config.prompt.length > 0
           ? { prompt: config.prompt }
+          : {}),
+        // Claude Code's meta contract is Record<string, string>
+        ...(event.quotedMessageId !== undefined
+          ? { quoted_message_id: event.quotedMessageId }
+          : {}),
+        ...(event.quotedParticipant !== undefined
+          ? { quoted_participant: event.quotedParticipant }
+          : {}),
+        ...(event.quotedFromMe !== undefined ? { quoted_from_me: String(event.quotedFromMe) } : {}),
+        ...(event.mentionedJids !== undefined && event.mentionedJids.length > 0
+          ? { mentioned_jids: event.mentionedJids.join(",") }
           : {}),
       },
     },
@@ -180,6 +194,14 @@ export function subscriptionEvent(
     ...(config.delivery.mode === "session"
       ? { session: config.delivery.session ?? ACTIVE_SESSION }
       : {}),
+    ...(typeof message.quotedMessageId === "string"
+      ? { quotedMessageId: message.quotedMessageId }
+      : {}),
+    ...(typeof message.quotedParticipant === "string"
+      ? { quotedParticipant: message.quotedParticipant }
+      : {}),
+    ...(typeof message.quotedFromMe === "boolean" ? { quotedFromMe: message.quotedFromMe } : {}),
+    ...(message.mentionedJids.length > 0 ? { mentionedJids: message.mentionedJids } : {}),
   };
 }
 
