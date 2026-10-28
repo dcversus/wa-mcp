@@ -6,25 +6,26 @@ import { asciiSafe } from "../src/qr.ts";
 
 // real fs PNG writes: generous under load (T46 lesson)
 vi.setConfig({ testTimeout: 20_000 });
-import { renderQrAscii, saveQrPng } from "../src/qr.ts";
+import { renderQrForTerminal, saveQrPng } from "../src/qr.ts";
 
-test("renderQrAscii returns pure printable ASCII", () => {
-  const ascii = renderQrAscii("QRDATA-rotation-1");
-  expect(ascii.length).toBeGreaterThan(0);
-  expect(ascii).toMatch(/^[\x20-\x7E\n]*$/);
-  expect(ascii).toContain("#");
+test("renderQrForTerminal forces black-on-white instead of inheriting the terminal theme", () => {
+  const rendered = renderQrForTerminal("QRDATA-rotation-1");
+  expect(rendered).toContain("\x1b[30;");
+  expect(rendered).toContain(";47m");
+  const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+  expect(rendered.replace(ansi, "")).not.toContain("#");
 });
 
-test("renderQrAscii is deterministic and multi-line", () => {
-  const first = renderQrAscii("QRDATA-rotation-1");
-  const second = renderQrAscii("QRDATA-rotation-1");
+test("renderQrForTerminal is deterministic and multi-line", () => {
+  const first = renderQrForTerminal("QRDATA-rotation-1");
+  const second = renderQrForTerminal("QRDATA-rotation-1");
   expect(first).toBe(second);
   expect(first.split("\n").length).toBeGreaterThan(10);
 });
 
-test("renderQrAscii changes when the payload rotates", () => {
-  const first = renderQrAscii("QRDATA-rotation-1");
-  const second = renderQrAscii("QRDATA-rotation-2");
+test("renderQrForTerminal changes when the payload rotates", () => {
+  const first = renderQrForTerminal("QRDATA-rotation-1");
+  const second = renderQrForTerminal("QRDATA-rotation-2");
   expect(first).not.toBe(second);
 });
 

@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { EVENT_NAMES, createEventBus } from "./events.ts";
 import type { ConnectionUpdate, EventBus, WaEvent } from "./events.ts";
-import { renderQrAscii, saveQrPng } from "./qr.ts";
+import { renderQrForTerminal, saveQrPng } from "./qr.ts";
 import { canonicalChatJid, sendViaSocket } from "./send/send.ts";
 import { upsertResolvedContact } from "./store/contacts.ts";
 import { lidResolver } from "./store/contact-backfill.ts";
@@ -30,7 +30,10 @@ export type BridgeStatus =
   | "connected"
   | "reconnecting"
   | "logged-out"
-  | "pairing-blocked";
+  | "pairing-blocked"
+  /** no paired account and no registration running — waits for a person
+   * (pairing page, `wa-mcp pair`, pairing code) before registering */
+  | "unpaired";
 
 export type BridgeLogger = UserFacingSocketConfig["logger"];
 
@@ -51,6 +54,21 @@ export interface StartBridgeOptions {
    * stops minting new ones (WhatsApp anti-abuse: every attempt resets the
    * server-side cooldown, so endless retries deepen the lockout). */
   pairingAttemptLimit?: number;
+  /** register only on an explicit request (startPairing), the way WhatsApp
+   * Web does: never at boot without a paired account, never again after the
+   * QR codes run out, never after WhatsApp removes the device. Off keeps the
+   * legacy auto-registration. */
+  pairingOnDemand?: boolean;
+}
+
+export interface QrInfo {
+  qr: string | null;
+  /** 1-based position of this code in the current registration's batch */
+  index: number;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  /** the last registration ended because every code went unscanned */
+  expired: boolean;
 }
 
 export interface PairingBudget {
@@ -73,6 +91,11 @@ export interface BridgeHandle {
   pairingBudget(): PairingBudget;
   /** explicit user action: reset the budget and re-enter the pairing cycle. */
   resumePairing(): void;
+  /** a person asked to pair: open ONE registration unless one is live, the
+   * account is paired, or the budget is spent. Never resets the budget. */
+  startPairing?(): { started: boolean; reason?: "active" | "paired" | "pairing-blocked" };
+  /** the QR on screen with its lifetime, for countdowns and expiry */
+  getQrInfo?(): QrInfo;
   /** T79 line49: connection-quality counters for /health. */
   connectionQuality(): { reconnects: number; lastDisconnectAt: number | null };
   /** T84 line92: explicit logout — teardown + logged-out marker, no reconnection. */
@@ -113,6 +136,11 @@ export async function startBridge(
   const bus = createEventBus();
   let status: BridgeStatus = "connecting";
   let lastQr: string | null = null;
+  const onDemand = opts.pairingOnDemand === true;
+  let qrIndex = 0;
+  let qrIssuedAt: number | null = null;
+  let qrTtlMs = 0;
+  let qrExpired = false;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   /** a reconnect is scheduled or chained; closes arriving in a burst (real 401s
@@ -295,15 +323,33 @@ export async function startBridge(
   /** 401-class close: the server has invalidated this identity (device_removed,
    * loggedOut). Wipe local material so the next socket is a FRESH registration,
    * never a retry of dead creds. */
-  const wipeCreds = (): void => {
+  const wipeCreds = (reason: "401" | "unlinked" = "401"): void => {
     const fresh = initAuthCreds();
     for (const key of Object.keys(state.creds)) {
       delete (state.creds as Record<string, unknown>)[key];
     }
     Object.assign(state.creds, fresh);
     opts.logger?.warn(
-      { reason: "401" },
-      "device removed by server, re-pairing required (local credentials wiped)",
+      { reason },
+      reason === "401"
+        ? "device removed by server, re-pairing required (local credentials wiped)"
+        : "pairing a fresh device after unlink (local credentials wiped)",
+    );
+  };
+
+  /** pairingOnDemand: an unpaired registration is over (codes ran out,
+   * network drop, server refusal) — stop and wait for a person, the way
+   * WhatsApp Web shows "click to reload" instead of registering again. */
+  const endRegistration = (code: number | undefined): void => {
+    status = "unpaired";
+    qrExpired = code === DisconnectReason.timedOut;
+    lastQr = null;
+    qrIssuedAt = null;
+    opts.logger?.info(
+      { code },
+      qrExpired
+        ? "QR codes expired unscanned — registration stopped; open the pairing page or run `wa-mcp pair` to get new ones"
+        : "registration ended before pairing — open the pairing page or run `wa-mcp pair` to try again",
     );
   };
 
@@ -373,6 +419,9 @@ export async function startBridge(
       return;
     } else {
       pairingUsed += 1;
+      qrIndex = 0;
+      qrIssuedAt = null;
+      qrExpired = false;
     }
     const deviceName = opts.deviceName ?? process.env.WA_DEVICE_NAME ?? "wa-mcp";
     socket = makeWASocket({
@@ -545,6 +594,13 @@ export async function startBridge(
                     connect();
                   });
                 }
+              } else if (onDemand && state.creds.account === undefined) {
+                endRegistration(code);
+              } else if (onDemand && status === "logged-out") {
+                // the server removed this device: wipe the dead identity and
+                // wait for a person — never re-register on our own
+                wipeCreds();
+                void queueSave();
               } else if (status === "logged-out") {
                 if (!reconnectPending && !closed) {
                   reconnectPending = true;
@@ -565,7 +621,20 @@ export async function startBridge(
             const qr = update.qr;
             if (qr !== undefined) {
               lastQr = qr;
-              process.stderr.write(renderQrAscii(qr));
+              qrIndex += 1;
+              qrIssuedAt = Date.now();
+              // the engine's schedule (fork socket.js genPairQR): the first
+              // code of a registration lives 60 s, each later one 20 s
+              qrTtlMs = qrIndex === 1 ? 60_000 : 20_000;
+              qrExpired = false;
+              if (process.stderr.isTTY) {
+                process.stderr.write(renderQrForTerminal(qr));
+              } else if (qrIndex === 1) {
+                opts.logger?.info(
+                  {},
+                  "QR code ready — scan it from the pairing page or `wa-mcp pair` (not printed: stderr is not a terminal)",
+                );
+              }
               void saveQrPng(qr, qrPngPath).catch((err: unknown) => {
                 opts.logger?.warn({ err }, "failed to persist qr png");
               });
@@ -864,7 +933,15 @@ export async function startBridge(
     }
   };
 
-  connect();
+  if (
+    onDemand &&
+    state.creds.account === undefined &&
+    (state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut !== true
+  ) {
+    status = "unpaired";
+  } else {
+    connect();
+  }
 
   return {
     get status() {
@@ -880,6 +957,47 @@ export async function startBridge(
       blocked: status === "pairing-blocked",
       used: pairingUsed,
       limit: pairingLimit,
+    }),
+    startPairing: () => {
+      const loggedOut = (state.creds as { waMcpLoggedOut?: boolean }).waMcpLoggedOut === true;
+      if (!loggedOut && state.creds.account !== undefined) {
+        return { started: false, reason: "paired" as const };
+      }
+      const live =
+        socket !== undefined && socket !== null && (status === "qr" || status === "connecting");
+      if (!loggedOut && live) {
+        return { started: false, reason: "active" as const };
+      }
+      if (pairingUsed >= pairingLimit) {
+        status = "pairing-blocked";
+        return { started: false, reason: "pairing-blocked" as const };
+      }
+      if (loggedOut) {
+        // an unlinked identity is dead server-side: pair a fresh device
+        wipeCreds("unlinked");
+        void queueSave().catch((err: unknown) => {
+          opts.logger?.warn({ err }, "failed to persist wiped credentials");
+        });
+      }
+      if (socket !== null && socket !== undefined) {
+        for (const name of EVENT_NAMES) {
+          socket.ev.removeAllListeners(name);
+        }
+        void socket.end(new Error("pairing: starting a fresh registration"));
+      }
+      status = "connecting";
+      connect();
+      // connect() may refuse (budget) and set the status itself
+      return (status as BridgeStatus) === "pairing-blocked"
+        ? { started: false, reason: "pairing-blocked" as const }
+        : { started: true };
+    },
+    getQrInfo: () => ({
+      qr: lastQr,
+      index: qrIndex,
+      issuedAt: qrIssuedAt === null ? null : new Date(qrIssuedAt).toISOString(),
+      expiresAt: qrIssuedAt === null ? null : new Date(qrIssuedAt + qrTtlMs).toISOString(),
+      expired: qrExpired,
     }),
     resumePairing: () => {
       pairingUsed = 0;
@@ -986,7 +1104,10 @@ export async function startBridge(
         clearInterval(stalenessTimer);
         stalenessTimer = null;
       }
-      await socket.end(undefined);
+      // an unpaired on-demand daemon may never have opened a socket
+      if (socket !== undefined && socket !== null) {
+        await socket.end(undefined);
+      }
     },
   };
 }

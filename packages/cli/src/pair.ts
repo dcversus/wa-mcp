@@ -13,17 +13,44 @@ export interface PairDeps {
 const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_POLL_MS = 2_000;
 
-async function bridgeJson(
+async function bridgeCall(
   deps: PairDeps,
   path: string,
   init?: RequestInit,
-): Promise<Record<string, unknown>> {
+): Promise<{ status: number; body: Record<string, unknown> }> {
   const fetchFn = deps.fetchFn ?? fetch;
   const response = await fetchFn(`${deps.baseUrl}${path}`, {
     headers: { authorization: `Bearer ${deps.token}` },
     ...init,
   });
-  return (await response.json()) as Record<string, unknown>;
+  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+}
+
+async function bridgeJson(
+  deps: PairDeps,
+  path: string,
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
+  return (await bridgeCall(deps, path, init)).body;
+}
+
+function errorText(body: Record<string, unknown>): string {
+  const error = body.error as { code?: unknown; message?: unknown } | undefined;
+  if (error === undefined) {
+    return typeof body.reason === "string" ? body.reason : "no details";
+  }
+  const code = typeof error.code === "string" ? error.code : "ERROR";
+  const message = typeof error.message === "string" ? error.message : "";
+  return `${code}: ${message}`;
+}
+
+async function defaultRenderQr(text: string): Promise<string> {
+  const { default: QRCode } = await import("qrcode");
+  const { renderQrTerminal } = await import("@wa-mcp/shared");
+  const qr = QRCode.create(text, { errorCorrectionLevel: "L" });
+  // legacy Windows consoles can't draw block glyphs (Windows Terminal sets WT_SESSION)
+  const ascii = process.platform === "win32" && process.env.WT_SESSION === undefined;
+  return renderQrTerminal({ size: qr.modules.size, data: qr.modules.data }, { ascii });
 }
 
 export async function runPair(deps: PairDeps): Promise<0 | 1 | 2> {
@@ -59,33 +86,52 @@ export async function runPair(deps: PairDeps): Promise<0 | 1 | 2> {
   }
 
   if (deps.codePhone !== undefined) {
-    const payload = await bridgeJson(deps, "/api/pairing-code", {
+    const { status, body } = await bridgeCall(deps, "/api/pairing-code", {
       method: "POST",
       body: JSON.stringify({ phone: deps.codePhone }),
     });
-    const code = typeof payload.code === "string" ? payload.code : "unavailable";
-    deps.print(`pairing code: ${code}`);
+    if (status !== 200 || typeof body.code !== "string") {
+      deps.print(`pairing code refused — ${errorText(body)}`);
+      return 1;
+    }
+    deps.print(`pairing code: ${body.code}`);
     deps.print(
       "enter this code on your phone: WhatsApp → Linked devices → Link with phone number instead",
     );
     deps.print("waiting for your phone to enter the code…");
-  } else {
-    const qr = await bridgeJson(deps, "/api/qr");
-    const qrValue = typeof qr.qr === "string" ? qr.qr : null;
-    if (qrValue !== null) {
-      const renderQr =
-        deps.renderQr ??
-        (async (text: string) => {
-          const { default: QRCode } = await import("qrcode");
-          return QRCode.toString(text, { type: "terminal", small: true });
-        });
-      deps.print("scan this QR with your phone (WhatsApp → Linked devices):");
-      deps.print(await renderQr(qrValue));
-      deps.print(`or paste this link on your phone to link without scanning: ${qrValue}`);
+  } else if (health.status === "unpaired" || health.status === "logged-out") {
+    // a person is at the terminal: this is the moment to register
+    const { status, body } = await bridgeCall(deps, "/api/pair/start", { method: "POST" });
+    if (status !== 200) {
+      deps.print(`could not start pairing — ${errorText(body)}`);
+      return 1;
     }
   }
 
+  const renderQr = deps.renderQr ?? defaultRenderQr;
+  let shown: string | null = null;
   while (Date.now() < deadline) {
+    if (deps.codePhone === undefined) {
+      const { status, body } = await bridgeCall(deps, "/api/qr");
+      if (status === 410) {
+        deps.print(
+          "the QR codes expired unscanned and registration stopped. Run 'wa-mcp pair' again when you're at your phone.",
+        );
+        return 1;
+      }
+      const qrValue = status === 200 && typeof body.qr === "string" ? body.qr : null;
+      if (qrValue !== null && qrValue !== shown) {
+        shown = qrValue;
+        const position = typeof body.index === "number" ? ` (code ${body.index})` : "";
+        const until =
+          typeof body.expiresAt === "string"
+            ? ` — scan before ${new Date(body.expiresAt).toLocaleTimeString()}`
+            : "";
+        deps.print(`scan this QR with your phone (WhatsApp → Linked devices)${position}${until}:`);
+        deps.print(await renderQr(qrValue));
+        deps.print(`or open this link on your phone to link without scanning: ${qrValue}`);
+      }
+    }
     const healthNow = await bridgeJson(deps, "/health");
     if (healthNow.connected === true) {
       deps.print("paired: bridge connected to WhatsApp");

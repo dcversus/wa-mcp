@@ -8,6 +8,13 @@
 - `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
 - A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
 
+### Pairing on demand, the way WhatsApp Web does it
+
+- The daemon only registers with WhatsApp when a person asks: opening the pairing page, running `wa-mcp pair`, or requesting a pairing code (new `POST /api/pair/start`, also on the pairing surface). Before, an unpaired daemon registered at every boot and again every time an unscanned QR batch expired, and after WhatsApp removed the device it wiped the credentials and registered again. Each of those re-armed WhatsApp's anti-abuse cooldown, so a restart loop could lock a number out. Now an unpaired daemon idles in a new `unpaired` state, an expired batch stops registration (the page offers **Show a new QR code**), and a removed device stays logged out. `WA_AUTO_PAIR=1` restores the old behavior.
+- `wa-mcp pair` starts the registration itself, redraws each code as it rotates (with its position and deadline), and stops with advice when the codes expire. A refused pairing-code request now prints the reason and exits instead of showing "pairing code: unavailable" and waiting forever (#245). After `wa-mcp unlink`, `wa-mcp pair` pairs a fresh device.
+- `GET /api/qr` reports each code's `index`, `issuedAt` and `expiresAt`, answers `410 QR_EXPIRED` once a batch ran out, and returns the QR text even when no PNG path is configured. The pairing page counts down each code's real lifetime (60 s for the first, 20 s after) instead of a fixed 20 s.
+- Terminal QR codes are drawn black-on-white with forced colors and a 4-module quiet zone, so phones scan them on dark and light themes. The daemon's old `#`-glyph code inverted on dark terminals and had no quiet zone; the CLI's had a 1-module margin. The daemon now prints a QR only to a real terminal, never into log files.
+
 ### Liveness and readiness probes
 
 - `GET /health/live` answers 200 whenever the daemon is up; `GET /health/ready` answers 200 only when WhatsApp is connected and the account paired, otherwise 503 with a `reason` (`reconnecting`, `connecting`, `pairing-required`, `logged-out`, `pairing-blocked`). Both are unauthenticated and loopback-only, like `/health`, and never include the pairing token. Diagnostics docs carry a compose `healthcheck` and when to restart versus alert.

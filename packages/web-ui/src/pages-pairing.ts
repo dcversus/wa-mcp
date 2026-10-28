@@ -1,6 +1,6 @@
 import { escapeHtml } from "./escape.ts";
 
-export type PairingPane = "methods" | "blocked" | "connecting" | "paired" | "error";
+export type PairingPane = "methods" | "blocked" | "connecting" | "paired" | "error" | "expired";
 
 export interface PairingHealth {
   pairingToken?: string;
@@ -17,6 +17,11 @@ export interface PairingHealth {
 export interface PairingQr {
   qr: string | null;
   png: string | null;
+  /** 1-based position in the registration's batch of codes */
+  index?: number;
+  expiresAt?: string | null;
+  /** every code of the last registration went unscanned */
+  expired?: boolean;
 }
 
 export interface PairingView {
@@ -74,6 +79,9 @@ export function pairingState(
   if (health.pairingBlocked === true) {
     return "blocked";
   }
+  if (qr.expired === true) {
+    return "expired";
+  }
   if (qr.qr !== null || qr.png !== null || code) {
     return "methods";
   }
@@ -87,6 +95,17 @@ export function qrCountdownPct(expiresInMs: number, nowMs: number, totalMs: numb
   }
   const remaining = Math.max(0, Math.min(totalMs, expiresInMs - nowMs));
   return Math.round((remaining / totalMs) * 100);
+}
+
+/** Countdown from the bridge's own schedule for this code: the first code
+ * of a registration lives 60 s, later ones 20 s (the engine's ref timers).
+ * null when the bridge didn't say. */
+export function qrLifetimePct(qr: PairingQr, nowMs: number): number | null {
+  if (typeof qr.expiresAt !== "string" || typeof qr.index !== "number") {
+    return null;
+  }
+  const total = qr.index === 1 ? 60_000 : 20_000;
+  return qrCountdownPct(Date.parse(qr.expiresAt), nowMs, total);
 }
 
 const METHOD_HINT = "WhatsApp → Settings → Linked devices → Link a device";
@@ -111,6 +130,10 @@ export function pairingHtml(view: PairingView): string {
 <p>Linking is paused to protect your number. WhatsApp's anti-abuse cooldown resets on every attempt — wait for the cooldown to clear, then resume.</p>
 <button id="resume-pairing" data-resume="1">Resume pairing</button>
 </div></section>`;
+  }
+  if (view.pane === "expired") {
+    const attempts = view.health.pairingAttempts ?? { used: 0, limit: 0 };
+    return `<section id="pairing" class="pane pane-expired">${head}<p>The QR codes expired before anyone scanned them, so linking stopped. Have your phone ready, then get a new code.</p><button id="pairing-reload" type="button">Show a new QR code</button><p class="hint">registrations used: ${escapeHtml(String(attempts.used))}/${escapeHtml(String(attempts.limit))}</p></section>`;
   }
   if (view.pane === "connecting") {
     return `<section id="pairing" class="pane pane-connecting">${head}<div class="spinner"></div><p id="connecting-note">connecting to WhatsApp…</p></section>`;

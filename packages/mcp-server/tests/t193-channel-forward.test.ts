@@ -79,7 +79,7 @@ test("T193 — subscribe_events result adopts the subscription; unsubscribe drop
 test("T193 — channel=true subscribe posts mode channel with the session agent", async () => {
   const bodies: string[] = [];
   const fetchFn = (async (_input: string | URL, init?: RequestInit) => {
-    bodies.push(String(init?.body));
+    bodies.push(typeof init?.body === "string" ? init.body : "");
     return new Response(JSON.stringify({ id: "sub-chan" }), { status: 200 });
   }) as typeof fetch;
   const context = { ...ctx([]), fetchFn, agent: "claude-code" };
@@ -119,7 +119,9 @@ test(
     });
     const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
       void init;
-      if (String(input).endsWith("/api/subs2")) {
+      const target =
+        typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (target.endsWith("/api/subs2")) {
         return new Response(JSON.stringify({ id: "sub-e2e", inboxPath: "/tmp/x" }), {
           status: 200,
           headers: { "content-type": "application/json" },

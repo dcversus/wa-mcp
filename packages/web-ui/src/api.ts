@@ -15,7 +15,15 @@ export interface ApiClient {
     text: string,
     opts?: { replyToMessageId?: string },
   ): Promise<{ message_id: string }>;
-  getQr(): Promise<{ qr: string | null; png: string | null }>;
+  getQr(): Promise<{
+    qr: string | null;
+    png: string | null;
+    index?: number;
+    expiresAt?: string | null;
+    expired?: boolean;
+  }>;
+  /** open ONE registration when nobody is paired (never resets the budget) */
+  startPairing(): Promise<{ started: boolean; reason?: string; status?: string }>;
   getHealth(): Promise<Record<string, unknown>>;
   /** ADR 0012: exchange the scoped pairing token for the daemon token.
    * Reachable only from a loopback, same-origin page. */
@@ -155,7 +163,18 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
           ? { reply_to_message_id: opts.replyToMessageId }
           : {}),
       }),
-    getQr: () => jsonCall("/api/qr"),
+    getQr: async () => {
+      try {
+        return await jsonCall("/api/qr");
+      } catch (err) {
+        // 410: the codes ran out unscanned and the bridge stopped registering
+        if (err instanceof ApiError && err.status === 410) {
+          return { qr: null, png: null, expired: true };
+        }
+        throw err;
+      }
+    },
+    startPairing: () => post("/api/pair/start", {}),
     getHealth: () => jsonCall("/health"),
     uiToken: (opts) =>
       jsonCall("/api/ui-token", {

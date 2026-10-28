@@ -2986,8 +2986,8 @@ describe("T75 — the pairing surface does not drain the API bucket", () => {
     created.push(bridge);
     for (let i = 0; i < 2; i += 1) {
       const qr = await fetch(url(bridge, "/api/qr"), { headers: authHeader });
-      // 404 (no png on the fixture) proves the route ran — RED today: 429
-      expect(qr.status).toBe(404);
+      // 200 (the QR text, no png on the fixture) proves the route ran, not 429
+      expect(qr.status).toBe(200);
     }
     const chats = await fetch(url(bridge, "/api/chats"), { headers: authHeader });
     expect(chats.status).toBe(501);

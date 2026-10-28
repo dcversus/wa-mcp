@@ -177,7 +177,9 @@ test(
     const channel = frames.find((f) => f.method === "notifications/claude/channel");
     expect(channel).toBeDefined();
     expect(channel?.params.content).toContain("stream me");
-    expect((channel?.params.meta as Record<string, unknown>).subscription_id).toBe(sub.id);
+    expect((channel?.params.meta as Record<string, unknown> | undefined)?.subscription_id).toBe(
+      sub.id,
+    );
     await bridge.close();
   },
 );

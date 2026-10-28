@@ -174,8 +174,8 @@ const MATRIX: Capability[] = [
     cli: { command: "settings", action: "set" },
   },
   {
-    capability: "link by QR",
-    web: { route: "#/pairing", api: ["getQr"] },
+    capability: "link by QR (a registration starts only when you open it)",
+    web: { route: "#/pairing", api: ["getQr", "startPairing"] },
     cli: { command: "pair" },
   },
   {

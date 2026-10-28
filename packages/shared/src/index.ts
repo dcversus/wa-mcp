@@ -7,6 +7,7 @@ export * from "./connection-settings.ts";
 export * from "./cli-reference.ts";
 export * from "./privacy.ts";
 export * from "./defaults.ts";
+export * from "./qr-terminal.ts";
 export const name = "@wa-mcp/shared";
 import pkg from "../package.json" with { type: "json" };
 

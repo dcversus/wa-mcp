@@ -133,7 +133,7 @@ test("default renderer draws a terminal qr for the real wa.me url", async () => 
   });
   const exit = await runPair(deps);
   expect(exit).toBe(1);
-  const qrBlock = deps.writes.find((line) => line.includes("▄") || line.includes("█"));
+  const qrBlock = deps.writes.find((line) => line.includes("▀"));
   expect(qrBlock).toBeDefined();
   expect(deps.writes.some((line) => line.includes("wa.me/settings/linked_devices"))).toBe(true);
 });
@@ -210,4 +210,138 @@ test("bridge down: explains unreachability with the url and exits 2 (T47)", asyn
   expect(explanation).toContain("bridge unreachable at http://127.0.0.1:8080");
   expect(explanation).toContain("is the daemon running?");
   expect(explanation).toContain("wa-mcp start");
+});
+
+test("an unpaired daemon gets ONE registration started, then the QR is drawn", async () => {
+  let healthCalls = 0;
+  let starts = 0;
+  const deps = makeDeps({
+    renderQr: async (text: string) => `[QR:${text}]`,
+    fetchFn: (async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        healthCalls += 1;
+        return new Response(
+          JSON.stringify(
+            healthCalls >= 3
+              ? { status: "connected", connected: true }
+              : { status: "unpaired", connected: false },
+          ),
+          { status: 200 },
+        );
+      }
+      if (urlText.endsWith("/api/pair/start")) {
+        expect(init?.method).toBe("POST");
+        starts += 1;
+        return new Response(JSON.stringify({ started: true, status: "connecting" }), {
+          status: 200,
+        });
+      }
+      if (urlText.endsWith("/api/qr")) {
+        return new Response(
+          JSON.stringify({ qr: "QRDATA", index: 1, expiresAt: new Date().toISOString() }),
+          {
+            status: 200,
+          },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+  });
+  const exit = await runPair(deps);
+  expect(exit).toBe(0);
+  expect(starts).toBe(1);
+  expect(deps.writes.some((line) => line.includes("[QR:QRDATA]"))).toBe(true);
+  expect(deps.writes.some((line) => line.includes("(code 1)"))).toBe(true);
+});
+
+test("each rotated code is drawn once, as it arrives", async () => {
+  const codes = ["QR-1", "QR-1", "QR-2", "QR-2"];
+  let qrCalls = 0;
+  let healthCalls = 0;
+  const rendered: string[] = [];
+  const deps = makeDeps({
+    renderQr: async (text: string) => {
+      rendered.push(text);
+      return `[QR:${text}]`;
+    },
+    fetchFn: (async (url: string | URL) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        healthCalls += 1;
+        return new Response(
+          JSON.stringify(
+            healthCalls > 4
+              ? { status: "connected", connected: true }
+              : { status: "qr", connected: false },
+          ),
+          { status: 200 },
+        );
+      }
+      if (urlText.endsWith("/api/qr")) {
+        const qr = codes[Math.min(qrCalls, codes.length - 1)];
+        qrCalls += 1;
+        return new Response(JSON.stringify({ qr }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+  });
+  expect(await runPair(deps)).toBe(0);
+  expect(rendered).toEqual(["QR-1", "QR-2"]);
+});
+
+test("when the codes expire unscanned the CLI stops with advice instead of re-registering", async () => {
+  let starts = 0;
+  const deps = makeDeps({
+    fetchFn: (async (url: string | URL) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        return new Response(JSON.stringify({ status: "qr", connected: false }), { status: 200 });
+      }
+      if (urlText.endsWith("/api/pair/start")) {
+        starts += 1;
+        return new Response(JSON.stringify({ started: true }), { status: 200 });
+      }
+      if (urlText.endsWith("/api/qr")) {
+        return new Response(JSON.stringify({ error: { code: "QR_EXPIRED", message: "expired" } }), {
+          status: 410,
+        });
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+  });
+  expect(await runPair(deps)).toBe(1);
+  expect(deps.writes.join("\n")).toContain("expired unscanned");
+  expect(starts).toBe(0);
+});
+
+test("#245 — a refused pairing-code request prints the reason and exits instead of waiting forever", async () => {
+  let healthPolls = 0;
+  const deps = makeDeps({
+    codePhone: "358497773518",
+    fetchFn: (async (url: string | URL) => {
+      const urlText = String(url);
+      if (urlText.endsWith("/health")) {
+        healthPolls += 1;
+        return new Response(JSON.stringify({ status: "logged-out", connected: false }), {
+          status: 200,
+        });
+      }
+      if (urlText.endsWith("/api/pairing-code")) {
+        return new Response(
+          JSON.stringify({
+            error: { code: "PAIRING_BLOCKED", message: "cannot start pairing: pairing-blocked" },
+          }),
+          { status: 429 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch,
+  });
+  expect(await runPair(deps)).toBe(1);
+  const out = deps.writes.join("\n");
+  expect(out).toContain("PAIRING_BLOCKED");
+  expect(out).not.toContain("unavailable");
+  expect(out).not.toContain("waiting for your phone");
+  expect(healthPolls).toBe(1);
 });

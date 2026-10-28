@@ -32,6 +32,7 @@ import {
   pairingPossible,
   pairingState,
   qrCountdownPct,
+  qrLifetimePct,
   type PairingHealth,
   type PairingView,
 } from "./pages-pairing.ts";
@@ -85,6 +86,10 @@ const QR_TTL_MS = 20_000;
 const PAIRING_INTRO =
   "Link WhatsApp to your AI agent — pair once, then your agent can read and send.";
 let qrSeenAt = 0;
+/** a person just navigated here: the next pairing refresh may open ONE
+ * registration (the way WhatsApp Web shows a code when you open it).
+ * Background polls never do — a tab left open must not re-register. */
+let pairingEntryPending = true;
 let pairingPoller: PairingPoller | null = null;
 let pairingView: PairingView = {
   pane: "connecting",
@@ -211,6 +216,11 @@ async function refreshPairing(): Promise<void> {
     savePairingToken(localStorage, pairingToken);
     client = createClient();
   }
+  const entered = pairingEntryPending;
+  pairingEntryPending = false;
+  if (entered && (health.status === "unpaired" || health.status === "logged-out")) {
+    await client.startPairing().catch(() => undefined);
+  }
   // T75: a logged-in daemon has no QR — skip the poll entirely so the
   // pairing page cannot drain the API bucket after pairing finished
   const qr = pairingPossible(health)
@@ -227,7 +237,8 @@ async function refreshPairing(): Promise<void> {
     health,
     qr,
     pane: pairingState(health, qr, pairingView.code, pairingView.error),
-    countdownPct: qrCountdownPct(qrSeenAt + QR_TTL_MS, Date.now(), QR_TTL_MS),
+    countdownPct:
+      qrLifetimePct(qr, Date.now()) ?? qrCountdownPct(qrSeenAt + QR_TTL_MS, Date.now(), QR_TTL_MS),
   };
   if (pairingView.pane === "paired" && pairingView.me == null) {
     const me = (await client.getMe().catch(() => null)) as {
@@ -1137,6 +1148,11 @@ function bindPairingFlow(): void {
       void client.logout().then(() => renderCurrent());
     }
   });
+  document.getElementById("pairing-reload")?.addEventListener("click", async () => {
+    await client.startPairing().catch(() => undefined);
+    pairingView = { ...pairingView, error: null, code: null };
+    await rerenderPairing();
+  });
   document.getElementById("pairing-retry")?.addEventListener("click", () => {
     pairingView = { ...pairingView, error: null, code: null };
     void rerenderPairing();
@@ -1247,6 +1263,7 @@ function startBridgeDownPoll(): void {
 }
 
 window.addEventListener("hashchange", () => {
+  pairingEntryPending = true;
   if (location.hash !== "#/connection") {
     stopStatusLive();
   }

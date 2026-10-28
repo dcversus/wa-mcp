@@ -260,6 +260,10 @@ export async function main(
     mediaDir: config.mediaDir,
     sendGuard,
     humanizer,
+    // register only when a person asks (pairing page, `wa-mcp pair`, a
+    // pairing code), the way WhatsApp Web does; WA_AUTO_PAIR=1 restores
+    // registering at boot and after unscanned codes expire
+    pairingOnDemand: process.env.WA_AUTO_PAIR !== "1",
   });
   // T82 line88: daemon scheduler — every 30s, due scheduled texts are sent
   // through the live socket and marked sent/failed.

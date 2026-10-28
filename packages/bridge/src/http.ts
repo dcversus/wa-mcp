@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { join, resolve, sep } from "node:path";
 import { realpath } from "node:fs/promises";
-import type { BridgeHandle } from "./lifecycle.ts";
+import type { BridgeHandle, BridgeStatus } from "./lifecycle.ts";
 import { isSafePublicEvent } from "./events.ts";
 import { spawn } from "node:child_process";
 import { toVoiceOgg } from "./media/voice.ts";
@@ -244,6 +244,8 @@ const EXCHANGE_RATE = { capacity: 10, refillPerMinute: 10 };
 const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   "/api/qr",
   "/api/pairing-code",
+  // starts ONE registration when nobody is paired; never resets the budget
+  "/api/pair/start",
   // T94-E H3 (RUNTIME review): /api/pair/resume LEFT this surface — the
   // public pairing token could drop the session, reset the anti-abuse
   // budget and stack sockets. Resume now needs the account token (the UI
@@ -253,6 +255,16 @@ const PAIRING_SURFACE: ReadonlySet<string> = new Set([
 const API_PATHS = new Set(["/api/messages", "/api/chats", "/api/send", "/events", "/mcp"]);
 
 const HEALTH_PATHS = new Set(["/health", "/health/live", "/health/ready"]);
+
+/** how long a pairing-code request waits for a fresh registration's first ref */
+const PAIRING_START_WAIT_MS = 20_000;
+
+function pairStartCode(result: { started: boolean; reason?: string }): number {
+  if (result.started) {
+    return 200;
+  }
+  return result.reason === "pairing-blocked" ? 429 : 409;
+}
 
 /** why /health/ready is 503: transient states first, then the ones that
  * need an operator (pairing) */
@@ -823,10 +835,33 @@ export async function createHttpServer(
       return;
     }
     const qr = handle.getLastQr();
+    const info = handle.getQrInfo?.();
     if (qr === null) {
-      sendJson(res, 404, { error: { code: "NO_QR", message: "no qr code available yet" } });
+      if (info?.expired === true) {
+        sendJson(res, 410, {
+          error: {
+            code: "QR_EXPIRED",
+            message:
+              "the QR codes expired unscanned and registration stopped — POST /api/pair/start when you're ready to scan",
+          },
+        });
+        return;
+      }
+      sendJson(res, 404, {
+        error: {
+          code: "NO_QR",
+          message:
+            handle.status === "unpaired"
+              ? "no registration running — POST /api/pair/start to get a QR code"
+              : "no qr code available yet",
+        },
+      });
       return;
     }
+    const lifetime =
+      info === undefined
+        ? {}
+        : { index: info.index, issuedAt: info.issuedAt, expiresAt: info.expiresAt };
     const fileParam = new URL(req.url ?? "/", "http://localhost").searchParams.get("file");
     let target: string | null;
     if (fileParam !== null) {
@@ -854,18 +889,19 @@ export async function createHttpServer(
       target = opts.qrPngPath ?? null;
     }
     if (target === null) {
-      sendJson(res, 404, { error: { code: "NOT_FOUND", message: "no qr image configured" } });
+      // the QR text is what scanners and the CLI need; the PNG is optional
+      sendJson(res, 200, { qr, png: null, ...lifetime });
       return;
     }
     void readFile(target)
       .then((bytes) => {
-        sendJson(res, 200, { qr, png: bytes.toString("base64") });
+        sendJson(res, 200, { qr, png: bytes.toString("base64"), ...lifetime });
       })
       .catch(() => {
         if (fileParam !== null) {
           sendJson(res, 404, { error: { code: "NOT_FOUND", message: "qr file not found" } });
         } else {
-          sendJson(res, 200, { qr, png: null });
+          sendJson(res, 200, { qr, png: null, ...lifetime });
         }
       });
   };
@@ -4017,23 +4053,23 @@ export async function createHttpServer(
           });
           return;
         }
-        if (path === "/api/pairing-code" && req.method === "POST") {
-          const socket = handle.socket;
-          if (socket === undefined || socket === null) {
+        if (path === "/api/pair/start" && req.method === "POST") {
+          if (handle.startPairing === undefined) {
             sendJson(res, 501, {
-              error: { code: "NOT_IMPLEMENTED", message: "bridge not connected" },
+              error: { code: "NOT_IMPLEMENTED", message: "on-demand pairing not available" },
             });
             return;
           }
-          if (handle.status !== "qr" && handle.status !== "connecting") {
-            sendJson(res, 409, {
-              error: {
-                code: "PAIRING_STATE",
-                message: `pairing code requires qr/connecting state (current: ${handle.status})`,
-              },
-            });
-            return;
-          }
+          const result = handle.startPairing();
+          const budget = handle.pairingBudget();
+          sendJson(res, pairStartCode(result), {
+            ...result,
+            status: handle.status,
+            pairingAttempts: { used: budget.used, limit: budget.limit },
+          });
+          return;
+        }
+        if (path === "/api/pairing-code" && req.method === "POST") {
           let parsed: unknown;
           try {
             parsed = JSON.parse(body.toString("utf8")) as unknown;
@@ -4050,18 +4086,57 @@ export async function createHttpServer(
             validationError(res, "phone must be 8-15 digits after stripping +/spaces");
             return;
           }
-          void requestPairingCode(socket, phone)
-            .then((code) => {
-              sendJson(res, 200, { code });
-            })
-            .catch((err: unknown) => {
+          void (async () => {
+            // a person asked for a code: open the registration on demand
+            if (
+              (handle.status === "unpaired" || handle.status === "logged-out") &&
+              handle.startPairing !== undefined
+            ) {
+              const result = handle.startPairing();
+              if (!result.started && result.reason !== "active") {
+                sendJson(res, pairStartCode(result), {
+                  error: {
+                    code: result.reason === "pairing-blocked" ? "PAIRING_BLOCKED" : "PAIRING_STATE",
+                    message: `cannot start pairing: ${result.reason ?? "unknown"}`,
+                  },
+                });
+                return;
+              }
+              // the server hands out the first ref once the socket is up
+              const deadline = Date.now() + PAIRING_START_WAIT_MS;
+              // re-read the live status each turn (startPairing changes it)
+              const liveStatus = (): BridgeStatus => handle.status;
+              while (liveStatus() !== "qr" && Date.now() < deadline) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+            }
+            const socket = handle.socket;
+            if (socket === undefined || socket === null) {
+              sendJson(res, 503, {
+                error: { code: "NOT_READY", message: "registration did not open — try again" },
+              });
+              return;
+            }
+            if (handle.status !== "qr" && handle.status !== "connecting") {
+              sendJson(res, 409, {
+                error: {
+                  code: "PAIRING_STATE",
+                  message: `pairing code requires qr/connecting state (current: ${handle.status})`,
+                },
+              });
+              return;
+            }
+            try {
+              sendJson(res, 200, { code: await requestPairingCode(socket, phone) });
+            } catch (err: unknown) {
               sendJson(res, 500, {
                 error: {
                   code: "INTERNAL",
                   message: err instanceof Error ? err.message : "pairing code failed",
                 },
               });
-            });
+            }
+          })();
           return;
         }
         if (path === "/api/transcribe" && req.method === "POST") {

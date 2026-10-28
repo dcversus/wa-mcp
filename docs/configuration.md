@@ -29,13 +29,14 @@ Why 27777: it is unassigned by IANA, free of the usual dev-server ports
 
 ## Connection & pairing
 
-| variable               | default                    | meaning                                                                                        |
-| ---------------------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
-| `WA_DEVICE_NAME`       | `wa-mcp`                   | device name shown on your phone                                                                |
-| `WA_SYNC_FULL_HISTORY` | off (`1`/`true` to enable) | ask the phone for full history at pairing                                                      |
-| `WA_RECONNECT_ALERT_N` | `5`                        | emit an alert after N reconnect cycles (connection-quality signal)                             |
-| `WA_STALENESS_MS`      | `30000`                    | connection considered stale after this many ms without a signal                                |
-| `WA_RECORD_EVENTS`     | unset                      | directory — record raw engine events as JSON fixtures (debugging; creds.update never recorded) |
+| variable               | default                    | meaning                                                                                                                                                          |
+| ---------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WA_DEVICE_NAME`       | `wa-mcp`                   | device name shown on your phone                                                                                                                                  |
+| `WA_SYNC_FULL_HISTORY` | off (`1`/`true` to enable) | ask the phone for full history at pairing                                                                                                                        |
+| `WA_AUTO_PAIR`         | off (`1` to enable)        | register with WhatsApp at boot and again after unscanned QR codes expire; off = only when you open the pairing page, run `wa-mcp pair` or ask for a pairing code |
+| `WA_RECONNECT_ALERT_N` | `5`                        | emit an alert after N reconnect cycles (connection-quality signal)                                                                                               |
+| `WA_STALENESS_MS`      | `30000`                    | connection considered stale after this many ms without a signal                                                                                                  |
+| `WA_RECORD_EVENTS`     | unset                      | directory — record raw engine events as JSON fixtures (debugging; creds.update never recorded)                                                                   |
 
 ## Send safety
 

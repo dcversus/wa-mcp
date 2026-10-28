@@ -439,6 +439,9 @@ test(
     const dir = await mkdtemp(join(tmpdir(), "wa-mcp-qr-"));
     const pngPath = join(dir, "qr.png");
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const wasTty = process.stderr.isTTY;
+    // the QR art is for an interactive terminal only
+    process.stderr.isTTY = true;
     try {
       const sock = fakeSocket();
       mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
@@ -448,7 +451,7 @@ test(
       expect(handle.getLastQr()).toBe("QRDATA-rotation-1");
       expect(stderrSpy).toHaveBeenCalled();
       const written = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
-      expect(written).toContain("#");
+      expect(written).toContain("\x1b[30;");
       await vi.waitFor(
         async () => {
           const bytes = await readFile(pngPath);
@@ -457,10 +460,32 @@ test(
         { timeout: 10_000, interval: 100 },
       );
     } finally {
+      process.stderr.isTTY = wasTty;
       stderrSpy.mockRestore();
     }
   },
 );
+
+test("qr art never goes to a non-terminal stderr (log files, pipes)", async () => {
+  const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+  const wasTty = process.stderr.isTTY;
+  process.stderr.isTTY = false;
+  try {
+    const sock = fakeSocket();
+    mockMakeWASocket.mockReturnValue(sock as unknown as WASocket);
+    const handle = await trackedStart("/tmp/wa-mcp-test-auth", {
+      qrPngPath: join(await mkdtemp(join(tmpdir(), "wa-mcp-qr-")), "qr.png"),
+    });
+    sock.emit("connection.update", { connection: "connecting", qr: "QRDATA-piped" });
+    expect(handle.getLastQr()).toBe("QRDATA-piped");
+    const written = stderrSpy.mock.calls.map((call) => String(call[0])).join("");
+    expect(written).not.toContain("\x1b[");
+    expect(written).not.toContain("▀");
+  } finally {
+    process.stderr.isTTY = wasTty;
+    stderrSpy.mockRestore();
+  }
+});
 
 test("qr rotations update getLastQr", async () => {
   const { sock, handle } = await started();

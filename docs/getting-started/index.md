@@ -12,10 +12,13 @@ Every write is read back and verified. Re-running updates in place.
 ## Pair
 
 ```sh
-wa-mcp start              # bridge spawns detached; QR prints to stderr
+wa-mcp start              # bridge spawns detached
+wa-mcp pair               # shows a QR code in the terminal
 ```
 
-Scan the QR with your phone (WhatsApp → Linked devices). The session persists in `~/.wa-mcp/auth/` — restarts do not re-pair. The same QR is available in the web UI at `#/pairing`.
+Scan the QR with your phone (WhatsApp → Linked devices), or open the web UI at `#/pairing` — the same QR, with a countdown. The session persists in `~/.wa-mcp/auth/` — restarts do not re-pair.
+
+Like WhatsApp Web, the daemon only asks WhatsApp for a QR code while you're there to scan it: when you open the pairing page or run `wa-mcp pair`, never on its own at boot. Each request gets one batch of codes (the first lives 60 s, the next ones 20 s each). If they all expire unscanned, linking stops — click **Show a new QR code** or run `wa-mcp pair` again. Every request counts as one link attempt, because WhatsApp's anti-abuse limits treat repeated attempts as suspicious; set `WA_AUTO_PAIR=1` only if you need the old behavior of registering at boot.
 
 No camera? Pair with an 8-digit code instead — same flow, phone-first:
 
