@@ -28,6 +28,8 @@ export interface InboundMessage {
 export interface SubsDispatcherDeps {
   store: Store;
   subscriptionsDir: string;
+  /** spool size before <name>.jsonl rotates to <name>.1.jsonl */
+  inboxMaxBytes?: number;
   ownJids: () => string[];
   spawnFn: typeof spawn;
   now?: () => Date;
@@ -221,7 +223,7 @@ export function createSubsDispatcher(deps: SubsDispatcherDeps): SubsDispatcher {
     }
     const dir = subscriptionDir(deps.subscriptionsDir, id);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const fresh = openInbox(dir, undefined, name);
+    const fresh = openInbox(dir, deps.inboxMaxBytes, name);
     writers.set(key, fresh);
     return fresh;
   };

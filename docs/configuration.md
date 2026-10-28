@@ -13,8 +13,32 @@ BYOK config file `~/.wa-mcp/config.json` (see cookbook → media understanding).
 | `WA_TOKEN`               | generated → `<dataDir>/token` (0600) | bearer token for every non-health endpoint                                                                            |
 | `WA_UI_DIR`              | `<bridge>/dist/web`                  | web UI static directory                                                                                               |
 | `WA_UI_BOOTSTRAP`        | unset                                | `0` restores the strict challenge flow for the web UI on paired daemons (default: zero-action bootstrap per ADR 0012) |
-| `WA_LOG_LEVEL`           | `info`                               | pino level (logs to stderr, JSON)                                                                                     |
+| `WA_LOG_LEVEL`           | `info`                               | pino level (JSON lines to stderr, or to `WA_LOG_FILE` — see Retention)                                                |
 | `WA_CLI_NO_SERVICE_LOAD` | unset                                | `1` = CLI never auto-loads the launchd service on commands                                                            |
+
+## Retention
+
+Everything the daemon accumulates on disk has a limit. Set the limits as
+environment variables, or as a `retention` object in `config.json` with the
+lowercase key in brackets (`{"retention": {"media_max_mb": 2000}}`). The
+environment wins when both are set. A value that isn't a number of 0 or
+more is ignored and the default applies.
+
+| variable                   | default        | meaning                                                                                                                                                                                                      |
+| -------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WA_LOG_FILE`              | unset (stderr) | (`log_file`) the daemon writes its log to this file and rotates it itself. `wa-mcp start` and the launchd/systemd service set it to `<dataDir>/bridge.log`; raw stderr goes to `<dataDir>/bridge.stderr.log` |
+| `WA_LOG_MAX_MB`            | `10`           | (`log_max_mb`) size at which the log file rotates                                                                                                                                                            |
+| `WA_LOG_FILES`             | `3`            | (`log_files`) rotated copies kept (`bridge.log.1` … `.3`); the oldest is deleted                                                                                                                             |
+| `WA_INBOX_MAX_MB`          | `2`            | (`inbox_max_mb`) each subscription spool rotates to `<name>.1.jsonl` at this size; one rotated copy is kept                                                                                                  |
+| `WA_MEDIA_MAX_MB`          | `0` (no cap)   | (`media_max_mb`) downloaded media beyond this total is deleted oldest first; a pruned file downloads again on demand while WhatsApp still serves it                                                          |
+| `WA_MEDIA_MAX_AGE_DAYS`    | `0` (keep)     | (`media_max_age_days`) downloaded media older than this is deleted                                                                                                                                           |
+| `WA_BACKUPS_KEEP`          | `1`            | (`backups_keep`) nightly store snapshots kept in `<dataDir>/backups`; `0` turns backups off and removes old ones                                                                                             |
+| `WA_ACTIVITY_MAX_AGE_DAYS` | `30`           | (`activity_max_age_days`) agent activity rows (the Agents page's delivery and reply log) older than this are deleted                                                                                         |
+
+Media and activity are pruned at startup and every hour; a media file
+younger than 5 minutes is never touched. Messages, chats and contacts are
+never pruned. Under Docker, either set `WA_LOG_FILE` or leave logs on stderr
+and cap them with Docker's own log options (`max-size`, `max-file`).
 
 ## Upgrading: the default port
 

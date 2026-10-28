@@ -19,6 +19,12 @@ import { acquireLock } from "./lock.ts";
 import { startBridge } from "./lifecycle.ts";
 import { processDue } from "./store/scheduled.ts";
 import { runBackup } from "./store/backup.ts";
+import {
+  openRotatingLog,
+  pruneActivity,
+  pruneMedia,
+  resolveRetentionSettings,
+} from "./retention.ts";
 import { resolveMedia } from "./media/resolve.ts";
 import { resolveRecipient, sendViaSocket } from "./send/send.ts";
 import { evaluateSendRules } from "./store/send-rules.ts";
@@ -186,7 +192,13 @@ export async function main(
   if (cli.uiDir !== undefined) {
     config.uiDir = cli.uiDir;
   }
-  const logger = pino({ level: env.WA_LOG_LEVEL ?? "info" }, pino.destination({ fd: 2 }));
+  const retention = resolveRetentionSettings(config.dataDir, env);
+  const logger = pino(
+    { level: env.WA_LOG_LEVEL ?? "info" },
+    retention.logFile === null
+      ? pino.destination({ fd: 2 })
+      : openRotatingLog(retention.logFile, retention.logMaxBytes, retention.logFiles),
+  );
   installRejectionGuard(process, logger);
   // T94-G: the STABLE ui-bootstrap credential — the pairing token rotates
   // per boot, so this file (0600) is what a fresh browser bootstraps from
@@ -199,19 +211,6 @@ export async function main(
     uiBootstrapToken = randomBytes(24).toString("hex");
     writeFileSync(uiBootstrapPath, uiBootstrapToken, { mode: 0o600 });
   }
-  // T94-F Runtime-M9: runBackup existed since T80 but was NEVER called
-  const backupsRoot = join(config.dataDir, "backups");
-  const runNightlyBackup = (): void => {
-    try {
-      const dir = runBackup(config.dataDir, backupsRoot, 1);
-      logger.info({ dir }, "store backup written");
-    } catch (err) {
-      logger.warn({ err }, "store backup failed");
-    }
-  };
-  runNightlyBackup();
-  const backupTimer = setInterval(runNightlyBackup, 24 * 60 * 60 * 1000);
-  backupTimer.unref();
   let lock;
   try {
     lock = acquireLock(config.dataDir);
@@ -238,6 +237,38 @@ export async function main(
   } catch (err: unknown) {
     logger.warn({ err }, "contacts backfill failed");
   }
+  // nightly snapshot of the OPEN store (VACUUM INTO) + media, keep N runs
+  const backupsRoot = join(config.dataDir, "backups");
+  const runNightlyBackup = (): void => {
+    try {
+      const dir = runBackup(store, backupsRoot, retention.backupsKeep, {
+        mediaDir: config.mediaDir,
+      });
+      if (dir !== null) {
+        logger.info({ dir }, "store backup written");
+      }
+    } catch (err) {
+      logger.warn({ err }, "store backup failed");
+    }
+  };
+  runNightlyBackup();
+  setInterval(runNightlyBackup, 24 * 60 * 60 * 1000).unref();
+  const runRetention = (): void => {
+    try {
+      const media = pruneMedia(config.mediaDir, {
+        maxBytes: retention.mediaMaxBytes,
+        maxAgeDays: retention.mediaMaxAgeDays,
+      });
+      const activity = pruneActivity(store, retention.activityMaxAgeDays);
+      if (media.removed > 0 || activity > 0) {
+        logger.info({ media, activityRows: activity }, "retention pruned");
+      }
+    } catch (err) {
+      logger.warn({ err }, "retention pass failed");
+    }
+  };
+  runRetention();
+  setInterval(runRetention, 60 * 60 * 1000).unref();
   const qrPngPath = join(config.dataDir, "qr.png");
   // T94-C2(f): ONE daemon-wide budget — the bridge (autoreply), the HTTP
   // surface and the scheduler all draw from the same SendGuard
@@ -326,6 +357,7 @@ export async function main(
     qrPngPath,
     qrDir: config.dataDir,
     subscriptionsDir: config.dataDir,
+    inboxMaxBytes: retention.inboxMaxBytes,
     homeDir: process.env.HOME ?? homedir(),
     store,
     version: "0.1.0",

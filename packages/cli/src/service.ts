@@ -58,17 +58,24 @@ export interface PurgeResult {
   message: string;
 }
 
+/** The daemon writes and rotates its own log (WA_LOG_FILE, capped by the
+ * retention settings); raw stdout/stderr — only output from before the
+ * logger exists, e.g. a crash at boot — goes to bridge.stderr.log. */
+export function stderrLogPath(logPath: string): string {
+  return join(dirname(logPath), "bridge.stderr.log");
+}
+
 export function startDaemon(deps: StartDeps): StartResult {
   const spawnFn = (deps.spawnFn ?? spawn) as SpawnFn;
   mkdirSync(dirname(deps.logPath), { recursive: true });
-  const logFd = openSync(deps.logPath, "a");
+  const logFd = openSync(stderrLogPath(deps.logPath), "a");
   const child = spawnFn(
     process.execPath,
     [deps.bridgeBin, "--data-dir", deps.dataDir, "--port", deps.port],
     {
       detached: true,
       stdio: ["ignore", logFd, logFd],
-      env: { ...process.env, ...deps.envExtras },
+      env: { WA_LOG_FILE: deps.logPath, ...process.env, ...deps.envExtras },
     },
   );
   child.unref();
@@ -120,9 +127,16 @@ export async function followLog(
   opts: { intervalMs: number; maxPolls: number },
 ): Promise<void> {
   let offset = existsSync(logPath) ? readFileSync(logPath, "utf8").length : 0;
+  let inode = existsSync(logPath) ? statSync(logPath).ino : 0;
   for (let poll = 0; poll < opts.maxPolls; poll += 1) {
     if (existsSync(logPath)) {
       const content = readFileSync(logPath, "utf8");
+      const current = statSync(logPath).ino;
+      if (current !== inode || content.length < offset) {
+        // the daemon rotated the file — read the fresh one from the top
+        offset = 0;
+        inode = current;
+      }
       if (content.length > offset) {
         const fresh = content.slice(offset);
         offset = content.length;
@@ -189,6 +203,7 @@ export interface ServiceRenderDeps {
 
 export function renderLaunchdPlist(deps: ServiceRenderDeps): string {
   const logPath = `${deps.dataDir}/bridge.log`;
+  const stderrPath = `${deps.dataDir}/bridge.stderr.log`;
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -205,14 +220,19 @@ export function renderLaunchdPlist(deps: ServiceRenderDeps): string {
     "    <string>--port</string>",
     `    <string>${deps.port}</string>`,
     "  </array>",
+    "  <key>EnvironmentVariables</key>",
+    "  <dict>",
+    "    <key>WA_LOG_FILE</key>",
+    `    <string>${logPath}</string>`,
+    "  </dict>",
     "  <key>KeepAlive</key>",
     "  <true/>",
     "  <key>RunAtLoad</key>",
     "  <true/>",
     "  <key>StandardOutPath</key>",
-    `  <string>${logPath}</string>`,
+    `  <string>${stderrPath}</string>`,
     "  <key>StandardErrorPath</key>",
-    `  <string>${logPath}</string>`,
+    `  <string>${stderrPath}</string>`,
     "</dict>",
     "</plist>",
     "",
@@ -221,6 +241,7 @@ export function renderLaunchdPlist(deps: ServiceRenderDeps): string {
 
 export function renderSystemdUnit(deps: ServiceRenderDeps): string {
   const logPath = `${deps.dataDir}/bridge.log`;
+  const stderrPath = `${deps.dataDir}/bridge.stderr.log`;
   return [
     "[Unit]",
     "Description=wa-mcp bridge",
@@ -231,8 +252,9 @@ export function renderSystemdUnit(deps: ServiceRenderDeps): string {
     `ExecStart=${deps.nodePath} ${deps.bridgeBin} --data-dir ${deps.dataDir} --port ${deps.port}`,
     "Restart=always",
     "RestartSec=5",
-    `StandardOutput=append:${logPath}`,
-    `StandardError=append:${logPath}`,
+    `Environment=WA_LOG_FILE=${logPath}`,
+    `StandardOutput=append:${stderrPath}`,
+    `StandardError=append:${stderrPath}`,
     "",
     "[Install]",
     "WantedBy=default.target",

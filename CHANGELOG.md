@@ -8,6 +8,12 @@
 - `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
 - A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
 
+### Retention limits for everything on disk
+
+- The daemon can write and rotate its own log: `WA_LOG_FILE` with `WA_LOG_MAX_MB` (default 10) and `WA_LOG_FILES` (default 3 rotated copies). `wa-mcp start` and the launchd/systemd service now use it for `<dataDir>/bridge.log`, so the log no longer grows without bound; raw stderr from before the logger exists goes to `bridge.stderr.log`. `wa-mcp logs --follow` keeps following across a rotation. Re-run `wa-mcp install --service` to update an installed service.
+- New limits, as env vars or a `retention` object in `config.json`: `WA_INBOX_MAX_MB` (subscription spools, default 2), `WA_MEDIA_MAX_MB` and `WA_MEDIA_MAX_AGE_DAYS` (downloaded media, default no limit), `WA_BACKUPS_KEEP` (default 1; 0 turns backups off) and `WA_ACTIVITY_MAX_AGE_DAYS` (agent activity rows, default 30). Media and activity are pruned at startup and hourly.
+- Fixed: nightly backups never contained the database. They copied `<dataDir>/store.db`, a stale empty file from before the store moved to `<dataDir>/store/`, so every backup held a 0-byte `store.db` plus media. Backups now take a consistent `VACUUM INTO` snapshot of the live store, and copy the configured media dir (`WA_MEDIA_DIR`) instead of always `<dataDir>/media`.
+
 ### Contact list tools and saved-contact subscriptions
 
 - New MCP tools `add_contact`, `rename_contact` and `remove_contact` let an agent manage the account's contact list (synced to the phone's address book), and `list_contacts` takes `saved: true` (77 tools).

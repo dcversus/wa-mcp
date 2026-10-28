@@ -190,6 +190,8 @@ export interface HttpServerOptions {
    * store, the daemon serves /api/subscriptions and wires bus events to
    * matching inboxes. */
   subscriptionsDir?: string;
+  /** per-subscription spool size before rotation (retention settings) */
+  inboxMaxBytes?: number;
   homeDir?: string;
   installEnv?: InstallEnv;
   /** GOAL §18: when present, the daemon serves the cloud channel surface
@@ -670,6 +672,7 @@ export async function createHttpServer(
     const dispatcher = createSubsDispatcher({
       store,
       subscriptionsDir: opts.subscriptionsDir,
+      ...(opts.inboxMaxBytes !== undefined ? { inboxMaxBytes: opts.inboxMaxBytes } : {}),
       ownJids,
       spawnFn: opts.spawnFn ?? spawn,
       ...(opts.logger !== undefined ? { logger: opts.logger } : {}),

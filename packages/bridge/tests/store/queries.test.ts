@@ -600,18 +600,46 @@ describe("T80 — line45 disappearing settings + line66 sync watermark", () => {
 });
 
 describe("T80 line62 — backup + retention", () => {
-  test("retention=1 keeps exactly one backup across runs", () => {
+  test("the backup is a real snapshot of the live store, and keep=1 leaves one run", () => {
     const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-backup-data-"));
-    writeFileSync(join(dataDir, "store.db"), "db-bytes");
-    mkdirSync(join(dataDir, "media"), { recursive: true });
-    writeFileSync(join(dataDir, "media", "x.txt"), "m");
-    const backups = mkdtempSync(join(tmpdir(), "wa-mcp-backups-"));
-    runBackup(dataDir, backups, 1, new Date("2026-10-04T01:00:00Z"));
-    runBackup(dataDir, backups, 1, new Date("2026-10-04T02:00:00Z"));
-    const runs = readdirSync(backups);
-    expect(runs).toHaveLength(1);
-    expect(existsSync(join(backups, runs[0] ?? "", "store.db"))).toBe(true);
-    expect(existsSync(join(backups, runs[0] ?? "", "media", "x.txt"))).toBe(true);
+    const store = openStore(join(dataDir, "store"));
+    try {
+      store.db
+        .prepare("INSERT INTO contacts (jid, name) VALUES (?, ?)")
+        .run("1@s.whatsapp.net", "Kept");
+      const media = join(dataDir, "media");
+      mkdirSync(media, { recursive: true });
+      writeFileSync(join(media, "x.txt"), "m");
+      const backups = mkdtempSync(join(tmpdir(), "wa-mcp-backups-"));
+      runBackup(store, backups, 1, { mediaDir: media, now: new Date("2026-10-04T01:00:00Z") });
+      runBackup(store, backups, 1, { mediaDir: media, now: new Date("2026-10-04T02:00:00Z") });
+      const runs = readdirSync(backups);
+      expect(runs).toEqual(["2026-10-04T02-00-00-000Z"]);
+      const snapshot = new DatabaseSync(join(backups, runs[0] ?? "", "store.db"), {
+        readOnly: true,
+      });
+      try {
+        expect(snapshot.prepare("SELECT name FROM contacts").all()).toEqual([{ name: "Kept" }]);
+      } finally {
+        snapshot.close();
+      }
+      expect(existsSync(join(backups, runs[0] ?? "", "media", "x.txt"))).toBe(true);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("keep=0 turns backups off and clears old runs", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "wa-mcp-backup-off-"));
+    const store = openStore(join(dataDir, "store"));
+    try {
+      const backups = mkdtempSync(join(tmpdir(), "wa-mcp-backups-off-"));
+      runBackup(store, backups, 1, { now: new Date("2026-10-04T01:00:00Z") });
+      expect(runBackup(store, backups, 0)).toBeNull();
+      expect(readdirSync(backups)).toEqual([]);
+    } finally {
+      store.close();
+    }
   });
 });
 

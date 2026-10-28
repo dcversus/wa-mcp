@@ -1,32 +1,30 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import type { Store } from "./schema.ts";
 
-/** T80 line62: nightly-capable store backup — copies store.db (+ WAL/SHM)
- * and the media dir into backups/<timestamp>/, then prunes oldest runs
- * beyond `retention`. Returns the created backup dir. */
+/** Nightly store backup: a consistent `VACUUM INTO` snapshot of the open
+ * store (safe while the daemon writes — copying the WAL-mode file is not)
+ * plus a copy of the media dir, into backups/<timestamp>/; then prunes the
+ * oldest runs beyond `keep`. keep = 0 turns backups off and removes old
+ * runs. Returns the created backup dir, or null when off. */
 export function runBackup(
-  dataDir: string,
+  store: Store,
   backupsRoot: string,
-  retention: number,
-  now: Date = new Date(),
-): string {
-  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  keep: number,
+  opts: { mediaDir?: string; now?: Date } = {},
+): string | null {
+  if (keep <= 0) {
+    prune(backupsRoot, 0);
+    return null;
+  }
+  const stamp = (opts.now ?? new Date()).toISOString().replace(/[:.]/g, "-");
   const target = join(backupsRoot, stamp);
-  mkdirSync(target, { recursive: true });
-  const dbPath = join(dataDir, "store.db");
-  if (existsSync(dbPath)) {
-    cpSync(dbPath, join(target, "store.db"));
-    for (const sidecar of ["-wal", "-shm"]) {
-      if (existsSync(dbPath + sidecar)) {
-        cpSync(dbPath + sidecar, join(target, "store.db" + sidecar));
-      }
-    }
+  mkdirSync(target, { recursive: true, mode: 0o700 });
+  store.db.prepare("VACUUM INTO ?").run(join(target, "store.db"));
+  if (opts.mediaDir !== undefined && existsSync(opts.mediaDir)) {
+    cpSync(opts.mediaDir, join(target, "media"), { recursive: true });
   }
-  const mediaDir = join(dataDir, "media");
-  if (existsSync(mediaDir)) {
-    cpSync(mediaDir, join(target, "media"), { recursive: true });
-  }
-  prune(backupsRoot, retention);
+  prune(backupsRoot, keep);
   return target;
 }
 
