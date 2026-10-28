@@ -10,4 +10,9 @@ export default defineConfig({
   run: {
     cache: true,
   },
+  test: {
+    // Windows runners intermittently stall past the 5s default (unrelated tests
+    // time out together, docs-only commits included); other platforms keep 5s
+    testTimeout: process.platform === "win32" ? 20_000 : 5_000,
+  },
 });
