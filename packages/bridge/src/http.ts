@@ -252,6 +252,23 @@ const PAIRING_SURFACE: ReadonlySet<string> = new Set([
 ]);
 const API_PATHS = new Set(["/api/messages", "/api/chats", "/api/send", "/events", "/mcp"]);
 
+const HEALTH_PATHS = new Set(["/health", "/health/live", "/health/ready"]);
+
+/** why /health/ready is 503: transient states first, then the ones that
+ * need an operator (pairing) */
+function notReadyReason(handle: BridgeHandle): string {
+  if (handle.status === "pairing-blocked") {
+    return "pairing-blocked";
+  }
+  if (handle.status === "logged-out") {
+    return "logged-out";
+  }
+  if (!handle.hasPairedAccount()) {
+    return "pairing-required";
+  }
+  return handle.status;
+}
+
 function nonEmpty(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -2909,7 +2926,7 @@ export async function createHttpServer(
       path === "/mcp" ||
       path === "/" ||
       path.startsWith("/assets/") ||
-      path === "/health"
+      HEALTH_PATHS.has(path)
     ) {
       const guard = hostOriginGuard(req);
       if (guard !== null) {
@@ -2944,7 +2961,7 @@ export async function createHttpServer(
         (cookieBootstrap !== null && tokenMatches(cookieBootstrap, uiBootstrapToken)));
     const gate = bootstrapExchange
       ? checkExchangeRate.hit(ip, now())
-      : path === "/health" || PAIRING_SURFACE.has(path)
+      : HEALTH_PATHS.has(path) || PAIRING_SURFACE.has(path)
         ? checkHealthRate.hit(ip, now())
         : path === "/events"
           ? null
@@ -2993,6 +3010,25 @@ export async function createHttpServer(
         reconnects: handle.connectionQuality().reconnects,
         contactsWarm: handle.contactsWarm(),
         lastDisconnectAt: handle.connectionQuality().lastDisconnectAt,
+      });
+      return;
+    }
+    // Container probes: liveness = the daemon answers; readiness = WhatsApp is
+    // connected and logged in. Unauthenticated like /health, no pairing token.
+    if (req.method === "GET" && path === "/health/live") {
+      sendJson(res, 200, {
+        live: true,
+        status: handle.status,
+        uptime: Math.floor((Date.now() - startedAt) / 1000),
+      });
+      return;
+    }
+    if (req.method === "GET" && path === "/health/ready") {
+      const ready = handle.status === "connected";
+      sendJson(res, ready ? 200 : 503, {
+        ready,
+        status: handle.status,
+        ...(ready ? {} : { reason: notReadyReason(handle) }),
       });
       return;
     }

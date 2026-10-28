@@ -64,6 +64,39 @@ Quick watch:
 watch -n5 'curl -s http://127.0.0.1:27777/health | jq "{status,loggedIn,pairingBlocked,pairingAttempts,reconnects,subscriptions}"'
 ```
 
+## Liveness and readiness probes
+
+`/health` always answers 200 so dashboards can read it in any state. For
+watchdogs and container health checks, use the probe endpoints; their status
+code is the signal. Both are unauthenticated, loopback-only and share the
+`/health` rate limit.
+
+| endpoint            | 200 when                                     | otherwise                                                                                                                          |
+| ------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health/live`  | the daemon is up and answering               | no answer at all: the process is dead or wedged                                                                                    |
+| `GET /health/ready` | WhatsApp is connected and the account paired | 503 with `reason`: `reconnecting`/`connecting` (transient), `pairing-required`, `logged-out`, `pairing-blocked` (need an operator) |
+
+WhatsApp drops connections now and then and the daemon reconnects on its own,
+usually within seconds, so readiness briefly flips to 503 during normal
+operation. Give health checks a few retries before acting on a failure:
+
+```yaml
+# docker compose
+healthcheck:
+  test: ["CMD", "curl", "-fsS", "http://127.0.0.1:27777/health/ready"]
+  interval: 30s
+  timeout: 5s
+  start_period: 60s
+  retries: 6 # 3 minutes not ready → unhealthy
+```
+
+Plain Docker and compose only mark the container `unhealthy`; they don't
+restart it. If the daemon runs next to another process (an agent supervisor,
+say), have that process poll `/health/ready` and exit non-zero after sustained
+failures so the restart policy takes over. A `pairing-required`, `logged-out`
+or `pairing-blocked` reason won't fix itself on restart: alert an operator
+instead of restarting in a loop.
+
 ## Logs
 
 The daemon writes **pino JSON lines to stderr**. The level comes from `WA_LOG_LEVEL` (default `info`). <!-- src: packages/bridge/src/bin.ts:175 --> Both `wa-mcp start` and the service units redirect output to `~/.wa-mcp/bridge.log`. <!-- src: packages/cli/src/bin.ts:366; packages/cli/src/service.ts:183, 215 -->

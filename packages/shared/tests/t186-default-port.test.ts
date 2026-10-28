@@ -58,5 +58,8 @@ test("T186 B — docs use 27777; 8080 survives only in migration context", () =>
   }
   expect(read("docs/configuration.md")).toMatch(/Upgrading[\s\S]{0,400}8080[\s\S]{0,200}27777/);
   expect(read("docs/configuration.md")).toMatch(/\| `WA_PORT`\s+\| `27777`/);
-  expect(read("CHANGELOG.md").slice(0, 2000)).toMatch(/27777/);
+  // the port change leads the 0.1.0 release notes (later releases sit above it)
+  const changelog = read("CHANGELOG.md");
+  const release = changelog.slice(changelog.indexOf("## 0.1.0"));
+  expect(release.slice(0, 2000)).toMatch(/27777/);
 });
