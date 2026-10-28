@@ -184,6 +184,22 @@ arrives as a Claude Code channel notification (`notifications/claude/channel`)
 }
 ```
 
+Claude Code only delivers channel events to a session that opts in at
+launch. Channels are a Claude Code research preview: wa-mcp isn't on
+Anthropic's approved channel allowlist, so load it as a development channel:
+
+```bash
+# the wa-mcp plugin from this repo's marketplace
+claude --dangerously-load-development-channels plugin:wa-mcp@wa-mcp
+# or the server `wa-mcp install --target claude-code` registered
+claude --dangerously-load-development-channels server:wa-mcp
+```
+
+Without the flag the wa-mcp tools still work, but channel events don't
+arrive. Channels need claude.ai or Console sign-in, and Team/Enterprise
+organizations must enable them (`channelsEnabled`). See Claude Code's
+[channels docs](https://code.claude.com/docs/en/channels).
+
 Isolation: the stdio server forwards frames only for subscriptions created
 in that session and tagged with its agent — two sessions never hear each
 other's chats. Media messages arrive as a note; ask Claude to

@@ -8,6 +8,10 @@
 - `fromName` now uses the sender's push name from the message itself; group senders who aren't saved contacts no longer arrive as `fromName: null`.
 - A DM whose engine key carries an empty participant now reports the chat peer as `from` instead of `""` (hardening for #247).
 
+### Channel capability fix
+
+- The MCP server now declares `experimental["claude/channel"]` in `initialize`, plus an `instructions` string telling the model how channel events and replies work. Without the declaration Claude Code never registered a listener, so `subscribe_events(channel: true)` frames were dropped in-session even though the bridge and stdio server delivered them. Launching: `claude --dangerously-load-development-channels plugin:wa-mcp@wa-mcp` (wa-mcp isn't on Anthropic's approved channel allowlist during the research preview) — see the channels section of the react-to-messages cookbook.
+
 ## 0.1.0 (unreleased)
 
 Phase A–K feature set. Private repo; packed tarball, nothing published.

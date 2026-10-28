@@ -5,6 +5,7 @@ description: Subscribe WhatsApp chats as live channels — messages arrive in-se
 Set up WhatsApp channels for this Claude Code session using the wa-mcp MCP server:
 
 1. Check the bridge is up (`wa-mcp status` / the wa-mcp tools respond). If not, tell the user to run `npx wa-mcp start` and `npx wa-mcp pair` once.
+   Channel events only reach a session launched with `claude --dangerously-load-development-channels plugin:wa-mcp@wa-mcp` (wa-mcp isn't on Anthropic's approved channel allowlist during the research preview). If this session wasn't started that way, tell the user before subscribing — the tools still work, but no messages will arrive.
 2. Ask the user which chats should become channels (offer `list_chats` to pick; groups are best with `mention_only`).
 3. For each chosen chat, call `subscribe_events` with `chat_jid` and `channel: true` (add `mention_only: true` for groups if the user wants mentions only).
 4. From then on, every incoming message on those chats arrives as a channel notification carrying `meta.chat_id`, `meta.user` and the text. Reply with `send_message` using that `chat_jid`. Media arrives as a note — use `get_media`/`transcribe_message` when asked.

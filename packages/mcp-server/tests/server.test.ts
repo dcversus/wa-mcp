@@ -38,6 +38,7 @@ test("initialize returns protocol version, capabilities and server info", async 
     prompts: {},
     logging: {},
     notifications: {},
+    experimental: { "claude/channel": {} },
   });
   expect(result.serverInfo).toEqual(SERVER_INFO);
   expect(SERVER_INFO.name).toBe("wa-mcp");

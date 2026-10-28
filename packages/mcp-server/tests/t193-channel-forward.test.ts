@@ -166,3 +166,29 @@ test(
     expect(frame).toContain("test event");
   },
 );
+
+test("T193 — initialize declares the claude/channel capability and channel instructions (Claude Code registers no listener without it)", async () => {
+  const response = (await handleRpcMessage(
+    {
+      jsonrpc: "2.0",
+      id: 9,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "t", version: "0" },
+      },
+    },
+    ctx([]),
+  )) as { result: { capabilities: Record<string, unknown>; instructions?: unknown } };
+  expect(response.result.capabilities.experimental).toEqual({ "claude/channel": {} });
+  // permission relay (#236) is not implemented — it must not be declared
+  expect(
+    (response.result.capabilities.experimental as Record<string, unknown>)[
+      "claude/channel/permission"
+    ],
+  ).toBeUndefined();
+  expect(typeof response.result.instructions).toBe("string");
+  expect(response.result.instructions).toContain("chat_id");
+  expect(response.result.instructions).toContain("send_message");
+});
