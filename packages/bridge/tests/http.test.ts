@@ -4470,6 +4470,7 @@ describe("group reactions carry the original message key (servr-supp: ❤️ int
   const SENDER_PN = "351900000001@s.whatsapp.net";
   const SENDER_LID = "70000000000001@lid";
 
+  const logger = { error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
   async function serve(socket: WASocket) {
     const store = openStore(mkdtempSync(join(tmpdir(), "wa-mcp-react-key-")));
     openedStores.push(store);
@@ -4477,6 +4478,7 @@ describe("group reactions carry the original message key (servr-supp: ❤️ int
       token: "test-token",
       store,
       sendGuard: new SendGuard(store),
+      logger,
     });
     created.push(bridge);
     return { store, bridge };
@@ -4552,6 +4554,65 @@ describe("group reactions carry the original message key (servr-supp: ❤️ int
     store.db.prepare("UPDATE messages SET key_participant = NULL, key_remote_jid = NULL").run();
     await react(bridge, "OLD1");
     expect(sentKey(socket)).toMatchObject({ fromMe: false, participant: SENDER_LID });
+  });
+
+  // #256: which path chose the key must be visible in the log
+  function loggedSource(level: "debug" | "warn"): unknown {
+    const call = logger[level].mock.calls.find((args) => args[1] === "reaction target key");
+    return (call?.[0] as { source?: unknown } | undefined)?.source;
+  }
+
+  test("the reaction route logs the key and the path that chose it", async () => {
+    logger.debug.mockClear();
+    const socket = makeFakeSocket();
+    const { store, bridge } = await serve(socket);
+    liveGroupMessage(store, "LOG1");
+    await react(bridge, "LOG1");
+    const [fields] = logger.debug.mock.calls.find((args) => args[1] === "reaction target key")!;
+    expect(fields).toEqual({
+      chatJid: GROUP,
+      messageId: "LOG1",
+      key: { remoteJid: GROUP, id: "LOG1", fromMe: false, participant: SENDER_LID },
+      source: "stored",
+    });
+  });
+
+  test("each fallback path names itself; a phone-jid participant is a warning", async () => {
+    const mapped = makeFakeSocket();
+    (mapped as unknown as { signalRepository: unknown }).signalRepository = {
+      lidMapping: { getLIDForPN: async () => SENDER_LID },
+    };
+    const unmapped = makeFakeSocket();
+    for (const [socket, id, level, source] of [
+      [mapped, "OLD2", "debug", "lid-fallback"],
+      [unmapped, "OLD3", "warn", "pn-fallback"],
+    ] as const) {
+      logger.debug.mockClear();
+      logger.warn.mockClear();
+      const { store, bridge } = await serve(socket);
+      liveGroupMessage(store, id);
+      store.db.prepare("UPDATE messages SET key_participant = NULL, key_remote_jid = NULL").run();
+      await react(bridge, id);
+      expect(loggedSource(level), id).toBe(source);
+    }
+    logger.debug.mockClear();
+    const { bridge } = await serve(makeFakeSocket());
+    await react(bridge, "NEVER-SEEN-2");
+    expect(loggedSource("debug")).toBe("unseen");
+  });
+
+  test("own messages from before the fix carry no participant and say so", async () => {
+    logger.debug.mockClear();
+    const socket = makeFakeSocket();
+    const { store, bridge } = await serve(socket);
+    storeMessage(store, {
+      key: { remoteJid: GROUP, id: "OWN2", fromMe: true },
+      message: { conversation: "hello all" },
+      messageTimestamp: 1_793_200_000,
+    } as never);
+    store.db.prepare("UPDATE messages SET key_participant = NULL, key_remote_jid = NULL").run();
+    await react(bridge, "OWN2");
+    expect(loggedSource("debug")).toBe("no-participant");
   });
 
   test("an unknown message still reacts with a bare key instead of failing", async () => {
