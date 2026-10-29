@@ -107,3 +107,25 @@ without evidence — cite the issue, commit or test that proves it.
 - `scripts/webui-e2e.mjs` — browser e2e against the live daemon
 - Live smoke rules (unchanged): owner's real account, Test group + owner's
   own number only, spaced sends, never auto-retry pairing
+
+## Releasing
+
+Every release is tracked and reviewed; nothing is tagged from an unmerged
+commit.
+
+1. Open a release issue `Release x.y.z` (labels `release` + `x.y.z`): the
+   issues going in, what moves to the next version, and an evidence
+   checklist (gates, CI run, beta retest). #254 is the template.
+2. Branch `release/x.y.z`: bump every version surface
+   (`node scripts/version-drift.mjs` lists them), rename the CHANGELOG
+   `## Unreleased` heading to `## x.y.z — YYYY-MM-DD`, open a PR that
+   closes the release issue's shipped items, and merge it only when the
+   required checks are green.
+3. From a clean, up-to-date `main`: `scripts/publish.sh` (it refuses
+   anything else). npm asks the owner to approve with a security key; the
+   registry can take a few minutes to serve the version after
+   `+ wa-mcp@x.y.z` prints. The script then tags, pushes the tag and
+   creates the GitHub release from the CHANGELOG section.
+4. Close the shipped issues, relabel what slipped to the next version,
+   record the evidence on the release issue, and ask the beta deployment
+   to retest.
