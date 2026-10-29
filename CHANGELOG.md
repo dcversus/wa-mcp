@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 — 2026-10-29
 
 ### Reply context in delivery payloads (#241)
 
@@ -38,7 +38,7 @@
 
 - The MCP server now declares `experimental["claude/channel"]` in `initialize`, plus an `instructions` string telling the model how channel events and replies work. Without the declaration Claude Code never registered a listener, so `subscribe_events(channel: true)` frames were dropped in-session even though the bridge and stdio server delivered them. Launching: `claude --dangerously-load-development-channels plugin:wa-mcp@wa-mcp` (wa-mcp isn't on Anthropic's approved channel allowlist during the research preview) — see the channels section of the react-to-messages cookbook.
 
-## 0.1.0 (unreleased)
+## 0.1.0 — 2026-10-25
 
 Phase A–K feature set. Private repo; packed tarball, nothing published.
 

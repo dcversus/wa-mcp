@@ -21,7 +21,7 @@ const [path, version] = process.argv.slice(2);
 const d = JSON.parse(fs.readFileSync(path, "utf8"));
 d.name = "wa-mcp";
 delete d.private;
-d.description = "WhatsApp as a local MCP server — one daemon, 74 tools, six agent adapters (Claude Code, Claude Desktop, Codex, Pi, Grok, Antigravity), web UI, voice notes as /voice dictation";
+d.description = "WhatsApp as a local MCP server — one daemon, 77 tools, six agent adapters (Claude Code, Claude Desktop, Codex, Pi, Grok, Antigravity), web UI, voice notes as /voice dictation";
 d.keywords = ["whatsapp","mcp","mcp-server","claude","ai","baileys","chat","agent","claude-code","model-context-protocol"];
 d.repository = { type: "git", url: "git+https://github.com/dcversus/wa-mcp.git" };
 d.homepage = "https://github.com/dcversus/wa-mcp#readme";

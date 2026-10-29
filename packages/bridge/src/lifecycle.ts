@@ -430,7 +430,7 @@ export async function startBridge(
       // T80 line44: full history belongs to PAIRING — a fresh account only.
       // Reconnecting a paired session must never re-trigger the full sync.
       syncFullHistory: opts.syncFullHistory === true && state.creds.account === undefined,
-      browser: opts.browser ?? [deviceName, "chrome", "0.1.0"],
+      browser: opts.browser ?? [deviceName, "chrome", "0.1.1"],
       logger: conflictAwareLogger,
       // T76 H4: the fork's process-message fetches the ORIGINAL poll message
       // through this callback to get its messageContextInfo.messageSecret —

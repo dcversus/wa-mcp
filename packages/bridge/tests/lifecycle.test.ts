@@ -280,7 +280,7 @@ test("WA_DEVICE_NAME overrides the browser device name", async () => {
     await trackedStart("/tmp/wa-mcp-test-auth", {});
     const call = mockMakeWASocket.mock.calls[0];
     if (!call) throw new Error("makeWASocket was not called");
-    expect((call[0] as UserFacingSocketConfig).browser).toEqual(["dc-bridge", "chrome", "0.1.0"]);
+    expect((call[0] as UserFacingSocketConfig).browser).toEqual(["dc-bridge", "chrome", "0.1.1"]);
   } finally {
     delete process.env.WA_DEVICE_NAME;
   }
@@ -297,7 +297,7 @@ test("opts.deviceName beats WA_DEVICE_NAME", async () => {
     expect((call[0] as UserFacingSocketConfig).browser).toEqual([
       "explicit-name",
       "chrome",
-      "0.1.0",
+      "0.1.1",
     ]);
   } finally {
     delete process.env.WA_DEVICE_NAME;
@@ -315,7 +315,7 @@ test("startBridge builds auth state from the store dir and sockets with fixed op
   const config = call[0] as UserFacingSocketConfig;
   expect(config.printQRInTerminal).toBe(false);
   expect(config.syncFullHistory).toBe(false);
-  expect(config.browser).toEqual(["wa-mcp", "chrome", "0.1.0"]);
+  expect(config.browser).toEqual(["wa-mcp", "chrome", "0.1.1"]);
   const authResult = await mockAuthState.mock.results[0]?.value;
   expect(config.auth).toEqual(authResult?.state);
   // T79 line48: the socket gets a conflict-aware WRAPPER that delegates to it

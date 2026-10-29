@@ -70,8 +70,8 @@ if (marketVersion !== undefined) {
 }
 
 const changelog = read("CHANGELOG.md");
-if (!changelog.includes(`## ${expected} (unreleased)`)) {
-  failures.push(`CHANGELOG.md: missing "## ${expected} (unreleased)" heading`);
+if (!new RegExp(`^## ${expected.replaceAll(".", "\\.")}( |$)`, "m").test(changelog)) {
+  failures.push(`CHANGELOG.md: missing "## ${expected}" heading`);
 }
 
 /** R2-0.1.0: no stale version mentions in repo-owned files. The forbidden

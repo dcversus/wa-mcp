@@ -48,7 +48,7 @@ upstream references and carrying an implementation-status line (labels:
 `bug`, `enhancement`, `blocked`, `dogfood`, `verification`, `release`,
 `backlog`). The old file ledgers (GOAL/VERIFY/GATES/ACCOUNTING/BLOCKED)
 were retired with the first public release; immutable copies remain in git
-history (deleted at commit 96fc502, tree state before it carries the full
+history (deleted at commit 66317ed, tree state before it carries the full
 set). Docs describe only shipped behavior. Rule: nothing is claimed
 without evidence — cite the issue, commit or test that proves it.
 

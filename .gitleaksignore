@@ -2,6 +2,6 @@
 # - t163 test fixture token is a dummy value (a1b2c3d4…)
 # - dogfood artifact tokens are dead ephemeral pairing/ui tokens from
 #   2026-10-03; verified NOT to match any live credential
-57d462b307889c71b22ba716c2b703ca80fafa27:packages/web-ui/tests/t163-sec-ui.test.ts:generic-api-key:11
-1611cb749fc6c7887924e93a09aa8618732d14eb:review/dogfood/2026-10-03-webui-final.json:generic-api-key:111
-1611cb749fc6c7887924e93a09aa8618732d14eb:review/dogfood/2026-10-03-webui-final.json:generic-api-key:112
+030cba62bf431afaf3530ea82230b2dda58ed2d1:packages/web-ui/tests/t163-sec-ui.test.ts:generic-api-key:11
+e0feea1f9d96c2487d57980de0a7f1d0e2fb48b8:review/dogfood/2026-10-03-webui-final.json:generic-api-key:111
+e0feea1f9d96c2487d57980de0a7f1d0e2fb48b8:review/dogfood/2026-10-03-webui-final.json:generic-api-key:112

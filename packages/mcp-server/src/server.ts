@@ -176,7 +176,7 @@ async function bridgeFetchResource(toolCtx: ToolContext, path: string): Promise<
   return response.json();
 }
 
-export const SERVER_INFO = { name: "wa-mcp", version: "0.1.0" } as const;
+export const SERVER_INFO = { name: "wa-mcp", version: "0.1.1" } as const;
 export const PROTOCOL_VERSION = "2025-06-18";
 
 const PARSE_ERROR = -32700;
