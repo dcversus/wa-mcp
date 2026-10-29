@@ -2,6 +2,21 @@ import type { proto, WASocket } from "baileys";
 import type { Store } from "../store/schema.ts";
 import { resolveLidJid } from "./send.ts";
 
+/** Which path produced a target key — logged so a reaction that never shows
+ * can be told apart from a fallback that picked the wrong participant:
+ * - stored: the wire key kept when the message arrived (migration v26+)
+ * - lid-fallback: an older group row, participant = the sender's mapped LID
+ * - pn-fallback: an older group row with no LID mapping, participant = the
+ *   phone jid (a LID-addressed group most likely ignores it)
+ * - no-participant: an older row that needs none (own message, DM)
+ * - unseen: a message we never stored, bare key */
+export type TargetKeySource =
+  | "stored"
+  | "lid-fallback"
+  | "pn-fallback"
+  | "no-participant"
+  | "unseen";
+
 /** The key of an existing message, as WhatsApp addressed it — what a
  * reaction (or any action on that message) must carry. In a group the
  * phones attach the action by (chat, id, participant), and in a LID-addressed
@@ -12,7 +27,7 @@ export async function targetMessageKey(
   socket: WASocket | undefined,
   chatJid: string,
   messageId: string,
-): Promise<proto.IMessageKey> {
+): Promise<{ key: proto.IMessageKey; source: TargetKeySource }> {
   const row =
     store === undefined
       ? undefined
@@ -29,7 +44,7 @@ export async function targetMessageKey(
             }
           | undefined);
   if (row === undefined) {
-    return { remoteJid: chatJid, id: messageId, fromMe: false };
+    return { key: { remoteJid: chatJid, id: messageId, fromMe: false }, source: "unseen" };
   }
   const fromMe = row.is_from_me === 1;
   const key: proto.IMessageKey = {
@@ -39,11 +54,14 @@ export async function targetMessageKey(
   };
   if (row.key_participant !== null) {
     key.participant = row.key_participant;
-  } else if (!fromMe && chatJid.endsWith("@g.us") && row.sender_jid !== null) {
+    return { key, source: "stored" };
+  }
+  if (!fromMe && chatJid.endsWith("@g.us") && row.sender_jid !== null) {
     // stored before the wire key was kept: groups are LID-addressed in the
     // LID era, so prefer the sender's mapped LID over the phone jid
     key.participant =
       socket === undefined ? row.sender_jid : await resolveLidJid(socket, row.sender_jid);
+    return { key, source: key.participant.endsWith("@lid") ? "lid-fallback" : "pn-fallback" };
   }
-  return key;
+  return { key, source: row.key_remote_jid !== null ? "stored" : "no-participant" };
 }
