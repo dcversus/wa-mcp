@@ -176,7 +176,11 @@ export interface HttpServerOptions {
   uiDir?: string;
   rateLimitNow?: () => number;
   /** pino-style logger for server-side diagnostics (send failures etc.) */
-  logger?: { error(obj: unknown, msg?: string): void; warn(obj: unknown, msg?: string): void };
+  logger?: {
+    error(obj: unknown, msg?: string): void;
+    warn(obj: unknown, msg?: string): void;
+    debug?(obj: unknown, msg?: string): void;
+  };
   /** ephemeral per-boot token for the public pairing surface (T53):
    * /health publishes it; it authorizes /api/qr, /api/pairing-code and
    * /api/pair/resume ONLY — never account data. */
@@ -1444,12 +1448,21 @@ export async function createHttpServer(
         const emote = input.emote;
         // the original key (participant, fromMe) — without it a group
         // reaction is accepted by the server but never shows on any phone
-        builder = async () => ({
-          react: {
-            key: await targetMessageKey(opts.store, handle.socket, chatJid, messageId),
-            text: emote,
-          },
-        });
+        builder = async () => {
+          const { key, source } = await targetMessageKey(
+            opts.store,
+            handle.socket,
+            chatJid,
+            messageId,
+          );
+          const fields = { chatJid, messageId, key, source };
+          if (source === "pn-fallback") {
+            opts.logger?.warn(fields, "reaction target key");
+          } else {
+            opts.logger?.debug?.(fields, "reaction target key");
+          }
+          return { react: { key, text: emote } };
+        };
         break;
       }
       case "edit": {
