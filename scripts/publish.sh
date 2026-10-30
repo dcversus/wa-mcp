@@ -9,6 +9,16 @@ source ~/.nvm/nvm.sh >/dev/null 2>&1 || true
 nvm use 26 >/dev/null 2>&1 || true
 
 version=$(node -p "require('./packages/cli/package.json').version")
+
+# a release is cut from merged main only (AGENTS.md "Releasing")
+if [ "${WAMCP_NO_PUBLISH:-0}" != "1" ]; then
+  git fetch -q origin main
+  if [ -n "$(git status --porcelain)" ] || [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "refusing to publish: check out a clean origin/main (the merged release PR) first" >&2
+    exit 1
+  fi
+fi
+
 stage=$(mktemp -d /tmp/wa-mcp-publish.XXXXXX)
 trap 'rm -rf "$stage"' EXIT
 
@@ -39,6 +49,10 @@ if [ "${WAMCP_NO_PUBLISH:-0}" = "1" ]; then
   exit 0
 fi
 npm publish "$stage/wa-mcp-${version}.tgz" --access public "$@"
-git tag "v${version}" 2>/dev/null || true
-git push origin "v${version}" 2>/dev/null || true
-gh release create "v${version}" --repo dcversus/wa-mcp --title "wa-mcp ${version}" --generate-from-changelog 2>/dev/null || true
+git tag "v${version}"
+git push origin "v${version}"
+# release notes are this version's CHANGELOG section
+awk -v head="## ${version}" '$0 == head || index($0, head " ") == 1 { found = 1; next } found && /^## / { exit } found' \
+  CHANGELOG.md >"$stage/notes.md"
+gh release create "v${version}" --repo dcversus/wa-mcp --verify-tag --title "wa-mcp ${version}" \
+  --notes-file "$stage/notes.md"
