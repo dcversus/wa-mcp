@@ -8,11 +8,14 @@ import { writeServerEntry } from "../src/writers.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 function installedArgs(extra: string[]): string[] {
   const home = mkdtempSync(join(tmpdir(), "t186-"));
   vi.spyOn(console, "log").mockImplementation(() => {});
+  // set in the shell, it would count as someone else's CA and make install use http
+  vi.stubEnv("NODE_EXTRA_CA_CERTS", undefined);
   return [home, ...extra];
 }
 
