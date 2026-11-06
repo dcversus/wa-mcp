@@ -117,7 +117,7 @@ function voiceInstall(ctx: VoiceCtx, opts: VoiceOpts): number {
   mkdirSync(binDir, { recursive: true });
   mkdirSync(opts.dataDir, { recursive: true });
   const envPath = join(opts.dataDir, "voice-shim.env");
-  const script = shimScript(envPath, opts.version ?? "0.1.1");
+  const script = shimScript(envPath, opts.version ?? "0.1.2");
   let refused = false;
   const force = opts.flags.force !== undefined;
   for (const name of SHIM_NAMES) {
