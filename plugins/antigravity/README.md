@@ -2,14 +2,15 @@
 
 `wa-mcp install --target antigravity` writes the server entry to `~/.gemini/antigravity/mcp_config.json`.
 
-Config format: JSON - mcpServers.wa-mcp {command, args, env, serverUrl}
+Config format: JSON - mcpServers.wa-mcp {serverUrl, headers}
 Expected entry shape:
 
 ```
-command: node
-args: [<bridge-args>]
-env: { WA_TOKEN: "<bridge token>" }
+serverUrl: http://127.0.0.1:27777/mcp
+headers: { Authorization: "Bearer <bridge token>", X-WA-Agent: antigravity }
 ```
+
+For https, add `~/.wa-mcp/tls/cert.pem` to your system trust store and run install with `--https`.
 
 ## Skills sync
 

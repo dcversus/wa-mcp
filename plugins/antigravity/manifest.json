@@ -4,5 +4,5 @@
   "version": "0.10.0",
   "description": "WhatsApp bridge registration for antigravity",
   "config_path": "~/.gemini/antigravity/mcp_config.json",
-  "config_format": "JSON - mcpServers.wa-mcp {command, args, env, serverUrl}"
+  "config_format": "JSON - mcpServers.wa-mcp {serverUrl, headers}"
 }

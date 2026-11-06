@@ -1,5 +1,73 @@
 # Migration
 
+## Connecting by URL instead of spawning a process
+
+Hosts used to run `node …/mcp-server/dist/bin.mjs`, which relayed to the daemon.
+Now they connect to the daemon directly at `https://127.0.0.1:27777/mcp`. See
+[per-platform install](./getting-started/platforms.md) for what each host gets.
+
+**Nothing breaks until you choose to move.** The port is unchanged and still
+answers plain HTTP, so old entries keep working after you upgrade.
+
+To move:
+
+```bash
+npm i -g wa-mcp@latest
+wa-mcp restart            # the daemon creates <dataDir>/tls and starts serving TLS
+wa-mcp install            # replaces the wa-mcp entry in each host's config
+wa-mcp doctor             # "mcp https" and "mcp entries" should both be ok
+```
+
+Then restart your agents. Install replaces only the `wa-mcp` entry; other servers
+and settings stay as they were.
+
+**What changes on disk**
+
+| File                                    | Change                                                   |
+| --------------------------------------- | -------------------------------------------------------- |
+| `<dataDir>/tls/cert.pem`, `key.pem`     | new (the key is 0600)                                    |
+| `~/.claude.json`                        | `wa-mcp` becomes `type: http`                            |
+| `~/.claude/settings.json`               | adds `env.NODE_EXTRA_CA_CERTS`, unless it is already set |
+| `~/.codex/config.toml`                  | `[mcp_servers.wa-mcp]` becomes `url` + `http_headers`    |
+| `~/.gemini/antigravity/mcp_config.json` | `wa-mcp` becomes `serverUrl` + `headers`                 |
+| `~/.pi/agent/mcp.json`                  | `wa-mcp` becomes `streamable-http`                       |
+| Claude Desktop, Grok                    | no change                                                |
+
+**If you use Claude Code channels**
+
+Channels need a stdio server, and `wa-mcp` in `~/.claude.json` is now a URL. If you
+start Claude Code with `--dangerously-load-development-channels server:wa-mcp`,
+switch to the plugin form, `plugin:wa-mcp@wa-mcp`, or stay on stdio with
+`wa-mcp install --target claude-code --stdio`. `subscribe_events` with
+`channel: true` over a URL entry returns an error saying this.
+
+**Behaviour changes on `/mcp`**
+
+Only clients you wrote yourself would notice these:
+
+| Request                                 | Before                               | Now                     |
+| --------------------------------------- | ------------------------------------ | ----------------------- |
+| notification or response                | `200` with `{}`                      | `202` with no body      |
+| unknown `Mcp-Session-Id` on POST        | a new session was silently created   | `404`: initialize again |
+| `GET /mcp` with no session id           | `404`                                | `400`                   |
+| `DELETE /mcp` with a session id         | not routed                           | `204`                   |
+| `subscribe_events` with `channel: true` | subscription created, events dropped | error                   |
+
+**Going back**
+
+```bash
+wa-mcp install --stdio    # writes the old entries, for every host or one --target
+```
+
+`WA_TLS=0` on the daemon turns TLS off entirely. Re-run `wa-mcp install` with the
+same variable set, so entries get `http://`.
+
+**Containers**
+
+Nothing is required. Health checks and any plain-HTTP client keep working on the
+same port, and the certificate is created in the data dir. If the data dir can't
+hold it, the daemon logs a warning and serves plain HTTP.
+
 ## From lharries-layout / Go-fork stores
 
 The store schema (ADR 0007) is a superset of both upstream layouts: the

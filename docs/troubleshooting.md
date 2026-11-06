@@ -2,6 +2,17 @@
 
 Symptom → cause → fix, grouped by area. Start with `wa-mcp doctor`, then see [Diagnostics](./diagnostics.md).
 
+## MCP connection
+
+| Symptom                                                                       | Cause                                                                   | Fix                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNABLE_TO_VERIFY_LEAF_SIGNATURE` or "unable to verify the first certificate" | The host doesn't trust the daemon's certificate                         | Claude Code: re-run `wa-mcp install --target claude-code` and start a new session. Others: set the variable for that host, see [per-platform install](./getting-started/platforms.md) |
+| Install says `NODE_EXTRA_CA_CERTS is already …` and connects over http        | The variable holds one path, and yours is left alone                    | Append `<dataDir>/tls/cert.pem` to that file, then re-run install                                                                                                                     |
+| `ECONNRESET` or `wrong version number` on `https://`                          | The daemon predates TLS, or runs with `WA_TLS=0`                        | `wa-mcp restart`. `wa-mcp doctor` shows the result under `mcp https`                                                                                                                  |
+| Certificate worked, then stopped after about two years                        | The daemon renewed it at boot; the host still has the old one in memory | Restart the host                                                                                                                                                                      |
+| `subscribe_events` says channel delivery needs the plugin                     | Channels need a stdio server and this entry is a URL                    | Use the plugin, or `wa-mcp install --target claude-code --stdio`                                                                                                                      |
+| `VERIFY FAILED` from install                                                  | The host's config file isn't valid JSON, so it was left untouched       | Fix the file, then re-run                                                                                                                                                             |
+
 ## Pairing
 
 ### Pairing-block playbook (fresh accounts, containers)

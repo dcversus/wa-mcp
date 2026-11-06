@@ -185,17 +185,23 @@ Filter pino JSON: `grep '"level":40'` warnings, `'"level":50'` errors, `grep con
 
 ## MCP transport
 
-**stdio** (`packages/mcp-server`):
+`wa-mcp doctor` checks this end to end: `mcp https` runs a real TLS handshake and an MCP `initialize` using only the daemon's own certificate, and `mcp entries` names hosts still spawning a process.
+
+**stdio** (`packages/mcp-server`, Claude Desktop, Grok, and the Claude Code plugin for channels):
 
 - JSON-RPC responses go to stdout, one per line. <!-- src: packages/mcp-server/src/bin.ts:131 -->
 - After the client's first resource subscription, a pump opens `GET /api/mcp-notify` on the bridge. It forwards matching `notifications/*` frames to stdout as additional lines. <!-- src: packages/mcp-server/src/bin.ts:53-75 -->
 - With no subscription, no pump runs and there are no notifications.
 
-**HTTP** (`POST /mcp` on the bridge): <!-- src: packages/bridge/src/http.ts:1445-1495, 2553-2580 -->
+**HTTP** (`/mcp` on the bridge, `https://` or `http://` on the same port): <!-- src: packages/bridge/src/http.ts:1445-1495, 2553-2580 -->
 
 1. `initialize` creates a session. The response carries `Mcp-Session-Id`.
 2. Send that header on every later `POST /mcp`, so resource subscriptions attach to the session.
-3. `GET /mcp` with the header opens an SSE stream. It begins with `: connected`, then sends `data: <notification>` frames. An unknown id returns 404 `SESSION_NOT_FOUND`.
+3. `GET /mcp` with the header opens an SSE stream. It begins with `: connected`, then sends `data: <notification>` frames. An unknown id returns 404 `SESSION_NOT_FOUND`; no id returns 400.
+4. Notifications get `202` with no body. An unknown session id on POST gets 404, so a client re-initializes after a daemon restart. `DELETE /mcp` ends a session. The daemon keeps the 256 most recently used.
+5. `X-WA-Agent` names the agent on the sends a tool makes.
+
+With a valid token, `/mcp` traffic isn't charged to the API rate bucket; the API call a tool relays to is.
 
 ```sh
 TOKEN=$(cat ~/.wa-mcp/token)

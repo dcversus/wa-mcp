@@ -11,7 +11,9 @@ wa-mcp: a 100% TypeScript WhatsApp MCP server. pnpm monorepo, Vite+ toolchain
 - `packages/bridge` — the daemon: Baileys session, HTTP API (`/api/*`), SSE
   `/events`, MCP over `POST /mcp`, store (node:sqlite), media, pairing
   (QR/pairing-code/pairing-budget), channels/ (§18 dual-channel foundation).
-- `packages/mcp-server` — zero-dep JSON-RPC 2.0 MCP server (stdio + HTTP);
+- `packages/mcp-server` — zero-dep JSON-RPC 2.0 MCP server. The daemon serves it
+  at `/mcp` (https and http on one port, ADR 0013); the stdio bin remains for
+  Claude Desktop, Grok and Claude Code channels;
   the tool registry in `src/tools.ts` is the surface list.
 - `packages/cli` — `wa-mcp` bin: install/doctor/status/start/stop/pair/skills.
 - `packages/web-ui` — vanilla SPA served by the bridge from `bridge/dist/web`

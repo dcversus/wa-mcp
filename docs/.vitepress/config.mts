@@ -51,6 +51,10 @@ export default defineConfig({
             text: "0012 Scoped pairing token",
             link: "/adr/0012-scoped-pairing-token-and-loopback-guard",
           },
+          {
+            text: "0013 HTTPS MCP on the daemon's port",
+            link: "/adr/0013-https-mcp-on-the-daemon-port",
+          },
         ],
       },
     ],

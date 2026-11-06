@@ -24,6 +24,15 @@ These answer without a bearer token:
 
 Everything else returns 401 `UNAUTHORIZED` without a valid token. <!-- src: packages/bridge/src/http.ts:2518-2528 -->
 
+## TLS on the daemon's port
+
+The daemon also answers TLS on its one port, so `https://127.0.0.1:27777/mcp` and `http://127.0.0.1:27777` are the same server. The first byte of a connection selects the protocol. <!-- src: packages/bridge/src/same-port-tls.ts -->
+
+- **Certificate:** a self-signed P-256 leaf at `<dataDir>/tls/cert.pem`, valid for `localhost`, `127.0.0.1` and `::1` only, marked `CA:FALSE`. It renews at boot within 30 days of expiry. <!-- src: packages/shared/src/tls-cert.ts -->
+- **No CA key exists.** Trusting the file can only authenticate this one certificate, so it can't be used to intercept other sites.
+- **What it doesn't change:** the daemon is on loopback, so TLS protects nothing on the network, and anything running as your user can read the key and the token. The bearer token and the Host/Origin guard are still the controls that matter. See [ADR 0013](./adr/0013-https-mcp-on-the-daemon-port.md).
+- `WA_TLS=0` turns it off.
+
 ## Auth design (ADR 0012)
 
 The owner rule: **the web UI never asks you to use a terminal.** Three credentials make that possible without giving local web pages access.
@@ -131,7 +140,8 @@ Known 0.9 gap: the guard resolves DNS, then `fetch` resolves again — a rebindi
 | `<dataDir>/token`              | 0600 (chmod enforced)                                                    | <!-- src: packages/bridge/src/bin.ts:86-87 -->       |
 | `<dataDir>/ui-bootstrap-token` | 0600                                                                     | <!-- src: packages/bridge/src/bin.ts:186 -->         |
 | `<dataDir>/media/`             | 0700 (chmod enforced at boot)                                            | <!-- src: packages/bridge/src/bin.ts:67-72 -->       |
-| `<dataDir>/auth/`              | 0700                                                                     | created by the engine bootstrap (`bin.ts:70`)        |
+| `<dataDir>/auth/`              | 0700                                                                     |
+| `<dataDir>/tls/key.pem`        | 0600 (the directory is created 0700)                                     | created by the engine bootstrap (`bin.ts:70`)        |
 | `<dataDir>/config.json`        | written 0600. The CLI won't load it if group or other users can read it. | <!-- src: packages/cli/src/config-store.ts:36-51 --> |
 
 The data dir itself is created 0700 and re-chmodded on every start (`bin.ts:70-71`), so a pre-existing wider mode is tightened.

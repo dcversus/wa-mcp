@@ -123,7 +123,7 @@ export const CLI_COMMANDS: readonly CliCommand[] = [
     usage:
       "install [--target <platform>…] [--https] [--stdio] [--dry-run] | install --hooks claude|codex --sub <id> [--remove] | install --service",
     summary:
-      "register the MCP server with your agents, install subscription hooks, or a login service",
+      "connect your agents to the daemon's MCP endpoint, install subscription hooks, or a login service",
   },
   {
     name: "inbox",

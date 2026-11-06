@@ -6,12 +6,12 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **WhatsApp as a local MCP server.** One single-user daemon holds your WhatsApp
-session (Baileys) and exposes **77 MCP tools** over stdio and HTTP, a built-in
+session (Baileys) and exposes **77 MCP tools** at `https://127.0.0.1:27777/mcp`, a built-in
 web UI, a `wa-mcp` CLI — and your agents react to messages in real time.
 
 ```
 WhatsApp ⇄ bridge daemon (Baileys fork, node:sqlite, loopback-only)
-               ├─ MCP stdio + POST /mcp  → 77 tools (Claude Code, Codex, Grok,
+               ├─ MCP at /mcp (or stdio) → 77 tools (Claude Code, Codex, Grok,
                │                            Antigravity, Claude Desktop, Pi)
                ├─ HTTP /api/* + SSE       → web UI (logs, chats, settings)
                ├─ subscriptions + inboxes → agents react to incoming messages

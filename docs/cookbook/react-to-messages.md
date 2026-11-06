@@ -211,7 +211,7 @@ Anthropic's approved channel allowlist, so load it as a development channel:
 ```bash
 # the wa-mcp plugin from this repo's marketplace
 claude --dangerously-load-development-channels plugin:wa-mcp@wa-mcp
-# or the server `wa-mcp install --target claude-code` registered
+# or a stdio entry: wa-mcp install --target claude-code --stdio
 claude --dangerously-load-development-channels server:wa-mcp
 ```
 
@@ -219,6 +219,10 @@ Without the flag the wa-mcp tools still work, but channel events don't
 arrive. Channels need claude.ai or Console sign-in, and Team/Enterprise
 organizations must enable them (`channelsEnabled`). See Claude Code's
 [channels docs](https://code.claude.com/docs/en/channels).
+
+Channels need a stdio server. A plain `wa-mcp install` writes a URL entry for
+Claude Code, and `subscribe_events` with `channel: true` over that entry returns
+an error instead of dropping events, so use one of the two forms above.
 
 Isolation: the stdio server forwards frames only for subscriptions created
 in that session and tagged with its agent — two sessions never hear each

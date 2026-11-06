@@ -1,15 +1,18 @@
 # wa-mcp - pi registration
 
-`wa-mcp install --target pi` writes the server entry to `~/.pi/mcp/wa-mcp.json`.
+`wa-mcp install --target pi` writes the server entry to `~/.pi/agent/mcp.json`.
 
-Config format: JSON - single-server spec {command, args, env}
+Config format: JSON - mcpServers.wa-mcp {transport, lifecycle, url, headers}
 Expected entry shape:
 
 ```
-command: node
-args: [<bridge-args>]
-env: { WA_TOKEN: "<bridge token>" }
+transport: streamable-http
+lifecycle: eager
+url: http://127.0.0.1:27777/mcp
+headers: { Authorization: "Bearer <bridge token>", X-WA-Agent: pi }
 ```
+
+For https, start pi with `NODE_EXTRA_CA_CERTS=~/.wa-mcp/tls/cert.pem` and run install with `--https`.
 
 ## Skills sync
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Connect by URL: HTTPS MCP on the daemon's port (#259)
+
+- Agents now connect straight to the running daemon at `https://127.0.0.1:27777/mcp` instead of each spawning `node …/mcp-server/dist/bin.mjs`. The daemon answers TLS and plain HTTP on the same port, so the web UI, the CLI, health checks and existing entries keep working without changes. Run `wa-mcp restart`, `wa-mcp install` and `wa-mcp doctor` to move; see the [migration guide](docs/migration.md#connecting-by-url-instead-of-spawning-a-process).
+- `wa-mcp install` writes a URL entry for Claude Code (https, adding the daemon's certificate to `~/.claude/settings.json`), Codex, Antigravity and pi (http unless you pass `--https`, because they read their CA from the shell). Claude Desktop and Grok stay on stdio: Desktop's config only accepts commands, and Grok's documented config is a different file. `--stdio` writes the old form.
+- The daemon creates a self-signed certificate at `<dataDir>/tls`, valid only for `localhost`, `127.0.0.1` and `::1`, with no CA key. `WA_TLS=0` turns TLS off.
+- `/mcp` now follows the Streamable HTTP rules: notifications get `202`, an unknown session gets `404` so clients re-initialize after a daemon restart, `DELETE` ends a session, and the daemon keeps the 256 most recently used. A tool call over `/mcp` costs one rate-limit token, as it does over stdio.
+- `subscribe_events` with `channel: true` over a URL entry now returns an error. Claude Code only accepts channels from a stdio server, so those events would have been dropped. Use the plugin.
+- `wa-mcp doctor` tests the HTTPS endpoint with a real handshake and names hosts still spawning a process. `wa-mcp connections` lists URL entries by address and never shows the token.
+
+### Fixed
+
+- `wa-mcp install` no longer replaces a host config it can't parse. It used to start from an empty object, losing everything else in the file; it now reports `VERIFY FAILED` and leaves the file alone.
+- `--home` now also moves the default data dir.
+
 ## 0.1.1 — 2026-10-29
 
 ### Reply context in delivery payloads (#241)

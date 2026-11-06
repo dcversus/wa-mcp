@@ -4,5 +4,5 @@
   "version": "0.10.0",
   "description": "WhatsApp bridge registration for codex",
   "config_path": "~/.codex/config.toml",
-  "config_format": "TOML - [mcp_servers.wa-mcp] command + args"
+  "config_format": "TOML - [mcp_servers.wa-mcp] url + http_headers"
 }

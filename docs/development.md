@@ -15,7 +15,7 @@ vp run accounting:check  # assert ACCOUNTING.md covers the 1,029-item census
 | package               | role                                                                      |
 | --------------------- | ------------------------------------------------------------------------- |
 | `packages/bridge`     | Baileys daemon: session, event bus, HTTP API, store, media, MCP-over-HTTP |
-| `packages/mcp-server` | zero-dep JSON-RPC MCP server (stdio + registry), resources                |
+| `packages/mcp-server` | zero-dep JSON-RPC MCP server (registry, resources, stdio relay)           |
 | `packages/cli`        | `wa-mcp` bin: install/doctor/status/start/stop, skills install            |
 | `packages/web-ui`     | vanilla SPA (hash router) served by the bridge                            |
 | `packages/shared`     | shared types + jid utilities                                              |
