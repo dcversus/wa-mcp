@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Reaction diagnostics (#256)
+
+- Every reaction now logs the key it targets and which path chose it, as `reaction target key` with `source`: `stored` (the key kept when the message arrived), `lid-fallback` (an older group message, sender's mapped LID), `no-participant` (an older own message or DM) or `unseen` (a message the bridge never stored). The line is at debug level, except `pn-fallback`, an older group message whose sender has no LID mapping, which logs at warn because a LID-addressed group most likely ignores that key.
+
 ## 0.1.1 — 2026-10-29
 
 ### Reply context in delivery payloads (#241)
