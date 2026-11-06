@@ -4,6 +4,7 @@ import {
   claudeSettingsPath,
   codexHooksPath,
   isWaMcpHookEntry,
+  waMcpServerKey,
   removeHooks,
   resolveConfigPath,
   waMcpInboxPaths,
@@ -184,26 +185,7 @@ function jsonServer(path: string): ServerEntry | null {
   if (servers === undefined || servers === null) {
     return null;
   }
-  let entry = servers[SERVER_KEY] as Record<string, unknown> | undefined;
-  if (entry === undefined || entry === null || typeof entry !== "object") {
-    for (const candidate of Object.values(servers)) {
-      if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
-        continue;
-      }
-      const candidateRecord = candidate as Record<string, unknown>;
-      const args = Array.isArray(candidateRecord.args) ? candidateRecord.args : [];
-      const carriesBridge = args.some(
-        (arg) =>
-          typeof arg === "string" && (arg.includes("wa-mcp") || arg.includes("--bridge-url")),
-      );
-      const command = typeof candidateRecord.command === "string" ? candidateRecord.command : "";
-      const isOurCommand = command.includes("wa-mcp");
-      if (carriesBridge || isOurCommand) {
-        entry = candidateRecord;
-        break;
-      }
-    }
-  }
+  const entry = servers[waMcpServerKey(servers)] as Record<string, unknown> | undefined;
   if (entry === undefined || entry === null || typeof entry !== "object") {
     return null;
   }
@@ -378,30 +360,7 @@ function disconnectMcp(home: string, platform: Platform): DisconnectResult {
   } else {
     const parsed = readJsonObject(path) as Record<string, unknown>;
     const servers = parsed.mcpServers as Record<string, unknown>;
-    let removed = false;
-    if (Object.prototype.hasOwnProperty.call(servers, SERVER_KEY)) {
-      delete servers[SERVER_KEY];
-      removed = true;
-    }
-    if (!removed) {
-      for (const [key, candidate] of Object.entries(servers)) {
-        if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
-          continue;
-        }
-        const record = candidate as Record<string, unknown>;
-        const args = Array.isArray(record.args) ? record.args : [];
-        const carriesBridge = args.some(
-          (arg) =>
-            typeof arg === "string" && (arg.includes("wa-mcp") || arg.includes("--bridge-url")),
-        );
-        const command = typeof record.command === "string" ? record.command : "";
-        if (carriesBridge || command.includes("wa-mcp")) {
-          delete servers[key];
-          removed = true;
-          break;
-        }
-      }
-    }
+    delete servers[waMcpServerKey(servers)];
     writeWithBackup(path, `${JSON.stringify(parsed, null, 2)}\n`);
   }
   return { status: "removed", removed: 1 };

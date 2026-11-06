@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { waMcpServerKey } from "@wa-mcp/shared";
 import { resolveConfigPath, type Platform } from "./platforms.ts";
 import { removeTomlTable } from "./writers.ts";
 
@@ -387,6 +388,14 @@ function removeJsonKeyEntry(path: string): boolean {
         "wa-mcp" in (container as Record<string, unknown>)
       ) {
         delete (container as Record<string, unknown>)["wa-mcp"];
+        touched = true;
+      }
+    }
+    const servers = record.mcpServers as Record<string, unknown> | undefined;
+    if (servers !== null && typeof servers === "object") {
+      const renamed = waMcpServerKey(servers);
+      if (Object.hasOwn(servers, renamed)) {
+        delete servers[renamed];
         touched = true;
       }
     }

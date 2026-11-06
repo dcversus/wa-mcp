@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_BRIDGE_URL } from "@wa-mcp/shared";
+import { DEFAULT_BRIDGE_URL, waMcpServerKey } from "@wa-mcp/shared";
 import { PLATFORMS, resolveConfigPath, type Platform } from "./platforms.ts";
 export type { Platform };
 
@@ -79,7 +79,6 @@ function verifyJsonEntry(path: string, container: string, name: string, spec: Se
 function writeJsonServer(
   path: string,
   container: string,
-  name: string,
   spec: ServerSpec,
   extraEntry?: Record<string, unknown>,
 ): WriteResult {
@@ -89,13 +88,14 @@ function writeJsonServer(
   ensureParent(path);
   const parsed = readJson(path);
   const servers = (parsed[container] as Record<string, unknown> | undefined) ?? {};
-  servers[name] = { ...extraEntry, command: spec.command, args: spec.args, env: spec.env ?? {} };
+  const key = waMcpServerKey(servers);
+  servers[key] = { ...extraEntry, command: spec.command, args: spec.args, env: spec.env ?? {} };
   parsed[container] = servers;
   writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, { mode: 0o600 });
   return {
     platform: "claude-code" as Platform,
     path,
-    verified: verifyJsonEntry(path, container, name, spec),
+    verified: verifyJsonEntry(path, container, key, spec),
   };
 }
 
@@ -114,10 +114,11 @@ function writeJsonUrlEntry(
   ensureParent(path);
   const parsed = readJson(path);
   const servers = (parsed.mcpServers as Record<string, unknown> | undefined) ?? {};
-  servers["wa-mcp"] = entry;
+  const key = waMcpServerKey(servers);
+  servers[key] = entry;
   parsed.mcpServers = servers;
   writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, { mode: 0o600 });
-  const written = (readJson(path).mcpServers as Record<string, Record<string, unknown>>)["wa-mcp"];
+  const written = (readJson(path).mcpServers as Record<string, Record<string, unknown>>)[key];
   return {
     platform,
     path,
@@ -259,22 +260,22 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
   const spec = withAgent(options.spec, platform);
   switch (platform) {
     case "claude-code": {
-      const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, { type: "stdio" });
+      const result = writeJsonServer(path, "mcpServers", spec, { type: "stdio" });
       return { ...result, platform };
     }
     case "claude-desktop":
-      return { ...writeJsonServer(path, "mcpServers", "wa-mcp", spec), platform };
+      return { ...writeJsonServer(path, "mcpServers", spec), platform };
     case "grok":
-      return { ...writeJsonServer(path, "mcpServers", "wa-mcp", spec), platform };
+      return { ...writeJsonServer(path, "mcpServers", spec), platform };
     case "antigravity":
       return {
-        ...writeJsonServer(path, "mcpServers", "wa-mcp", spec, {
+        ...writeJsonServer(path, "mcpServers", spec, {
           serverUrl: `${bridgeUrlOf(spec)}/mcp`,
         }),
         platform,
       };
     case "pi": {
-      const result = writeJsonServer(path, "mcpServers", "wa-mcp", spec, {
+      const result = writeJsonServer(path, "mcpServers", spec, {
         transport: "stdio",
         lifecycle: "eager",
       });

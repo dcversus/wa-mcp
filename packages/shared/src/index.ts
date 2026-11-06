@@ -2,6 +2,7 @@ export * from "./jid.ts";
 export * from "./subscription-kinds.ts";
 export * from "./subscription-config.ts";
 export * from "./hooks.ts";
+export * from "./mcp-entry.ts";
 export * from "./platforms.ts";
 export * from "./connection-settings.ts";
 export * from "./cli-reference.ts";

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
-import { resolveConfigPath } from "@wa-mcp/shared";
+import { resolveConfigPath, waMcpServerKey } from "@wa-mcp/shared";
 import { localCertPaths } from "@wa-mcp/shared/tls-cert";
 import { HTTP_PLATFORMS } from "./writers.ts";
 
@@ -102,7 +102,7 @@ function usesStdio(path: string, platform: string): boolean {
   try {
     const servers = (JSON.parse(text) as { mcpServers?: Record<string, { command?: unknown }> })
       .mcpServers;
-    return typeof servers?.["wa-mcp"]?.command === "string";
+    return servers !== undefined && typeof servers[waMcpServerKey(servers)]?.command === "string";
   } catch {
     return false;
   }
