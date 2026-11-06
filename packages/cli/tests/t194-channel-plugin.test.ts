@@ -34,7 +34,7 @@ test("T194 — the Claude Code plugin carries a versioned manifest, MCP launcher
     readFileSync(join(ROOT, "plugins/claude-code/.claude-plugin/plugin.json"), "utf8"),
   );
   expect(manifest.name).toBe("wa-mcp");
-  expect(manifest.version).toBe("0.1.1");
+  expect(manifest.version).toBe("0.1.2");
   const mcp = JSON.parse(readFileSync(join(ROOT, "plugins/claude-code/.mcp.json"), "utf8"));
   expect(mcp.mcpServers["wa-mcp"].args).toContain("mcp");
   expect(mcp.mcpServers["wa-mcp"].args).toContain("--agent");
@@ -54,7 +54,7 @@ test("T194 — the root marketplace lists the channel plugin", () => {
   const entry = marketplace.plugins[0];
   expect(entry.name).toBe("wa-mcp");
   expect(entry.category).toBe("channels");
-  expect(entry.version).toBe("0.1.1");
+  expect(entry.version).toBe("0.1.2");
   expect(existsSync(join(ROOT, entry.source))).toBe(true);
 });
 

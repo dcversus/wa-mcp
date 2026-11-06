@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 — 2026-11-06
+
+### Every PR now ships its own version (#268)
+
+- There are no more release branches or release issues. Each PR moves the version up and adds its section here, and CI fails it otherwise; PRs that only touch infra and CI are exempt. `node scripts/bump-version.mjs patch` does the mechanical part. See ADR 0013.
 
 ### Fixed
 
