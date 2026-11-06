@@ -415,3 +415,35 @@ test("#259 — a URL registration is listed with its address, disconnectable, an
   expect(readFileSync(join(home, ".claude.json"), "utf8")).not.toContain("SECRET-HEADER");
   rmSync(home, { recursive: true, force: true });
 });
+
+test("#259 — a renamed URL registration is still recognised, and disconnect removes only it", () => {
+  const home = mkdtempSync(join(tmpdir(), "wa-mcp-t179-"));
+  try {
+    put(
+      home,
+      ".claude.json",
+      `${JSON.stringify({
+        mcpServers: {
+          "whatsapp (wa-mcp)": {
+            type: "http",
+            url: "https://127.0.0.1:27777/mcp",
+            headers: { Authorization: "Bearer SECRET-HEADER", "X-WA-Agent": "claude-code" },
+          },
+          other: { type: "http", url: "https://example.test/mcp", headers: { "X-Other": "1" } },
+        },
+      })}\n`,
+    );
+    const listed = listConnections(home).find(
+      (connection) => connection.kind === "mcp" && connection.agent === "claude-code",
+    );
+    expect(listed?.detail).toContain("https://127.0.0.1:27777/mcp");
+    expect(JSON.stringify(listed)).not.toContain("SECRET-HEADER");
+    expect(disconnectAgent(home, "mcp", "claude-code").status).toBe("removed");
+    const { mcpServers } = JSON.parse(readFileSync(join(home, ".claude.json"), "utf8")) as {
+      mcpServers: Record<string, unknown>;
+    };
+    expect(Object.keys(mcpServers)).toEqual(["other"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});

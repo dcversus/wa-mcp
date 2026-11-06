@@ -5,6 +5,7 @@ import { afterEach, expect, test } from "vite-plus/test";
 import { resolveConfigPath } from "@wa-mcp/shared";
 import { ensureClaudeCertTrust, removeClaudeCertTrust } from "../src/cert-trust.ts";
 import { httpsTrustHint, mcpEndpoint } from "../src/mcp-endpoint.ts";
+import { uninstallRegistrations } from "../src/service.ts";
 import { HTTP_PLATFORMS, writeServerEntry, type Platform } from "../src/writers.ts";
 
 const homes: string[] = [];
@@ -223,4 +224,57 @@ test("hosts that read their CA from the shell are told what to set", () => {
   expect(httpsTrustHint("pi", URL_S, cert)).toBe(
     `needs: export NODE_EXTRA_CA_CERTS=${cert} before starting pi`,
   );
+});
+
+function seedConfig(platform: Platform, home: string, mcpServers: Record<string, unknown>): string {
+  const path = resolveConfigPath(platform, home);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify({ mcpServers }));
+  return path;
+}
+
+test("a renamed connector keeps its name: migrated in place, not duplicated, on every run", () => {
+  const home = fakeHome();
+  const other = { command: "other-server", args: ["--x"] };
+  const path = seedConfig("claude-code", home, { "whatsapp (wa-mcp)": STDIO, other });
+  for (let run = 0; run < 2; run += 1) {
+    expect(writeServerEntry("claude-code", { home, spec: STDIO, http }).verified).toBe(true);
+    const { mcpServers } = readJson(path);
+    expect(Object.keys(mcpServers)).toEqual(["whatsapp (wa-mcp)", "other"]);
+    expect(mcpServers["whatsapp (wa-mcp)"]).toEqual({
+      type: "http",
+      url: URL_S,
+      headers: headers("claude-code"),
+    });
+    expect(mcpServers.other).toEqual(other);
+  }
+});
+
+test("a renamed stdio-only host entry is updated under its own name too", () => {
+  const home = fakeHome();
+  const path = seedConfig("claude-desktop", home, { "whatsapp (wa-mcp)": STDIO });
+  const newer = { ...STDIO, command: "/new/node" };
+  expect(writeServerEntry("claude-desktop", { home, spec: newer }).verified).toBe(true);
+  const { mcpServers } = readJson(path);
+  expect(Object.keys(mcpServers)).toEqual(["whatsapp (wa-mcp)"]);
+  expect(mcpServers["whatsapp (wa-mcp)"].command).toBe("/new/node");
+});
+
+test("someone else's server is never taken over", () => {
+  const home = fakeHome();
+  const foreign = { command: "uv", args: ["run", "whatsapp-mcp-server"] };
+  const path = seedConfig("claude-code", home, { whatsapp: foreign });
+  writeServerEntry("claude-code", { home, spec: STDIO, http });
+  const { mcpServers } = readJson(path);
+  expect(mcpServers.whatsapp).toEqual(foreign);
+  expect(mcpServers["wa-mcp"].url).toBe(URL_S);
+});
+
+test("uninstall finds a renamed URL entry and leaves the others", () => {
+  const home = fakeHome();
+  const other = { command: "other-server", args: [] };
+  const path = seedConfig("claude-code", home, { "whatsapp (wa-mcp)": STDIO, other });
+  writeServerEntry("claude-code", { home, spec: STDIO, http });
+  expect(uninstallRegistrations(home, ["claude-code"])).toHaveLength(1);
+  expect(readJson(path).mcpServers).toEqual({ other });
 });

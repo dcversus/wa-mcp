@@ -105,3 +105,17 @@ test("a Claude Desktop stdio entry is expected, not reported as legacy", async (
   const report = await doctor(home, tempDir(), 1);
   expect(check(report, "mcp entries")?.detail ?? "").not.toContain("claude-desktop");
 });
+
+test("a renamed entry still spawning a JS file is named too", async () => {
+  const home = tempDir();
+  writeFileSync(
+    join(home, ".claude.json"),
+    JSON.stringify({
+      mcpServers: {
+        "whatsapp (wa-mcp)": { type: "stdio", command: "node", args: ["--bridge-url", "x"] },
+      },
+    }),
+  );
+  const report = await doctor(home, tempDir(), 1);
+  expect(check(report, "mcp entries")?.detail).toContain("claude-code");
+});
