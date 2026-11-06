@@ -10,11 +10,11 @@ nvm use 26 >/dev/null 2>&1 || true
 
 version=$(node -p "require('./packages/cli/package.json').version")
 
-# a release is cut from merged main only (AGENTS.md "Releasing")
+# a release is cut from merged main only (AGENTS.md "Versioning and releasing")
 if [ "${WAMCP_NO_PUBLISH:-0}" != "1" ]; then
   git fetch -q origin main
   if [ -n "$(git status --porcelain)" ] || [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-    echo "refusing to publish: check out a clean origin/main (the merged release PR) first" >&2
+    echo "refusing to publish: check out a clean origin/main first" >&2
     exit 1
   fi
 fi
