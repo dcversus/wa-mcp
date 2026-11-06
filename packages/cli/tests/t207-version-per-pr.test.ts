@@ -146,8 +146,9 @@ test("the bump knows every file that carries the version", () => {
     [
       "grep",
       "-l",
-      "-F",
-      version,
+      "-P",
+      // the whole number only: 0.1.2 must not match an address like 10.1.2.3
+      `(?<![\\d.])${version.replaceAll(".", "\\.")}(?![\\d.])`,
       "--",
       ":!pnpm-lock.yaml",
       ":!CHANGELOG.md",
