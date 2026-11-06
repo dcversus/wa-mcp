@@ -132,3 +132,14 @@ jobs:
         if: matrix.node == 26
         with:
           node-version: 20
+
+  # branch protection requires a check named "test", and the matrix above reports
+  # as "test (os, node)". always(): a skipped required check counts as passing,
+  # so without it a failed matrix would skip this job and let the PR merge.
+  test-result:
+    name: test
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.test.result }}" = "success"
