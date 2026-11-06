@@ -126,8 +126,8 @@ release PRs or release issues, and no `## Unreleased` section on `main`.
    again.
 4. After merging, from a clean, up-to-date `main`: `scripts/publish.sh` (it
    refuses anything else). npm prints an approval link for the owner's security
-   key. The owner logs in to npmjs.com first: on the 0.1.2 publish the link only
-   redirected to the home page until they had. The link lasts about 5 minutes;
+   key. The owner logs in to npmjs.com first: without that, the link has only
+   redirected to the home page. The link lasts about 5 minutes;
    after that the page says `Invalid or Expired Token` and the script stops with
    `404` on `/-/v1/done`, with nothing published, tagged or released, so run it
    again for a new link. The registry can take a few minutes to serve the version
