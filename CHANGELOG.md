@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The web UI no longer blanks to `loading…` each time a page refreshes itself. The Connection page flickered every 5 seconds while open.
+
 ## 0.1.1 — 2026-10-29
 
 ### Reply context in delivery payloads (#241)

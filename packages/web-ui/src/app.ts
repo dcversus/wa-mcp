@@ -64,8 +64,12 @@ export interface RenderFrameIo {
   pairingView?: () => PairingView;
 }
 
+let shownHash: string | null = null;
+
 export async function renderFrame(io: RenderFrameIo): Promise<void> {
   const { dom, loaders } = io;
+  const refreshing = dom.getHash() === shownHash;
+  shownHash = dom.getHash();
   const match = resolveRoute(dom.getHash(), ROUTES);
   const redirect = match === null ? undefined : REDIRECTS[match.route];
   if (redirect !== undefined) {
@@ -105,6 +109,9 @@ export async function renderFrame(io: RenderFrameIo): Promise<void> {
     dom.setApp("<p>not implemented</p>");
     return;
   }
-  dom.setApp('<div class="skeleton">loading…</div>');
+  // a refresh keeps the page on screen until the new content is ready
+  if (!refreshing) {
+    dom.setApp('<div class="skeleton">loading…</div>');
+  }
   dom.setApp(await loader(match.params));
 }
