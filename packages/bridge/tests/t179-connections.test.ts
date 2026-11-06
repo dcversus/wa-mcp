@@ -383,3 +383,35 @@ test("T179 A — without a home dir the endpoint is 501", async () => {
     expect((await call(bridge, "/api/connections")).status).toBe(501);
   });
 });
+
+test("#259 — a URL registration is listed with its address, disconnectable, and its token is never shown", () => {
+  const home = mkdtempSync(join(tmpdir(), "t179-http-"));
+  put(
+    home,
+    ".claude.json",
+    `${JSON.stringify({
+      keep: true,
+      mcpServers: {
+        "wa-mcp": {
+          type: "http",
+          url: "https://127.0.0.1:27777/mcp",
+          headers: { Authorization: "Bearer SECRET-HEADER", "X-WA-Agent": "claude-code" },
+        },
+      },
+    })}\n`,
+  );
+  put(
+    home,
+    ".codex/config.toml",
+    '[mcp_servers.wa-mcp]\nurl = "http://127.0.0.1:27777/mcp"\nhttp_headers = { "Authorization" = "Bearer SECRET-TOML", "X-WA-Agent" = "codex" }\n',
+  );
+  const connections = listConnections(home).filter((item) => item.kind === "mcp");
+  const claude = connections.find((item) => item.agent === "claude-code");
+  const codex = connections.find((item) => item.agent === "codex");
+  expect(claude?.detail).toContain("https://127.0.0.1:27777/mcp");
+  expect(codex?.detail).toContain("http://127.0.0.1:27777/mcp");
+  expect(JSON.stringify(connections)).not.toContain("SECRET");
+  expect(disconnectAgent(home, "mcp", "claude-code").status).toBe("removed");
+  expect(readFileSync(join(home, ".claude.json"), "utf8")).not.toContain("SECRET-HEADER");
+  rmSync(home, { recursive: true, force: true });
+});
