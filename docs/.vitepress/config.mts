@@ -51,6 +51,7 @@ export default defineConfig({
             text: "0012 Scoped pairing token",
             link: "/adr/0012-scoped-pairing-token-and-loopback-guard",
           },
+          { text: "0013 Every PR ships a version", link: "/adr/0013-every-pr-ships-a-version" },
         ],
       },
     ],

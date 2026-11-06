@@ -76,6 +76,11 @@ jobs:
           ./gitleaks detect --redact -v
       - name: version-drift guard
         run: node scripts/version-drift.mjs
+      - name: every PR ships its own version (ADR 0013)
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-pr-version.mjs "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
       - name: env var doc coverage
         run: pnpm run env-doc-coverage
       - name: tool doc coverage

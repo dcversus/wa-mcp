@@ -29,8 +29,14 @@ shapes — hand-built fixtures that never caught the bug are worse than none
 ## Commits
 
 Conventional commits (`fix:`, `feat:`, `test:`, `docs:`, `chore:`). RED
-evidence is quoted in the test commit message. No publishing — the repo
-carries a CI no-publish grep guard by contract.
+evidence is quoted in the test commit message.
+
+## Every PR ships a version
+
+Run `node scripts/bump-version.mjs patch` (or `minor`, `major`) in your PR and
+write what changed under the new heading in `CHANGELOG.md`. CI fails without
+it, unless the PR only touches infra and CI. See ADR 0013 and "Versioning and
+releasing" in `AGENTS.md`.
 
 ## Code comments
 
