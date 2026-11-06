@@ -15,6 +15,7 @@
 
 - `wa-mcp install` no longer replaces a host config it can't parse. It used to start from an empty object, losing everything else in the file; it now reports `VERIFY FAILED` and leaves the file alone.
 - `--home` now also moves the default data dir.
+- A connector you renamed in the host now keeps its name through `wa-mcp install`, instead of gaining a second `wa-mcp` entry beside it. `doctor`, `uninstall`, `wa-mcp connections` and the Agents page recognise it under any name.
 
 ## 0.1.1 — 2026-10-29
 

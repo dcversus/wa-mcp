@@ -18,8 +18,18 @@ wa-mcp install            # replaces the wa-mcp entry in each host's config
 wa-mcp doctor             # "mcp https" and "mcp entries" should both be ok
 ```
 
-Then restart your agents. Install replaces only the `wa-mcp` entry; other servers
-and settings stay as they were.
+Then restart your agents. Install replaces only our own entry, and if you renamed the
+connector in the host it keeps that name. Other servers and settings stay as they were.
+
+If the daemon runs as a login service, replace `wa-mcp restart` above with the two
+commands below. The service file pins the Node and package paths it was installed with,
+so a plain restart brings the old daemon back. On Linux, also run the `systemctl` command
+each one prints.
+
+```bash
+wa-mcp uninstall --service
+wa-mcp install --service
+```
 
 **What changes on disk**
 
