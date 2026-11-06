@@ -143,7 +143,16 @@ test("the bump knows every file that carries the version", () => {
   const { files, version } = surfacesCopy();
   const carrying = execFileSync(
     "git",
-    ["grep", "-l", "-F", version, "--", ":!pnpm-lock.yaml", ":!CHANGELOG.md"],
+    [
+      "grep",
+      "-l",
+      "-F",
+      version,
+      "--",
+      ":!pnpm-lock.yaml",
+      ":!CHANGELOG.md",
+      ":!packages/cli/tests/t207-version-per-pr.test.ts",
+    ],
     {
       cwd: ROOT,
       encoding: "utf8",

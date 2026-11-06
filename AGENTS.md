@@ -3,8 +3,8 @@
 ## What this is
 
 wa-mcp: a 100% TypeScript WhatsApp MCP server. pnpm monorepo, Vite+ toolchain
-(`vp check|test|build`), zero runtime deps in the bridge core, no publishing
-(contract; a CI grep guard enforces it).
+(`vp check|test|build`), zero runtime deps in the bridge core. Published to npm
+as `wa-mcp`; see "Versioning and releasing".
 
 ## Architecture map
 
@@ -108,24 +108,27 @@ without evidence — cite the issue, commit or test that proves it.
 - Live smoke rules (unchanged): owner's real account, Test group + owner's
   own number only, spaced sends, never auto-retry pairing
 
-## Releasing
+## Versioning and releasing
 
-Every release is tracked and reviewed; nothing is tagged from an unmerged
-commit.
+Every PR ships its own version (ADR 0013). There are no release branches,
+release PRs or release issues, and no `## Unreleased` section on `main`.
 
-1. Open a release issue `Release x.y.z` (labels `release` + `x.y.z`): the
-   issues going in, what moves to the next version, and an evidence
-   checklist (gates, CI run, beta retest). #254 is the template.
-2. Branch `release/x.y.z`: bump every version surface
-   (`node scripts/version-drift.mjs` lists them), rename the CHANGELOG
-   `## Unreleased` heading to `## x.y.z — YYYY-MM-DD`, open a PR that
-   closes the release issue's shipped items, and merge it only when the
-   required checks are green.
-3. From a clean, up-to-date `main`: `scripts/publish.sh` (it refuses
-   anything else). npm asks the owner to approve with a security key; the
-   registry can take a few minutes to serve the version after
-   `+ wa-mcp@x.y.z` prints. The script then tags, pushes the tag and
-   creates the GitHub release from the CHANGELOG section.
-4. Close the shipped issues, relabel what slipped to the next version,
-   record the evidence on the release issue, and ask the beta deployment
-   to retest.
+1. In your PR, run `node scripts/bump-version.mjs patch` (or `minor`, `major`,
+   `x.y.z`). It moves every version surface and starts the dated CHANGELOG
+   section. Write what changed for users in that section.
+2. CI enforces this in the required `security` job
+   (`scripts/check-pr-version.mjs`): the version must move up, and the CHANGELOG
+   must start with a dated, non-empty section for it. The only exempt PRs are
+   those touching nothing but the infra paths listed in that script. Docs and
+   tests count, so they need a bump too.
+3. Two PRs can race for the same number. `main` requires an up-to-date branch,
+   so the second one merges `main`, takes its version surfaces and runs the bump
+   again.
+4. After merging, from a clean, up-to-date `main`: `scripts/publish.sh` (it
+   refuses anything else). npm asks the owner to approve with a security key; the
+   registry can take a few minutes to serve the version after `+ wa-mcp@x.y.z`
+   prints. The script then tags, pushes the tag and creates the GitHub release
+   from the CHANGELOG section. Not every version has to be published: the next
+   publish ships everything merged so far.
+5. Use `Closes #n` in the PR so shipped issues close themselves, and relabel
+   anything that slipped to the next version.

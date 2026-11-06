@@ -25,4 +25,5 @@ vp run accounting:check  # assert ACCOUNTING.md covers the 1,029-item census
 - TDD: failing test first, RED evidence in the test commit message.
 - Conventional commits; one logical change per commit; `vp check && vp test` green on every commit.
 - Engine truth from installed type definitions and runtime probes — never assumptions (see `docs/adr/0001`).
+- Every PR bumps the version and adds its CHANGELOG section, unless it only touches infra and CI (`node scripts/bump-version.mjs patch`, [ADR 0013](./adr/0013-every-pr-ships-a-version.md)). CI enforces it.
 - Scope changes go through GitHub issues (`enhancement`/`backlog` labels), not ad-hoc features.
