@@ -23,6 +23,7 @@ import { runContacts } from "./contacts.ts";
 import { runConnections } from "./connections.ts";
 import { runSubs } from "./subs.ts";
 import { cliUsageLines, DEFAULT_PORT } from "@wa-mcp/shared";
+import { ensureLocalCert, localCertPaths } from "@wa-mcp/shared/tls-cert";
 import { runSettings } from "./settings.ts";
 import {
   runChats,
@@ -46,7 +47,15 @@ import { runImport } from "./import-store.ts";
 import { PLATFORMS, resolveConfigPath } from "./platforms.ts";
 import { installPiExtension, piExtensionPlan, uninstallPiExtension } from "./pi-extension.ts";
 import { runVoice } from "./voice-dictation.ts";
-import { listRegisteredPlatforms, writeServerEntry } from "./writers.ts";
+import { ensureClaudeCertTrust, removeClaudeCertTrust } from "./cert-trust.ts";
+import { httpsTrustHint, mcpEndpoint } from "./mcp-endpoint.ts";
+import {
+  HTTP_PLATFORMS,
+  listRegisteredPlatforms,
+  writeServerEntry,
+  type HttpSpec,
+  type Platform,
+} from "./writers.ts";
 
 const DEFAULT_DATA_DIR = join(process.env.HOME ?? "", ".wa-mcp");
 
@@ -70,7 +79,9 @@ const PI_EXTENSION_DIST = join(packageDir("@wa-mcp/pi-extension"), "dist");
 export async function main(argv: string[]): Promise<void> {
   const { command, flags, lists, positionals } = parseArgs(argv);
   const home = flags.home ?? process.env.HOME ?? "";
-  const dataDir = flags["data-dir"] ?? DEFAULT_DATA_DIR;
+  const dataDir =
+    flags["data-dir"] ??
+    (flags.home === undefined ? DEFAULT_DATA_DIR : join(flags.home, ".wa-mcp"));
   const port = flags.port ?? String(DEFAULT_PORT);
   const bridgeUrl = flags["bridge-url"] ?? `http://127.0.0.1:${port}`;
   if (command === "config") {
@@ -211,6 +222,35 @@ export async function main(argv: string[]): Promise<void> {
     ) as Array<string>;
     const dryRun = flags["dry-run"] !== undefined;
     const piExtension = { home, dataDir, sourceDir: PI_EXTENSION_DIST };
+    const tlsOn = process.env.WA_TLS !== "0";
+    const { certPath } = localCertPaths(dataDir);
+    // Claude Code is the one host whose trust a config write can set up; the
+    // others read their CA from the shell, so https there is the user's call
+    const wantsHttps = (platform: Platform): boolean => {
+      if (platform !== "claude-code") {
+        return flags.https !== undefined;
+      }
+      if (dryRun) {
+        return true;
+      }
+      ensureLocalCert(dataDir);
+      const trust = ensureClaudeCertTrust(home, certPath, process.env);
+      if (trust.status === "conflict") {
+        console.log(
+          `claude-code: NODE_EXTRA_CA_CERTS is already ${trust.current}, so connecting over http. For https, add ${certPath} to that file and re-run`,
+        );
+        return false;
+      }
+      if (trust.status === "unreadable") {
+        console.log("claude-code: ~/.claude/settings.json is not valid JSON, connecting over http");
+        return false;
+      }
+      return true;
+    };
+    const httpFor = (platform: Platform): HttpSpec | undefined =>
+      flags.stdio !== undefined || !HTTP_PLATFORMS.has(platform)
+        ? undefined
+        : { url: mcpEndpoint(bridgeUrl, tlsOn && wantsHttps(platform)), token };
     let failures = 0;
     if (dryRun) {
       console.log("dry run — nothing written");
@@ -230,10 +270,23 @@ export async function main(argv: string[]): Promise<void> {
         }
         continue;
       }
-      const result = writeServerEntry(target as never, { home, spec });
+      const http = httpFor(target as Platform);
+      if (http?.url.startsWith("https:")) {
+        ensureLocalCert(dataDir);
+      }
+      const result = writeServerEntry(target as never, {
+        home,
+        spec,
+        ...(http === undefined ? {} : { http }),
+      });
       console.log(
-        `${result.platform}: ${result.path} ${result.verified ? "verified" : "VERIFY FAILED"}`,
+        `${result.platform}: ${result.path} ${result.verified ? "verified" : "VERIFY FAILED"}${http === undefined ? "" : ` ${http.url}`}`,
       );
+      const hint =
+        http === undefined ? undefined : httpsTrustHint(target as Platform, http.url, certPath);
+      if (hint !== undefined) {
+        console.log(`  ${hint}`);
+      }
       if (!result.verified) {
         failures += 1;
       }
@@ -706,6 +759,12 @@ export async function main(argv: string[]): Promise<void> {
     }
     for (const entry of removed) {
       console.log(`removed ${entry.platform}: ${entry.path}`);
+    }
+    if (
+      targets.includes("claude-code") &&
+      removeClaudeCertTrust(home, localCertPaths(dataDir).certPath)
+    ) {
+      console.log("removed NODE_EXTRA_CA_CERTS from ~/.claude/settings.json");
     }
     if (targets.includes("pi")) {
       try {

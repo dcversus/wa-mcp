@@ -51,6 +51,7 @@ const PLATFORM_LABELS: Record<Platform, string> = {
 };
 
 interface ServerEntry {
+  url?: string;
   command: string;
   args: string[];
   envKeys: string[];
@@ -147,6 +148,10 @@ export function redactArgs(args: string[]): string[] {
 }
 
 function describe(entry: ServerEntry): string {
+  // a URL entry's headers carry the token: only the address is shown
+  if (entry.url !== undefined) {
+    return entry.url;
+  }
   const line = [entry.command, ...redactArgs(entry.args)].join(" ");
   return entry.envKeys.length === 0
     ? line
@@ -203,7 +208,14 @@ function jsonServer(path: string): ServerEntry | null {
     return null;
   }
   const env = entry.env;
+  const url =
+    typeof entry.url === "string"
+      ? entry.url
+      : typeof entry.serverUrl === "string" && typeof entry.command !== "string"
+        ? entry.serverUrl
+        : undefined;
   return {
+    ...(url === undefined ? {} : { url }),
     command: typeof entry.command === "string" ? entry.command : "",
     args: stringArray(entry.args),
     envKeys: env !== null && typeof env === "object" ? Object.keys(env) : [],
@@ -265,7 +277,9 @@ function tomlServer(path: string): ServerEntry | null {
   for (const match of inlineEnv.matchAll(/([\w-]+)\s*=/g)) {
     envKeys.push(match[1] as string);
   }
+  const url = value("url");
   return {
+    ...(url === undefined ? {} : { url: unquote(url) }),
     command: unquote(value("command") ?? ""),
     args: parseArray(value("args")),
     envKeys,

@@ -17,15 +17,23 @@ function tempDir(): string {
   return dir;
 }
 
-function listen(cert: string, key: string, status: number): Promise<{ server: Server; port: number }> {
+function listen(
+  cert: string,
+  key: string,
+  status: number,
+): Promise<{ server: Server; port: number }> {
   return new Promise((resolve) => {
     const server = createServer({ cert, key }, (req, res) => {
       req.resume();
       res.writeHead(status, { "content-type": "application/json" });
-      res.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { serverInfo: { name: "wa-mcp" } } }));
+      res.end(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: { serverInfo: { name: "wa-mcp" } } }),
+      );
     });
     server.listen(0, "127.0.0.1", () => {
-      cleanups.push(() => server.close());
+      cleanups.push(() => {
+        if (server.listening) server.close();
+      });
       resolve({ server, port: (server.address() as { port: number }).port });
     });
   });
@@ -43,8 +51,10 @@ async function doctor(home: string, dataDir: string, port: number) {
     minNodeMajor: 1,
   });
 }
-const check = (report: { checks: Array<{ name: string; ok: boolean; detail: string }> }, name: string) =>
-  report.checks.find((item) => item.name === name);
+const check = (
+  report: { checks: Array<{ name: string; ok: boolean; detail: string }> },
+  name: string,
+) => report.checks.find((item) => item.name === name);
 
 test("doctor confirms the HTTPS endpoint with the generated certificate", async () => {
   const dataDir = tempDir();
@@ -58,8 +68,9 @@ test("doctor confirms the HTTPS endpoint with the generated certificate", async 
 test("a daemon that isn't serving TLS yet fails with the fix", async () => {
   const dataDir = tempDir();
   ensureLocalCert(dataDir);
-  const closed = await listen(ensureLocalCert(tempDir()).cert, ensureLocalCert(tempDir()).key, 200);
-  closed.server.close();
+  const other = ensureLocalCert(tempDir());
+  const closed = await listen(other.cert, other.key, 200);
+  await new Promise((resolve) => closed.server.close(resolve));
   const report = await doctor(tempDir(), dataDir, closed.port);
   expect(check(report, "mcp https")?.ok).toBe(false);
   expect(check(report, "mcp https")?.detail).toContain("wa-mcp restart");

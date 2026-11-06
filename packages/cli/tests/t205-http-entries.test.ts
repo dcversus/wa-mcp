@@ -3,10 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, expect, test } from "vite-plus/test";
 import { resolveConfigPath } from "@wa-mcp/shared";
-import {
-  ensureClaudeCertTrust,
-  removeClaudeCertTrust,
-} from "../src/cert-trust.ts";
+import { ensureClaudeCertTrust, removeClaudeCertTrust } from "../src/cert-trust.ts";
+import { httpsTrustHint, mcpEndpoint } from "../src/mcp-endpoint.ts";
 import { HTTP_PLATFORMS, writeServerEntry, type Platform } from "../src/writers.ts";
 
 const homes: string[] = [];
@@ -161,7 +159,10 @@ test("someone else's CA setting is never overwritten", () => {
   const home = fakeHome();
   mkdirSync(join(home, ".claude"));
   writeFileSync(settingsPath(home), JSON.stringify({ env: { NODE_EXTRA_CA_CERTS: "/corp.pem" } }));
-  expect(ensureClaudeCertTrust(home, CERT, {})).toEqual({ status: "conflict", current: "/corp.pem" });
+  expect(ensureClaudeCertTrust(home, CERT, {})).toEqual({
+    status: "conflict",
+    current: "/corp.pem",
+  });
   expect(readJson(settingsPath(home)).env.NODE_EXTRA_CA_CERTS).toBe("/corp.pem");
 });
 
@@ -191,4 +192,35 @@ test("uninstall removes only our own trust entry", () => {
   writeFileSync(settingsPath(home), JSON.stringify({ env: { NODE_EXTRA_CA_CERTS: "/corp.pem" } }));
   expect(removeClaudeCertTrust(home, CERT)).toBe(false);
   expect(readJson(settingsPath(home)).env.NODE_EXTRA_CA_CERTS).toBe("/corp.pem");
+});
+
+test("unparsable config is reported as a failed write and left untouched", () => {
+  const home = fakeHome();
+  const path = resolveConfigPath("claude-code", home);
+  writeFileSync(path, "{ not json");
+  for (const options of [
+    { home, spec: STDIO, http },
+    { home, spec: STDIO },
+  ]) {
+    expect(writeServerEntry("claude-code", options).verified).toBe(false);
+    expect(readFileSync(path, "utf8")).toBe("{ not json");
+  }
+});
+
+test("the endpoint follows the bridge address; https only for names the certificate covers", () => {
+  expect(mcpEndpoint("http://127.0.0.1:27777", true)).toBe("https://127.0.0.1:27777/mcp");
+  expect(mcpEndpoint("http://127.0.0.1:31337", false)).toBe("http://127.0.0.1:31337/mcp");
+  expect(mcpEndpoint("http://localhost:27777", true)).toBe("https://localhost:27777/mcp");
+  expect(mcpEndpoint("http://10.0.0.5:27777", true)).toBe("http://10.0.0.5:27777/mcp");
+});
+
+test("hosts that read their CA from the shell are told what to set", () => {
+  const cert = "/d/tls/cert.pem";
+  expect(httpsTrustHint("claude-code", URL_S, cert)).toBeUndefined();
+  expect(httpsTrustHint("codex", "http://127.0.0.1:27777/mcp", cert)).toBe(
+    `for https: export CODEX_CA_CERTIFICATE=${cert}, then re-run with --https`,
+  );
+  expect(httpsTrustHint("pi", URL_S, cert)).toBe(
+    `needs: export NODE_EXTRA_CA_CERTS=${cert} before starting pi`,
+  );
 });

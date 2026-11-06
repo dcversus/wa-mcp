@@ -14,6 +14,8 @@ export default defineConfig({
     },
   },
   pack: {
+    // tls-cert needs node:crypto; it stays out of the barrel the web UI can reach
+    entry: ["src/index.ts", "src/tls-cert.ts"],
     deps: {
       resolveDepSubpath: true,
     },

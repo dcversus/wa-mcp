@@ -1,8 +1,5 @@
 import { execFileSync } from "node:child_process";
-import {
-  createPrivateKey,
-  X509Certificate,
-} from "node:crypto";
+import { createPrivateKey, X509Certificate } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -111,8 +108,8 @@ test("broken or mismatched files are replaced instead of crashing the daemon", (
   const other = ensureLocalCert(dataDir());
   writeFileSync(keyPath, other.key);
   const rematched = ensureLocalCert(dir);
-  expect(
-    new X509Certificate(rematched.cert).checkPrivateKey(createPrivateKey(rematched.key)),
-  ).toBe(true);
+  expect(new X509Certificate(rematched.cert).checkPrivateKey(createPrivateKey(rematched.key))).toBe(
+    true,
+  );
   expect(existsSync(certPath)).toBe(true);
 });

@@ -10,10 +10,28 @@ export interface ServerSpec {
   env?: Record<string, string>;
 }
 
+/** The daemon's MCP endpoint, for hosts that connect to a URL themselves. */
+export interface HttpSpec {
+  url: string;
+  token: string;
+}
+
 export interface WriteOptions {
   home: string;
   spec: ServerSpec;
+  /** absent: the stdio form (`install --stdio`, and hosts that have no other) */
+  http?: HttpSpec;
 }
+
+/** Hosts whose config takes a URL. Claude Desktop only accepts `command`
+ * entries, and Grok's documented file is not the one we write yet: both stay
+ * on stdio (ADR 0013). */
+export const HTTP_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
+  "claude-code",
+  "codex",
+  "antigravity",
+  "pi",
+]);
 
 export interface WriteResult {
   platform: Platform;
@@ -23,6 +41,20 @@ export interface WriteResult {
 
 function ensureParent(path: string): void {
   mkdirSync(dirname(path), { recursive: true });
+}
+
+/** A config we can't parse may still hold the user's other settings: it is
+ * reported as a failed write, never replaced. */
+function holdsUnparsableJson(path: string): boolean {
+  if (!existsSync(path)) {
+    return false;
+  }
+  try {
+    JSON.parse(readFileSync(path, "utf8"));
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 function readJson(path: string): Record<string, unknown> {
@@ -51,6 +83,9 @@ function writeJsonServer(
   spec: ServerSpec,
   extraEntry?: Record<string, unknown>,
 ): WriteResult {
+  if (holdsUnparsableJson(path)) {
+    return { platform: "claude-code" as Platform, path, verified: false };
+  }
   ensureParent(path);
   const parsed = readJson(path);
   const servers = (parsed[container] as Record<string, unknown> | undefined) ?? {};
@@ -61,6 +96,32 @@ function writeJsonServer(
     platform: "claude-code" as Platform,
     path,
     verified: verifyJsonEntry(path, container, name, spec),
+  };
+}
+
+function httpHeaders(http: HttpSpec, platform: Platform): Record<string, string> {
+  return { Authorization: `Bearer ${http.token}`, "X-WA-Agent": platform };
+}
+
+function writeJsonUrlEntry(
+  path: string,
+  platform: Platform,
+  entry: Record<string, unknown>,
+): WriteResult {
+  if (holdsUnparsableJson(path)) {
+    return { platform, path, verified: false };
+  }
+  ensureParent(path);
+  const parsed = readJson(path);
+  const servers = (parsed.mcpServers as Record<string, unknown> | undefined) ?? {};
+  servers["wa-mcp"] = entry;
+  parsed.mcpServers = servers;
+  writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`, { mode: 0o600 });
+  const written = (readJson(path).mcpServers as Record<string, Record<string, unknown>>)["wa-mcp"];
+  return {
+    platform,
+    path,
+    verified: JSON.stringify(written) === JSON.stringify(entry),
   };
 }
 
@@ -136,10 +197,16 @@ function codexLines(spec: ServerSpec): string[] {
   ];
 }
 
-function writeCodex(path: string, spec: ServerSpec): WriteResult {
+function codexHttpLines(http: HttpSpec): string[] {
+  const headers = Object.entries(httpHeaders(http, "codex"))
+    .map(([name, value]) => `"${name}" = "${value}"`)
+    .join(", ");
+  return [`url = "${http.url}"`, `http_headers = { ${headers} }`];
+}
+
+function writeCodex(path: string, lines: string[]): WriteResult {
   ensureParent(path);
   const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const lines = codexLines(spec);
   const updated = upsertTomlTable(existing, "mcp_servers.wa-mcp", lines);
   writeFileSync(path, updated, { mode: 0o600 });
   const verified =
@@ -159,8 +226,36 @@ function withAgent(spec: ServerSpec, platform: Platform): ServerSpec {
     : { ...spec, args: [...spec.args, "--agent", platform] };
 }
 
+function writeUrlEntry(
+  platform: Platform,
+  path: string,
+  http: HttpSpec,
+  home: string,
+): WriteResult {
+  const headers = httpHeaders(http, platform);
+  switch (platform) {
+    case "claude-code":
+      return writeJsonUrlEntry(path, platform, { type: "http", url: http.url, headers });
+    case "antigravity":
+      return writeJsonUrlEntry(path, platform, { serverUrl: http.url, headers });
+    case "pi":
+      rmSync(join(home, ".pi", "mcp", "wa-mcp.json"), { force: true });
+      return writeJsonUrlEntry(path, platform, {
+        transport: "streamable-http",
+        lifecycle: "eager",
+        url: http.url,
+        headers,
+      });
+    default:
+      return writeCodex(path, codexHttpLines(http));
+  }
+}
+
 export function writeServerEntry(platform: Platform, options: WriteOptions): WriteResult {
   const path = resolveConfigPath(platform, options.home);
+  if (options.http !== undefined && HTTP_PLATFORMS.has(platform)) {
+    return writeUrlEntry(platform, path, options.http, options.home);
+  }
   const spec = withAgent(options.spec, platform);
   switch (platform) {
     case "claude-code": {
@@ -187,7 +282,7 @@ export function writeServerEntry(platform: Platform, options: WriteOptions): Wri
       return { ...result, platform };
     }
     case "codex":
-      return writeCodex(path, spec);
+      return writeCodex(path, codexLines(spec));
     default: {
       throw new Error(`unknown platform: ${String(platform)}`);
     }

@@ -20,6 +20,15 @@ test("T186 A — install writes the explicit default bridge URL (27777) into hos
   const [home = ""] = installedArgs([]);
   await main(["install", "--home", home, "--target", "claude-code", "--token", "t"]);
   const config = JSON.parse(readFileSync(join(home, ".claude.json"), "utf8")) as {
+    mcpServers: Record<string, { url: string }>;
+  };
+  expect(config.mcpServers["wa-mcp"]?.url).toBe("https://127.0.0.1:27777/mcp");
+});
+
+test("T186 A — install --stdio still writes the explicit bridge URL", async () => {
+  const [home = ""] = installedArgs([]);
+  await main(["install", "--home", home, "--target", "claude-code", "--token", "t", "--stdio"]);
+  const config = JSON.parse(readFileSync(join(home, ".claude.json"), "utf8")) as {
     mcpServers: Record<string, { args: string[] }>;
   };
   const args = config.mcpServers["wa-mcp"]?.args ?? [];
@@ -40,7 +49,7 @@ test("T186 A — install --port 8080 still writes an explicit 8080 URL", async (
     "8080",
   ]);
   const raw = readFileSync(join(home, ".claude.json"), "utf8");
-  expect(raw).toContain('"http://127.0.0.1:8080"');
+  expect(raw).toContain('"https://127.0.0.1:8080/mcp"');
 });
 
 test("T186 A — antigravity's serverUrl follows the bridge URL instead of a hardcoded port", () => {

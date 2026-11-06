@@ -1,4 +1,8 @@
-import { existsSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { request } from "node:https";
+import { resolveConfigPath } from "@wa-mcp/shared";
+import { localCertPaths } from "@wa-mcp/shared/tls-cert";
+import { HTTP_PLATFORMS } from "./writers.ts";
 
 export interface DoctorCheck {
   name: string;
@@ -15,11 +19,108 @@ export interface DoctorOptions {
   engines?: boolean;
   whichFn?: (bin: string) => Promise<boolean>;
   engine?: string;
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface DoctorReport {
   ok: boolean;
   checks: DoctorCheck[];
+}
+
+/** The real handshake and an MCP initialize, trusting only the daemon's own
+ * certificate: what a host configured with that certificate would see. */
+function probeMcpOverTls(url: URL, ca: string, token: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      url,
+      {
+        method: "POST",
+        ca,
+        agent: false,
+        timeout: 5_000,
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error("timed out")));
+    req.on("error", reject);
+    req.end(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "wa-mcp doctor", version: "0" },
+        },
+      }),
+    );
+  });
+}
+
+async function mcpHttpsCheck(options: DoctorOptions): Promise<DoctorCheck> {
+  const name = "mcp https";
+  const { certPath } = localCertPaths(options.dataDir);
+  if ((options.env ?? process.env).WA_TLS === "0") {
+    return { name, ok: true, detail: "turned off with WA_TLS=0" };
+  }
+  if (!existsSync(certPath)) {
+    return { name, ok: true, detail: "no certificate yet: run wa-mcp install" };
+  }
+  const url = new URL(options.bridgeUrl);
+  url.protocol = "https:";
+  url.pathname = "/mcp";
+  const tokenPath = `${options.dataDir}/token`;
+  const token = existsSync(tokenPath) ? readFileSync(tokenPath, "utf8").trim() : "";
+  try {
+    const status = await probeMcpOverTls(url, readFileSync(certPath, "utf8"), token);
+    return status === 200
+      ? { name, ok: true, detail: `${url.href} answers with ${certPath}` }
+      : { name, ok: false, detail: `${url.href} returned ${status}: check the token` };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    return {
+      name,
+      ok: false,
+      detail: `${url.href} failed (${reason}): the daemon may predate TLS, run wa-mcp restart`,
+    };
+  }
+}
+
+function usesStdio(path: string, platform: string): boolean {
+  if (!existsSync(path)) {
+    return false;
+  }
+  const text = readFileSync(path, "utf8");
+  if (platform === "codex") {
+    return /\[mcp_servers\.wa-mcp\]\s*\ncommand\s*=/.test(text);
+  }
+  try {
+    const servers = (JSON.parse(text) as { mcpServers?: Record<string, { command?: unknown }> })
+      .mcpServers;
+    return typeof servers?.["wa-mcp"]?.command === "string";
+  } catch {
+    return false;
+  }
+}
+
+/** Old entries still work, so this informs rather than fails. */
+function mcpEntriesCheck(home: string): DoctorCheck {
+  const stale = [...HTTP_PLATFORMS].filter((platform) =>
+    usesStdio(resolveConfigPath(platform, home), platform),
+  );
+  return {
+    name: "mcp entries",
+    ok: true,
+    detail:
+      stale.length === 0
+        ? "no host that can use a URL is spawning a process"
+        : `${stale.join(", ")} still spawn${stale.length === 1 ? "s" : ""} a process: run wa-mcp install to connect by URL`,
+  };
 }
 
 export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
@@ -70,6 +171,10 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorReport> {
     })`;
   }
   checks.push({ name: "bridge health", ok: healthOk, detail: healthDetail });
+  if (healthOk) {
+    checks.push(await mcpHttpsCheck(options));
+  }
+  checks.push(mcpEntriesCheck(options.home));
   if (options.engines === true) {
     const whichFn =
       options.whichFn ??

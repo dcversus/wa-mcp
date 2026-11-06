@@ -140,6 +140,26 @@ test("a connection that never speaks is dropped instead of held open", async () 
   expect(closed).toBe(true);
 });
 
+test("a client that leaves without a request leaves nothing behind", async () => {
+  const bridge = await serve();
+  await new Promise<void>((resolve, reject) => {
+    const socket = tlsConnect({ host: "127.0.0.1", port: bridge.port, ca: cert }, () => {
+      socket.destroy();
+      resolve();
+    });
+    socket.on("error", reject);
+  });
+  await vi.waitFor(
+    async () => {
+      const open = await new Promise<number>((resolve) => {
+        bridge.server.getConnections((_err, count) => resolve(count));
+      });
+      expect(open).toBe(0);
+    },
+    { timeout: 2000 },
+  );
+});
+
 test("close() finishes while a TLS keep-alive connection is open", async () => {
   const bridge = await createHttpServer(handle(), { token: TOKEN, tls: { cert, key } });
   const socket = tlsConnect({ host: "127.0.0.1", port: bridge.port, ca: cert });
@@ -236,6 +256,23 @@ test("sessions are capped: the oldest is evicted, the newest survive", async () 
   expect(await probe(ids[0] ?? "")).toBe(404);
   expect(await probe(ids.at(-1) ?? "")).toBe(200);
 }, 15_000);
+
+test("protocol traffic with a valid token isn't charged; without a token it is", async () => {
+  const bridge = await serve({ rateLimit: { capacity: 2, refillPerMinute: 1 } });
+  const post = (headers: Record<string, string>) =>
+    fetch(`http://127.0.0.1:${bridge.port}/mcp`, {
+      method: "POST",
+      headers,
+      body: rpc("tools/list", 7),
+    }).then((res) => res.status);
+  for (let index = 0; index < 5; index += 1) {
+    expect(await post(auth)).toBe(200);
+  }
+  const anon = { "content-type": "application/json" };
+  expect(await post(anon)).toBe(401);
+  expect(await post(anon)).toBe(401);
+  expect(await post(anon)).toBe(429);
+});
 
 test("an https page from the same origin passes the guard; another origin doesn't", async () => {
   const bridge = await serve();

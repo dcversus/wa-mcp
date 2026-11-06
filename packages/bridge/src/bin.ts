@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import pino from "pino";
 import { DEFAULT_PORT } from "@wa-mcp/shared";
+import { ensureLocalCert, type LocalCert } from "@wa-mcp/shared/tls-cert";
 import { openAuthStore } from "./auth.ts";
 import { createHttpServer } from "./http.ts";
 import { acquireLock } from "./lock.ts";
@@ -160,6 +161,25 @@ export function createScheduledSender(deps: {
     }
     return result.messageId;
   };
+}
+
+/** The certificate for https on the daemon's port. A data dir that can't hold
+ * one (read-only, full) must not stop the daemon: plain HTTP still serves
+ * everything, so this degrades with a warning. WA_TLS=0 turns TLS off. */
+export function resolveTls(
+  dataDir: string,
+  env: NodeJS.ProcessEnv,
+  logger: { warn: (...args: unknown[]) => void },
+): LocalCert | undefined {
+  if (env.WA_TLS === "0") {
+    return undefined;
+  }
+  try {
+    return ensureLocalCert(dataDir);
+  } catch (err) {
+    logger.warn({ err }, "no TLS certificate, serving plain HTTP only");
+    return undefined;
+  }
 }
 
 /** T94-F Runtime-M4 (RUNTIME review): Node >= 15 TERMINATES on an
@@ -348,7 +368,9 @@ export async function main(
   // ephemeral per-boot token for the PUBLIC pairing surface (health already
   // exposes it); scoped to /api/qr + /api/pairing-code + /api/pair/resume
   const pairingToken = randomBytes(24).toString("hex");
+  const tls = resolveTls(config.dataDir, env, logger);
   const server = await createHttpServer(handle, {
+    ...(tls === undefined ? {} : { tls }),
     dataDir: config.dataDir,
     token,
     pairingToken,

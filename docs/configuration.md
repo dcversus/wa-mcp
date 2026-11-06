@@ -5,16 +5,17 @@ BYOK config file `~/.wa-mcp/config.json` (see cookbook → media understanding).
 
 ## Core
 
-| variable                 | default                              | meaning                                                                                                               |
-| ------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `WA_DATA_DIR`            | `~/.wa-mcp`                          | state root (auth/, store/, media/, subs/, token, qr.png, bridge.lock, config.json)                                    |
-| `WA_BIND_HOST`           | `127.0.0.1`                          | HTTP bind address — keep loopback unless you understand the exposure                                                  |
-| `WA_PORT`                | `27777`                              | HTTP port (`--port <n>` on the bridge and CLI does the same)                                                          |
-| `WA_TOKEN`               | generated → `<dataDir>/token` (0600) | bearer token for every non-health endpoint                                                                            |
-| `WA_UI_DIR`              | `<bridge>/dist/web`                  | web UI static directory                                                                                               |
-| `WA_UI_BOOTSTRAP`        | unset                                | `0` restores the strict challenge flow for the web UI on paired daemons (default: zero-action bootstrap per ADR 0012) |
-| `WA_LOG_LEVEL`           | `info`                               | pino level (JSON lines to stderr, or to `WA_LOG_FILE` — see Retention)                                                |
-| `WA_CLI_NO_SERVICE_LOAD` | unset                                | `1` = CLI never auto-loads the launchd service on commands                                                            |
+| variable                 | default                              | meaning                                                                                                                             |
+| ------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `WA_DATA_DIR`            | `~/.wa-mcp`                          | state root (auth/, store/, media/, subs/, token, qr.png, bridge.lock, config.json)                                                  |
+| `WA_BIND_HOST`           | `127.0.0.1`                          | HTTP bind address — keep loopback unless you understand the exposure                                                                |
+| `WA_PORT`                | `27777`                              | HTTP port (`--port <n>` on the bridge and CLI does the same)                                                                        |
+| `WA_TOKEN`               | generated → `<dataDir>/token` (0600) | bearer token for every non-health endpoint                                                                                          |
+| `WA_UI_DIR`              | `<bridge>/dist/web`                  | web UI static directory                                                                                                             |
+| `WA_TLS`                 | on                                   | `0` turns off TLS on the daemon's port (plain HTTP keeps working either way); see [Security](./security.md#tls-on-the-daemons-port) |
+| `WA_UI_BOOTSTRAP`        | unset                                | `0` restores the strict challenge flow for the web UI on paired daemons (default: zero-action bootstrap per ADR 0012)               |
+| `WA_LOG_LEVEL`           | `info`                               | pino level (JSON lines to stderr, or to `WA_LOG_FILE` — see Retention)                                                              |
+| `WA_CLI_NO_SERVICE_LOAD` | unset                                | `1` = CLI never auto-loads the launchd service on commands                                                                          |
 
 ## Retention
 

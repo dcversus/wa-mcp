@@ -150,12 +150,15 @@ import {
   sendProtoViaSocket,
   sendViaSocket,
 } from "./send/send.ts";
+import { acceptTlsOnSamePort, type SamePortTls } from "./same-port-tls.ts";
 import { targetMessageKey } from "./send/target-key.ts";
 import type { GuardVerdict, SendGuard } from "./send/safety.ts";
 import type { Humanizer } from "./send/humanize.ts";
 
 export interface HttpServerOptions {
   token: string;
+  /** also serve TLS on this port; plain HTTP keeps working either way */
+  tls?: SamePortTls;
   dataDir?: string;
   host?: string;
   port?: number;
@@ -255,6 +258,9 @@ const PAIRING_SURFACE: ReadonlySet<string> = new Set([
   // holds it after the first pairing).
   "/api/ui-token",
 ]);
+/** open MCP sessions kept per daemon run; hosts rarely DELETE theirs */
+const MCP_SESSION_CAP = 256;
+
 const API_PATHS = new Set(["/api/messages", "/api/chats", "/api/send", "/events", "/mcp"]);
 
 const HEALTH_PATHS = new Set(["/health", "/health/live", "/health/ready"]);
@@ -353,7 +359,10 @@ function hostOriginGuard(req: IncomingMessage): string | null {
     } catch {
       return "malformed origin refused";
     }
-    if (parsed.protocol !== "http:" || parsed.host.toLowerCase() !== host.toLowerCase()) {
+    if (
+      (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+      parsed.host.toLowerCase() !== host.toLowerCase()
+    ) {
       return "cross-site origin refused";
     }
   }
@@ -2017,6 +2026,17 @@ export async function createHttpServer(
 
   let selfPort = 0;
   const mcpSessions = new Map<string, McpSession>();
+  const remember = (sessionId: string, session: McpSession): void => {
+    // re-inserting keeps the map in least-recently-used order
+    mcpSessions.delete(sessionId);
+    mcpSessions.set(sessionId, session);
+    if (mcpSessions.size > MCP_SESSION_CAP) {
+      const oldest = mcpSessions.keys().next().value;
+      if (oldest !== undefined) {
+        mcpSessions.delete(oldest);
+      }
+    }
+  };
   const eventsWriters = new Set<(frame: string) => void>();
   const toolsChanged = createToolsChangedWatcher(() => TOOLS.map((tool) => tool.name));
   /** channel-mode subscription frames → every /api/mcp-notify SSE client;
@@ -2040,31 +2060,48 @@ export async function createHttpServer(
       : (req.headers["mcp-session-id"] as string | undefined);
     const existingSession =
       sessionHeader !== undefined ? mcpSessions.get(sessionHeader) : undefined;
+    const isInitialize =
+      parsed !== null &&
+      typeof parsed === "object" &&
+      (parsed as { method?: unknown }).method === "initialize";
+    if (sessionHeader !== undefined && existingSession === undefined && !isInitialize) {
+      // the session died with the last daemon run: 404 tells the client to
+      // initialize again (Streamable HTTP, session management)
+      sendJson(res, 404, {
+        error: { code: "SESSION_NOT_FOUND", message: "unknown Mcp-Session-Id" },
+      });
+      return;
+    }
     const session = existingSession ?? { subscriptions: new Set<string>() };
+    const agent = sendSourceOf(req);
     const ctx: ServerContext = {
       tools: TOOLS,
       bridgeUrl: selfUrl,
       token: opts.token,
+      transport: "http",
+      ...(agent === "ui" ? {} : { agent }),
       // no lookupFn here: MCP tools relay over HTTP and the BRIDGE resolves
       // media urls (send route) with its own SSRF guard — the RPC layer
       // never resolves DNS itself
       fetchFn: opts.fetchFn,
       session,
     };
-    const isInitialize =
-      parsed !== null &&
-      typeof parsed === "object" &&
-      (parsed as { method?: unknown }).method === "initialize";
     const sessionId = isInitialize ? sessionIdGen() : sessionHeader;
     if (sessionId !== undefined) {
-      mcpSessions.set(sessionId, session);
+      remember(sessionId, session);
     }
     void handleRpcMessage(parsed, ctx).then(
       (response) => {
         if (sessionId !== undefined) {
           res.setHeader("Mcp-Session-Id", sessionId);
         }
-        sendJson(res, 200, response ?? {});
+        if (response === null) {
+          // a notification or response: accepted, nothing to answer
+          res.writeHead(202);
+          res.end();
+          return;
+        }
+        sendJson(res, 200, response);
       },
       (err: unknown) => {
         sendJson(res, 200, {
@@ -3007,8 +3044,10 @@ export async function createHttpServer(
       ? checkExchangeRate.hit(ip, now())
       : HEALTH_PATHS.has(path) || PAIRING_SURFACE.has(path)
         ? checkHealthRate.hit(ip, now())
-        : path === "/events"
-          ? null
+        : path === "/events" || (path === "/mcp" && knownBearer)
+          ? // /mcp: a tool call relays to the API and is charged there, once;
+            // protocol traffic (initialize, tools/list, the event stream) isn't
+            null
           : bearer !== null && tokenMatches(bearer, uiToken)
             ? checkUiRate.hit(ip, now())
             : checkRate.hit(gateKey, now());
@@ -3206,11 +3245,29 @@ export async function createHttpServer(
           serveMcp(req, res, body);
           return;
         }
+        if (path === "/mcp" && req.method === "DELETE") {
+          const sessionHeader = req.headers["mcp-session-id"];
+          if (typeof sessionHeader !== "string" || !mcpSessions.delete(sessionHeader)) {
+            sendJson(res, 404, {
+              error: { code: "SESSION_NOT_FOUND", message: "unknown Mcp-Session-Id" },
+            });
+            return;
+          }
+          res.writeHead(204);
+          res.end();
+          return;
+        }
         if (path === "/mcp" && req.method === "GET") {
           const sessionHeader = Array.isArray(req.headers["mcp-session-id"])
             ? (req.headers["mcp-session-id"][0] as string)
             : (req.headers["mcp-session-id"] as string | undefined);
-          const session = sessionHeader !== undefined ? mcpSessions.get(sessionHeader) : undefined;
+          if (sessionHeader === undefined) {
+            sendJson(res, 400, {
+              error: { code: "SESSION_REQUIRED", message: "Mcp-Session-Id header is required" },
+            });
+            return;
+          }
+          const session = mcpSessions.get(sessionHeader);
           if (session === undefined) {
             sendJson(res, 404, {
               error: { code: "SESSION_NOT_FOUND", message: "unknown Mcp-Session-Id" },
@@ -5153,6 +5210,9 @@ export async function createHttpServer(
         sendJson(res, 404, { error: { code: "NOT_FOUND", message: "unknown route" } });
       })
       .catch(respondOrLog(res, opts.logger));
+  }
+  if (opts.tls !== undefined) {
+    acceptTlsOnSamePort(server, opts.tls);
   }
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);

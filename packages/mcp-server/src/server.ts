@@ -43,6 +43,8 @@ export interface ServerContext {
   /** subscription ids adopted by THIS stdio process (via subscribe_events
    * tool calls) — channel frames are only forwarded for these */
   channelSubs?: Set<string>;
+  /** "http" when served from the daemon's /mcp route */
+  transport?: "stdio" | "http";
 }
 
 const CLIENT_AGENTS: Array<[RegExp, string]> = [
@@ -89,6 +91,14 @@ function toolContext(ctx: ServerContext): ToolContext {
     fetchFn: ctx.fetchFn,
     ...(agent === undefined ? {} : { agent }),
   };
+}
+
+const CHANNEL_NEEDS_STDIO =
+  "channel delivery needs the wa-mcp Claude Code plugin: Claude Code only accepts channels from a stdio server, so events sent over this HTTP connection would be dropped. Install the plugin, or subscribe without channel to get an inbox file.";
+
+function asksForChannel(params: unknown): boolean {
+  const call = params as { name?: unknown; arguments?: { channel?: unknown } } | undefined;
+  return call?.name === "subscribe_events" && call.arguments?.channel === true;
 }
 
 export interface WaResource {
@@ -427,6 +437,12 @@ export async function handleRpcMessage(
           })),
         };
       case "tools/call":
+        if (ctx.transport === "http" && asksForChannel(request.params)) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: CHANNEL_NEEDS_STDIO }],
+          };
+        }
         return dispatchToolCall(ctx, toolContext(ctx), ctx.tools, request.params);
       case "resources/list":
         return { resources: WA_RESOURCES };

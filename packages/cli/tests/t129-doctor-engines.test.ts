@@ -23,7 +23,12 @@ test("without --engines the check list is unchanged", async () => {
   try {
     const report = await runDoctor(opts as never);
     const names = report.checks.map((check) => check.name);
-    expect(names).toEqual(["node version", "data dir writable", "bridge token", "bridge health"]);
+    expect(names.filter((name) => !name.startsWith("mcp "))).toEqual([
+      "node version",
+      "data dir writable",
+      "bridge token",
+      "bridge health",
+    ]);
   } finally {
     rmSync(opts.dataDir as string, { recursive: true, force: true });
   }
