@@ -31,7 +31,7 @@ export async function runSubscribe(deps: SubscribeDeps, args: SubscribeArgs): Pr
       .filter((entry) => entry.length > 0)) {
       if (!(DISPATCHED_SUBSCRIPTION_KINDS as readonly string[]).includes(kind)) {
         deps.print(
-          `subscribe: kind '${kind}' is not filterable — only ${DISPATCHED_SUBSCRIPTION_KINDS.join(", ")} dispatch today (reaction dispatch is not implemented)`,
+          `subscribe: kind '${kind}' is not filterable — only ${DISPATCHED_SUBSCRIPTION_KINDS.join(", ")} dispatch today`,
         );
         return 1;
       }

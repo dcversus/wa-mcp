@@ -182,7 +182,8 @@ test("subscribe --kind accepts reaction and rejects a kind that is not dispatche
     });
   expect(await subscribe("message,reaction")).toBe(0);
   expect(await subscribe("poll")).toBe(1);
-  expect(printed.join("\n")).toContain("not implemented");
+  expect(printed.join("\n")).toContain("kind 'poll' is not filterable");
+  expect(printed.join("\n")).not.toContain("not implemented");
 });
 
 test("subscribe with --data-dir sends THAT dir's token to the bridge", async () => {
