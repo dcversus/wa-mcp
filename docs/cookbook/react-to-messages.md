@@ -94,6 +94,16 @@ Replies and mentions add these fields, only when they apply:
 
 `text` is capped at 280 characters in delivered lines; fetch the full message by `id` when you need it.
 
+A reaction to a message arrives as its own event with `kind: "reaction"` and empty `text`, plus:
+
+| field             | meaning                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `emote`           | the emoji; empty when the sender removed their reaction                                |
+| `targetMessageId` | id of the message that was reacted to                                                  |
+| `targetFromMe`    | `true` when that message is this account's own; absent when the bridge never stored it |
+
+Your own reactions are not delivered. Mention-only subscriptions don't receive reactions, and a `like` filter is matched against the empty text.
+
 ## 1. Claude Code (hooks)
 
 Create an inbox subscription, then install the hooks:

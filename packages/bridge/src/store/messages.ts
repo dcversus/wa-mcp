@@ -160,8 +160,14 @@ export function storeMessage(
   }
   if (extracted.reaction !== null && extracted.reactionTargetId !== null) {
     // T94-D-M1: own reactions key as "me" in DMs AND groups (one identity)
+    // #247: a DM reaction's participant arrives empty, so it falls back to the peer
+    const participant = message.key.participant;
     const reactionAuthor =
-      message.key.fromMe === true ? "me" : (message.key.participant ?? chatJid);
+      message.key.fromMe === true
+        ? "me"
+        : participant !== undefined && participant !== null && participant.length > 0
+          ? participant
+          : chatJid;
     applyReaction(store, chatJid, extracted.reactionTargetId, extracted.reaction, reactionAuthor);
     return false;
   }

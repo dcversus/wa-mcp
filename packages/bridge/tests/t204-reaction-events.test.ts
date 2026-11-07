@@ -3,12 +3,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { expect, test } from "vite-plus/test";
 import type { WAMessage } from "baileys";
-import { DISPATCHED_SUBSCRIPTION_KINDS } from "@wa-mcp/shared";
+import { DISPATCHED_SUBSCRIPTION_KINDS, type SubscriptionConfig } from "@wa-mcp/shared";
 import { openStore, type Store } from "../src/store/schema.ts";
 import { storeMessage } from "../src/store/messages.ts";
 import { createEventBus } from "../src/events.ts";
 import { createHttpServer, type BridgeHttp } from "../src/http.ts";
 import type { BridgeHandle } from "../src/lifecycle.ts";
+import { buildChannelNotification } from "../src/subs-dispatch.ts";
 
 const GROUP = "120363000000000001@g.us";
 const DM = "358400000001@s.whatsapp.net";
@@ -206,4 +207,29 @@ test("an ordinary message stays kind message, with no reaction fields", async ()
 
 test("reaction is a filterable dispatched kind", () => {
   expect(DISPATCHED_SUBSCRIPTION_KINDS).toContain("reaction");
+});
+
+test("a channel delivery describes the reaction and carries its target as string meta", () => {
+  const config = { id: "sub1", delivery: { mode: "channel" } } as unknown as SubscriptionConfig;
+  const base = { ts: "t", kind: "reaction", chat: GROUP, from: TEAMMATE, text: "", media: false };
+  const added = buildChannelNotification(config, {
+    ...base,
+    fromName: "Teammate",
+    emote: "😢",
+    targetMessageId: "BOTMSG",
+    targetFromMe: true,
+  });
+  expect(added.params.content).toBe("Teammate: reacted 😢 to message BOTMSG");
+  expect(added.params.meta).toMatchObject({
+    reaction_emote: "😢",
+    reaction_target_id: "BOTMSG",
+    reaction_target_from_me: "true",
+  });
+  const removed = buildChannelNotification(config, {
+    ...base,
+    emote: "",
+    targetMessageId: "BOTMSG",
+  });
+  expect(removed.params.content).toBe(`${TEAMMATE}: removed a reaction from message BOTMSG`);
+  expect(removed.params.meta).not.toHaveProperty("reaction_target_from_me");
 });

@@ -22,6 +22,7 @@ export interface InboundMessage {
   quotedMessageId?: string | null;
   quotedParticipant?: string | null;
   quotedFromMe?: boolean | null;
+  reaction?: { emote: string; targetMessageId: string; targetFromMe: boolean | null } | null;
   backlogTsMs: number | null;
 }
 
@@ -61,9 +62,11 @@ export function buildChannelNotification(
   const text =
     event.text.length > 0
       ? event.text
-      : event.media
-        ? "[media message — use get_media/download_media to inspect]"
-        : "[empty message]";
+      : event.kind === "reaction"
+        ? `${event.emote !== undefined && event.emote.length > 0 ? `reacted ${event.emote} to` : "removed a reaction from"} message ${event.targetMessageId ?? ""}`
+        : event.media
+          ? "[media message — use get_media/download_media to inspect]"
+          : "[empty message]";
   return {
     jsonrpc: "2.0",
     method: "notifications/claude/channel",
@@ -92,6 +95,13 @@ export function buildChannelNotification(
         ...(event.quotedFromMe !== undefined ? { quoted_from_me: String(event.quotedFromMe) } : {}),
         ...(event.mentionedJids !== undefined && event.mentionedJids.length > 0
           ? { mentioned_jids: event.mentionedJids.join(",") }
+          : {}),
+        ...(event.emote !== undefined ? { reaction_emote: event.emote } : {}),
+        ...(event.targetMessageId !== undefined
+          ? { reaction_target_id: event.targetMessageId }
+          : {}),
+        ...(event.targetFromMe !== undefined
+          ? { reaction_target_from_me: String(event.targetFromMe) }
           : {}),
       },
     },
@@ -185,7 +195,7 @@ export function subscriptionEvent(
 ): InboxEvent {
   return {
     ts,
-    kind: "message",
+    kind: message.reaction ? "reaction" : "message",
     chat: message.chatJid,
     chatName: message.chatName,
     from: message.fromJid,
@@ -207,6 +217,15 @@ export function subscriptionEvent(
       : {}),
     ...(typeof message.quotedFromMe === "boolean" ? { quotedFromMe: message.quotedFromMe } : {}),
     ...(message.mentionedJids.length > 0 ? { mentionedJids: message.mentionedJids } : {}),
+    ...(message.reaction
+      ? {
+          emote: message.reaction.emote,
+          targetMessageId: message.reaction.targetMessageId,
+          ...(message.reaction.targetFromMe !== null
+            ? { targetFromMe: message.reaction.targetFromMe }
+            : {}),
+        }
+      : {}),
   };
 }
 

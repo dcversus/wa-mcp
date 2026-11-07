@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3 — 2026-11-07
+
+### Reactions reach subscriptions
+
+- A reaction now arrives as `kind: "reaction"` with `emote`, `targetMessageId` and `targetFromMe`, so an agent can tell who reacted to what and whether it was to its own message. A removed reaction has an empty `emote`. Before this, a reaction arrived as `kind: "message"` with empty text and no target.
+- If your consumer assumes every event is a message, handle or skip the new kind. No subscription change is needed: existing subscriptions receive these events.
+- Channel deliveries describe the reaction in the text ("reacted 😢 to message …") and add `reaction_emote`, `reaction_target_id` and `reaction_target_from_me` to the meta.
+
+### Fixed
+
+- A DM reaction is now stored under the person who sent it. It was stored with an empty sender, because a DM's `participant` arrives empty.
+
 ## 0.1.2 — 2026-11-06
 
 ### Every PR now ships its own version (#268)
