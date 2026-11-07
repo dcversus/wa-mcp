@@ -125,10 +125,14 @@ release PRs or release issues, and no `## Unreleased` section on `main`.
    so the second one merges `main`, takes its version surfaces and runs the bump
    again.
 4. After merging, from a clean, up-to-date `main`: `scripts/publish.sh` (it
-   refuses anything else). npm asks the owner to approve with a security key; the
-   registry can take a few minutes to serve the version after `+ wa-mcp@x.y.z`
-   prints. The script then tags, pushes the tag and creates the GitHub release
-   from the CHANGELOG section. Not every version has to be published: the next
-   publish ships everything merged so far.
+   refuses anything else). npm prints an approval link for the owner's security
+   key. The owner logs in to npmjs.com first: without that, the link has only
+   redirected to the home page. The link lasts about 5 minutes;
+   after that the page says `Invalid or Expired Token` and the script stops with
+   `404` on `/-/v1/done`, with nothing published, tagged or released, so run it
+   again for a new link. The registry can take a few minutes to serve the version
+   after `+ wa-mcp@x.y.z` prints. The script then tags, pushes the tag and creates
+   the GitHub release from the CHANGELOG section. Not every version has to be
+   published: the next publish ships everything merged so far.
 5. Use `Closes #n` in the PR so shipped issues close themselves, and relabel
    anything that slipped to the next version.
