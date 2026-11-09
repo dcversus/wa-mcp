@@ -769,6 +769,20 @@ export async function createHttpServer(
           participants: [reply.quotedParticipant, quotedParticipant],
           chats: [chatJid, rawChatJid],
         });
+        const reactionMessage = upsert.message?.reactionMessage;
+        const reactionTargetId = nonEmpty(reactionMessage?.key?.id);
+        const reaction =
+          reactionTargetId === null
+            ? null
+            : {
+                emote: reactionMessage?.text ?? "",
+                targetMessageId: reactionTargetId,
+                targetFromMe: resolveQuotedFromMe({
+                  quotedMessageId: reactionTargetId,
+                  participants: [nonEmpty(reactionMessage?.key?.participant)],
+                  chats: [chatJid, rawChatJid],
+                }),
+              };
         const content = (upsert.message ?? {}) as Record<
           string,
           { text?: unknown; caption?: unknown } | string | undefined
@@ -814,6 +828,7 @@ export async function createHttpServer(
           quotedMessageId: reply.quotedMessageId,
           quotedParticipant,
           quotedFromMe,
+          reaction,
           backlogTsMs: event.payload.type === "append" ? tsMs : null,
         });
       }

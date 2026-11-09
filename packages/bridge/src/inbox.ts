@@ -21,6 +21,11 @@ export interface InboxEvent {
   quotedFromMe?: boolean;
   /** #241: present only when the message @mentions someone */
   mentionedJids?: string[];
+  /** kind "reaction" only; an empty emote means the reaction was removed */
+  emote?: string;
+  targetMessageId?: string;
+  /** absent when the bridge never stored the target */
+  targetFromMe?: boolean;
 }
 
 export interface InboxWriter {

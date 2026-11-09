@@ -170,17 +170,20 @@ test("subscribe reads the bridge token from --data-dir (not the default dir)", a
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("subscribe --kind reaction is rejected as not-yet-dispatched", async () => {
+test("subscribe --kind accepts reaction and rejects a kind that is not dispatched", async () => {
   const { deps, printed } = mkDeps(() => new Response("{}", { status: 201 }));
-  const exit = await runSubscribe(deps, {
-    baseUrl: "http://127.0.0.1:8080",
-    token: "t",
-    chat: "12345@s.whatsapp.net",
-    all: false,
-    kind: "reaction",
-  });
-  expect(exit).toBe(1);
-  expect(printed.join("\n")).toContain("not implemented");
+  const subscribe = (kind: string): Promise<number> =>
+    runSubscribe(deps, {
+      baseUrl: "http://127.0.0.1:8080",
+      token: "t",
+      chat: "12345@s.whatsapp.net",
+      all: false,
+      kind,
+    });
+  expect(await subscribe("message,reaction")).toBe(0);
+  expect(await subscribe("poll")).toBe(1);
+  expect(printed.join("\n")).toContain("kind 'poll' is not filterable");
+  expect(printed.join("\n")).not.toContain("not implemented");
 });
 
 test("subscribe with --data-dir sends THAT dir's token to the bridge", async () => {

@@ -360,7 +360,7 @@ export async function main(
     inboxMaxBytes: retention.inboxMaxBytes,
     homeDir: process.env.HOME ?? homedir(),
     store,
-    version: "0.1.2",
+    version: "0.1.3",
     sendGuard,
     humanizer,
     uiBootstrapToken,
